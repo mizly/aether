@@ -901,6 +901,7 @@ public final class TfmConfig {
         public static final IntEntry HAT_VERTICES = Config.integer("hatVertices", 20).range(3, 30);
         public static final FloatEntry HAT_Y_OFFSET = Config.floatVal("hatYOffset", 0.2f).range(0.0f, 3.0f);
         public static final BooleanEntry FUNNY_DYNAMIC_REST = Config.bool("funnyDynamicRest", false);
+        public static final BooleanEntry FREECAM_ENABLED = Config.bool("freecamEnabled", true);
         public static final FloatEntry FREECAM_SPEED = Config.floatVal("freecamSpeed", 0.45f).range(0.1f, 2.5f);
         public static final BooleanEntry FREELOOK_ENABLED = Config.bool("freelookEnabled", true);
         public static final StringEntry FREELOOK_MODE = Config.string("freelookMode", "HOLD");

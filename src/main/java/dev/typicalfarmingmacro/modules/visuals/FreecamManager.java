@@ -58,6 +58,27 @@ public final class FreecamManager {
         return enabled;
     }
 
+    /**
+     * Whether the freecam feature is switched on in the UI. Turning this on does not detach
+     * the camera by itself - it only lets the freecam keybind toggle the camera on/off, in
+     * the same spirit as {@link FreelookManager}. Turning it off also stops any active freecam.
+     */
+    public static boolean isFeatureEnabled() {
+        return TfmConfig.FREECAM_ENABLED.get();
+    }
+
+    public static void setFeatureEnabled(boolean shouldEnable) {
+        setFeatureEnabled(Minecraft.getInstance(), shouldEnable);
+    }
+
+    public static void setFeatureEnabled(Minecraft client, boolean shouldEnable) {
+        TfmConfig.FREECAM_ENABLED.set(shouldEnable);
+        TfmConfig.save();
+        if (!shouldEnable) {
+            setEnabled(client, false);
+        }
+    }
+
     public static boolean turnCamera(double yRot, double xRot) {
         if (!enabled || cameraEntity == null) {
             return false;
@@ -77,6 +98,9 @@ public final class FreecamManager {
     }
 
     public static void toggle(Minecraft client) {
+        if (!isFeatureEnabled()) {
+            return;
+        }
         setEnabled(client, !enabled);
     }
 

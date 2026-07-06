@@ -33,9 +33,9 @@ public final class FreecamVisualsRegistryProvider extends AbstractVisualsRegistr
 
         return MainGUIRegistry.toggleSubTab(
                 "Freecam",
-                "Detach the camera and move it freely",
-                FreecamManager::isEnabled,
-                FreecamManager::setEnabled,
+                "Allow the freecam keybind to detach and move the camera freely",
+                FreecamManager::isFeatureEnabled,
+                FreecamManager::setFeatureEnabled,
                 List.of(group)
         );
     }

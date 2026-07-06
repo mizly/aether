@@ -168,7 +168,7 @@ public final class TfmKeybindRegistry {
                 new RegisteredKeybind("Toggle Macro", "Starts or stops the active farming macro", getMacroToggleKey()),
                 new RegisteredKeybind("Open GUI", "Opens the Tfm sidebar menu", getClickGuiKey()),
                 new RegisteredKeybind("Open NVG Demo", "Opens the NanoVG demo screen", getNvgDemoKey()),
-                new RegisteredKeybind("Toggle Freecam", "Detaches or restores the camera", getFreecamKey()),
+                new RegisteredKeybind("Toggle Freecam", "Detaches or restores the camera (requires the Freecam module on)", getFreecamKey()),
                 new RegisteredKeybind("Freecam Teleport To Player", "Snaps the observer back to the real player", getFreecamTeleportToPlayerKey()),
                 new RegisteredKeybind("Freelook (hold)", "Orbit the camera while the player keeps facing forward", getFreelookKey()),
                 new RegisteredKeybind("Toggle PiP", "Opens or closes the picture-in-picture window", getPipKey()),
