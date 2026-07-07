@@ -123,12 +123,12 @@ public final class FreelookManager {
         client.execute(() -> ((MixinMinecraft) client).typicalfarmingmacro$setMissTime(0));
     }
 
-    /** Whether freelook may run right now (feature on, in-world, no screen, freecam off). */
+    /** Whether freelook may run right now (feature on, in-world, no screen, freecam off, streamer mode off). */
     private static boolean isAvailable(Minecraft client) {
         if (client.player == null || client.level == null || client.screen != null) {
             return false;
         }
-        if (FreecamManager.isEnabled()) {
+        if (FreecamManager.isEnabled() || StreamerModeManager.isEnabled()) {
             return false;
         }
         return TfmConfig.FREELOOK_ENABLED.get();

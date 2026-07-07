@@ -2,6 +2,7 @@ package dev.typicalfarmingmacro.modules.visuals;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.platform.InputConstants;
+import dev.typicalfarmingmacro.bootstrap.TfmKeybindRegistry;
 import dev.typicalfarmingmacro.config.TfmConfig;
 import dev.typicalfarmingmacro.mixin.AccessorKeyMapping;
 import dev.typicalfarmingmacro.mixin.AccessorWindow;
@@ -31,6 +32,8 @@ public final class FreecamManager {
     private static final long MACRO_MOVEMENT_GRACE_MS = 200L;
     private static boolean registered;
     private static boolean enabled;
+    private static boolean toggleKeyWasDown;
+    private static boolean teleportKeyWasDown;
 
     private static RemotePlayer cameraEntity;
     private static Entity previousCameraEntity;
@@ -99,6 +102,9 @@ public final class FreecamManager {
 
     public static void toggle(Minecraft client) {
         if (!isFeatureEnabled()) {
+            if (client != null) {
+                ClientUtils.sendMessage(client, "Turn the Freecam module on to use the freecam keybind.", false);
+            }
             return;
         }
         setEnabled(client, !enabled);
@@ -201,7 +207,33 @@ public final class FreecamManager {
         macroMovementGraceUntilMs = System.currentTimeMillis() + MACRO_MOVEMENT_GRACE_MS;
     }
 
+    /**
+     * Rising-edge poll of the freecam keybinds straight from the physical key state, the same
+     * way {@link FreelookManager} reads its bind. This avoids relying on {@code consumeClick()},
+     * which never fires when the key mapping ends up in the detached fallback path.
+     */
+    private static void pollKeybinds(Minecraft client) {
+        if (client == null || client.player == null || client.level == null || client.screen != null) {
+            toggleKeyWasDown = false;
+            teleportKeyWasDown = false;
+            return;
+        }
+
+        boolean toggleDown = isKeyDown(client, TfmKeybindRegistry.getFreecamKey());
+        if (toggleDown && !toggleKeyWasDown) {
+            toggle(client);
+        }
+        toggleKeyWasDown = toggleDown;
+
+        boolean teleportDown = isKeyDown(client, TfmKeybindRegistry.getFreecamTeleportToPlayerKey());
+        if (teleportDown && !teleportKeyWasDown && enabled) {
+            teleportCameraToPlayer(client);
+        }
+        teleportKeyWasDown = teleportDown;
+    }
+
     private static void tick(Minecraft client) {
+        pollKeybinds(client);
         if (!enabled) {
             return;
         }

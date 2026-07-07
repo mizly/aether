@@ -17,7 +17,6 @@ import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.modules.profit.ProfitManager;
 import dev.typicalfarmingmacro.modules.session.DynamicRestManager;
 import dev.typicalfarmingmacro.modules.session.RecoveryManager;
-import dev.typicalfarmingmacro.modules.visuals.FreecamManager;
 import dev.typicalfarmingmacro.modules.visuals.PipManager;
 import dev.typicalfarmingmacro.modules.visuals.UngrabMouseManager;
 import dev.typicalfarmingmacro.util.TfmResources;
@@ -53,15 +52,8 @@ public final class TfmKeybindHandler {
                 handleMacroToggle(client);
             }
 
-            while (TfmKeybindRegistry.getFreecamKey().consumeClick()) {
-                FreecamManager.toggle(client);
-            }
-
-            while (TfmKeybindRegistry.getFreecamTeleportToPlayerKey().consumeClick()) {
-                if (FreecamManager.isEnabled()) {
-                    FreecamManager.teleportCameraToPlayer(client);
-                }
-            }
+            // Freecam + its teleport bind are polled directly from the physical key state in
+            // FreecamManager (like Freelook), so they are not consumed here.
 
             while (TfmKeybindRegistry.getPipKey().consumeClick()) {
                 PipManager.toggle(client);
