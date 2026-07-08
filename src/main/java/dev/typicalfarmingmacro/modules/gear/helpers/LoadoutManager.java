@@ -10,7 +10,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ItemStack;
 
 public class LoadoutManager {
     public static volatile boolean isSwappingLoadout = false;
@@ -22,7 +21,6 @@ public class LoadoutManager {
     public static volatile boolean shouldRestartFarmingAfterSwap = false;
     public static volatile long loadoutOpenPendingTime = 0;
     public static volatile boolean loadoutGuiDetected = false;
-    public static volatile boolean loadoutDataLoaded = false;
     public static volatile long loadoutTimelineStartTime = 0;
 
     public static void resetState() {
@@ -34,7 +32,6 @@ public class LoadoutManager {
         loadoutInteractionTime = 0;
         loadoutInteractionStage = 0;
         loadoutGuiDetected = false;
-        loadoutDataLoaded = false;
         loadoutOpenPendingTime = 0;
         loadoutTimelineStartTime = 0;
     }
@@ -74,7 +71,6 @@ public class LoadoutManager {
         targetLoadoutSlot = slot;
         isSwappingLoadout = true;
         loadoutGuiDetected = false;
-        loadoutDataLoaded = false;
         loadoutInteractionTime = 0;
         loadoutInteractionStage = 0;
         loadoutTimelineStartTime = 0;
@@ -102,7 +98,6 @@ public class LoadoutManager {
         targetLoadoutSlot = slot;
         isSwappingLoadout = true;
         loadoutGuiDetected = false;
-        loadoutDataLoaded = false;
         loadoutInteractionTime = 0;
         loadoutInteractionStage = 0;
         loadoutTimelineStartTime = 0;
@@ -117,7 +112,6 @@ public class LoadoutManager {
         isSwappingLoadout = false;
         shouldRestartFarmingAfterSwap = false;
         loadoutGuiDetected = false;
-        loadoutDataLoaded = false;
         loadoutInteractionTime = 0;
         loadoutInteractionStage = 0;
         loadoutTimelineStartTime = 0;
@@ -159,89 +153,43 @@ public class LoadoutManager {
         }
 
         Slot slot = screen.getMenu().slots.get(slotIdx);
-        ItemStack stack = slot.getItem();
 
-        if (stack.isEmpty() || stack.getItem().toString().toLowerCase().contains("air")
-                || stack.getItem().toString().toLowerCase().contains("gray_dye")
-                || stack.getHoverName().getString().toLowerCase().contains("gray dye")) {
+        if (loadoutInteractionStage == 1) {
+            if (now - loadoutInteractionTime < ClientUtils.getGuiClickDelayMs(false)) {
+                return;
+            }
+            finishLoadoutAfterClick(client, targetLoadoutSlot);
             return;
         }
 
-        if (!loadoutDataLoaded) {
-            loadoutDataLoaded = true;
-            loadoutInteractionTime = now;
-            sendTimedDebug(client, "Loadout slot data loaded for slot " + targetLoadoutSlot, now);
-        }
-
-        if (now - loadoutInteractionTime < ClientUtils.getGuiClickDelayMs(loadoutInteractionStage == 0)) {
+        if (loadoutInteractionStage != 0) {
             return;
         }
 
-        if (loadoutInteractionStage == 0) {
-            String itemName = stack.getItem().toString().toLowerCase();
-            String hoverName = stack.getHoverName().getString().toLowerCase();
+        sendTimedDebug(client, "Clicked loadout slot " + targetLoadoutSlot, now);
+        ClientUtils.performSlotClick(client, screen, slot.index, 0, ContainerInput.PICKUP);
+        loadoutInteractionTime = now;
+        loadoutInteractionStage = 1;
+    }
 
-            if (itemName.contains("green_dye") || hoverName.contains("green dye") || itemName.contains("lime_dye")
-                    || hoverName.contains("lime dye")) {
-                ClientUtils.sendMessage(client, "\u00A7aLoadout slot " + targetLoadoutSlot + " is already active.", true);
-                trackedLoadoutSlot = targetLoadoutSlot;
-                isSwappingLoadout = false;
-                if (client.player != null) {
-                    sendTimedDebug(client, "Loadout GUI close requested", now);
-                    client.player.closeContainer();
-                }
-                sendTimedDebug(client, "Loadout slot " + targetLoadoutSlot + " already active. Skipping swap", now);
-                handleLoadoutCompletion(client);
-                return;
-            }
-
-            sendTimedDebug(client,
-                    "Clicked loadout slot " + targetLoadoutSlot + " (" + stack.getHoverName().getString() + ")",
-                    now);
-            ClientUtils.performSlotClick(client, screen, slot.index, 0, ContainerInput.PICKUP);
-            loadoutInteractionTime = now;
-            loadoutInteractionStage = 1;
-        } else if (loadoutInteractionStage == 1) {
-            long lastClickElapsed = now - loadoutInteractionTime;
-            if (lastClickElapsed < 150) {
-                return;
-            }
-
-            int confirmSlotIdx = getLoadoutGuiSlot(targetLoadoutSlot);
-            if (confirmSlotIdx >= screen.getMenu().slots.size()) {
-                return;
-            }
-
-            ItemStack confirmStack = screen.getMenu().slots.get(confirmSlotIdx).getItem();
-            if (confirmStack.isEmpty()) {
-                return;
-            }
-
-            String itemName = confirmStack.getItem().toString().toLowerCase();
-            String hoverName = confirmStack.getHoverName().getString().toLowerCase();
-
-            if (itemName.contains("green_dye") || hoverName.contains("green dye") || itemName.contains("lime_dye")
-                    || hoverName.contains("lime dye")) {
-                sendTimedDebug(client, "Confirmed loadout slot " + targetLoadoutSlot + " is active", now);
-                trackedLoadoutSlot = targetLoadoutSlot;
-                isSwappingLoadout = false;
-                if (client.player != null) {
-                    sendTimedDebug(client, "Loadout GUI close requested", now);
-                    client.player.closeContainer();
-                }
-                loadoutInteractionTime = now;
-                loadoutInteractionStage = 2;
-            }
-        } else if (loadoutInteractionStage == 2) {
-            long lastClickElapsed = now - loadoutInteractionTime;
-            if (lastClickElapsed < 250) {
-                return;
-            }
-            sendTimedDebug(client, "Loadout swap complete. Active slot is now " + trackedLoadoutSlot
-                    + " (target was " + targetLoadoutSlot + ")", now);
-            handleLoadoutCompletion(client);
-            loadoutInteractionStage = 0;
+    private static void finishLoadoutAfterClick(Minecraft client, int clickedLoadoutSlot) {
+        if (!isSwappingLoadout || targetLoadoutSlot != clickedLoadoutSlot) {
+            return;
         }
+
+        long now = System.currentTimeMillis();
+        trackedLoadoutSlot = clickedLoadoutSlot;
+        isSwappingLoadout = false;
+        loadoutGuiDetected = false;
+        loadoutInteractionStage = 0;
+
+        if (client.player != null) {
+            sendTimedDebug(client, "Loadout GUI close requested", now);
+            client.player.closeContainer();
+        }
+
+        sendTimedDebug(client, "Loadout swap complete. Active slot is now " + trackedLoadoutSlot, now);
+        handleLoadoutCompletion(client);
     }
 
     private static void handleLoadoutCompletion(Minecraft client) {
@@ -290,7 +238,7 @@ public class LoadoutManager {
             trackedLoadoutSlot = targetLoadoutSlot;
             isSwappingLoadout = false;
             loadoutGuiDetected = false;
-            loadoutDataLoaded = false;
+            loadoutInteractionStage = 0;
             handleLoadoutCompletion(client);
         }
     }
