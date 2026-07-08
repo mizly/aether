@@ -52,6 +52,15 @@ public final class GearRegistryProvider extends AbstractModulesRegistryProvider 
                         })
                         .withDecimals(0)
                         .visibleWhen(() -> TfmConfig.AUTO_LOADOUT_PEST.get()))
+                .add(new SliderSetting("Pest Loadout Swap Time", 0, 180,
+                        () -> (float) TfmConfig.LOADOUT_PEST_SWAP_TIME_SECONDS.get(),
+                        v -> {
+                            TfmConfig.LOADOUT_PEST_SWAP_TIME_SECONDS.set(Math.round(v));
+                            TfmConfig.save();
+                        })
+                        .withDecimals(0)
+                        .withSuffix("s")
+                        .visibleWhen(() -> TfmConfig.AUTO_LOADOUT_PEST.get()))
                 .add(new SliderSetting("Visitor Loadout Slot", 1, 12,
                         () -> (float) TfmConfig.LOADOUT_SLOT_VISITOR.get(),
                         v -> {

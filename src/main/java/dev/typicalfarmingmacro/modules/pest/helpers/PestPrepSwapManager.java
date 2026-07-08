@@ -20,7 +20,9 @@ public class PestPrepSwapManager {
     }
 
     public static void updatePrepSwapFlag(int cooldownSeconds, boolean isCleaningInProgress) {
-        if (cooldownSeconds > 3 && prepSwappedForCurrentPestCycle && !isCleaningInProgress) {
+        if (cooldownSeconds > getPrepSwapResetCooldownSeconds()
+                && prepSwappedForCurrentPestCycle
+                && !isCleaningInProgress) {
             prepSwappedForCurrentPestCycle = false;
         }
     }
@@ -40,7 +42,7 @@ public class PestPrepSwapManager {
             return false;
         }
 
-        return cooldownSeconds <= 3;
+        return cooldownSeconds <= getPrepSwapTriggerCooldownSeconds();
     }
 
     public static void triggerPrepSwap(Minecraft client) {
@@ -82,6 +84,20 @@ public class PestPrepSwapManager {
 
     private static boolean hasAnyPrepSwapTasksEnabled() {
         return TfmConfig.AUTO_LOADOUT_PEST.get() || TfmConfig.AUTO_PET_PEST_CD.get();
+    }
+
+    private static int getPrepSwapTriggerCooldownSeconds() {
+        if (TfmConfig.AUTO_LOADOUT_PEST.get()) {
+            return TfmConfig.LOADOUT_PEST_SWAP_TIME_SECONDS.get();
+        }
+        return 3;
+    }
+
+    private static int getPrepSwapResetCooldownSeconds() {
+        if (TfmConfig.AUTO_LOADOUT_PEST.get()) {
+            return TfmConfig.LOADOUT_PEST_SWAP_TIME_SECONDS.get();
+        }
+        return 3;
     }
 
     private static boolean shouldAbortPrepSwap(Minecraft client) {

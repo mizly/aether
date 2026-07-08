@@ -517,6 +517,8 @@ public final class TfmConfig {
         public static final IntEntry LOADOUT_SLOT_FARMING = Config.integer("loadoutSlotFarming", 1).range(1, 12);
         public static final IntEntry LOADOUT_SLOT_PEST = Config.integer("loadoutSlotPest", 2).range(1, 12);
         public static final IntEntry LOADOUT_SLOT_VISITOR = Config.integer("loadoutSlotVisitor", 3).range(1, 12);
+        public static final IntEntry LOADOUT_PEST_SWAP_TIME_SECONDS = Config.integer("loadoutPestSwapTimeSeconds", 170)
+                        .range(0, 180);
 
         // -- BUDGET AUTOPET --------------------------------------------------------
 
