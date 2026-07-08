@@ -89,10 +89,7 @@ public final class TfmAutomationTickHandler {
             return;
         }
 
-        GearManager.handleWardrobeMenu(client, currentScreen);
-        if (client.screen == currentScreen) {
-            GearManager.handleEquipmentMenu(client, currentScreen);
-        }
+        GearManager.handleLoadoutMenu(client, currentScreen);
         if (client.screen == currentScreen) {
             GeorgeManager.handleGeorgeMenu(client, currentScreen);
         }

@@ -4,7 +4,7 @@ import dev.typicalfarmingmacro.macro.MacroStateManager;
 import dev.typicalfarmingmacro.macro.MacroState;
 import dev.typicalfarmingmacro.macro.MacroWorkerThread;
 import dev.typicalfarmingmacro.macro.ReconnectScheduler;
-import dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager;
+import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.modules.pest.helpers.PestPrepSwapManager;
 import dev.typicalfarmingmacro.modules.pest.helpers.PestReturnManager;
@@ -158,7 +158,7 @@ public class RestartManager {
             MacroState.Location loc = ClientUtils.getCurrentLocation(client);
             boolean alreadyDisplaced = loc != MacroState.Location.GARDEN && loc != MacroState.Location.UNKNOWN;
 
-            if (!alreadyDisplaced && (WardrobeManager.isSwappingWardrobe || state == MacroState.State.WARDROBE)) {
+            if (!alreadyDisplaced && (LoadoutManager.isSwappingLoadout || state == MacroState.State.WARDROBE)) {
                 if (!restartQueuedAfterWardrobe) {
                     restartQueuedAfterWardrobe = true;
                     ClientUtils.sendDebugMessage(client,
@@ -222,7 +222,7 @@ public class RestartManager {
         }
 
         if (proxyRestartSequenceStage == 0) {
-            if (WardrobeManager.isSwappingWardrobe || state == MacroState.State.WARDROBE) {
+            if (LoadoutManager.isSwappingLoadout || state == MacroState.State.WARDROBE) {
                 if (!proxyRestartQueuedAfterWardrobe) {
                     proxyRestartQueuedAfterWardrobe = true;
                     ClientUtils.sendDebugMessage(client,

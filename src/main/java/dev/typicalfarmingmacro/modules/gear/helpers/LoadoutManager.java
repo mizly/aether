@@ -12,36 +12,36 @@ import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
-public class WardrobeManager {
-    public static volatile boolean isSwappingWardrobe = false;
-    public static volatile long wardrobeInteractionTime = 0;
-    public static volatile int wardrobeInteractionStage = 0;
-    public static volatile int wardrobeCleanupTicks = 0;
-    public static volatile int trackedWardrobeSlot = -1;
-    public static volatile int targetWardrobeSlot = -1;
+public class LoadoutManager {
+    public static volatile boolean isSwappingLoadout = false;
+    public static volatile long loadoutInteractionTime = 0;
+    public static volatile int loadoutInteractionStage = 0;
+    public static volatile int loadoutCleanupTicks = 0;
+    public static volatile int trackedLoadoutSlot = -1;
+    public static volatile int targetLoadoutSlot = -1;
     public static volatile boolean shouldRestartFarmingAfterSwap = false;
-    public static volatile long wardrobeOpenPendingTime = 0;
-    public static volatile boolean wardrobeGuiDetected = false;
-    public static volatile boolean wardrobeDataLoaded = false;
-    public static volatile long wardrobeTimelineStartTime = 0;
+    public static volatile long loadoutOpenPendingTime = 0;
+    public static volatile boolean loadoutGuiDetected = false;
+    public static volatile boolean loadoutDataLoaded = false;
+    public static volatile long loadoutTimelineStartTime = 0;
 
     public static void resetState() {
-        isSwappingWardrobe = false;
+        isSwappingLoadout = false;
         shouldRestartFarmingAfterSwap = false;
-        wardrobeCleanupTicks = 0;
-        trackedWardrobeSlot = -1;
-        targetWardrobeSlot = -1;
-        wardrobeInteractionTime = 0;
-        wardrobeInteractionStage = 0;
-        wardrobeGuiDetected = false;
-        wardrobeDataLoaded = false;
-        wardrobeOpenPendingTime = 0;
-        wardrobeTimelineStartTime = 0;
+        loadoutCleanupTicks = 0;
+        trackedLoadoutSlot = -1;
+        targetLoadoutSlot = -1;
+        loadoutInteractionTime = 0;
+        loadoutInteractionStage = 0;
+        loadoutGuiDetected = false;
+        loadoutDataLoaded = false;
+        loadoutOpenPendingTime = 0;
+        loadoutTimelineStartTime = 0;
     }
 
-    public static void triggerWardrobeSwap(Minecraft client, int slot) {
-        if (trackedWardrobeSlot == slot) {
-            ClientUtils.sendDebugMessage(client, "Wardrobe already on target slot, restarting farming");
+    public static void triggerLoadoutSwap(Minecraft client, int slot) {
+        if (trackedLoadoutSlot == slot) {
+            ClientUtils.sendDebugMessage(client, "Loadout already on target slot, restarting farming");
             client.execute(() -> dev.typicalfarmingmacro.macro.FarmingMacroManager.disable(client));
             MacroWorkerThread.getInstance().submit("Wardrobe-AlreadyOnSlot-FastResume", () -> {
                 if (MacroWorkerThread.shouldAbortTask(client, dev.typicalfarmingmacro.macro.MacroState.State.FARMING)) {
@@ -52,7 +52,7 @@ public class WardrobeManager {
                     return;
                 }
                 if (AutoPestExchangeManager.shouldBlockFarmingResume()) {
-                    ClientUtils.sendDebugMessage(client, "Wardrobe resume deferred because pest exchange has priority.");
+                ClientUtils.sendDebugMessage(client, "Loadout resume deferred because pest exchange has priority.");
                     return;
                 }
                 client.execute(() -> GearManager.swapToFarmingTool(client));
@@ -61,32 +61,28 @@ public class WardrobeManager {
                     return;
                 }
                 if (AutoPestExchangeManager.shouldBlockFarmingResume()) {
-                    ClientUtils.sendDebugMessage(client, "Wardrobe resume deferred because pest exchange has priority.");
+                ClientUtils.sendDebugMessage(client, "Loadout resume deferred because pest exchange has priority.");
                     return;
                 }
-                ClientUtils.sendDebugMessage(client, "Restarting farming macro after wardrobe swap");
+                ClientUtils.sendDebugMessage(client, "Restarting farming macro after loadout swap");
                 client.execute(() -> dev.typicalfarmingmacro.macro.FarmingMacroManager.enable(client,
                         dev.typicalfarmingmacro.macro.FarmingMacroManager.createMacroFromConfig()));
             });
             return;
         }
 
-        targetWardrobeSlot = slot;
-        isSwappingWardrobe = true;
-        if (EquipmentManager.isSwappingEquipment) {
-            EquipmentManager.isSwappingEquipment = false;
-            ClientUtils.sendDebugMessage(client, "Interrupted equipment swap for wardrobe priority.");
-        }
-        wardrobeGuiDetected = false;
-        wardrobeDataLoaded = false;
-        wardrobeInteractionTime = 0;
-        wardrobeInteractionStage = 0;
-        wardrobeTimelineStartTime = 0;
+        targetLoadoutSlot = slot;
+        isSwappingLoadout = true;
+        loadoutGuiDetected = false;
+        loadoutDataLoaded = false;
+        loadoutInteractionTime = 0;
+        loadoutInteractionStage = 0;
+        loadoutTimelineStartTime = 0;
         shouldRestartFarmingAfterSwap = true;
         dev.typicalfarmingmacro.macro.MacroStateManager.setCurrentState(dev.typicalfarmingmacro.macro.MacroState.State.WARDROBE);
-        ClientUtils.sendDebugMessage(client, "Triggering wardrobe swap to slot " + slot);
+        ClientUtils.sendDebugMessage(client, "Triggering loadout swap to slot " + slot);
         client.execute(() -> dev.typicalfarmingmacro.macro.FarmingMacroManager.disable(client));
-        MacroWorkerThread.getInstance().submit("Wardrobe-OpenGui", () -> {
+        MacroWorkerThread.getInstance().submit("Loadout-OpenGui", () -> {
             if (MacroWorkerThread.shouldAbortTask(client)) {
                 return;
             }
@@ -99,49 +95,45 @@ public class WardrobeManager {
         });
     }
 
-    public static void ensureWardrobeSlot(Minecraft client, int slot) {
-        if (trackedWardrobeSlot == slot) {
+    public static void ensureLoadoutSlot(Minecraft client, int slot) {
+        if (trackedLoadoutSlot == slot) {
             return;
         }
-        targetWardrobeSlot = slot;
-        isSwappingWardrobe = true;
-        if (EquipmentManager.isSwappingEquipment) {
-            EquipmentManager.isSwappingEquipment = false;
-            ClientUtils.sendDebugMessage(client, "Interrupted equipment swap for wardrobe priority.");
-        }
-        wardrobeGuiDetected = false;
-        wardrobeDataLoaded = false;
-        wardrobeInteractionTime = 0;
-        wardrobeInteractionStage = 0;
-        wardrobeTimelineStartTime = 0;
+        targetLoadoutSlot = slot;
+        isSwappingLoadout = true;
+        loadoutGuiDetected = false;
+        loadoutDataLoaded = false;
+        loadoutInteractionTime = 0;
+        loadoutInteractionStage = 0;
+        loadoutTimelineStartTime = 0;
         ClientUtils.sendCommand(client, "/wardrobe");
     }
 
     public static void abortSwapForPriorityTask(Minecraft client, String taskName) {
-        if (!isSwappingWardrobe) {
+        if (!isSwappingLoadout) {
             return;
         }
 
-        isSwappingWardrobe = false;
+        isSwappingLoadout = false;
         shouldRestartFarmingAfterSwap = false;
-        wardrobeGuiDetected = false;
-        wardrobeDataLoaded = false;
-        wardrobeInteractionTime = 0;
-        wardrobeInteractionStage = 0;
-        wardrobeTimelineStartTime = 0;
+        loadoutGuiDetected = false;
+        loadoutDataLoaded = false;
+        loadoutInteractionTime = 0;
+        loadoutInteractionStage = 0;
+        loadoutTimelineStartTime = 0;
 
         if (dev.typicalfarmingmacro.macro.MacroStateManager.getCurrentState() == dev.typicalfarmingmacro.macro.MacroState.State.WARDROBE) {
             dev.typicalfarmingmacro.macro.MacroStateManager.setCurrentState(dev.typicalfarmingmacro.macro.MacroState.State.FARMING);
         }
 
-        ClientUtils.sendDebugMessage(client, "Aborted wardrobe swap because " + taskName + " has priority.");
+        ClientUtils.sendDebugMessage(client, "Aborted loadout swap because " + taskName + " has priority.");
         if (client.player != null) {
             client.execute(() -> client.player.closeContainer());
         }
     }
 
-    public static void handleWardrobeMenu(Minecraft client, AbstractContainerScreen<?> screen) {
-        if (!isSwappingWardrobe || targetWardrobeSlot == -1) {
+    public static void handleLoadoutMenu(Minecraft client, AbstractContainerScreen<?> screen) {
+        if (!isSwappingLoadout || targetLoadoutSlot == -1) {
             return;
         }
 
@@ -152,13 +144,16 @@ public class WardrobeManager {
 
         long now = System.currentTimeMillis();
 
-        if (!wardrobeGuiDetected) {
-            wardrobeGuiDetected = true;
-            wardrobeTimelineStartTime = now;
-            sendTimedDebug(client, "Wardrobe GUI opened", now);
+        if (!loadoutGuiDetected) {
+            loadoutGuiDetected = true;
+            loadoutTimelineStartTime = now;
+            sendTimedDebug(client, "Loadout GUI opened", now);
         }
 
-        int slotIdx = 35 + targetWardrobeSlot;
+        int slotIdx = getLoadoutGuiSlot(targetLoadoutSlot);
+        if (slotIdx < 0) {
+            return;
+        }
         if (slotIdx >= screen.getMenu().slots.size()) {
             return;
         }
@@ -172,47 +167,47 @@ public class WardrobeManager {
             return;
         }
 
-        if (!wardrobeDataLoaded) {
-            wardrobeDataLoaded = true;
-            wardrobeInteractionTime = now;
-            sendTimedDebug(client, "Wardrobe slot data loaded for slot " + targetWardrobeSlot, now);
+        if (!loadoutDataLoaded) {
+            loadoutDataLoaded = true;
+            loadoutInteractionTime = now;
+            sendTimedDebug(client, "Loadout slot data loaded for slot " + targetLoadoutSlot, now);
         }
 
-        if (now - wardrobeInteractionTime < ClientUtils.getGuiClickDelayMs(wardrobeInteractionStage == 0)) {
+        if (now - loadoutInteractionTime < ClientUtils.getGuiClickDelayMs(loadoutInteractionStage == 0)) {
             return;
         }
 
-        if (wardrobeInteractionStage == 0) {
+        if (loadoutInteractionStage == 0) {
             String itemName = stack.getItem().toString().toLowerCase();
             String hoverName = stack.getHoverName().getString().toLowerCase();
 
             if (itemName.contains("green_dye") || hoverName.contains("green dye") || itemName.contains("lime_dye")
                     || hoverName.contains("lime dye")) {
-                ClientUtils.sendMessage(client, "\u00A7aWardrobe slot " + targetWardrobeSlot + " is already active.", true);
-                trackedWardrobeSlot = targetWardrobeSlot;
-                isSwappingWardrobe = false;
+                ClientUtils.sendMessage(client, "\u00A7aLoadout slot " + targetLoadoutSlot + " is already active.", true);
+                trackedLoadoutSlot = targetLoadoutSlot;
+                isSwappingLoadout = false;
                 if (client.player != null) {
-                    sendTimedDebug(client, "Wardrobe GUI close requested", now);
+                    sendTimedDebug(client, "Loadout GUI close requested", now);
                     client.player.closeContainer();
                 }
-                sendTimedDebug(client, "Wardrobe slot " + targetWardrobeSlot + " already active. Skipping swap", now);
-                handleWardrobeCompletion(client);
+                sendTimedDebug(client, "Loadout slot " + targetLoadoutSlot + " already active. Skipping swap", now);
+                handleLoadoutCompletion(client);
                 return;
             }
 
             sendTimedDebug(client,
-                    "Clicked wardrobe slot " + targetWardrobeSlot + " (" + stack.getHoverName().getString() + ")",
+                    "Clicked loadout slot " + targetLoadoutSlot + " (" + stack.getHoverName().getString() + ")",
                     now);
             ClientUtils.performSlotClick(client, screen, slot.index, 0, ContainerInput.PICKUP);
-            wardrobeInteractionTime = now;
-            wardrobeInteractionStage = 1;
-        } else if (wardrobeInteractionStage == 1) {
-            long lastClickElapsed = now - wardrobeInteractionTime;
+            loadoutInteractionTime = now;
+            loadoutInteractionStage = 1;
+        } else if (loadoutInteractionStage == 1) {
+            long lastClickElapsed = now - loadoutInteractionTime;
             if (lastClickElapsed < 150) {
                 return;
             }
 
-            int confirmSlotIdx = 35 + targetWardrobeSlot;
+            int confirmSlotIdx = getLoadoutGuiSlot(targetLoadoutSlot);
             if (confirmSlotIdx >= screen.getMenu().slots.size()) {
                 return;
             }
@@ -227,29 +222,29 @@ public class WardrobeManager {
 
             if (itemName.contains("green_dye") || hoverName.contains("green dye") || itemName.contains("lime_dye")
                     || hoverName.contains("lime dye")) {
-                sendTimedDebug(client, "Confirmed wardrobe slot " + targetWardrobeSlot + " is active", now);
-                trackedWardrobeSlot = targetWardrobeSlot;
-                isSwappingWardrobe = false;
+                sendTimedDebug(client, "Confirmed loadout slot " + targetLoadoutSlot + " is active", now);
+                trackedLoadoutSlot = targetLoadoutSlot;
+                isSwappingLoadout = false;
                 if (client.player != null) {
-                    sendTimedDebug(client, "Wardrobe GUI close requested", now);
+                    sendTimedDebug(client, "Loadout GUI close requested", now);
                     client.player.closeContainer();
                 }
-                wardrobeInteractionTime = now;
-                wardrobeInteractionStage = 2;
+                loadoutInteractionTime = now;
+                loadoutInteractionStage = 2;
             }
-        } else if (wardrobeInteractionStage == 2) {
-            long lastClickElapsed = now - wardrobeInteractionTime;
+        } else if (loadoutInteractionStage == 2) {
+            long lastClickElapsed = now - loadoutInteractionTime;
             if (lastClickElapsed < 250) {
                 return;
             }
-            sendTimedDebug(client, "Wardrobe swap complete. Active slot is now " + trackedWardrobeSlot
-                    + " (target was " + targetWardrobeSlot + ")", now);
-            handleWardrobeCompletion(client);
-            wardrobeInteractionStage = 0;
+            sendTimedDebug(client, "Loadout swap complete. Active slot is now " + trackedLoadoutSlot
+                    + " (target was " + targetLoadoutSlot + ")", now);
+            handleLoadoutCompletion(client);
+            loadoutInteractionStage = 0;
         }
     }
 
-    private static void handleWardrobeCompletion(Minecraft client) {
+    private static void handleLoadoutCompletion(Minecraft client) {
         RestartManager.onWardrobeSwapCompleted(client);
 
         if (!shouldRestartFarmingAfterSwap) {
@@ -263,18 +258,18 @@ public class WardrobeManager {
         }
 
         if (PestManager.isCleaningInProgress) {
-            ClientUtils.sendMessage(client, "\u00A7aWardrobe swap finished. Cleaning in progress, skipping restart.", true);
+            ClientUtils.sendMessage(client, "\u00A7aLoadout swap finished. Cleaning in progress, skipping restart.", true);
             return;
         }
 
         if (AutoPestExchangeManager.shouldBlockFarmingResume()) {
-            ClientUtils.sendDebugMessage(client, "Wardrobe completion deferred because pest exchange has priority.");
+            ClientUtils.sendDebugMessage(client, "Loadout completion deferred because pest exchange has priority.");
             return;
         }
 
-        ClientUtils.sendMessage(client, "\u00A7aWardrobe swap finished. Restarting farming...", true);
+        ClientUtils.sendMessage(client, "\u00A7aLoadout swap finished. Restarting farming...", true);
         client.execute(() -> GearManager.swapToFarmingTool(client));
-        MacroWorkerThread.getInstance().submit("WardrobeCompletion-Resume", () -> {
+        MacroWorkerThread.getInstance().submit("LoadoutCompletion-Resume", () -> {
             if (MacroWorkerThread.shouldAbortTask(client, dev.typicalfarmingmacro.macro.MacroState.State.FARMING)) {
                 return;
             }
@@ -289,19 +284,28 @@ public class WardrobeManager {
         });
     }
 
-    public static void forceWardrobeCompletionFailsafe(Minecraft client) {
-        if (isSwappingWardrobe && shouldRestartFarmingAfterSwap) {
-            ClientUtils.sendDebugMessage(client, "Wardrobe swap failsafe triggered. Forcing completion.");
-            trackedWardrobeSlot = targetWardrobeSlot;
-            isSwappingWardrobe = false;
-            wardrobeGuiDetected = false;
-            wardrobeDataLoaded = false;
-            handleWardrobeCompletion(client);
+    public static void forceLoadoutCompletionFailsafe(Minecraft client) {
+        if (isSwappingLoadout && shouldRestartFarmingAfterSwap) {
+            ClientUtils.sendDebugMessage(client, "Loadout swap failsafe triggered. Forcing completion.");
+            trackedLoadoutSlot = targetLoadoutSlot;
+            isSwappingLoadout = false;
+            loadoutGuiDetected = false;
+            loadoutDataLoaded = false;
+            handleLoadoutCompletion(client);
         }
+    }
+
+    private static int getLoadoutGuiSlot(int loadoutSlot) {
+        if (loadoutSlot < 1 || loadoutSlot > 12) {
+            return -1;
+        }
+        int row = (loadoutSlot - 1) / 3;
+        int column = (loadoutSlot - 1) % 3;
+        return 14 + row * 9 + column;
     }
 
     private static void sendTimedDebug(Minecraft client, String action, long now) {
         ClientUtils.sendDebugMessage(client,
-                action + " at " + ClientUtils.formatElapsedMs(wardrobeTimelineStartTime, now) + ".");
+                action + " at " + ClientUtils.formatElapsedMs(loadoutTimelineStartTime, now) + ".");
     }
 }

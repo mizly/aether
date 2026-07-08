@@ -455,35 +455,17 @@ public class ClientUtils {
 
     public static void waitForGearAndGui(Minecraft client) {
         try {
-            // Wait for Wardrobe swap with timeout failsafe
-            long wardrobeStart = System.currentTimeMillis();
-            while (dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager.isSwappingWardrobe
-                    && System.currentTimeMillis() - wardrobeStart < 6000) {
+            long loadoutStart = System.currentTimeMillis();
+            while (dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager.isSwappingLoadout
+                    && System.currentTimeMillis() - loadoutStart < 6000) {
                 Thread.sleep(50);
             }
-            // Force-failsafe: if wardrobe swap is still pending after timeout, trigger
-            // completion and continue
-            if (dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager.isSwappingWardrobe) {
+            if (dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager.isSwappingLoadout) {
                 sendDebugMessage(client,
-                        "\u00A7eWARNING: Wardrobe swap detection timeout. Force-completing and resuming sequence...");
-                dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager.forceWardrobeCompletionFailsafe(client);
+                        "\u00A7eWARNING: Loadout swap detection timeout. Force-completing and resuming sequence...");
+                dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager.forceLoadoutCompletionFailsafe(client);
             }
 
-            // Wait for Equipment swap with timeout failsafe
-            long equipStart = System.currentTimeMillis();
-            while (dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager.isSwappingEquipment
-                    && System.currentTimeMillis() - equipStart < 6000) {
-                Thread.sleep(20);
-            }
-            // Force-failsafe: if equipment swap is still pending after timeout, reset and
-            // continue
-            if (dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager.isSwappingEquipment) {
-                sendDebugMessage(client,
-                        "\u00A7eWARNING: Equipment swap detection timeout. Force-resetting and continuing sequence...");
-                dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager.resetState();
-            }
-
-            // Check for any open GUI (wardrobe, equipment, or any other menu)
             long guiStart = System.currentTimeMillis();
             while (client.screen != null && System.currentTimeMillis() - guiStart < 5000) {
                 Thread.sleep(50);
@@ -500,31 +482,20 @@ public class ClientUtils {
             long start = System.currentTimeMillis();
             long lastRetry = start;
             int retryCount = 0;
-            while (!dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager.wardrobeGuiDetected
+            while (!dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager.loadoutGuiDetected
                     && System.currentTimeMillis() - start < 5000) {
-                if (!dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager.isSwappingWardrobe)
+                if (!dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager.isSwappingLoadout)
                     return;
 
                 long now = System.currentTimeMillis();
                 if (now - lastRetry >= 500) {
                     retryCount++;
                     sendDebugMessage(client,
-                            "Wardrobe GUI not detected after " + (now - start)
+                            "Loadout GUI not detected after " + (now - start)
                                     + "ms. Retrying /wardrobe (" + retryCount + ")");
                     client.execute(() -> sendCommand(client, "/wardrobe"));
                     lastRetry = now;
                 }
-                Thread.sleep(50);
-            }
-        } catch (InterruptedException ignored) {
-        }
-    }
-
-    public static void waitForEquipmentGui(Minecraft client) {
-        try {
-            long start = System.currentTimeMillis();
-            while (!dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager.equipmentGuiDetected
-                    && System.currentTimeMillis() - start < 5000) {
                 Thread.sleep(50);
             }
         } catch (InterruptedException ignored) {

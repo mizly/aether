@@ -4,8 +4,7 @@ import dev.typicalfarmingmacro.config.TfmConfig;
 import dev.typicalfarmingmacro.macro.MacroState;
 import dev.typicalfarmingmacro.macro.MacroStateManager;
 import dev.typicalfarmingmacro.macro.MacroWorkerThread;
-import dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager;
+import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.modules.pest.helpers.PestPrepSwapManager;
 import dev.typicalfarmingmacro.util.ClientUtils;
@@ -132,8 +131,7 @@ public class AutoSellManager {
             ClientUtils.sendDebugMessage(client, "Checking inventory for AutoSell before visitors...");
         }
 
-        if (WardrobeManager.isSwappingWardrobe
-                || EquipmentManager.isSwappingEquipment
+        if (LoadoutManager.isSwappingLoadout
                 || GeorgeManager.isSelling
                 || JunkManager.isDropping) {
             return false;
@@ -178,8 +176,7 @@ public class AutoSellManager {
             ClientUtils.sendDebugMessage(client, "Checking inventory for AutoSell before pest traps...");
         }
 
-        if (WardrobeManager.isSwappingWardrobe
-                || EquipmentManager.isSwappingEquipment
+        if (LoadoutManager.isSwappingLoadout
                 || GeorgeManager.isSelling
                 || JunkManager.isDropping) {
             return false;
@@ -206,8 +203,7 @@ public class AutoSellManager {
     }
 
     private static boolean isPriorityEventActive(Minecraft client, boolean ignoreVisitors) {
-        return WardrobeManager.isSwappingWardrobe
-                || EquipmentManager.isSwappingEquipment
+        return LoadoutManager.isSwappingLoadout
                 || PestManager.isCleaningInProgress
                 || PestPrepSwapManager.isPrepSwapping
                 || (!ignoreVisitors && dev.typicalfarmingmacro.modules.visitor.VisitorsMacro.isRunning)

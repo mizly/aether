@@ -17,8 +17,7 @@ import net.minecraft.world.item.component.ItemLore;
 import java.util.*;
 import dev.typicalfarmingmacro.util.EnchantmentUtils;
 import dev.typicalfarmingmacro.modules.gear.GearManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager;
+import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.modules.pest.helpers.PestPrepSwapManager;
 import dev.typicalfarmingmacro.modules.visitor.VisitorManager;
@@ -144,8 +143,7 @@ public class BookCombineManager {
                 || PestManager.isCleaningInProgress
                 || PestPrepSwapManager.prepSwappedForCurrentPestCycle
                 || (TfmConfig.AUTO_VISITOR.get() && VisitorManager.getVisitorCount(client) >= TfmConfig.VISITOR_THRESHOLD.get())
-                || WardrobeManager.isSwappingWardrobe
-                || EquipmentManager.isSwappingEquipment
+                || LoadoutManager.isSwappingLoadout
                 || AutoSellManager.isSelling
                 || AutoSellManager.isPreparingToSell
                 || GeorgeManager.isSelling

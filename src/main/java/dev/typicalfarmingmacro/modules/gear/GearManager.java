@@ -9,11 +9,8 @@ import dev.typicalfarmingmacro.util.ClientUtils;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.RodManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager;
+import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.modules.pest.helpers.AutoPestExchangeManager;
 import net.minecraft.core.component.DataComponents;
@@ -26,42 +23,23 @@ public class GearManager {
     private static final int FINAL_RESUME_RETRY_DELAY_MS = 700;
 
     public static void reset() {
-        WardrobeManager.resetState();
-        EquipmentManager.resetState();
-        RodManager.resetState();
+        LoadoutManager.resetState();
         pendingFinalResumeRetries = 0;
     }
 
     public static void triggerPrepSwap(Minecraft client) {
-        RodManager.stopHoldingRodUse();
     }
 
-    public static void triggerWardrobeSwap(Minecraft client, int slot) {
-        WardrobeManager.triggerWardrobeSwap(client, slot);
+    public static void triggerLoadoutSwap(Minecraft client, int slot) {
+        LoadoutManager.triggerLoadoutSwap(client, slot);
     }
 
-    public static void ensureWardrobeSlot(Minecraft client, int slot) {
-        WardrobeManager.ensureWardrobeSlot(client, slot);
+    public static void ensureLoadoutSlot(Minecraft client, int slot) {
+        LoadoutManager.ensureLoadoutSlot(client, slot);
     }
 
-    public static void handleWardrobeMenu(Minecraft client, AbstractContainerScreen<?> screen) {
-        WardrobeManager.handleWardrobeMenu(client, screen);
-    }
-
-    public static void ensureEquipment(Minecraft client, boolean toFarming) {
-        EquipmentManager.ensureEquipment(client, toFarming);
-    }
-
-    public static void ensureVisitorStartEquipment(Minecraft client) {
-        EquipmentManager.ensureEquipment(client, EquipmentManager.EquipmentSwapTarget.VISITOR_LUNAR);
-    }
-
-    public static void ensureVisitorReturnEquipment(Minecraft client) {
-        EquipmentManager.ensureEquipment(client, EquipmentManager.EquipmentSwapTarget.VISITOR_PREVIOUS);
-    }
-
-    public static void handleEquipmentMenu(Minecraft client, AbstractContainerScreen<?> screen) {
-        EquipmentManager.handleEquipmentMenu(client, screen);
+    public static void handleLoadoutMenu(Minecraft client, AbstractContainerScreen<?> screen) {
+        LoadoutManager.handleLoadoutMenu(client, screen);
     }
 
     public static void finalResume(Minecraft client) {
@@ -113,13 +91,8 @@ public class GearManager {
     }
 
     public static boolean hasAnyGearSwapTasksEnabled() {
-        return TfmConfig.AUTO_WARDROBE_PEST.get()
-                || TfmConfig.AUTO_WARDROBE_VISITOR.get()
-                || TfmConfig.AUTO_EQUIPMENT_PEST.get()
-                || TfmConfig.AUTO_EQUIPMENT_VISITOR.get()
-                || TfmConfig.AUTO_ROD_PEST_CD.get()
-                || TfmConfig.AUTO_ROD_PEST_SPAWN.get()
-                || TfmConfig.AUTO_ROD_RETURN_TO_FARM.get()
+        return TfmConfig.AUTO_LOADOUT_PEST.get()
+                || TfmConfig.AUTO_LOADOUT_VISITOR.get()
                 || TfmConfig.AUTO_PET_PEST_CD.get()
                 || TfmConfig.AUTO_PET_PEST_SPAWN.get()
                 || TfmConfig.AUTO_PET_RETURN_TO_FARM.get();
@@ -377,13 +350,9 @@ public class GearManager {
         return true;
     }
 
-    public static void executeRodSequence(Minecraft client) {
-        RodManager.executeRodSequence(client);
-    }
-
     public static void cleanupTick(Minecraft client) {
-        if (WardrobeManager.wardrobeCleanupTicks > 0) {
-            WardrobeManager.wardrobeCleanupTicks--;
+        if (LoadoutManager.loadoutCleanupTicks > 0) {
+            LoadoutManager.loadoutCleanupTicks--;
             if (client.player != null) {
                 try {
                     if (client.player.containerMenu != null) {

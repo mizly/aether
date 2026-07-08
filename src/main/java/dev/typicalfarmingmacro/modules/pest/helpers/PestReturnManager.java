@@ -12,7 +12,6 @@ import dev.typicalfarmingmacro.modules.SupercraftManager;
 import dev.typicalfarmingmacro.modules.farming.SqueakyMousematManager;
 import dev.typicalfarmingmacro.modules.gear.GearManager;
 import dev.typicalfarmingmacro.modules.gear.helpers.BudgetAutopetManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.RodManager;
 import dev.typicalfarmingmacro.modules.pathfinding.PathfindingManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.modules.visitor.VisitorManager;
@@ -261,15 +260,6 @@ public class PestReturnManager {
                 if (abortFinisherIfNeeded(client, "post-return warp")) {
                     return;
                 }
-                if (TfmConfig.AUTO_ROD_RETURN_TO_FARM.get()) {
-                    setFinishingStage("return rod");
-                    ClientUtils.sendDebugMessage(client,
-                            "Finisher: Auto Rod - Triggering rod cast after /warp garden.");
-                    RodManager.executeRodSequence(client);
-                    if (abortFinisherIfNeeded(client, "post-return rod")) {
-                        return;
-                    }
-                }
                 if (TfmConfig.AUTO_PET_RETURN_TO_FARM.get()) {
                     setFinishingStage("return pet");
                     ClientUtils.sendDebugMessage(client,
@@ -323,12 +313,6 @@ public class PestReturnManager {
             GearManager.swapToFarmingToolSync(client);
             ClientUtils.sendDebugMessage(client, "Finalize: Tool swap done.");
 
-            if (TfmConfig.AUTO_EQUIPMENT_PEST.get()) {
-                setFinishingStage("gear/gui wait");
-                ClientUtils.sendDebugMessage(client, "Finalize: Waiting for gear/gui checks...");
-                ClientUtils.waitForGearAndGui(client);
-                ClientUtils.sendDebugMessage(client, "Finalize: Gear/gui wait done.");
-            }
 
             setFinishingStage("resume farming");
             ClientUtils.sendDebugMessage(client, "Pest cleaning sequence completed. Next state: FARMING");

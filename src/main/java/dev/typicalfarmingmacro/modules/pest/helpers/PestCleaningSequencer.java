@@ -6,9 +6,7 @@ import dev.typicalfarmingmacro.macro.MacroState;
 import dev.typicalfarmingmacro.macro.MacroWorkerThread;
 import dev.typicalfarmingmacro.modules.gear.GearManager;
 import dev.typicalfarmingmacro.modules.gear.helpers.BudgetAutopetManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.RodManager;
+import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.util.ClientUtils;
 
@@ -18,8 +16,7 @@ public class PestCleaningSequencer {
 
     public static void startCleaningSequence(Minecraft client, String plot, String currentInfestedPlot,
             int currentPestSessionId) {
-        if (PestManager.isCleaningInProgress || WardrobeManager.isSwappingWardrobe
-                || EquipmentManager.isSwappingEquipment) {
+        if (PestManager.isCleaningInProgress || LoadoutManager.isSwappingLoadout) {
             PestManager.clearCleaningTriggerPending();
             return;
         }
@@ -29,7 +26,7 @@ public class PestCleaningSequencer {
         client.execute(() -> dev.typicalfarmingmacro.macro.FarmingMacroManager.disable(client));
         PestManager.isCleaningInProgress = true;
         PestManager.clearCleaningTriggerPending();
-        WardrobeManager.shouldRestartFarmingAfterSwap = false;
+        LoadoutManager.shouldRestartFarmingAfterSwap = false;
         dev.typicalfarmingmacro.macro.MacroStateManager.setCurrentState(dev.typicalfarmingmacro.macro.MacroState.State.CLEANING);
         final int sessionId = currentPestSessionId;
 
@@ -123,18 +120,18 @@ public class PestCleaningSequencer {
     }
 
     private static boolean restoreGearForCleaning(Minecraft client) throws InterruptedException {
-        if (TfmConfig.AUTO_WARDROBE_PEST.get()) {
-            int targetSlot = TfmConfig.WARDROBE_SLOT_FARMING.get();
+        if (TfmConfig.AUTO_LOADOUT_PEST.get()) {
+            int targetSlot = TfmConfig.LOADOUT_SLOT_FARMING.get();
             if ((PestPrepSwapManager.prepSwappedForCurrentPestCycle
-                    || WardrobeManager.trackedWardrobeSlot != targetSlot)
+                    || LoadoutManager.trackedLoadoutSlot != targetSlot)
                     && targetSlot > 0) {
-                dev.typicalfarmingmacro.util.ClientUtils.sendMessage(client, "§eRestoring Farming Wardrobe (Slot " + targetSlot + ") for Vacuuming...", true);
-                client.execute(() -> GearManager.ensureWardrobeSlot(client, targetSlot));
+                dev.typicalfarmingmacro.util.ClientUtils.sendMessage(client, "§eRestoring farming loadout (slot " + targetSlot + ") for vacuuming...", true);
+                client.execute(() -> GearManager.ensureLoadoutSlot(client, targetSlot));
 
                 // client.execute is async; wait for swap state to actually start so later waits
                 // are not skipped.
                 long wardrobeStartWait = System.currentTimeMillis();
-                while (!WardrobeManager.isSwappingWardrobe && System.currentTimeMillis() - wardrobeStartWait < 2000) {
+                while (!LoadoutManager.isSwappingLoadout && System.currentTimeMillis() - wardrobeStartWait < 2000) {
                     if (MacroWorkerThread.shouldAbortTask(client))
                         return false;
                     MacroWorkerThread.sleep(25);
@@ -142,16 +139,16 @@ public class PestCleaningSequencer {
 
                 ClientUtils.waitForWardrobeGui(client);
                 long wardrobeFinishWait = System.currentTimeMillis();
-                while (WardrobeManager.isSwappingWardrobe && System.currentTimeMillis() - wardrobeFinishWait < 7000)
+                while (LoadoutManager.isSwappingLoadout && System.currentTimeMillis() - wardrobeFinishWait < 7000)
                     MacroWorkerThread.sleep(50);
 
-                if (WardrobeManager.isSwappingWardrobe) {
+                if (LoadoutManager.isSwappingLoadout) {
                     ClientUtils.sendDebugMessage(client,
-                            "§eWardrobe swap wait timeout in cleaning sequence. Triggering failsafe completion.");
-                    WardrobeManager.forceWardrobeCompletionFailsafe(client);
+                            "§eLoadout swap wait timeout in cleaning sequence. Triggering failsafe completion.");
+                    LoadoutManager.forceLoadoutCompletionFailsafe(client);
                 }
 
-                while (WardrobeManager.wardrobeCleanupTicks > 0)
+                while (LoadoutManager.loadoutCleanupTicks > 0)
                     MacroWorkerThread.sleep(50);
                 MacroWorkerThread.sleep(250);
                 if (MacroWorkerThread.shouldAbortTask(client))
@@ -159,39 +156,10 @@ public class PestCleaningSequencer {
             }
         }
 
-        if (TfmConfig.AUTO_EQUIPMENT_PEST.get()) {
-            GearManager.ensureEquipment(client, true);
-
-            long equipmentStartWait = System.currentTimeMillis();
-            while (!EquipmentManager.isSwappingEquipment && System.currentTimeMillis() - equipmentStartWait < 2000) {
-                if (MacroWorkerThread.shouldAbortTask(client))
-                    return false;
-                MacroWorkerThread.sleep(25);
-            }
-
-            ClientUtils.waitForEquipmentGui(client);
-            long equipmentFinishWait = System.currentTimeMillis();
-            while (EquipmentManager.isSwappingEquipment && System.currentTimeMillis() - equipmentFinishWait < 7000)
-                MacroWorkerThread.sleep(50);
-
-            if (EquipmentManager.isSwappingEquipment) {
-                ClientUtils.sendDebugMessage(client,
-                        "§eEquipment swap wait timeout in cleaning sequence. Resetting equipment state.");
-                EquipmentManager.resetState();
-            }
-
-            MacroWorkerThread.sleep(250);
-            if (MacroWorkerThread.shouldAbortTask(client))
-                return false;
-        }
         return true;
     }
 
     private static void triggerPestSpawnActions(Minecraft client) {
-        if (TfmConfig.AUTO_ROD_PEST_SPAWN.get()) {
-            ClientUtils.sendDebugMessage(client, "Auto Rod: Triggering rod cast on pest spawn.");
-            RodManager.executeRodSequence(client);
-        }
         if (TfmConfig.AUTO_PET_PEST_SPAWN.get()) {
             ClientUtils.sendDebugMessage(client, "BudgetAutopet: Triggering pet equip on pest spawn.");
             try {

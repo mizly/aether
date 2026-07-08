@@ -119,6 +119,7 @@ public final class TfmConfig {
 
         public static void load() {
                 Config.load();
+                migrateLegacyLoadoutKeys(CONFIG_FILE);
                 migrateLegacyDelayRanges(CONFIG_FILE);
                 resetRuntimeOnlyEntries();
                 sanitizeLifetimeAccumulated();
@@ -139,6 +140,7 @@ public final class TfmConfig {
                 boolean loaded = Config.loadFrom(file.toPath());
                 if (loaded) {
                         migrateLegacyDelayRanges(file);
+                        migrateLegacyLoadoutKeys(file);
                         if (BOOTSTRAP_LICENSE_KEY.get().isBlank() && currentBootstrapLicenseKey != null
                                         && !currentBootstrapLicenseKey.isBlank()) {
                                 BOOTSTRAP_LICENSE_KEY.set(currentBootstrapLicenseKey);
@@ -185,6 +187,10 @@ public final class TfmConfig {
                 String currentBootstrapLicenseKey = BOOTSTRAP_LICENSE_KEY.get();
                 boolean loaded = Config.loadFromJson(json);
                 if (loaded) {
+                        try {
+                                migrateLegacyLoadoutKeys(JsonParser.parseString(json).getAsJsonObject());
+                        } catch (Exception ignored) {
+                        }
                         if (BOOTSTRAP_LICENSE_KEY.get().isBlank() && currentBootstrapLicenseKey != null
                                         && !currentBootstrapLicenseKey.isBlank()) {
                                 BOOTSTRAP_LICENSE_KEY.set(currentBootstrapLicenseKey);
@@ -329,6 +335,47 @@ public final class TfmConfig {
                 }
         }
 
+        private static void migrateLegacyLoadoutKeys(File sourceFile) {
+                if (sourceFile == null || !sourceFile.exists()) {
+                        return;
+                }
+
+                try (Reader reader = Files.newBufferedReader(sourceFile.toPath())) {
+                        JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
+                        if (migrateLegacyLoadoutKeys(root)) {
+                                save();
+                        }
+                } catch (Exception ignored) {
+                }
+        }
+
+        private static boolean migrateLegacyLoadoutKeys(JsonObject root) {
+                boolean updated = false;
+
+                if (!root.has("autoLoadoutPest") && root.has("autoWardrobePest")) {
+                        AUTO_LOADOUT_PEST.set(readBoolean(root, "autoWardrobePest", AUTO_LOADOUT_PEST.get()));
+                        updated = true;
+                }
+                if (!root.has("autoLoadoutVisitor") && root.has("autoWardrobeVisitor")) {
+                        AUTO_LOADOUT_VISITOR.set(readBoolean(root, "autoWardrobeVisitor", AUTO_LOADOUT_VISITOR.get()));
+                        updated = true;
+                }
+                if (!root.has("loadoutSlotFarming") && root.has("wardrobeSlotFarming")) {
+                        LOADOUT_SLOT_FARMING.set(readInt(root, "wardrobeSlotFarming", LOADOUT_SLOT_FARMING.get()));
+                        updated = true;
+                }
+                if (!root.has("loadoutSlotPest") && root.has("wardrobeSlotPest")) {
+                        LOADOUT_SLOT_PEST.set(readInt(root, "wardrobeSlotPest", LOADOUT_SLOT_PEST.get()));
+                        updated = true;
+                }
+                if (!root.has("loadoutSlotVisitor") && root.has("wardrobeSlotVisitor")) {
+                        LOADOUT_SLOT_VISITOR.set(readInt(root, "wardrobeSlotVisitor", LOADOUT_SLOT_VISITOR.get()));
+                        updated = true;
+                }
+
+                return updated;
+        }
+
         private static boolean migrateLegacyDelayRange(
                         JsonObject root,
                         String legacyKey,
@@ -356,6 +403,18 @@ public final class TfmConfig {
 
                 try {
                         return root.get(key).getAsInt();
+                } catch (Exception ignored) {
+                        return fallback;
+                }
+        }
+
+        private static boolean readBoolean(JsonObject root, String key, boolean fallback) {
+                if (root == null || !root.has(key) || !root.get(key).isJsonPrimitive()) {
+                        return fallback;
+                }
+
+                try {
+                        return root.get(key).getAsBoolean();
                 } catch (Exception ignored) {
                         return fallback;
                 }
@@ -451,21 +510,16 @@ public final class TfmConfig {
         public static final ListEntry<String> DYNAMIC_PESTS_CONTEST_PRIORITY = Config
                         .list("dynamicPestsContestPriority", java.util.List.of(), String.class);
 
-        // -- WARDROBE / GEAR -------------------------------------------------------
+        // -- AUTO LOADOUT ----------------------------------------------------------
 
-        public static final BooleanEntry AUTO_WARDROBE_PEST = Config.bool("autoWardrobePest", false);
-        public static final BooleanEntry AUTO_WARDROBE_VISITOR = Config.bool("autoWardrobeVisitor", false);
-        public static final BooleanEntry AUTO_EQUIPMENT_PEST = Config.bool("autoEquipment", false);
-        public static final BooleanEntry AUTO_EQUIPMENT_VISITOR = Config.bool("autoEquipmentVisitor", false);
-        public static final IntEntry WARDROBE_SLOT_FARMING = Config.integer("wardrobeSlotFarming", 1).range(1, 9);
-        public static final IntEntry WARDROBE_SLOT_PEST = Config.integer("wardrobeSlotPest", 2).range(1, 9);
-        public static final IntEntry WARDROBE_SLOT_VISITOR = Config.integer("wardrobeSlotVisitor", 3).range(1, 9);
+        public static final BooleanEntry AUTO_LOADOUT_PEST = Config.bool("autoLoadoutPest", false);
+        public static final BooleanEntry AUTO_LOADOUT_VISITOR = Config.bool("autoLoadoutVisitor", false);
+        public static final IntEntry LOADOUT_SLOT_FARMING = Config.integer("loadoutSlotFarming", 1).range(1, 12);
+        public static final IntEntry LOADOUT_SLOT_PEST = Config.integer("loadoutSlotPest", 2).range(1, 12);
+        public static final IntEntry LOADOUT_SLOT_VISITOR = Config.integer("loadoutSlotVisitor", 3).range(1, 12);
 
-        // -- ROD -------------------------------------------------------------------
+        // -- BUDGET AUTOPET --------------------------------------------------------
 
-        public static final BooleanEntry AUTO_ROD_PEST_CD = Config.bool("autoRodPestCd", false);
-        public static final BooleanEntry AUTO_ROD_PEST_SPAWN = Config.bool("autoRodPestSpawn", false);
-        public static final BooleanEntry AUTO_ROD_RETURN_TO_FARM = Config.bool("autoRodReturnToFarm", false);
         public static final BooleanEntry AUTO_PET_PEST_CD = Config.bool("autoPetPestCd", false);
         public static final BooleanEntry AUTO_PET_PEST_SPAWN = Config.bool("autoPetPestSpawn", false);
         public static final BooleanEntry AUTO_PET_RETURN_TO_FARM = Config.bool("autoPetReturnToFarm", false);

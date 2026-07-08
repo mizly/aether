@@ -4,7 +4,6 @@ import dev.typicalfarmingmacro.config.TfmConfig;
 import dev.typicalfarmingmacro.macro.MacroWorkerThread;
 import dev.typicalfarmingmacro.modules.failsafe.FailsafeManager;
 import dev.typicalfarmingmacro.modules.gear.GearManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager;
 import dev.typicalfarmingmacro.modules.profit.ProfitManager;
 import dev.typicalfarmingmacro.mixin.MixinMinecraft;
 import dev.typicalfarmingmacro.modules.pathfinding.PathfindingManager;
@@ -1069,36 +1068,22 @@ public class VisitorsMacro {
     }
 
     private static boolean ensureVisitorLoadout(Minecraft client) {
-        if (TfmConfig.AUTO_WARDROBE_VISITOR.get() && TfmConfig.WARDROBE_SLOT_VISITOR.get() > 0
-                && dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager.trackedWardrobeSlot != TfmConfig.WARDROBE_SLOT_VISITOR
+        if (TfmConfig.AUTO_LOADOUT_VISITOR.get() && TfmConfig.LOADOUT_SLOT_VISITOR.get() > 0
+                && dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager.trackedLoadoutSlot != TfmConfig.LOADOUT_SLOT_VISITOR
                         .get()) {
-            msg(client, "\u00A7eSwapping to Visitor Wardrobe (Slot " + TfmConfig.WARDROBE_SLOT_VISITOR.get()
+            msg(client, "\u00A7eSwapping to visitor loadout (Slot " + TfmConfig.LOADOUT_SLOT_VISITOR.get()
                     + ")...");
-            GearManager.ensureWardrobeSlot(client, TfmConfig.WARDROBE_SLOT_VISITOR.get());
-            if (dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager.isSwappingWardrobe) {
+            GearManager.ensureLoadoutSlot(client, TfmConfig.LOADOUT_SLOT_VISITOR.get());
+            if (dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager.isSwappingLoadout) {
                 ClientUtils.waitForWardrobeGui(client);
-                while (dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager.isSwappingWardrobe)
+                while (dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager.isSwappingLoadout)
                     MacroWorkerThread.sleep(50);
-                while (dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager.wardrobeCleanupTicks > 0)
+                while (dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager.loadoutCleanupTicks > 0)
                     MacroWorkerThread.sleep(50);
                 MacroWorkerThread.sleep(250);
             }
         }
 
-        if (TfmConfig.AUTO_EQUIPMENT_VISITOR.get()) {
-            msg(client, "\u00A7eEquipping visitor equipment...");
-            GearManager.ensureVisitorStartEquipment(client);
-            if (EquipmentManager.isSwappingEquipment) {
-                ClientUtils.waitForEquipmentGui(client);
-                while (EquipmentManager.isSwappingEquipment) {
-                    MacroWorkerThread.sleep(50);
-                }
-                while (client.screen != null) {
-                    MacroWorkerThread.sleep(50);
-                }
-                MacroWorkerThread.sleep(250);
-            }
-        }
 
         return equipVisitorTool(client);
     }

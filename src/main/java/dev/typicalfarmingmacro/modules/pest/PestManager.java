@@ -12,8 +12,7 @@ import dev.typicalfarmingmacro.modules.pest.helpers.PestDiscoDestinationManager;
 import dev.typicalfarmingmacro.modules.pest.helpers.PestDestroyer;
 import dev.typicalfarmingmacro.modules.pest.helpers.PestReturnManager;
 import dev.typicalfarmingmacro.modules.GreenhouseManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager;
+import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.util.ClientUtils;
 import dev.typicalfarmingmacro.util.TablistUtils;
 
@@ -78,8 +77,7 @@ public class PestManager {
                 || PestDestroyer.isActive()
                 || PestReturnManager.isFinishingInProgress
                 || PestReturnManager.isReturnToLocationActive
-                || WardrobeManager.isSwappingWardrobe
-                || EquipmentManager.isSwappingEquipment) {
+                || LoadoutManager.isSwappingLoadout) {
             return false;
         }
         isCleaningTriggerPending = true;

@@ -3,7 +3,7 @@ plugins {
     id 'maven-publish'
 }
 
-version = (findProperty('mod_version') ?: findProperty('typicalfarmingmacro_loader_version') ?: '0.0.0').toString()
+version = (findProperty('typicalfarmingmacro_version') ?: '0.0.0').toString()
 group = project.maven_group
 
 base {

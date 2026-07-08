@@ -1,18 +1,14 @@
 package dev.typicalfarmingmacro.modules.pest.helpers;
 
 import dev.typicalfarmingmacro.config.TfmConfig;
-
 import dev.typicalfarmingmacro.macro.MacroState;
 import dev.typicalfarmingmacro.macro.MacroWorkerThread;
-import dev.typicalfarmingmacro.util.ClientUtils;
-
-import net.minecraft.client.Minecraft;
 import dev.typicalfarmingmacro.modules.gear.GearManager;
 import dev.typicalfarmingmacro.modules.gear.helpers.BudgetAutopetManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.RodManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager;
+import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
+import dev.typicalfarmingmacro.util.ClientUtils;
+import net.minecraft.client.Minecraft;
 
 public class PestPrepSwapManager {
     public static volatile boolean prepSwappedForCurrentPestCycle = false;
@@ -24,33 +20,27 @@ public class PestPrepSwapManager {
     }
 
     public static void updatePrepSwapFlag(int cooldownSeconds, boolean isCleaningInProgress) {
-        if (TfmConfig.AUTO_EQUIPMENT_PEST.get()) {
-            if (cooldownSeconds > 170 && prepSwappedForCurrentPestCycle && !isCleaningInProgress) {
-                prepSwappedForCurrentPestCycle = false;
-            }
-        } else {
-            if (cooldownSeconds > 3 && prepSwappedForCurrentPestCycle && !isCleaningInProgress) {
-                prepSwappedForCurrentPestCycle = false;
-            }
+        if (cooldownSeconds > 3 && prepSwappedForCurrentPestCycle && !isCleaningInProgress) {
+            prepSwappedForCurrentPestCycle = false;
         }
     }
 
     public static boolean shouldTriggerPrepSwap(MacroState.State currentState, int cooldownSeconds,
-                                                boolean isCleaningInProgress, boolean isReturnToLocationActive) {
-        if (currentState != MacroState.State.FARMING)
+            boolean isCleaningInProgress, boolean isReturnToLocationActive) {
+        if (currentState != MacroState.State.FARMING) {
             return false;
-        if (cooldownSeconds == -1 || cooldownSeconds < 0)
-            return false;
-        if (prepSwappedForCurrentPestCycle || isCleaningInProgress || isReturnToLocationActive)
-            return false;
-        if (!hasAnyPrepSwapTasksEnabled())
-            return false;
-
-        if (TfmConfig.AUTO_EQUIPMENT_PEST.get()) {
-            return cooldownSeconds <= 170;
-        } else {
-            return cooldownSeconds <= 3;
         }
+        if (cooldownSeconds == -1 || cooldownSeconds < 0) {
+            return false;
+        }
+        if (prepSwappedForCurrentPestCycle || isCleaningInProgress || isReturnToLocationActive) {
+            return false;
+        }
+        if (!hasAnyPrepSwapTasksEnabled()) {
+            return false;
+        }
+
+        return cooldownSeconds <= 3;
     }
 
     public static void triggerPrepSwap(Minecraft client) {
@@ -59,22 +49,20 @@ public class PestPrepSwapManager {
         ClientUtils.sendDebugMessage(client, "Pest cooldown detected. Triggering prep-swap...");
         MacroWorkerThread.getInstance().submit("PrepSwap", () -> {
             try {
-                if (shouldAbortPrepSwap(client))
+                if (shouldAbortPrepSwap(client)) {
                     return;
+                }
                 ClientUtils.sendDebugMessage(client, "Disabling farming macro: Triggering prep-swap");
                 client.execute(() -> dev.typicalfarmingmacro.macro.FarmingMacroManager.disable(client));
                 MacroWorkerThread.sleep(400);
-                if (shouldAbortPrepSwap(client))
+                if (shouldAbortPrepSwap(client)) {
                     return;
-
-                if (!runPrepWardrobeSwap(client))
-                    return;
-                if (!runPrepEquipmentSwap(client))
-                    return;
-
-                if (TfmConfig.AUTO_ROD_PEST_CD.get()) {
-                    RodManager.executeRodSequence(client);
                 }
+
+                if (!runPrepLoadoutSwap(client)) {
+                    return;
+                }
+
                 if (TfmConfig.AUTO_PET_PEST_CD.get()) {
                     BudgetAutopetManager.equipPetByName(client,
                             TfmConfig.AUTO_PET_PEST_CD_PET.get(),
@@ -93,15 +81,13 @@ public class PestPrepSwapManager {
     }
 
     private static boolean hasAnyPrepSwapTasksEnabled() {
-        return TfmConfig.AUTO_WARDROBE_PEST.get()
-                || TfmConfig.AUTO_EQUIPMENT_PEST.get()
-                || TfmConfig.AUTO_ROD_PEST_CD.get()
-                || TfmConfig.AUTO_PET_PEST_CD.get();
+        return TfmConfig.AUTO_LOADOUT_PEST.get() || TfmConfig.AUTO_PET_PEST_CD.get();
     }
 
     private static boolean shouldAbortPrepSwap(Minecraft client) {
         if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING) || PestManager.isCleaningInProgress) {
-            if (dev.typicalfarmingmacro.macro.MacroStateManager.getCurrentState() != MacroState.State.FARMING || !dev.typicalfarmingmacro.macro.MacroStateManager.isMacroRunning()) {
+            if (dev.typicalfarmingmacro.macro.MacroStateManager.getCurrentState() != MacroState.State.FARMING
+                    || !dev.typicalfarmingmacro.macro.MacroStateManager.isMacroRunning()) {
                 prepSwappedForCurrentPestCycle = false;
             }
             return true;
@@ -109,107 +95,50 @@ public class PestPrepSwapManager {
         return false;
     }
 
-    /**
-     * Abort check for use during the equipment-swap phase, where the macro state is
-     * legitimately EQUIPMENT (not FARMING). Skips the state check so we don't
-     * incorrectly abort and reset prepSwappedForCurrentPestCycle.
-     */
-    private static boolean shouldAbortEquipmentPhase(Minecraft client) {
-        if (MacroWorkerThread.shouldAbortTask(client) || PestManager.isCleaningInProgress) {
-            if (dev.typicalfarmingmacro.macro.MacroStateManager.getCurrentState() != MacroState.State.FARMING || !dev.typicalfarmingmacro.macro.MacroStateManager.isMacroRunning()) {
-                prepSwappedForCurrentPestCycle = false;
-            }
-            return true;
-        }
-        return false;
-    }
-
-    private static boolean runPrepWardrobeSwap(Minecraft client) throws InterruptedException {
-        if (!TfmConfig.AUTO_WARDROBE_PEST.get() || TfmConfig.WARDROBE_SLOT_PEST.get() <= 0)
+    private static boolean runPrepLoadoutSwap(Minecraft client) throws InterruptedException {
+        if (!TfmConfig.AUTO_LOADOUT_PEST.get() || TfmConfig.LOADOUT_SLOT_PEST.get() <= 0) {
             return !shouldAbortPrepSwap(client);
+        }
 
         ClientUtils.sendDebugMessage(client,
-                "Prep-swap: Initiating wardrobe swap to slot " + TfmConfig.WARDROBE_SLOT_PEST.get());
-        GearManager.ensureWardrobeSlot(client, TfmConfig.WARDROBE_SLOT_PEST.get());
-        if (!WardrobeManager.isSwappingWardrobe) {
-            ClientUtils.sendDebugMessage(client, "Prep-swap: Wardrobe swap not needed (already on correct slot).");
+                "Prep-swap: Initiating loadout swap to slot " + TfmConfig.LOADOUT_SLOT_PEST.get());
+        GearManager.ensureLoadoutSlot(client, TfmConfig.LOADOUT_SLOT_PEST.get());
+        if (!LoadoutManager.isSwappingLoadout) {
+            ClientUtils.sendDebugMessage(client, "Prep-swap: Loadout swap not needed (already on correct slot).");
             return !shouldAbortPrepSwap(client);
         }
 
-        ClientUtils.sendDebugMessage(client, "Prep-swap: Waiting for wardrobe GUI...");
+        ClientUtils.sendDebugMessage(client, "Prep-swap: Waiting for loadout GUI...");
         ClientUtils.waitForWardrobeGui(client);
-        if (!WardrobeManager.wardrobeGuiDetected) {
-            ClientUtils.sendDebugMessage(client, "§cPrep-swap: Wardrobe GUI not detected! Retrying in 1 second...");
+        if (!LoadoutManager.loadoutGuiDetected) {
+            ClientUtils.sendDebugMessage(client, "\u00A7cPrep-swap: Loadout GUI not detected! Retrying in 1 second...");
             MacroWorkerThread.sleep(1000);
-            if (shouldAbortPrepSwap(client))
+            if (shouldAbortPrepSwap(client)) {
                 return false;
+            }
 
-            GearManager.ensureWardrobeSlot(client, TfmConfig.WARDROBE_SLOT_PEST.get());
-            if (WardrobeManager.isSwappingWardrobe) {
-                ClientUtils.sendDebugMessage(client, "Prep-swap: Retry - Waiting for wardrobe GUI...");
+            GearManager.ensureLoadoutSlot(client, TfmConfig.LOADOUT_SLOT_PEST.get());
+            if (LoadoutManager.isSwappingLoadout) {
+                ClientUtils.sendDebugMessage(client, "Prep-swap: Retry - Waiting for loadout GUI...");
                 ClientUtils.waitForWardrobeGui(client);
-                if (!WardrobeManager.wardrobeGuiDetected) {
+                if (!LoadoutManager.loadoutGuiDetected) {
                     ClientUtils.sendDebugMessage(client,
-                            "§cPrep-swap: Wardrobe GUI still not detected after retry! Aborting prep-swap.");
+                            "\u00A7cPrep-swap: Loadout GUI still not detected after retry! Aborting prep-swap.");
                     prepSwappedForCurrentPestCycle = false;
                     return false;
                 }
             }
         }
 
-        while (WardrobeManager.isSwappingWardrobe && !PestManager.isCleaningInProgress) {
+        while (LoadoutManager.isSwappingLoadout && !PestManager.isCleaningInProgress) {
             MacroWorkerThread.sleep(50);
         }
         MacroWorkerThread.sleep(250);
-        if (shouldAbortPrepSwap(client))
+        if (shouldAbortPrepSwap(client)) {
             return false;
-
-        ClientUtils.sendDebugMessage(client, "Prep-swap: Wardrobe swap completed.");
-        return true;
-    }
-
-    private static boolean runPrepEquipmentSwap(Minecraft client) throws InterruptedException {
-        if (!TfmConfig.AUTO_EQUIPMENT_PEST.get())
-            return !shouldAbortPrepSwap(client);
-
-        ClientUtils.sendDebugMessage(client, "Prep-swap: Initiating equipment swap to pest gear");
-        GearManager.ensureEquipment(client, false);
-        MacroWorkerThread.sleep(200);
-        if (shouldAbortEquipmentPhase(client))
-            return false;
-
-        ClientUtils.sendDebugMessage(client, "Prep-swap: Waiting for equipment GUI...");
-        ClientUtils.waitForEquipmentGui(client);
-        if (!EquipmentManager.equipmentGuiDetected) {
-            ClientUtils.sendDebugMessage(client,
-                    "§cPrep-swap: Equipment GUI not detected! Retrying in 1 second...");
-            MacroWorkerThread.sleep(1000);
-            if (shouldAbortEquipmentPhase(client))
-                return false;
-
-            GearManager.ensureEquipment(client, false);
-            MacroWorkerThread.sleep(200);
-            ClientUtils.sendDebugMessage(client, "Prep-swap: Retry - Waiting for equipment GUI...");
-            ClientUtils.waitForEquipmentGui(client);
-            if (!EquipmentManager.equipmentGuiDetected) {
-                ClientUtils.sendDebugMessage(client,
-                        "§cPrep-swap: Equipment GUI still not detected after retry! Aborting prep-swap.");
-                prepSwappedForCurrentPestCycle = false;
-                return false;
-            }
         }
 
-        while (EquipmentManager.isSwappingEquipment && !PestManager.isCleaningInProgress) {
-            MacroWorkerThread.sleep(50);
-        }
-        while (client.screen != null && !PestManager.isCleaningInProgress) {
-            MacroWorkerThread.sleep(50);
-        }
-        MacroWorkerThread.sleep(250);
-        if (shouldAbortEquipmentPhase(client))
-            return false;
-
-        ClientUtils.sendDebugMessage(client, "Prep-swap: Equipment swap completed.");
+        ClientUtils.sendDebugMessage(client, "Prep-swap: Loadout swap completed.");
         return true;
     }
 }

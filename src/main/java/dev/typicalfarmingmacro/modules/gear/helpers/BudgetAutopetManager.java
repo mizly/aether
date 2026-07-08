@@ -122,9 +122,8 @@ public final class BudgetAutopetManager {
         boolean waited = false;
 
         while (System.currentTimeMillis() < deadline && !MacroWorkerThread.shouldAbortTask(client)) {
-            if (!EquipmentManager.isSwappingEquipment
-                    && !WardrobeManager.isSwappingWardrobe
-                    && WardrobeManager.wardrobeCleanupTicks <= 0
+            if (!LoadoutManager.isSwappingLoadout
+                    && LoadoutManager.loadoutCleanupTicks <= 0
                     && client.screen == null
                     && !hasServerContainerOpen(client)) {
                 if (waited) {

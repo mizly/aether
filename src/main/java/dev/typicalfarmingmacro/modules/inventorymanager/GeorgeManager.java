@@ -4,8 +4,7 @@ import dev.typicalfarmingmacro.config.TfmConfig;
 import dev.typicalfarmingmacro.config.ConfigHelpers;
 import dev.typicalfarmingmacro.macro.MacroWorkerThread;
 import dev.typicalfarmingmacro.modules.gear.GearManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager;
+import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.modules.pest.helpers.PestPrepSwapManager;
 import dev.typicalfarmingmacro.util.ClientUtils;
@@ -293,8 +292,7 @@ public class GeorgeManager {
         }
 
         if (isPriorityEventActive(client)
-                || WardrobeManager.isSwappingWardrobe
-                || EquipmentManager.isSwappingEquipment) {
+                || LoadoutManager.isSwappingLoadout) {
             return;
         }
 

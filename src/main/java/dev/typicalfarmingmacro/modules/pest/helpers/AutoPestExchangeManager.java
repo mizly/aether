@@ -5,8 +5,7 @@ import dev.typicalfarmingmacro.config.ConfigHelpers;
 import dev.typicalfarmingmacro.macro.MacroState;
 import dev.typicalfarmingmacro.macro.MacroStateManager;
 import dev.typicalfarmingmacro.macro.MacroWorkerThread;
-import dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager;
+import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.farming.SqueakyMousematManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.util.ClientUtils;
@@ -119,17 +118,13 @@ public final class AutoPestExchangeManager {
 
         MacroState.State state = MacroStateManager.getCurrentState();
         boolean stateAllowsPriority = state == MacroState.State.FARMING
-                || state == MacroState.State.EQUIPMENT
                 || state == MacroState.State.WARDROBE;
         if (!stateAllowsPriority || !pendingTrigger || !isPendingTriggerReady(now)) {
             return false;
         }
 
-        if (WardrobeManager.isSwappingWardrobe) {
-            WardrobeManager.abortSwapForPriorityTask(client, "pest exchange");
-        }
-        if (EquipmentManager.isSwappingEquipment) {
-            EquipmentManager.abortSwapForPriorityTask(client, "pest exchange");
+        if (LoadoutManager.isSwappingLoadout) {
+            LoadoutManager.abortSwapForPriorityTask(client, "pest exchange");
         }
         if (MacroWorkerThread.getInstance().isBusy()) {
             MacroWorkerThread.getInstance().cancelCurrent();

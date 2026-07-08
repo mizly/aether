@@ -5,8 +5,7 @@ import dev.typicalfarmingmacro.macro.MacroState;
 import dev.typicalfarmingmacro.macro.MacroStateManager;
 import dev.typicalfarmingmacro.modules.ComposterManager;
 import dev.typicalfarmingmacro.modules.SupercraftManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager;
+import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.inventorymanager.BookCombineManager;
 import dev.typicalfarmingmacro.modules.inventorymanager.GeorgeManager;
 import dev.typicalfarmingmacro.modules.pest.helpers.PestExchangeManager;
@@ -137,8 +136,7 @@ final class UnexpectedInventoryFailsafe {
     }
 
     private static boolean isExpectedInventoryGuiOpen() {
-        return WardrobeManager.isSwappingWardrobe
-                || EquipmentManager.isSwappingEquipment
+        return LoadoutManager.isSwappingLoadout
                 || PestExchangeManager.isExchanging
                 || PestTrapManager.isRunning
                 || ComposterManager.isRunning()

@@ -20,9 +20,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import dev.typicalfarmingmacro.modules.gear.GearManager;
 import dev.typicalfarmingmacro.modules.gear.helpers.BudgetAutopetManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.RodManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager;
+import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.modules.pest.helpers.PestPrepSwapManager;
 import dev.typicalfarmingmacro.modules.pest.helpers.PestReturnManager;
@@ -125,51 +123,28 @@ public class VisitorManager {
         });
         MacroWorkerThread.sleep(250);
 
-        if (TfmConfig.AUTO_WARDROBE_VISITOR.get() && TfmConfig.WARDROBE_SLOT_FARMING.get() > 0
-                && WardrobeManager.trackedWardrobeSlot != TfmConfig.WARDROBE_SLOT_FARMING.get()) {
+        if (TfmConfig.AUTO_LOADOUT_VISITOR.get() && TfmConfig.LOADOUT_SLOT_FARMING.get() > 0
+                && LoadoutManager.trackedLoadoutSlot != TfmConfig.LOADOUT_SLOT_FARMING.get()) {
             dev.typicalfarmingmacro.util.ClientUtils.sendMessage(client, 
-                    "\u00A7eRestoring farming wardrobe (slot " + TfmConfig.WARDROBE_SLOT_FARMING.get() + ")...", true);
-            GearManager.ensureWardrobeSlot(client, TfmConfig.WARDROBE_SLOT_FARMING.get());
-            if (WardrobeManager.isSwappingWardrobe) {
-                ClientUtils.sendDebugMessage(client, "finalizeReturnToFarm: Waiting for wardrobe GUI...");
+                    "\u00A7eRestoring farming loadout (slot " + TfmConfig.LOADOUT_SLOT_FARMING.get() + ")...", true);
+            GearManager.ensureLoadoutSlot(client, TfmConfig.LOADOUT_SLOT_FARMING.get());
+            if (LoadoutManager.isSwappingLoadout) {
+                ClientUtils.sendDebugMessage(client, "finalizeReturnToFarm: Waiting for loadout GUI...");
                 ClientUtils.waitForWardrobeGui(client);
                 ClientUtils.sendDebugMessage(client,
-                        "finalizeReturnToFarm: Wardrobe GUI detected, waiting for swap to complete...");
-                while (WardrobeManager.isSwappingWardrobe)
+                        "finalizeReturnToFarm: Loadout GUI detected, waiting for swap to complete...");
+                while (LoadoutManager.isSwappingLoadout)
                     MacroWorkerThread.sleep(50);
-                while (WardrobeManager.wardrobeCleanupTicks > 0)
+                while (LoadoutManager.loadoutCleanupTicks > 0)
                     MacroWorkerThread.sleep(50);
                 MacroWorkerThread.sleep(350);
-                ClientUtils.sendDebugMessage(client, "finalizeReturnToFarm: Wardrobe swap fully complete.");
+                ClientUtils.sendDebugMessage(client, "finalizeReturnToFarm: Loadout swap fully complete.");
             }
         }
 
-        if (TfmConfig.AUTO_EQUIPMENT_VISITOR.get()) {
-            dev.typicalfarmingmacro.util.ClientUtils.sendMessage(client,
-                    "\u00A7e" + dev.typicalfarmingmacro.util.TfmLang.localize("Restoring previous equipment..."), true);
-            GearManager.ensureVisitorReturnEquipment(client);
-            if (EquipmentManager.isSwappingEquipment) {
-                ClientUtils.sendDebugMessage(client, "finalizeReturnToFarm: Waiting for equipment GUI...");
-                ClientUtils.waitForEquipmentGui(client);
-                ClientUtils.sendDebugMessage(client,
-                        "finalizeReturnToFarm: Equipment GUI detected, waiting for swap to complete...");
-                while (EquipmentManager.isSwappingEquipment) {
-                    MacroWorkerThread.sleep(50);
-                }
-                while (client.screen != null) {
-                    MacroWorkerThread.sleep(50);
-                }
-                MacroWorkerThread.sleep(250);
-                ClientUtils.sendDebugMessage(client, "finalizeReturnToFarm: Equipment swap fully complete.");
-            }
-        }
 
         ClientUtils.waitForGearAndGui(client);
 
-        if (TfmConfig.AUTO_ROD_RETURN_TO_FARM.get()) {
-            ClientUtils.sendDebugMessage(client, "Auto Rod: Triggering second rod cast (VisitorManager)...");
-            RodManager.executeRodSequence(client);
-        }
         if (TfmConfig.AUTO_PET_RETURN_TO_FARM.get()) {
             try {
                 ClientUtils.sendDebugMessage(client,

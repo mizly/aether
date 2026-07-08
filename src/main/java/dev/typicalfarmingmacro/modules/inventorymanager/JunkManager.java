@@ -17,8 +17,7 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 import dev.typicalfarmingmacro.modules.gear.GearManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.EquipmentManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.WardrobeManager;
+import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.modules.pest.helpers.PestPrepSwapManager;
 import dev.typicalfarmingmacro.modules.visitor.VisitorManager;
@@ -99,7 +98,7 @@ public class JunkManager {
         }
 
         if (isPriorityEventActive(client) ||
-                WardrobeManager.isSwappingWardrobe || EquipmentManager.isSwappingEquipment)
+                LoadoutManager.isSwappingLoadout)
             return;
 
         int junkCount = countJunkItems(client);
