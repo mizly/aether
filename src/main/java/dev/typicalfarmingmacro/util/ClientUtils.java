@@ -492,8 +492,8 @@ public class ClientUtils {
                     retryCount++;
                     sendDebugMessage(client,
                             "Loadout GUI not detected after " + (now - start)
-                                    + "ms. Retrying /wardrobe (" + retryCount + ")");
-                    client.execute(() -> sendCommand(client, "/wardrobe"));
+                                    + "ms. Retrying /loadout (" + retryCount + ")");
+                    client.execute(() -> sendCommand(client, "/loadout"));
                     lastRetry = now;
                 }
                 Thread.sleep(50);
