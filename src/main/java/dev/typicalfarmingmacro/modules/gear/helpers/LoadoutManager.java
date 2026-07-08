@@ -90,7 +90,7 @@ public class LoadoutManager {
             if (MacroWorkerThread.shouldAbortTask(client)) {
                 return;
             }
-            client.execute(() -> ClientUtils.sendCommand(client, "/wardrobe"));
+            client.execute(() -> ClientUtils.sendCommand(client, "/loadout"));
             ClientUtils.waitForWardrobeGui(client);
         });
     }
@@ -106,7 +106,7 @@ public class LoadoutManager {
         loadoutInteractionTime = 0;
         loadoutInteractionStage = 0;
         loadoutTimelineStartTime = 0;
-        ClientUtils.sendCommand(client, "/wardrobe");
+        ClientUtils.sendCommand(client, "/loadout");
     }
 
     public static void abortSwapForPriorityTask(Minecraft client, String taskName) {
@@ -138,7 +138,7 @@ public class LoadoutManager {
         }
 
         String title = screen.getTitle().getString().toLowerCase();
-        if (!title.contains("wardrobe")) {
+        if (!title.contains("loadouts")) {
             return;
         }
 
