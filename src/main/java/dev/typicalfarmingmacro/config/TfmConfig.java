@@ -520,14 +520,6 @@ public final class TfmConfig {
         public static final IntEntry LOADOUT_PEST_SWAP_TIME_SECONDS = Config.integer("loadoutPestSwapTimeSeconds", 170)
                         .range(0, 180);
 
-        // -- BUDGET AUTOPET --------------------------------------------------------
-
-        public static final BooleanEntry AUTO_PET_PEST_CD = Config.bool("autoPetPestCd", false);
-        public static final BooleanEntry AUTO_PET_PEST_SPAWN = Config.bool("autoPetPestSpawn", false);
-        public static final BooleanEntry AUTO_PET_RETURN_TO_FARM = Config.bool("autoPetReturnToFarm", false);
-        public static final StringEntry AUTO_PET_PEST_CD_PET = Config.string("autoPetPestCdPet", "");
-        public static final StringEntry AUTO_PET_PEST_SPAWN_PET = Config.string("autoPetPestSpawnPet", "");
-        public static final StringEntry AUTO_PET_RETURN_TO_FARM_PET = Config.string("autoPetReturnToFarmPet", "");
         public static final IntEntry ROD_SWAP_DELAY_MIN = Config.integer("rodSwapDelayMin", 100).range(0, 1000);
         public static final IntEntry ROD_SWAP_DELAY_MAX = Config.integer("rodSwapDelayMax", 500).range(0, 1000);
 

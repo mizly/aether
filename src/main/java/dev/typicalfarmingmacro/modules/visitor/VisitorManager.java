@@ -19,7 +19,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import dev.typicalfarmingmacro.modules.gear.GearManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.BudgetAutopetManager;
 import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.modules.pest.helpers.PestPrepSwapManager;
@@ -144,18 +143,6 @@ public class VisitorManager {
 
 
         ClientUtils.waitForGearAndGui(client);
-
-        if (TfmConfig.AUTO_PET_RETURN_TO_FARM.get()) {
-            try {
-                ClientUtils.sendDebugMessage(client,
-                        "BudgetAutopet: Triggering return-to-farm pet equip (VisitorManager)...");
-                BudgetAutopetManager.equipPetByName(client,
-                        TfmConfig.AUTO_PET_RETURN_TO_FARM_PET.get(),
-                        "return to farm");
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
 
         ClientUtils.waitForGearAndGui(client);
         PestReturnManager.isReturningFromPestVisitor = false;

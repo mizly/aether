@@ -11,7 +11,6 @@ import dev.typicalfarmingmacro.modules.ComposterManager;
 import dev.typicalfarmingmacro.modules.SupercraftManager;
 import dev.typicalfarmingmacro.modules.farming.SqueakyMousematManager;
 import dev.typicalfarmingmacro.modules.gear.GearManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.BudgetAutopetManager;
 import dev.typicalfarmingmacro.modules.pathfinding.PathfindingManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.modules.visitor.VisitorManager;
@@ -259,17 +258,6 @@ public class PestReturnManager {
                 MacroWorkerThread.sleep(250);
                 if (abortFinisherIfNeeded(client, "post-return warp")) {
                     return;
-                }
-                if (TfmConfig.AUTO_PET_RETURN_TO_FARM.get()) {
-                    setFinishingStage("return pet");
-                    ClientUtils.sendDebugMessage(client,
-                            "Finisher: BudgetAutopet - equipping return-to-farm pet after /warp garden.");
-                    BudgetAutopetManager.equipPetByName(client,
-                            TfmConfig.AUTO_PET_RETURN_TO_FARM_PET.get(),
-                            "return to farm");
-                    if (abortFinisherIfNeeded(client, "post-return pet")) {
-                        return;
-                    }
                 }
                 isReturningFromPestVisitor = true;
                 setFinishingStage("finalize return");

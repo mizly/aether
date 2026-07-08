@@ -93,10 +93,7 @@ public class GearManager {
 
     public static boolean hasAnyGearSwapTasksEnabled() {
         return TfmConfig.AUTO_LOADOUT_PEST.get()
-                || TfmConfig.AUTO_LOADOUT_VISITOR.get()
-                || TfmConfig.AUTO_PET_PEST_CD.get()
-                || TfmConfig.AUTO_PET_PEST_SPAWN.get()
-                || TfmConfig.AUTO_PET_RETURN_TO_FARM.get();
+                || TfmConfig.AUTO_LOADOUT_VISITOR.get();
     }
 
     private static void scheduleFinalResumeRetry(Minecraft client) {

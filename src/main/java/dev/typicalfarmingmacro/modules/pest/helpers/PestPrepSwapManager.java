@@ -4,7 +4,6 @@ import dev.typicalfarmingmacro.config.TfmConfig;
 import dev.typicalfarmingmacro.macro.MacroState;
 import dev.typicalfarmingmacro.macro.MacroWorkerThread;
 import dev.typicalfarmingmacro.modules.gear.GearManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.BudgetAutopetManager;
 import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.util.ClientUtils;
@@ -65,12 +64,6 @@ public class PestPrepSwapManager {
                     return;
                 }
 
-                if (TfmConfig.AUTO_PET_PEST_CD.get()) {
-                    BudgetAutopetManager.equipPetByName(client,
-                            TfmConfig.AUTO_PET_PEST_CD_PET.get(),
-                            "pest cooldown");
-                }
-
                 if (!PestManager.isCleaningInProgress) {
                     GearManager.finalResume(client);
                 }
@@ -83,7 +76,7 @@ public class PestPrepSwapManager {
     }
 
     private static boolean hasAnyPrepSwapTasksEnabled() {
-        return TfmConfig.AUTO_LOADOUT_PEST.get() || TfmConfig.AUTO_PET_PEST_CD.get();
+        return TfmConfig.AUTO_LOADOUT_PEST.get();
     }
 
     private static int getPrepSwapTriggerCooldownSeconds() {

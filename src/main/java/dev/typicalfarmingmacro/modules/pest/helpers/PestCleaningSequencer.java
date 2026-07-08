@@ -5,7 +5,6 @@ import dev.typicalfarmingmacro.config.TfmConfig;
 import dev.typicalfarmingmacro.macro.MacroState;
 import dev.typicalfarmingmacro.macro.MacroWorkerThread;
 import dev.typicalfarmingmacro.modules.gear.GearManager;
-import dev.typicalfarmingmacro.modules.gear.helpers.BudgetAutopetManager;
 import dev.typicalfarmingmacro.modules.gear.helpers.LoadoutManager;
 import dev.typicalfarmingmacro.modules.pest.PestManager;
 import dev.typicalfarmingmacro.util.ClientUtils;
@@ -59,10 +58,6 @@ public class PestCleaningSequencer {
                 if (MacroWorkerThread.shouldAbortTask(client))
                     return;
 
-                if (!deferLoadoutUntilAfterDiscoTeleport) {
-                    triggerPestSpawnActions(client);
-                }
-
                 if (PestDiscoDestinationManager.isUsablePlot(currentInfestedPlot)) {
                     String currentPlot = ClientUtils.getCurrentPlot(client);
                     boolean scribePlotMatch = currentPlot != null && currentPlot.equalsIgnoreCase(currentInfestedPlot);
@@ -100,7 +95,6 @@ public class PestCleaningSequencer {
                             "Disco destination active: restoring pest loadout after plot teleport.");
                     if (!restoreGearForCleaning(client))
                         return;
-                    triggerPestSpawnActions(client);
                 }
 
                 if (PestBonusManager.isBonusInactive) {
@@ -157,19 +151,6 @@ public class PestCleaningSequencer {
         }
 
         return true;
-    }
-
-    private static void triggerPestSpawnActions(Minecraft client) {
-        if (TfmConfig.AUTO_PET_PEST_SPAWN.get()) {
-            ClientUtils.sendDebugMessage(client, "BudgetAutopet: Triggering pet equip on pest spawn.");
-            try {
-                BudgetAutopetManager.equipPetByName(client,
-                        TfmConfig.AUTO_PET_PEST_SPAWN_PET.get(),
-                        "pest spawn");
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
     }
 
     private static void startPestCleanerScript(Minecraft client, String currentInfestedPlot) {
