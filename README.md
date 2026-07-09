@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="/src/main/resources/assets/aether/icons/logo.svg" width="128" alt="Aether logo">
+  <img src="/src/main/resources/assets/aether/icons/logo_blue.svg" width="128" alt="Aether logo">
 </p>
 
 <h1 align="center">aether</h1>
@@ -15,7 +15,7 @@
 
 ## features
 
-- **farming qol** - auto farming, pest destroyer, auto pest exchange, auto sprayanator
+- **farming qol** - auto farming, pest destroyer, auto pest exchange, auto spray, auto loadouts, auto greenhouse, auto composter ... + many more!
 - **visual** - nick hider, purse spoofer, sawdust spoofer
 - **failsafes** - too many failsafes to list
 ---
