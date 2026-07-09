@@ -1,0 +1,438 @@
+package dev.aether.modules.pathfinding.execution;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import dev.aether.config.AetherConfig;
+import dev.aether.modules.failsafe.FailsafeManager;
+import dev.aether.modules.pathfinding.Node;
+import dev.aether.modules.pathfinding.rotation.RotationExecutor;
+import dev.aether.modules.rotation.RotationManager;
+import dev.aether.util.ClientUtils;
+import dev.aether.util.RotationUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+
+/**
+ * Fly executor inspired by FarmHelper's FlyPathFinderExecutor.
+ *
+ * Key design decisions mirroring FarmHelper:
+ * - Rotation is horizontal only (yaw). The player looks toward the target,
+ * BUT vertical movement is controlled entirely by Space/Shift based on
+ * raycast collision checks in front of and behind the player - not by pitch.
+ * - Waypoint advancement uses the closest reachable waypoint (1.5 block
+ * radius).
+ * - Stopping: once we'd arrive within stoppingThreshold after deceleration,
+ * keys release.
+ * - Stuck recovery: at 1.5s hold Space to climb; at 3s abort.
+ */
+public final class FlyExecutor {
+
+    public enum State {
+        IDLE, FLYING, DECELERATING, FINISHED
+    }
+
+    // How close to a waypoint counts as "reached" (horizontal + vertical)
+    private static final double REACH = 1.5;
+    // Stopping threshold: stop pressing W when predicted stop is within this
+    // distance
+    private static final double STOP_THRESH = 0.5;
+    // Stuck timers
+    private static final long STUCK_CLIMB_MS = 1500;
+    private static final long STUCK_ABORT_MS = 3000;
+    // How far ahead to raycast for block detection (blocks)
+    private static final double RAY_DIST = 2.5;
+
+    private State state = State.IDLE;
+    private List<Node> path;
+    private int wpIndex;
+    private int goalX, goalY, goalZ;
+
+    /** Smoothed yaw - lerped toward target each tick to prevent snapping. */
+    private float smoothedYaw = Float.MAX_VALUE;
+
+    /** Rolling stuck detection */
+    private Vec3 lastPosCheck = Vec3.ZERO;
+    private long lastProgressTime;
+    private long decelStartTime = 0;
+    private int ticksSinceLastMove = 0;
+    private static final int TICKS_FOR_STUCK = 15; // ~750ms at 20 tps
+
+    private Runnable onFinished;
+    private boolean usePitchControl = false;
+    private float targetPitch = 0;
+    private boolean useLookTargetRotation = false;
+    private Vec3 lookTarget = null;
+    private double finalWaypointReach = REACH;
+    private double goalStopThreshold = STOP_THRESH;
+
+    // --- Public API ----------------------------------------------------------
+
+    public void start(List<Node> path, int goalX, int goalY, int goalZ) {
+        start(path, goalX, goalY, goalZ, null);
+    }
+
+    public void start(List<Node> path, int goalX, int goalY, int goalZ, Runnable onFinished) {
+        this.path = new ArrayList<>(path);
+        this.goalX = goalX;
+        this.goalY = goalY;
+        this.goalZ = goalZ;
+        this.wpIndex = 0;
+        this.decelStartTime = 0;
+        this.lastProgressTime = System.currentTimeMillis();
+        this.lastPosCheck = Vec3.ZERO;
+        this.ticksSinceLastMove = 0;
+        this.smoothedYaw = Float.MAX_VALUE; // reset - will be seeded from player on first tick
+        this.onFinished = onFinished;
+        this.usePitchControl = false;
+        this.useLookTargetRotation = false;
+        this.lookTarget = null;
+        this.finalWaypointReach = REACH;
+        this.goalStopThreshold = STOP_THRESH;
+        state = State.FLYING;
+    }
+
+    public void setPitchControl(float pitch) {
+        this.usePitchControl = true;
+        this.targetPitch = pitch;
+    }
+
+    public void setLookTargetRotation(Vec3 lookTarget) {
+        this.useLookTargetRotation = true;
+        this.lookTarget = lookTarget;
+        this.usePitchControl = false;
+    }
+
+    public void setPreciseGoalTolerance(double tolerance) {
+        double clamped = Math.max(0.01, tolerance);
+        this.finalWaypointReach = clamped;
+        this.goalStopThreshold = clamped;
+    }
+
+    public State getState() {
+        return state;
+    }
+
+    public void tick(Minecraft mc) {
+        if (mc.player == null)
+            return;
+
+        if (ClientUtils.isInventoryScreenOpen(mc)) {
+            releaseAll(mc);
+            return;
+        }
+
+        if (state == State.DECELERATING) {
+            tickDecelerate(mc);
+            return;
+        }
+
+        if (state != State.FLYING)
+            return;
+        if (path == null || path.isEmpty()) {
+            finish(mc);
+            return;
+        }
+
+        Vec3 pos = mc.player.position();
+
+        // -- Waypoint advancement -------------------------------------------
+        while (wpIndex < path.size()) {
+            Node wp = path.get(wpIndex);
+            double dx = (wp.position.flooredX() + 0.5) - pos.x;
+            double dy = (wp.position.flooredY() + 0.15) - pos.y;
+            double dz = (wp.position.flooredZ() + 0.5) - pos.z;
+            double distSq = dx * dx + dy * dy + dz * dz;
+
+            // Advance if inside radius OR if we have passed the waypoint
+            double waypointReach = wpIndex == path.size() - 1 ? finalWaypointReach : REACH;
+            boolean reached = distSq <= waypointReach * waypointReach;
+            if (!reached && wpIndex > 0) {
+                // Dot product check: if we've passed the plane of the waypoint
+                Vec3 toWp = new Vec3(dx, dy, dz);
+                Vec3 prevWp = new Vec3(
+                        path.get(wpIndex - 1).position.flooredX() + 0.5,
+                        path.get(wpIndex - 1).position.flooredY() + 0.15,
+                        path.get(wpIndex - 1).position.flooredZ() + 0.5);
+                Vec3 pathDir = new Vec3(
+                        wp.position.flooredX() + 0.5 - prevWp.x,
+                        wp.position.flooredY() + 0.15 - prevWp.y,
+                        wp.position.flooredZ() + 0.5 - prevWp.z).normalize();
+                if (toWp.dot(pathDir) < 0) {
+                    reached = true; // We've flown past it
+                }
+            }
+
+            if (reached) {
+                lastProgressTime = System.currentTimeMillis();
+                ticksSinceLastMove = 0;
+                wpIndex++;
+            } else {
+                break;
+            }
+        }
+
+        // -- Goal waypoint reached ------------------------------------------
+        Vec3 goal = new Vec3(goalX + 0.5, goalY + 0.15, goalZ + 0.5);
+        double distToGoal = pos.distanceTo(goal);
+
+        // Check if we should stop early based on momentum
+        if (shouldStopNow(mc, goal)) {
+            beginDecelerate(mc);
+            return;
+        }
+
+        if (wpIndex >= path.size()) {
+            // We have reached/passed the final waypoint's radius.
+            beginDecelerate(mc);
+            return;
+        }
+
+        // -- Determine next waypoint target --------------------------------
+        Node wp = path.get(wpIndex);
+        double dx = (wp.position.flooredX() + 0.5) - pos.x;
+        double dz = (wp.position.flooredZ() + 0.5) - pos.z;
+        double dyWp = wp.position.flooredY() + 0.15;
+
+        // -- Deceleration check ---------------------------------------------
+        if (wpIndex >= path.size() - 2 && shouldStopNow(mc, goal)) {
+            beginDecelerate(mc);
+            return;
+        }
+
+        // -- Rotation -------------------------------------------------------
+        if (useLookTargetRotation && lookTarget != null) {
+            rotateTowardLookTarget(mc, lookTarget);
+        } else if (distToGoal > 3.0) {
+            setHorizontalRotation(mc, dx, dz);
+        }
+        if (usePitchControl) {
+            mc.player.setXRot(targetPitch);
+            FailsafeManager.expectRotation(mc.player.getYRot(), targetPitch);
+        }
+
+        // -- Forward movement -----------------------------------------------
+        applyStrafingMovement(mc, dx, dz);
+        ClientUtils.setKeyMappingState(mc.options.keySprint, distToGoal > 5.0);
+        adjustVerticalKeysWithRaycast(mc, pos, dyWp);
+
+        // -- Stuck detection ------------------------------------------------
+        double moved = pos.distanceTo(lastPosCheck);
+        if (moved < 0.15) {
+            ticksSinceLastMove++;
+        } else {
+            ticksSinceLastMove = 0;
+            lastPosCheck = pos;
+            lastProgressTime = System.currentTimeMillis();
+        }
+
+        long stuckMs = System.currentTimeMillis() - lastProgressTime;
+        if (ticksSinceLastMove > TICKS_FOR_STUCK || stuckMs > STUCK_ABORT_MS) {
+            if (stuckMs > STUCK_ABORT_MS) {
+                if (mc.player != null) {
+                    dev.aether.util.ClientUtils.sendMessage(mc, "\u00A7cFly stuck! Aborting navigation.", false);
+                }
+                stop(mc);
+                return;
+            } else if (stuckMs > STUCK_CLIMB_MS) {
+                // Recovery: try climbing over the obstruction
+                ClientUtils.setKeyMappingState(mc.options.keyJump, true);
+                ClientUtils.setKeyMappingState(mc.options.keyShift, false);
+            }
+        }
+
+        // Periodic debug output
+        if (AetherConfig.SHOW_DEBUG.get()) {
+            ClientUtils.sendDebugMessage(mc, String.format(
+                    "fly wp=%d/%d dist=%.2f state=%s",
+                    Math.min(wpIndex + 1, path.size()), path.size(), distToGoal, state));
+        }
+    }
+
+    public void stop(Minecraft mc) {
+        state = State.IDLE;
+        RotationExecutor.stopRotating();
+        releaseAll(mc);
+    }
+
+    public void releaseAll(Minecraft mc) {
+        if (mc == null || mc.options == null)
+            return;
+        ClientUtils.setKeyMappingState(mc.options.keyUp, false);
+        ClientUtils.setKeyMappingState(mc.options.keyDown, false);
+        ClientUtils.setKeyMappingState(mc.options.keyLeft, false);
+        ClientUtils.setKeyMappingState(mc.options.keyRight, false);
+        ClientUtils.setKeyMappingState(mc.options.keyJump, false);
+        ClientUtils.setKeyMappingState(mc.options.keySprint, false);
+        ClientUtils.setKeyMappingState(mc.options.keyShift, false);
+    }
+
+    // --- Internal helpers ----------------------------------------------------
+
+    private void beginDecelerate(Minecraft mc) {
+        state = State.DECELERATING;
+        decelStartTime = System.currentTimeMillis();
+        releaseAll(mc);
+    }
+
+    private void tickDecelerate(Minecraft mc) {
+        if (mc.player == null) {
+            finish(mc);
+            return;
+        }
+        Vec3 vel = mc.player.getDeltaMovement();
+        boolean stopped = Math.abs(vel.x) < 0.05 && Math.abs(vel.z) < 0.05 && Math.abs(vel.y) < 0.05;
+        if (stopped || System.currentTimeMillis() - decelStartTime > 2000) {
+            finish(mc);
+        }
+    }
+
+    private void finish(Minecraft mc) {
+        RotationExecutor.stopRotating();
+        releaseAll(mc);
+        state = State.FINISHED;
+        if (onFinished != null) {
+            onFinished.run();
+        }
+    }
+
+    /**
+     * Sets only the player's yaw to face (dx, dz). Does not touch pitch.
+     * Yaw is smoothly lerped (25% per tick) toward the target to prevent snapping.
+     * Guard: skip update when the horizontal distance is too small.
+     */
+    private void setHorizontalRotation(Minecraft mc, double dx, double dz) {
+        if (mc.player == null)
+            return;
+        double horizDist = Math.sqrt(dx * dx + dz * dz);
+        if (horizDist < 3.0)
+            return; // rotation lock range - don't update yaw to avoid spinning near targets
+
+        float targetYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+
+        // Seed smoothed yaw from current player yaw on first call
+        if (smoothedYaw == Float.MAX_VALUE) {
+            smoothedYaw = mc.player.getYRot();
+        }
+
+        // Lerp by 25% each tick - fast enough to track direction, slow enough to not
+        // snap
+        float diff = net.minecraft.util.Mth.wrapDegrees(targetYaw - smoothedYaw);
+        smoothedYaw += diff * 0.25f;
+
+        mc.player.setYRot(smoothedYaw);
+        FailsafeManager.expectRotation(smoothedYaw, mc.player.getXRot());
+    }
+
+    private void rotateTowardLookTarget(Minecraft mc, Vec3 target) {
+        if (mc.player == null) {
+            return;
+        }
+
+        if (!RotationUtils.isLookingAt(mc.player.getYRot(), mc.player.getXRot(),
+                mc.player.getEyePosition(), target, 4.0f)) {
+            RotationManager.initiateRotation(mc, target, 50L);
+        }
+    }
+
+    private void applyStrafingMovement(Minecraft mc, double dx, double dz) {
+        float yawRad = (float) Math.toRadians(mc.player.getYRot());
+        double fX = -Math.sin(yawRad), fZ = Math.cos(yawRad);
+        double sX = -Math.sin(yawRad + Math.PI / 2), sZ = Math.cos(yawRad + Math.PI / 2);
+        double dotF = dx * fX + dz * fZ;
+        double dotS = dx * sX + dz * sZ;
+
+        ClientUtils.setKeyMappingState(mc.options.keyUp, dotF > 0.1);
+        ClientUtils.setKeyMappingState(mc.options.keyDown, dotF < -0.1);
+        ClientUtils.setKeyMappingState(mc.options.keyRight, dotS > 0.1);
+        ClientUtils.setKeyMappingState(mc.options.keyLeft, dotS < -0.1);
+    }
+
+    /**
+     * FarmHelper-style: raycast in front of the player to detect blocks,
+     * then decide whether to go up or down.
+     * This avoids drift from pitch-based steering.
+     */
+    private void adjustVerticalKeysWithRaycast(Minecraft mc, Vec3 pos, double waypointY) {
+        if (mc.player == null || mc.level == null)
+            return;
+
+        double dy = waypointY - pos.y;
+
+        // If waypoint is significantly above or below, prioritise that
+        if (dy > 0.75) {
+            ClientUtils.setKeyMappingState(mc.options.keyJump, true);
+            ClientUtils.setKeyMappingState(mc.options.keyShift, false);
+            return;
+        }
+        if (dy < -0.75 && mc.player.getAbilities().flying) {
+            ClientUtils.setKeyMappingState(mc.options.keyShift, true);
+            ClientUtils.setKeyMappingState(mc.options.keyJump, false);
+            return;
+        }
+
+        // Raycast at feet height and head height in the direction we're facing
+        float yaw = (float) Math.toRadians(mc.player.getYRot());
+        double lookX = -Math.sin(yaw);
+        double lookZ = Math.cos(yaw);
+
+        // Player feet/head positions
+        Vec3 feetPos = pos.add(0, 0.1, 0);
+        Vec3 headPos = pos.add(0, mc.player.getBbHeight() - 0.1, 0);
+
+        Vec3 feetEnd = feetPos.add(lookX * RAY_DIST, 0, lookZ * RAY_DIST);
+        Vec3 headEnd = headPos.add(lookX * RAY_DIST, 0, lookZ * RAY_DIST);
+
+        HitResult feetTrace = mc.level.clip(new ClipContext(feetPos, feetEnd,
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+        HitResult headTrace = mc.level.clip(new ClipContext(headPos, headEnd,
+                ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+
+        boolean blockAtFeet = feetTrace.getType() == HitResult.Type.BLOCK;
+        boolean blockAtHead = headTrace.getType() == HitResult.Type.BLOCK;
+
+        if (blockAtFeet && !blockAtHead) {
+            // Something blocking at feet level -> jump up
+            ClientUtils.setKeyMappingState(mc.options.keyJump, true);
+            ClientUtils.setKeyMappingState(mc.options.keyShift, false);
+        } else if (blockAtHead && !blockAtFeet) {
+            // Something blocking at head level -> sneak down
+            ClientUtils.setKeyMappingState(mc.options.keyShift, true);
+            ClientUtils.setKeyMappingState(mc.options.keyJump, false);
+        } else {
+            // No obstruction - small Y correction if needed
+            ClientUtils.setKeyMappingState(mc.options.keyJump, false);
+            ClientUtils.setKeyMappingState(mc.options.keyShift, false);
+        }
+    }
+
+    /**
+     * Predicts whether we will drift within STOP_THRESH of the goal after
+     * releasing keys (simplified: checks if current velocity would carry us there).
+     */
+    private boolean shouldStopNow(Minecraft mc, Vec3 goal) {
+        if (mc.player == null)
+            return false;
+        Vec3 vel = mc.player.getDeltaMovement();
+        // Creative flight decelerates roughly 0.09 per tick
+        // Predict where we'd be after coasting
+        double simX = mc.player.getX();
+        double simZ = mc.player.getZ();
+        double vx = vel.x, vz = vel.z;
+        for (int i = 0; i < 30; i++) {
+            simX += vx;
+            simZ += vz;
+            vx *= 0.91;
+            vz *= 0.91;
+            if (Math.abs(vx) < 0.01 && Math.abs(vz) < 0.01)
+                break;
+        }
+        double predictedDist = Math.sqrt(
+                (simX - goal.x) * (simX - goal.x) + (simZ - goal.z) * (simZ - goal.z));
+        return predictedDist < goalStopThreshold;
+    }
+}
+
+

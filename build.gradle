@@ -3,7 +3,7 @@ plugins {
     id 'maven-publish'
 }
 
-version = (findProperty('typicalfarmingmacro_version') ?: '0.0.0').toString()
+version = (findProperty('aether_version') ?: '0.0.0').toString()
 group = project.maven_group
 
 base {
@@ -43,32 +43,32 @@ dependencies {
     include "net.java.dev.jna:jna-platform:5.17.0"
 }
 
-def typicalfarmingmacroTranslationRepoRawUrl = providers.gradleProperty('typicalfarmingmacroTranslationRepoRawUrl')
-        .orElse(providers.environmentVariable('TFM_TRANSLATION_REPO_RAW_URL'))
-def typicalfarmingmacroTranslationLocales = providers.gradleProperty('typicalfarmingmacroTranslationLocales')
-        .orElse(providers.environmentVariable('TFM_TRANSLATION_LOCALES'))
-def generatedTfmLangDir = layout.buildDirectory.dir('generated/typicalfarmingmacro-lang')
+def aetherTranslationRepoRawUrl = providers.gradleProperty('aetherTranslationRepoRawUrl')
+        .orElse(providers.environmentVariable('AETHER_TRANSLATION_REPO_RAW_URL'))
+def aetherTranslationLocales = providers.gradleProperty('aetherTranslationLocales')
+        .orElse(providers.environmentVariable('AETHER_TRANSLATION_LOCALES'))
+def generatedAetherLangDir = layout.buildDirectory.dir('generated/aether-lang')
 
-tasks.register('fetchTfmLanguagePacks') {
+tasks.register('fetchAetherLanguagePacks') {
     group = 'resources'
-    description = 'Fetches optional Tfm language JSON files for inclusion in the mod jar.'
+    description = 'Fetches optional Aether language JSON files for inclusion in the mod jar.'
 
-    inputs.property('typicalfarmingmacroTranslationRepoRawUrl', typicalfarmingmacroTranslationRepoRawUrl.orNull ?: '')
-    inputs.property('typicalfarmingmacroTranslationLocales', typicalfarmingmacroTranslationLocales.orNull ?: '')
-    outputs.dir(generatedTfmLangDir)
+    inputs.property('aetherTranslationRepoRawUrl', aetherTranslationRepoRawUrl.orNull ?: '')
+    inputs.property('aetherTranslationLocales', aetherTranslationLocales.orNull ?: '')
+    outputs.dir(generatedAetherLangDir)
 
     doLast {
-        File outputRoot = generatedTfmLangDir.get().asFile
-        File langDir = new File(outputRoot, 'assets/typicalfarmingmacro/lang')
+        File outputRoot = generatedAetherLangDir.get().asFile
+        File langDir = new File(outputRoot, 'assets/aether/lang')
         if (outputRoot.exists()) {
             outputRoot.deleteDir()
         }
         langDir.mkdirs()
 
-        String rawBaseUrl = (typicalfarmingmacroTranslationRepoRawUrl.orNull ?: '').trim()
-        String rawLocales = (typicalfarmingmacroTranslationLocales.orNull ?: '').trim()
+        String rawBaseUrl = (aetherTranslationRepoRawUrl.orNull ?: '').trim()
+        String rawLocales = (aetherTranslationLocales.orNull ?: '').trim()
         if (rawBaseUrl.isEmpty() || rawLocales.isEmpty()) {
-            logger.lifecycle('Skipping Tfm language pack fetch; set -PtypicalfarmingmacroTranslationRepoRawUrl and -PtypicalfarmingmacroTranslationLocales to enable it.')
+            logger.lifecycle('Skipping Aether language pack fetch; set -PaetherTranslationRepoRawUrl and -PaetherTranslationLocales to enable it.')
             return
         }
 
@@ -81,7 +81,7 @@ tasks.register('fetchTfmLanguagePacks') {
                 .each { locale ->
                     URL url = new URL(normalizedBaseUrl + locale + '.json')
                     File target = new File(langDir, locale + '.json')
-                    logger.lifecycle("Fetching Tfm language pack ${locale} from ${url}")
+                    logger.lifecycle("Fetching Aether language pack ${locale} from ${url}")
                     String text
                     try {
                         text = url.getText('UTF-8')
@@ -93,7 +93,7 @@ tasks.register('fetchTfmLanguagePacks') {
                             throw new GradleException("Language pack ${locale} must be a JSON object.")
                         }
                     } catch (Exception ex) {
-                        throw new GradleException("Failed to fetch or parse Tfm language pack ${locale} from ${url}: ${ex.message}", ex)
+                        throw new GradleException("Failed to fetch or parse Aether language pack ${locale} from ${url}: ${ex.message}", ex)
                     }
 
                     target.setText(groovy.json.JsonOutput.prettyPrint(text), 'UTF-8')
@@ -102,13 +102,13 @@ tasks.register('fetchTfmLanguagePacks') {
 }
 
 processResources {
-    dependsOn tasks.named('fetchTfmLanguagePacks')
+    dependsOn tasks.named('fetchAetherLanguagePacks')
 
     inputs.property 'version', project.version
     inputs.property 'minecraft_version', project.minecraft_version
     inputs.property 'loader_version', project.loader_version
 
-    from(generatedTfmLangDir)
+    from(generatedAetherLangDir)
 
     filesMatching('fabric.mod.json') {
         expand 'version': project.version,

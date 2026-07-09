@@ -39,9 +39,9 @@ jobs:
           script: |
             const fs = require('fs');
             const content = fs.readFileSync('gradle.properties', 'utf8');
-            const match = content.match(/^typicalfarmingmacro_version\s*=\s*(.+)\s*$/m);
+            const match = content.match(/^aether_version\s*=\s*(.+)\s*$/m);
             if (!match) {
-              core.setFailed('typicalfarmingmacro_version was not found in gradle.properties');
+              core.setFailed('aether_version was not found in gradle.properties');
               return;
             }
 
@@ -70,12 +70,12 @@ jobs:
             core.setOutput('release_tag', releaseVersion);
 
       - name: Build with Gradle
-        run: ./gradlew build --no-daemon -Ptypicalfarmingmacro_version=${{ steps.vars.outputs.release_version }}
+        run: ./gradlew build --no-daemon -Paether_version=${{ steps.vars.outputs.release_version }}
 
       - name: Upload JAR Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: typicalfarmingmacro-${{ steps.vars.outputs.release_version }}
+          name: aether-${{ steps.vars.outputs.release_version }}
           path: build/libs/*.jar
 
       - name: Create Release
