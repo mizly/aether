@@ -108,10 +108,10 @@ public final class SkinFaceProvider {
         }
     }
 
-    private static int composite(int baseAbgr, int hatAbgr) {
-        float ha = ((hatAbgr >>> 24) & 0xFF) / 255f;
-        int br = baseAbgr & 0xFF, bg = (baseAbgr >>> 8) & 0xFF, bb = (baseAbgr >>> 16) & 0xFF;
-        int hr = hatAbgr & 0xFF, hg = (hatAbgr >>> 8) & 0xFF, hb = (hatAbgr >>> 16) & 0xFF;
+    private static int composite(int baseArgb, int hatArgb) {
+        float ha = ((hatArgb >>> 24) & 0xFF) / 255f;
+        int br = (baseArgb >>> 16) & 0xFF, bg = (baseArgb >>> 8) & 0xFF, bb = baseArgb & 0xFF;
+        int hr = (hatArgb >>> 16) & 0xFF, hg = (hatArgb >>> 8) & 0xFF, hb = hatArgb & 0xFF;
         int r = Math.round(hr * ha + br * (1f - ha));
         int g = Math.round(hg * ha + bg * (1f - ha));
         int b = Math.round(hb * ha + bb * (1f - ha));
