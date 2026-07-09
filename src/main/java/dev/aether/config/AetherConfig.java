@@ -169,6 +169,7 @@ public final class AetherConfig {
                         com.google.gson.JsonObject obj = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
                         obj.addProperty("bootstrapLicenseKey", "");
                         obj.addProperty("discordWebhookUrl", "");
+                        obj.addProperty("remoteControlBotToken", "");
                         obj.add("coopNames", new com.google.gson.JsonArray());
                         obj.addProperty("customUsername", "");
                         obj.addProperty("serverNick", "");
@@ -661,6 +662,15 @@ public final class AetherConfig {
         public static final IntEntry DISCORD_STATUS_UPDATE_TIME = Config.integer("discordStatusUpdateTime", 5).range(1,
                         60);
         public static final BooleanEntry SEND_DISCORD_STATUS = Config.bool("sendDiscordStatus", false);
+
+        // -- REMOTE CONTROL --------------------------------------------------------
+
+        public static final BooleanEntry REMOTE_CONTROL_ENABLED = Config.bool("remoteControlEnabled", false);
+        /** Persisted locally; sanitized when config profiles are exported. */
+        public static final StringEntry REMOTE_CONTROL_BOT_TOKEN = Config.string("remoteControlBotToken", "");
+        public static final StringEntry REMOTE_CONTROL_GUILD_ID = Config.string("remoteControlGuildId", "");
+        public static final StringEntry REMOTE_CONTROL_CHANNEL_ID = Config.string("remoteControlChannelId", "");
+        public static final StringEntry REMOTE_CONTROL_COMMAND_PREFIX = Config.string("remoteControlCommandPrefix", "!aether");
 
         // -- PROFIT / HUD ----------------------------------------------------------
 

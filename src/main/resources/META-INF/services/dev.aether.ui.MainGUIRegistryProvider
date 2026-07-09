@@ -16,6 +16,7 @@ dev.aether.ui.HumanizationRegistryProvider
 dev.aether.ui.MiscellaneousRegistryProvider
 dev.aether.ui.AutoCarnivalRegistryProvider
 dev.aether.ui.HudVisualsRegistryProvider
+dev.aether.ui.DiscordVisualsRegistryProvider
 dev.aether.ui.NickHiderVisualsRegistryProvider
 dev.aether.ui.FreecamVisualsRegistryProvider
 dev.aether.ui.FreelookVisualsRegistryProvider

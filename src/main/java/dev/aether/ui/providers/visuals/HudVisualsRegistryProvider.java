@@ -8,7 +8,6 @@ import dev.aether.ui.settings.ColorSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.MultiDropdownSetting;
 import dev.aether.ui.settings.SettingGroup;
-import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.TextSetting;
 import dev.aether.ui.settings.ToggleSetting;
 import net.minecraft.client.Minecraft;
@@ -130,31 +129,6 @@ public final class HudVisualsRegistryProvider extends AbstractVisualsRegistryPro
                             AetherConfig.INVENTORY_HUD_SHOW_ARMOR.set(v);
                             AetherConfig.save();
                         })));
-
-        SettingGroup discordStatus = SettingGroup.of(
-                "Discord Status",
-                "Sends macro status updates to a Discord webhook",
-                () -> AetherConfig.SEND_DISCORD_STATUS.get(),
-                v -> {
-                    AetherConfig.SEND_DISCORD_STATUS.set(v);
-                    AetherConfig.save();
-                });
-        discordStatus.add(new TextSetting("Webhook URL", "https://discord.com/api/webhooks/...",
-                () -> AetherConfig.DISCORD_WEBHOOK_URL.get(),
-                v -> {
-                    AetherConfig.DISCORD_WEBHOOK_URL.set(v);
-                    AetherConfig.save();
-                })
-                .visibleWhen(() -> AetherConfig.SEND_DISCORD_STATUS.get()));
-        discordStatus.add(new SliderSetting("Update Interval", 1, 60,
-                () -> (float) AetherConfig.DISCORD_STATUS_UPDATE_TIME.get(),
-                v -> {
-                    AetherConfig.DISCORD_STATUS_UPDATE_TIME.set(Math.round(v));
-                    AetherConfig.save();
-                })
-                .withDecimals(0).withSuffix(" min")
-                .visibleWhen(() -> AetherConfig.SEND_DISCORD_STATUS.get()));
-        groups.add(discordStatus);
 
         SettingGroup watermark = SettingGroup.alwaysOn(
                 "Watermark",
