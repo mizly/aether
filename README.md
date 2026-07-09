@@ -9,7 +9,7 @@
 </p>
 
 
-> greatest open source farming qol since farm helper!
+> greatest os farming mod since farm helper!
 
 ---
 
