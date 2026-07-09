@@ -9,6 +9,7 @@ import dev.aether.macro.FarmingMacroManager;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
+import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.pest.helpers.AutoSprayonatorManager;
 import dev.aether.modules.pest.helpers.GardenTimeManager;
@@ -473,6 +474,9 @@ public final class DynamicPestsManager {
         } finally {
             GearManager.swapToFarmingToolSync(client);
             if (macroWasRunning) {
+                // faceStraightDown() rotated us off the farming orientation; arm the mousemat
+                // reapply so farming resume snaps us back, matching the other resume paths.
+                SqueakyMousematManager.armReapplyAttempt();
                 client.execute(() -> FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig()));
                 MacroStateManager.setCurrentState(MacroState.State.FARMING);
             } else if (MacroStateManager.getCurrentState() != previousState) {
