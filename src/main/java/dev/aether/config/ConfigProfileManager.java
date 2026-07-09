@@ -117,6 +117,7 @@ public final class ConfigProfileManager {
             // Always blank sensitive fields
             obj.addProperty("bootstrapLicenseKey", "");
             obj.addProperty("discordWebhookUrl", "");
+            obj.addProperty("remoteControlBotToken", "");
             obj.add("coopNames", new com.google.gson.JsonArray());
             obj.addProperty("customUsername", "");
             obj.addProperty("serverNick", "");

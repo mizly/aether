@@ -36,3 +36,4 @@ dev.aether.ui.MenuColorsRegistryProvider
 dev.aether.ui.KeybindsSettingsRegistryProvider
 dev.aether.ui.LanguageSettingsRegistryProvider
 dev.aether.ui.ThemeOptionsSettingsRegistryProvider
+dev.aether.ui.RemoteControlSettingsRegistryProvider
