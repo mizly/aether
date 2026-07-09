@@ -641,12 +641,14 @@ public final class AutoCarnivalManager {
         int attempt = pendingReplayClickAttempts + 1;
         pendingReplayClickAttempts = attempt;
         pendingReplayClickReadyAt = now + REPLAY_CLICK_DELAY_MS;
-        client.execute(() -> {
-            if (client.player == null || client.getConnection() == null) {
-                return;
-            }
-            AccessorScreen.aether$defaultHandleGameClickEvent(clickEvent, client, client.screen);
-        });
+        if (!executeClickEventWithoutScreenFocus(client, clickEvent)) {
+            client.execute(() -> {
+                if (client.player == null || client.getConnection() == null) {
+                    return;
+                }
+                AccessorScreen.aether$defaultHandleGameClickEvent(clickEvent, client, client.screen);
+            });
+        }
 
         ClientUtils.sendDebugMessage(client,
                 "AutoCarnival: clicked cached Carnival Cowboy confirmation ("
@@ -1012,5 +1014,23 @@ public final class AutoCarnivalManager {
 
     private static boolean isAllowedServerClickEvent(ClickEvent clickEvent) {
         return clickEvent != null && clickEvent.action().isAllowedFromServer();
+    }
+
+    private static boolean executeClickEventWithoutScreenFocus(Minecraft client, ClickEvent clickEvent) {
+        if (!isAllowedServerClickEvent(clickEvent)) {
+            return false;
+        }
+
+        if (clickEvent instanceof ClickEvent.RunCommand runCommand) {
+            String command = runCommand.command();
+            if (command == null || command.isBlank()) {
+                return false;
+            }
+
+            ClientUtils.sendCommand(client, command);
+            return true;
+        }
+
+        return false;
     }
 }
