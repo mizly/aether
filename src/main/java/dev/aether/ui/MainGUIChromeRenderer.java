@@ -241,14 +241,18 @@ final class MainGUIChromeRenderer {
         float headSize = 20f;
         float gap = 7f;
         String hours = formatFarmedHours(MacroStateManager.getLifetimeRunningTime());
+        String label = "HOURS FARMED";
         float textSize = 12f;
-        float textW = nvg.textWidth(Fonts.BOLD, hours, textSize);
+        float labelSize = 8f;
+        float textW = Math.max(nvg.textWidth(Fonts.BOLD, hours, textSize), nvg.textWidth(Fonts.BOLD, label, labelSize));
         float total = headSize + gap + textW;
         float x = rightEdge - total;
         float cy = contY + MainGUI.TOP_BAR_H / 2f;
+        float textX = x + headSize + gap;
 
         SkinFaceProvider.render(nvg, x, cy - headSize / 2f, headSize, 1f);
-        nvg.text(Fonts.BOLD, hours, x + headSize + gap, cy - textSize / 2f, textSize, Theme.ACCENT_PRIMARY);
+        nvg.text(Fonts.BOLD, hours, textX, cy - textSize + 2f, textSize, Theme.ACCENT_PRIMARY);
+        nvg.text(Fonts.BOLD, label, textX, cy + 2f, labelSize, Theme.TEXT_TERTIARY);
     }
 
     private static String formatFarmedHours(long ms) {
