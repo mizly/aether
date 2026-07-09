@@ -11,6 +11,7 @@ public final class AetherTickHandlers {
     public static void register() {
         AetherKeybindHandler.register();
         AetherReconnectTickHandler.register();
+        AetherUpdateTickHandler.register();
         AetherWorldChangeTickHandler.register();
         AetherAutomationTickHandler.register();
         MovementPlaybackManager.register();
