@@ -30,7 +30,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -56,7 +55,6 @@ import java.util.regex.Pattern;
 public class VisitorsMacro {
 
     private static final Pattern ITEM_PATTERN = Pattern.compile("^(.+?)\\s+x([\\d,]+)$");
-    private static final Pattern HAT_PATTERN = Pattern.compile("(?i)(^|[^a-z])hats?([^a-z]|$)");
     private static final int ACCEPT_OFFER_SLOT = 29;
     private static final int REJECT_OFFER_SLOT = 33;
     private static final long COMPACTOR_GUI_TIMEOUT_MS = 2500L;
@@ -311,9 +309,6 @@ public class VisitorsMacro {
             return false;
         }
         MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(true));
-        if (clickMolbertHatIfPresent(client, visitorName)) {
-            MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false));
-        }
 
         // Read required items from "Accept Offer" lore
         List<ItemRequirement> requirements = readRequirements(client);
@@ -363,9 +358,6 @@ public class VisitorsMacro {
 
             if (!reopenVisitorGui(client, visitorName)) {
                 return false;
-            }
-            if (clickMolbertHatIfPresent(client, visitorName)) {
-                MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false));
             }
         }
 
@@ -1031,71 +1023,6 @@ public class VisitorsMacro {
             }
         });
         return true;
-    }
-
-    private static boolean clickMolbertHatIfPresent(Minecraft client, String visitorName) {
-        if (!stripColors(visitorName).toLowerCase(Locale.ROOT).contains("molbert"))
-            return false;
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen))
-            return false;
-
-        int hatSlot = -1;
-        for (int i = 0; i < screen.getMenu().slots.size(); i++) {
-            if (i == ACCEPT_OFFER_SLOT || i == REJECT_OFFER_SLOT)
-                continue;
-
-            Slot slot = screen.getMenu().slots.get(i);
-            if (!slot.hasItem())
-                continue;
-
-            if (itemMentionsHat(client, slot.getItem())) {
-                hatSlot = i;
-                break;
-            }
-        }
-
-        if (hatSlot < 0) {
-            ClientUtils.sendDebugMessage(client, "[VisitorsMacro] Molbert hat slot not found.");
-            return false;
-        }
-
-        int slotIndex = hatSlot;
-        client.execute(() -> {
-            if (client.screen instanceof AbstractContainerScreen<?> s) {
-                ClientUtils.performSlotClick(client, s, slotIndex, 0, ContainerInput.PICKUP);
-            }
-        });
-        ClientUtils.sendDebugMessage(client, "[VisitorsMacro] Clicked Molbert hat slot " + slotIndex + ".");
-        return true;
-    }
-
-    private static boolean itemMentionsHat(Minecraft client, ItemStack stack) {
-        if (stack == null || stack.isEmpty())
-            return false;
-        if (mentionsHat(stack.getHoverName().getString()))
-            return true;
-
-        ItemLore loreCmp = stack.get(DataComponents.LORE);
-        if (loreCmp != null) {
-            for (Component line : loreCmp.lines()) {
-                if (mentionsHat(line.getString()))
-                    return true;
-            }
-        }
-
-        List<Component> tooltipLines = stack.getTooltipLines(
-                net.minecraft.world.item.Item.TooltipContext.EMPTY,
-                client.player,
-                net.minecraft.world.item.TooltipFlag.NORMAL);
-        for (Component line : tooltipLines) {
-            if (mentionsHat(line.getString()))
-                return true;
-        }
-        return false;
-    }
-
-    private static boolean mentionsHat(String text) {
-        return text != null && HAT_PATTERN.matcher(stripColors(text)).find();
     }
 
     // -- Helpers --
