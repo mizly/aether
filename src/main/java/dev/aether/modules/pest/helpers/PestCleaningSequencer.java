@@ -20,8 +20,7 @@ public class PestCleaningSequencer {
             return;
         }
 
-        ClientUtils.sendDebugMessage(client,
-                "Disabling farming macro: Pest threshold reached, starting cleaning sequence for plot " + plot);
+        ClientUtils.sendDebugMessage("Disabling farming macro: Pest threshold reached, starting cleaning sequence for plot " + plot);
         client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
         PestManager.isCleaningInProgress = true;
         PestManager.clearCleaningTriggerPending();
@@ -35,8 +34,7 @@ public class PestCleaningSequencer {
                 if (MacroWorkerThread.shouldAbortTask(client))
                     return;
                 if (!dev.aether.util.CommandUtils.setSpawn(client)) {
-                    dev.aether.util.ClientUtils.sendMessage(client, 
-                                    "§c[Aether] /setspawn timed out - aborting pest cleaning to prevent roof spawn.", false);
+                    ClientUtils.sendMessage("§c[Aether] /setspawn timed out - aborting pest cleaning to prevent roof spawn.", false);
                     PestManager.isCleaningInProgress = false;
                     dev.aether.macro.MacroStateManager.setCurrentState(MacroState.State.FARMING);
                     return;
@@ -54,7 +52,7 @@ public class PestCleaningSequencer {
                     return;
 
                 PestPrepSwapManager.prepSwappedForCurrentPestCycle = false;
-                dev.aether.util.ClientUtils.sendMessage(client, "§6Starting Pest Cleaner script (" + currentInfestedPlot + ")...", true);
+                ClientUtils.sendMessage("§6Starting Pest Cleaner script (" + currentInfestedPlot + ")...", true);
                 if (MacroWorkerThread.shouldAbortTask(client))
                     return;
 
@@ -76,12 +74,11 @@ public class PestCleaningSequencer {
 
                     if (alreadyOnPlot && !forcePlotTpForCurrentPlot) {
                         String source = chatPlotMatch ? "chat" : "scoreboard";
-                        ClientUtils.sendDebugMessage(client, "Already on plot " + currentInfestedPlot + " (via " + source + "), skipping plottp.");
+                        ClientUtils.sendDebugMessage("Already on plot " + currentInfestedPlot + " (via " + source + "), skipping plottp.");
                     } else if (forcePlotTpForCurrentPlot) {
-                        ClientUtils.sendDebugMessage(client,
-                                "Already on plot " + currentInfestedPlot + ", but forcing plottp before starting destroyer.");
+                        ClientUtils.sendDebugMessage("Already on plot " + currentInfestedPlot + ", but forcing plottp before starting destroyer.");
                     } else {
-                        ClientUtils.sendDebugMessage(client, "Arriving at plot " + currentInfestedPlot + " before starting destroyer. (Score: " + currentPlot + ", FreshChat: " + (freshChatPlot != null ? freshChatPlot : "stale") + ")");
+                        ClientUtils.sendDebugMessage("Arriving at plot " + currentInfestedPlot + " before starting destroyer. (Score: " + currentPlot + ", FreshChat: " + (freshChatPlot != null ? freshChatPlot : "stale") + ")");
                     }
 
                     if (!alreadyOnPlot || forcePlotTpForCurrentPlot) {
@@ -91,16 +88,15 @@ public class PestCleaningSequencer {
                 }
 
                 if (deferLoadoutUntilAfterDiscoTeleport) {
-                    ClientUtils.sendDebugMessage(client,
-                            "Disco destination active: restoring pest loadout after plot teleport.");
+                    ClientUtils.sendDebugMessage("Disco destination active: restoring pest loadout after plot teleport.");
                     if (!restoreGearForCleaning(client))
                         return;
                 }
 
                 if (PestBonusManager.isBonusInactive) {
-                    dev.aether.util.ClientUtils.sendMessage(client, "§dBonus is INACTIVE! Triggering Phillip reactivation...", true);
+                    ClientUtils.sendMessage("§dBonus is INACTIVE! Triggering Phillip reactivation...", true);
                     PestBonusManager.isReactivatingBonus = true;
-                    ClientUtils.sendDebugMessage(client, "Using native Pest Destroyer for reactivation.");
+                    ClientUtils.sendDebugMessage("Using native Pest Destroyer for reactivation.");
                     client.execute(() -> PestDestroyer.start(client, plot));
                     return;
                 }
@@ -119,7 +115,7 @@ public class PestCleaningSequencer {
             if ((PestPrepSwapManager.prepSwappedForCurrentPestCycle
                     || LoadoutManager.trackedLoadoutSlot != targetSlot)
                     && targetSlot > 0) {
-                dev.aether.util.ClientUtils.sendMessage(client, "§eRestoring farming loadout (slot " + targetSlot + ") for vacuuming...", true);
+                ClientUtils.sendMessage("§eRestoring farming loadout (slot " + targetSlot + ") for vacuuming...", true);
                 client.execute(() -> GearManager.ensureLoadoutSlot(client, targetSlot));
 
                 // client.execute is async; wait for swap state to actually start so later waits
@@ -137,8 +133,7 @@ public class PestCleaningSequencer {
                     MacroWorkerThread.sleep(50);
 
                 if (LoadoutManager.isSwappingLoadout) {
-                    ClientUtils.sendDebugMessage(client,
-                            "§eLoadout swap wait timeout in cleaning sequence. Triggering failsafe completion.");
+                    ClientUtils.sendDebugMessage("§eLoadout swap wait timeout in cleaning sequence. Triggering failsafe completion.");
                     LoadoutManager.forceLoadoutCompletionFailsafe(client);
                 }
 
@@ -154,11 +149,11 @@ public class PestCleaningSequencer {
     }
 
     private static void startPestCleanerScript(Minecraft client, String currentInfestedPlot) {
-        ClientUtils.sendDebugMessage(client, "Ready to start pest cleaner");
+        ClientUtils.sendDebugMessage("Ready to start pest cleaner");
 
-        ClientUtils.sendDebugMessage(client, "Starting pest cleaner for plot " + currentInfestedPlot);
+        ClientUtils.sendDebugMessage("Starting pest cleaner for plot " + currentInfestedPlot);
 
-        ClientUtils.sendDebugMessage(client, "Using native Pest Destroyer.");
+        ClientUtils.sendDebugMessage("Using native Pest Destroyer.");
         client.execute(() -> PestDestroyer.start(client, currentInfestedPlot));
     }
 }

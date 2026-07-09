@@ -82,7 +82,8 @@ public final class AutoSprayonatorManager {
         return Math.max(0L, System.currentTimeMillis() - sprayNeededSinceMs);
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.player == null || client.getConnection() == null) return;
         if (!AetherConfig.AUTO_SPRAYONATOR.get()) return;
         if (running) return;
@@ -291,7 +292,7 @@ public final class AutoSprayonatorManager {
         if (configured.equalsIgnoreCase("use selected")) {
             if (currentMaterial != null) {
                 if (AetherConfig.SHOW_DEBUG.get()) {
-                    ClientUtils.sendDebugMessage(client, "Sprayonator material (using selected): " + currentMaterial);
+                    ClientUtils.sendDebugMessage("Sprayonator material (using selected): " + currentMaterial);
                 }
                 return true;
             }
@@ -301,7 +302,7 @@ public final class AutoSprayonatorManager {
 
         if (currentMaterial != null && currentMaterial.equalsIgnoreCase(configured)) {
             if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage(client, "Sprayonator material correct: " + currentMaterial);
+                ClientUtils.sendDebugMessage("Sprayonator material correct: " + currentMaterial);
             }
             return true;
         }
@@ -355,13 +356,13 @@ public final class AutoSprayonatorManager {
         String currentMaterial = getCurrentMaterial(client);
         if (currentMaterial != null && currentMaterial.equalsIgnoreCase(target)) {
             if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage(client, "Sprayonator material already correct: " + currentMaterial);
+                ClientUtils.sendDebugMessage("Sprayonator material already correct: " + currentMaterial);
             }
             return true;
         }
 
         if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage(client, "Sprayonator material target: " + target
+            ClientUtils.sendDebugMessage("Sprayonator material target: " + target
                     + ", current: " + (currentMaterial != null ? currentMaterial : "unknown"));
         }
         return cycleToMaterial(client, target, guiDelay);
@@ -473,6 +474,6 @@ public final class AutoSprayonatorManager {
     }
 
     private static void msg(Minecraft client, String text) {
-        ClientUtils.sendMessage(client, text);
+        ClientUtils.sendMessage(text);
     }
 }

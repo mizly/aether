@@ -80,7 +80,7 @@ public class AutoSellManager {
             }
         }
 
-        ClientUtils.sendMessage(client, "\u00A7cNPC shop coin limit reached. AutoSell disabled.", false);
+        ClientUtils.sendMessage("\u00A7cNPC shop coin limit reached. AutoSell disabled.", false);
     }
 
     private static boolean shouldAbort() {
@@ -121,14 +121,14 @@ public class AutoSellManager {
 
         if (System.currentTimeMillis() - lastSellTime < SELL_COOLDOWN_MS) {
             if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage(client, "checkBeforeVisitors: Cooldown active ("
+                ClientUtils.sendDebugMessage("checkBeforeVisitors: Cooldown active ("
                         + (SELL_COOLDOWN_MS - (System.currentTimeMillis() - lastSellTime)) + "ms left)");
             }
             return false;
         }
 
         if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage(client, "Checking inventory for AutoSell before visitors...");
+            ClientUtils.sendDebugMessage("Checking inventory for AutoSell before visitors...");
         }
 
         if (LoadoutManager.isSwappingLoadout
@@ -139,8 +139,7 @@ public class AutoSellManager {
 
         double ratio = getInventoryFullnessRatio(client);
         if (force || ratio >= AetherConfig.AUTO_SELL_THRESHOLD.get()) {
-            ClientUtils.sendDebugMessage(client,
-                    (force ? "Forced AutoSell" : "AutoSell threshold met (" + String.format("%.1f", ratio) + "%)")
+            ClientUtils.sendDebugMessage((force ? "Forced AutoSell" : "AutoSell threshold met (" + String.format("%.1f", ratio) + "%)")
                             + ", triggering before visitors...");
 
             if (Thread.currentThread().getName().equals("aether-worker")) {
@@ -151,7 +150,7 @@ public class AutoSellManager {
             }
             return true;
         } else if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage(client, "checkBeforeVisitors: Threshold not met ("
+            ClientUtils.sendDebugMessage("checkBeforeVisitors: Threshold not met ("
                     + String.format("%.1f", ratio) + "% < " + AetherConfig.AUTO_SELL_THRESHOLD.get() + "%)");
         }
         return false;
@@ -166,14 +165,14 @@ public class AutoSellManager {
 
         if (System.currentTimeMillis() - lastSellTime < SELL_COOLDOWN_MS) {
             if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage(client, "checkBeforePestTraps: Cooldown active ("
+                ClientUtils.sendDebugMessage("checkBeforePestTraps: Cooldown active ("
                         + (SELL_COOLDOWN_MS - (System.currentTimeMillis() - lastSellTime)) + "ms left)");
             }
             return false;
         }
 
         if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage(client, "Checking inventory for AutoSell before pest traps...");
+            ClientUtils.sendDebugMessage("Checking inventory for AutoSell before pest traps...");
         }
 
         if (LoadoutManager.isSwappingLoadout
@@ -184,8 +183,7 @@ public class AutoSellManager {
 
         double ratio = getInventoryFullnessRatio(client);
         if (force || ratio >= AetherConfig.AUTO_SELL_THRESHOLD.get()) {
-            ClientUtils.sendDebugMessage(client,
-                    (force ? "Forced AutoSell" : "AutoSell threshold met (" + String.format("%.1f", ratio) + "%)")
+            ClientUtils.sendDebugMessage((force ? "Forced AutoSell" : "AutoSell threshold met (" + String.format("%.1f", ratio) + "%)")
                             + ", triggering before pest traps...");
 
             if (!client.isSameThread()) {
@@ -196,7 +194,7 @@ public class AutoSellManager {
             }
             return true;
         } else if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage(client, "checkBeforePestTraps: Threshold not met ("
+            ClientUtils.sendDebugMessage("checkBeforePestTraps: Threshold not met ("
                     + String.format("%.1f", ratio) + "% < " + AetherConfig.AUTO_SELL_THRESHOLD.get() + "%)");
         }
         return false;
@@ -215,7 +213,8 @@ public class AutoSellManager {
                 || JunkManager.isPreparingToDrop;
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (!AetherConfig.AUTO_SELL.get() || client.player == null) {
             thresholdMetStartTime = 0;
             return;
@@ -232,7 +231,7 @@ public class AutoSellManager {
                 isPreparingToSell = false;
                 isSelling = false;
                 lastSellTime = System.currentTimeMillis();
-                ClientUtils.sendMessage(client, "\u00A7cAborting AutoSell due to priority event.", false);
+                ClientUtils.sendMessage("\u00A7cAborting AutoSell due to priority event.", false);
                 return;
             }
 
@@ -244,7 +243,7 @@ public class AutoSellManager {
                 if (elapsed > 2500 && elapsed < 2700) {
                     ClientUtils.sendCommand(client, "/boostercookie");
                 } else if (elapsed > 5000) {
-                    ClientUtils.sendDebugMessage(client, "AutoSell GUI failed to open after 5s. Finishing...");
+                    ClientUtils.sendDebugMessage("AutoSell GUI failed to open after 5s. Finishing...");
                     finishSelling(client);
                 }
             }
@@ -278,7 +277,7 @@ public class AutoSellManager {
         cancelRequested = false;
         wasRunningBeforeSell = MacroStateManager.isMacroRunning();
         wasTriggeredManually = isManual;
-        ClientUtils.sendMessage(client, "\u00A7eAuto-selling inventory contents...", false);
+        ClientUtils.sendMessage("\u00A7eAuto-selling inventory contents...", false);
 
         ClientUtils.forceReleaseKeys(client);
 
@@ -291,7 +290,7 @@ public class AutoSellManager {
             }
 
             if (MacroStateManager.getCurrentState() == MacroState.State.FARMING && !isNested) {
-                ClientUtils.sendDebugMessage(client, "Disabling farming macro: Preparing AutoSell");
+                ClientUtils.sendDebugMessage("Disabling farming macro: Preparing AutoSell");
                 client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
             }
 
@@ -322,20 +321,20 @@ public class AutoSellManager {
                 while (isSelling && !shouldAbort()) {
                     MacroWorkerThread.sleep(100);
                     if (System.currentTimeMillis() - interactionTime > 30000) {
-                        ClientUtils.sendDebugMessage(client, "NPC Autosell timed out.");
+                        ClientUtils.sendDebugMessage("NPC Autosell timed out.");
                         isSelling = false;
                     }
                 }
             }
 
             if (!shouldAbort() && AetherConfig.AUTO_SELL_BAZAAR.get()) {
-                ClientUtils.sendDebugMessage(client, "Bazaar phase safety delay...");
+                ClientUtils.sendDebugMessage("Bazaar phase safety delay...");
                 MacroWorkerThread.sleep(1000);
-                ClientUtils.sendDebugMessage(client, "Starting Bazaar Autosell phase...");
+                ClientUtils.sendDebugMessage("Starting Bazaar Autosell phase...");
                 try {
                     dev.aether.util.BazaarUtils.executeInstantSell(client);
                 } catch (Exception e) {
-                    ClientUtils.sendDebugMessage(client, "Bazaar autosell failed.");
+                    ClientUtils.sendDebugMessage("Bazaar autosell failed.");
                     e.printStackTrace();
                 }
             }
@@ -347,7 +346,7 @@ public class AutoSellManager {
 
             if (isNested) {
                 MacroStateManager.setCurrentState(previousState);
-                ClientUtils.sendMessage(client, "\u00A7aAuto-Sell finished. Resuming macro...", true);
+                ClientUtils.sendMessage("\u00A7aAuto-Sell finished. Resuming macro...", true);
             } else {
                 resumeAfterAutoSell(client);
             }
@@ -366,7 +365,7 @@ public class AutoSellManager {
         cancelRequested = false;
         wasRunningBeforeSell = MacroStateManager.isMacroRunning();
         wasTriggeredManually = isManual;
-        ClientUtils.sendMessage(client, "\u00A7eAuto-selling inventory contents...", false);
+        ClientUtils.sendMessage("\u00A7eAuto-selling inventory contents...", false);
 
         ClientUtils.forceReleaseKeys(client);
 
@@ -415,7 +414,7 @@ public class AutoSellManager {
         });
 
         if (!shouldAbort() && client.player != null) {
-            ClientUtils.sendMessage(client, "\u00A7aAuto-Sell finished. Resuming tasks...", true);
+            ClientUtils.sendMessage("\u00A7aAuto-Sell finished. Resuming tasks...", true);
         }
     }
 
@@ -475,7 +474,7 @@ public class AutoSellManager {
 
     public static void manualTrigger(Minecraft client) {
         if (client.player != null) {
-            ClientUtils.sendMessage(client, "\u00A7eManually triggering AutoSell...", false);
+            ClientUtils.sendMessage("\u00A7eManually triggering AutoSell...", false);
         }
         triggerSell(client, false, true);
     }

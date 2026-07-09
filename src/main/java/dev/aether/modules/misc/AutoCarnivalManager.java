@@ -126,7 +126,8 @@ public final class AutoCarnivalManager {
         resetSession();
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (!enabled) {
             return;
         }
@@ -230,8 +231,8 @@ public final class AutoCarnivalManager {
             replayPromptClicked = false;
             clearPendingReplayPrompt();
             waitingForNextShootoutUntilMs = 0L;
-            ClientUtils.sendMessage(client, "\u00A7eAuto Carnival ran out of Carnival Tickets. Stopping replay loop.", true);
-            ClientUtils.sendDebugMessage(client, "AutoCarnival: ticket gate detected, replay loop aborted.");
+            ClientUtils.sendMessage("\u00A7eAuto Carnival ran out of Carnival Tickets. Stopping replay loop.", true);
+            ClientUtils.sendDebugMessage("AutoCarnival: ticket gate detected, replay loop aborted.");
             exitCarnivalState(client, true);
             return;
         }
@@ -248,7 +249,7 @@ public final class AutoCarnivalManager {
 
         ClickEvent clickEvent = extractReplayClickEvent(message, isOptionPrompt);
         if (clickEvent == null) {
-            ClientUtils.sendDebugMessage(client, "AutoCarnival: confirmation message had no clickable event.");
+            ClientUtils.sendDebugMessage("AutoCarnival: confirmation message had no clickable event.");
             return;
         }
 
@@ -257,7 +258,7 @@ public final class AutoCarnivalManager {
         pendingReplayClickEventAt = now;
         pendingReplayClickReadyAt = now + REPLAY_CLICK_DELAY_MS;
         pendingReplayClickAttempts = 0;
-        ClientUtils.sendDebugMessage(client, "AutoCarnival: cached Carnival Cowboy prompt click and waiting 1s before retrying.");
+        ClientUtils.sendDebugMessage("AutoCarnival: cached Carnival Cowboy prompt click and waiting 1s before retrying.");
     }
 
     private static void queueReplayTask(Minecraft client) {
@@ -282,18 +283,18 @@ public final class AutoCarnivalManager {
 
             Entity cowboy = findCowboyEntity(client);
             if (cowboy == null) {
-                ClientUtils.sendDebugMessage(client, "AutoCarnival: Carnival Cowboy not found after shootout.");
+                ClientUtils.sendDebugMessage("AutoCarnival: Carnival Cowboy not found after shootout.");
                 return;
             }
 
             cowboy = prepareCowboyForInteractionWithRetries(client, cowboy, token);
             if (cowboy == null || !isReplayTaskCurrent(token)) {
-                ClientUtils.sendDebugMessage(client, "AutoCarnival: failed to prep Carnival Cowboy interaction.");
+                ClientUtils.sendDebugMessage("AutoCarnival: failed to prep Carnival Cowboy interaction.");
                 return;
             }
 
             if (!interactUntilReplayQueued(client, cowboy, token, NPC_INTERACTION_TIMEOUT_MS)) {
-                ClientUtils.sendDebugMessage(client, "AutoCarnival: no replay confirmation received from Carnival Cowboy.");
+                ClientUtils.sendDebugMessage("AutoCarnival: no replay confirmation received from Carnival Cowboy.");
             }
         } finally {
             replayTaskRunning = false;
@@ -330,14 +331,12 @@ public final class AutoCarnivalManager {
             if (!isEntityInRetryRange(client, entity, retryRange)
                     || !isLookingAt(client, entity, AetherConfig.VISITOR_FOV_RANGE.get())) {
                 if (prepRetries >= MAX_NPC_INTERACTION_RETRIES) {
-                    ClientUtils.sendDebugMessage(client,
-                            "AutoCarnival: interaction retries exceeded for Carnival Cowboy.");
+                    ClientUtils.sendDebugMessage("AutoCarnival: interaction retries exceeded for Carnival Cowboy.");
                     return false;
                 }
 
                 prepRetries++;
-                ClientUtils.sendDebugMessage(client,
-                        "AutoCarnival: re-prepping Carnival Cowboy interaction (" + prepRetries + "/"
+                ClientUtils.sendDebugMessage("AutoCarnival: re-prepping Carnival Cowboy interaction (" + prepRetries + "/"
                                 + MAX_NPC_INTERACTION_RETRIES + ").");
                 entity = prepareCowboyForInteraction(client, entity, getRetryRangeForAttempt(prepRetries), token);
                 if (entity == null) {
@@ -388,8 +387,7 @@ public final class AutoCarnivalManager {
             }
 
             if (attempt < MAX_NPC_INTERACTION_RETRIES) {
-                ClientUtils.sendDebugMessage(client,
-                        "AutoCarnival: initial prep retry (" + (attempt + 1) + "/"
+                ClientUtils.sendDebugMessage("AutoCarnival: initial prep retry (" + (attempt + 1) + "/"
                                 + MAX_NPC_INTERACTION_RETRIES + ") for Carnival Cowboy.");
                 MacroWorkerThread.sleep(250L);
             }
@@ -447,8 +445,7 @@ public final class AutoCarnivalManager {
         int y = target.getY();
         int z = target.getZ();
 
-        ClientUtils.sendDebugMessage(client,
-                "AutoCarnival: walking to Carnival Cowboy at " + x + ", " + y + ", " + z);
+        ClientUtils.sendDebugMessage("AutoCarnival: walking to Carnival Cowboy at " + x + ", " + y + ", " + z);
 
         try {
             final boolean latchSneak = retrySneakLatched;
@@ -629,7 +626,7 @@ public final class AutoCarnivalManager {
         }
 
         if (pendingReplayClickAttempts >= MAX_REPLAY_CLICK_ATTEMPTS) {
-            ClientUtils.sendDebugMessage(client, "AutoCarnival: replay prompt click retries exhausted.");
+            ClientUtils.sendDebugMessage("AutoCarnival: replay prompt click retries exhausted.");
             clearPendingReplayPrompt();
             return false;
         }
@@ -648,8 +645,7 @@ public final class AutoCarnivalManager {
             AccessorScreen.aether$defaultHandleGameClickEvent(clickEvent, client, client.screen);
         });
 
-        ClientUtils.sendDebugMessage(client,
-                "AutoCarnival: clicked cached Carnival Cowboy confirmation ("
+        ClientUtils.sendDebugMessage("AutoCarnival: clicked cached Carnival Cowboy confirmation ("
                         + attempt + "/" + MAX_REPLAY_CLICK_ATTEMPTS + ").");
         return false;
     }
@@ -816,7 +812,7 @@ public final class AutoCarnivalManager {
         replayPromptClicked = true;
         clearPendingReplayPrompt();
         waitingForNextShootoutUntilMs = System.currentTimeMillis() + REPLAY_START_GRACE_MS;
-        ClientUtils.sendDebugMessage(client, "AutoCarnival: replay round resumed.");
+        ClientUtils.sendDebugMessage("AutoCarnival: replay round resumed.");
     }
 
     private static void clearPendingReplayPrompt() {
@@ -880,7 +876,7 @@ public final class AutoCarnivalManager {
 
         lastDebugMessage = message;
         lastDebugMs = now;
-        ClientUtils.sendDebugMessage(client, message);
+        ClientUtils.sendDebugMessage(message);
     }
 
     private static void trackTokenEarned(String plainText) {

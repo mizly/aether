@@ -46,6 +46,6 @@ public final class UngrabMouseManager {
             UngrabMouse.clearVisualUngrab();
         }
 
-        ClientUtils.sendMessage(client, shouldEnable ? "§aUngrab mouse enabled." : "§cUngrab mouse disabled.");
+        ClientUtils.sendMessage(shouldEnable ? "§aUngrab mouse enabled." : "§cUngrab mouse disabled.");
     }
 }

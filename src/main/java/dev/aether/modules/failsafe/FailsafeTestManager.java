@@ -21,25 +21,28 @@ public final class FailsafeTestManager {
     private FailsafeTestManager() {
     }
 
-    public static void scheduleRotation(Minecraft client, float pitchDelta, float yawDelta) {
+    public static void scheduleRotation(float pitchDelta, float yawDelta) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.player == null) {
             return;
         }
 
         pendingTest = new RotationTest(pitchDelta, yawDelta);
-        ClientUtils.sendMessage(client, "\u00A7eRotation failsafe test in 5 seconds.", false);
+        ClientUtils.sendMessage("\u00A7eRotation failsafe test in 5 seconds.", false);
     }
 
-    public static void scheduleGuiFlash(Minecraft client, int durationTicks) {
+    public static void scheduleGuiFlash(int durationTicks) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.player == null) {
             return;
         }
 
         pendingTest = new GuiFlashTest(Math.max(1, durationTicks));
-        ClientUtils.sendMessage(client, "\u00A7eGUI failsafe test in 5 seconds.", false);
+        ClientUtils.sendMessage("\u00A7eGUI failsafe test in 5 seconds.", false);
     }
 
-    public static void scheduleInventorySlot(Minecraft client, int slot) {
+    public static void scheduleInventorySlot(int slot) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.player == null) {
             return;
         }
@@ -50,7 +53,7 @@ public final class FailsafeTestManager {
         }
 
         pendingTest = new InventorySlotTest(zeroBasedSlot);
-        ClientUtils.sendMessage(client, "\u00A7eInventory slot failsafe test in 5 seconds for slot " + slot + ".", false);
+        ClientUtils.sendMessage("\u00A7eInventory slot failsafe test in 5 seconds for slot " + slot + ".", false);
     }
 
     static void reset() {
@@ -82,7 +85,7 @@ public final class FailsafeTestManager {
         int secondsRemaining = Mth.ceil(pendingTest.ticksRemaining / (float) TICKS_PER_SECOND);
         if (secondsRemaining > 0 && secondsRemaining != pendingTest.lastAnnouncedSecond) {
             pendingTest.lastAnnouncedSecond = secondsRemaining;
-            ClientUtils.sendMessage(client, "\u00A7eFailsafe test triggering in " + secondsRemaining + "...", false);
+            ClientUtils.sendMessage("\u00A7eFailsafe test triggering in " + secondsRemaining + "...", false);
         }
 
         if (pendingTest.ticksRemaining > 0) {
@@ -121,8 +124,7 @@ public final class FailsafeTestManager {
         float pitch = Mth.clamp(client.player.getXRot() + pitchDelta, -90.0f, 90.0f);
         client.player.setYRot(yaw);
         client.player.setXRot(pitch);
-        ClientUtils.sendMessage(client,
-                String.format(java.util.Locale.US,
+        ClientUtils.sendMessage(String.format(java.util.Locale.US,
                         "\u00A7eApplied rotation test delta pitch %.1f yaw %.1f.", pitchDelta, yawDelta),
                 false);
     }
@@ -138,7 +140,7 @@ public final class FailsafeTestManager {
         activeGuiFlashScreen = screen;
         activeGuiFlashTicksRemaining = Math.max(1, durationTicks);
         client.setScreen(screen);
-        ClientUtils.sendMessage(client, "\u00A7eOpened invisible GUI test for " + durationTicks + " ticks.", false);
+        ClientUtils.sendMessage("\u00A7eOpened invisible GUI test for " + durationTicks + " ticks.", false);
     }
 
     private static void switchHotbarSlot(Minecraft client, int zeroBasedSlot) {
@@ -147,7 +149,7 @@ public final class FailsafeTestManager {
         }
 
         ClientUtils.performHotbarSlotClick(client, zeroBasedSlot);
-        ClientUtils.sendMessage(client, "\u00A7eSwitched hotbar to slot " + (zeroBasedSlot + 1) + ".", false);
+        ClientUtils.sendMessage("\u00A7eSwitched hotbar to slot " + (zeroBasedSlot + 1) + ".", false);
     }
 
     private abstract static class PendingTest {

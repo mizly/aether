@@ -22,7 +22,7 @@ public final class GardenTimeManager {
 
     public static boolean switchToDaytime(Minecraft client) {
         if (isDaytime(client)) {
-            ClientUtils.sendDebugMessage(client, "GardenTimeManager: daytime already active, skipping.");
+            ClientUtils.sendDebugMessage("GardenTimeManager: daytime already active, skipping.");
             return true;
         }
         return switchGardenTime(client, DAYTIME_SLOT, "daytime");
@@ -30,7 +30,7 @@ public final class GardenTimeManager {
 
     public static boolean switchToNightTime(Minecraft client) {
         if (isNightTime(client)) {
-            ClientUtils.sendDebugMessage(client, "GardenTimeManager: night time already active, skipping.");
+            ClientUtils.sendDebugMessage("GardenTimeManager: night time already active, skipping.");
             return true;
         }
         return switchGardenTime(client, NIGHTTIME_SLOT, "night time");
@@ -62,7 +62,7 @@ public final class GardenTimeManager {
             return false;
         }
 
-        ClientUtils.sendDebugMessage(client, "GardenTimeManager: switching garden time to " + label);
+        ClientUtils.sendDebugMessage("GardenTimeManager: switching garden time to " + label);
         ClientUtils.sendCommand(client, "/desk");
 
         if (!MacroWorkerThread.sleep(MENU_DELAY_MS)) {
@@ -70,7 +70,7 @@ public final class GardenTimeManager {
         }
 
         if (!clickSlot(client, TIME_MENU_SLOT)) {
-            ClientUtils.sendDebugMessage(client, "GardenTimeManager: failed to click desk slot " + TIME_MENU_SLOT);
+            ClientUtils.sendDebugMessage("GardenTimeManager: failed to click desk slot " + TIME_MENU_SLOT);
             return false;
         }
 
@@ -79,7 +79,7 @@ public final class GardenTimeManager {
         }
 
         if (!clickSlot(client, timeSlot)) {
-            ClientUtils.sendDebugMessage(client, "GardenTimeManager: failed to click time slot " + timeSlot);
+            ClientUtils.sendDebugMessage("GardenTimeManager: failed to click time slot " + timeSlot);
             return false;
         }
 

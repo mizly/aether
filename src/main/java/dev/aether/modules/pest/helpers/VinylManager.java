@@ -29,18 +29,18 @@ public final class VinylManager {
         long guiDelay = ClientUtils.getGuiClickDelayMs(true);
 
         if (isTargetVinylPlaying(client, targetVinyl)) {
-            ClientUtils.sendDebugMessage(client, "VinylManager: '" + targetVinyl + "' already playing, skipping.");
+            ClientUtils.sendDebugMessage("VinylManager: '" + targetVinyl + "' already playing, skipping.");
             return true;
         }
 
         if (!holdVacuum(client)) {
-            ClientUtils.sendMessage(client, "§cVacuum not found in hotbar. Cannot set vinyl.");
+            ClientUtils.sendMessage("§cVacuum not found in hotbar. Cannot set vinyl.");
             return false;
         }
 
-        ClientUtils.sendDebugMessage(client, "VinylManager: holding shift");
+        ClientUtils.sendDebugMessage("VinylManager: holding shift");
         ClientUtils.performShiftLeftClick(client);
-        ClientUtils.sendDebugMessage(client, "VinylManager: left click sent");
+        ClientUtils.sendDebugMessage("VinylManager: left click sent");
 
         long deadline = System.currentTimeMillis() + 5000L;
         while (System.currentTimeMillis() < deadline) {
@@ -52,14 +52,14 @@ public final class VinylManager {
         // Hypixel to close the container in response to the RELEASE_SHIFT_KEY packet.
         ClientUtils.releaseShiftKey(client);
         MacroWorkerThread.sleep(guiDelay);
-        ClientUtils.sendDebugMessage(client, "VinylManager: shift released");
+        ClientUtils.sendDebugMessage("VinylManager: shift released");
 
         if (!isStereoGuiOpen(client)) {
-            ClientUtils.sendMessage(client, "§cStereo Harmony GUI did not open.");
+            ClientUtils.sendMessage("§cStereo Harmony GUI did not open.");
             return false;
         }
 
-        ClientUtils.sendDebugMessage(client, "VinylManager: GUI open confirmed");
+        ClientUtils.sendDebugMessage("VinylManager: GUI open confirmed");
 
         MacroWorkerThread.sleep(guiDelay);
 
@@ -123,7 +123,7 @@ public final class VinylManager {
                     .anyMatch(line -> line.contains("PLAYING"));
 
             if (alreadyPlaying) {
-                ClientUtils.sendDebugMessage(client, "VinylManager: '" + targetVinyl + "' already playing, skipping.");
+                ClientUtils.sendDebugMessage("VinylManager: '" + targetVinyl + "' already playing, skipping.");
                 return true;
             }
 
@@ -133,7 +133,7 @@ public final class VinylManager {
             return true;
         }
 
-        ClientUtils.sendMessage(client, "§cVinyl '" + targetVinyl + "' not found in Stereo Harmony.");
+        ClientUtils.sendMessage("§cVinyl '" + targetVinyl + "' not found in Stereo Harmony.");
         return false;
     }
 

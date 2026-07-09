@@ -197,7 +197,7 @@ public final class EtherwarpExecutor {
         boolean handled = onFailed != null && Boolean.TRUE.equals(onFailed.apply(reason));
         if (mc != null) {
             if (!handled) {
-                ClientUtils.sendMessage(mc, "\u00A7c" + message, false);
+                ClientUtils.sendMessage("\u00A7c" + message, false);
             }
             if (mc.options != null) {
                 ClientUtils.setKeyMappingState(mc.options.keyUse, false);

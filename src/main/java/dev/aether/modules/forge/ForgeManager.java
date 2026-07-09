@@ -27,7 +27,7 @@ public class ForgeManager {
 
     public static void start(Minecraft client) {
         if (isRunning) {
-            ClientUtils.sendMessage(client, "§c[Aether] Forge: already running.", false);
+            ClientUtils.sendMessage("§c[Aether] Forge: already running.", false);
             return;
         }
         isRunning = true;
@@ -36,7 +36,7 @@ public class ForgeManager {
                 run(client);
             } catch (Exception e) {
                 e.printStackTrace();
-                ClientUtils.sendMessage(client, "§c[Aether] Forge error: " + e.getMessage(), false);
+                ClientUtils.sendMessage("§c[Aether] Forge error: " + e.getMessage(), false);
             } finally {
                 isRunning = false;
             }
@@ -52,9 +52,9 @@ public class ForgeManager {
         if (client.player == null) return;
 
         // Step 1: Warp to forge
-        ClientUtils.sendMessage(client, "§e[Aether] Warping to forge...", false);
+        ClientUtils.sendMessage("§e[Aether] Warping to forge...", false);
         if (!warpToForge(client)) {
-            ClientUtils.sendMessage(client, "§c[Aether] Forge warp timed out. Aborting.", false);
+            ClientUtils.sendMessage("§c[Aether] Forge warp timed out. Aborting.", false);
             return;
         }
         MacroWorkerThread.sleepRandom(680, 240);
@@ -62,11 +62,11 @@ public class ForgeManager {
         if (!isRunning) return;
 
         // Step 2: Walk to nearest walkable block near the Forger NPC
-        ClientUtils.sendMessage(client, "§e[Aether] Pathfinding to Forger NPC...", false);
+        ClientUtils.sendMessage("§e[Aether] Pathfinding to Forger NPC...", false);
         BlockPos walkTarget = findBestWalkingTarget(client, FORGE_NPC_X, FORGE_NPC_Y, FORGE_NPC_Z);
         if (walkTarget == null) walkTarget = new BlockPos(FORGE_NPC_X, FORGE_NPC_Y, FORGE_NPC_Z);
         if (!walkToCoords(client, walkTarget.getX(), walkTarget.getY(), walkTarget.getZ())) {
-            ClientUtils.sendMessage(client, "§c[Aether] Failed to reach Forger NPC. Aborting.", false);
+            ClientUtils.sendMessage("§c[Aether] Failed to reach Forger NPC. Aborting.", false);
             return;
         }
 
@@ -75,11 +75,11 @@ public class ForgeManager {
         // Step 3: Find the Forger NPC entity (exclude real players)
         Entity forger = findForgerNpc(client);
         if (forger == null) {
-            ClientUtils.sendMessage(client, "§c[Aether] Could not find Forger NPC. Aborting.", false);
+            ClientUtils.sendMessage("§c[Aether] Could not find Forger NPC. Aborting.", false);
             return;
         }
 
-        ClientUtils.sendDebugMessage(client, "[ForgeManager] Found Forger at " + forger.position());
+        ClientUtils.sendDebugMessage("[ForgeManager] Found Forger at " + forger.position());
 
         // Step 4: Rotate to face it
         faceEntity(client, forger);
@@ -87,13 +87,13 @@ public class ForgeManager {
         if (!isRunning) return;
 
         // Step 5: Right-click until GUI opens
-        ClientUtils.sendMessage(client, "§e[Aether] Opening forge menu...", false);
+        ClientUtils.sendMessage("§e[Aether] Opening forge menu...", false);
         if (!interactUntilGui(client, forger, 5000)) {
-            ClientUtils.sendMessage(client, "§c[Aether] Forge GUI did not open. Aborting.", false);
+            ClientUtils.sendMessage("§c[Aether] Forge GUI did not open. Aborting.", false);
             return;
         }
 
-        ClientUtils.sendMessage(client, "§a[Aether] Forge menu opened successfully.", false);
+        ClientUtils.sendMessage("§a[Aether] Forge menu opened successfully.", false);
         MacroWorkerThread.sleepRandom(255, 90);
 
         // Close the menu — we've confirmed it opened, nothing more to do yet

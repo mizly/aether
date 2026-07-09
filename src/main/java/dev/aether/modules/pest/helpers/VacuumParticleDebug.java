@@ -31,7 +31,8 @@ public final class VacuumParticleDebug {
     private VacuumParticleDebug() {
     }
 
-    public static void onClientTick(Minecraft client) {
+    public static void onClientTick() {
+        Minecraft client = Minecraft.getInstance();
         if (!AetherConfig.SHOW_DEBUG.get()) {
             if (capturing) {
                 reset();
@@ -41,23 +42,23 @@ public final class VacuumParticleDebug {
 
         if (client == null || client.player == null || client.options == null) {
             if (capturing) {
-                flush(client, "context lost");
+                flush("context lost");
             }
             return;
         }
 
         boolean active = isVacuumLeftClickActive(client);
         if (active && !capturing) {
-            beginCapture(client);
+            beginCapture();
             return;
         }
 
         if (!active && capturing) {
-            flush(client, "left click released");
+            flush("left click released");
         }
     }
 
-    public static void onParticlePacket(Minecraft client, ClientboundLevelParticlesPacket packet) {
+    public static void onParticlePacket(ClientboundLevelParticlesPacket packet) {
         if (!AetherConfig.SHOW_DEBUG.get() || packet == null) {
             return;
         }
@@ -102,7 +103,7 @@ public final class VacuumParticleDebug {
         return itemName.contains("vacuum");
     }
 
-    private static void beginCapture(Minecraft client) {
+    private static void beginCapture() {
         synchronized (CAPTURE_LOCK) {
             capturing = true;
             captureStartedAt = System.currentTimeMillis();
@@ -110,10 +111,10 @@ public final class VacuumParticleDebug {
             particleCount = 0;
             packetTypeCounts.clear();
         }
-        ClientUtils.sendDebugMessage(client, "VacuumParticleDebug: capture started");
+        ClientUtils.sendDebugMessage("VacuumParticleDebug: capture started");
     }
 
-    private static void flush(Minecraft client, String reason) {
+    private static void flush(String reason) {
         long durationMs;
         long capturedPacketCount;
         long capturedParticleCount;
@@ -128,8 +129,7 @@ public final class VacuumParticleDebug {
         }
 
         if (capturedPacketTypeCounts.isEmpty()) {
-            ClientUtils.sendDebugMessage(client,
-                    "VacuumParticleDebug: capture ended (" + reason + ") with no particle packets in " + durationMs + "ms");
+            ClientUtils.sendDebugMessage("VacuumParticleDebug: capture ended (" + reason + ") with no particle packets in " + durationMs + "ms");
             LOGGER.info("VacuumParticleDebug: no particle packets captured. reason={}, durationMs={}", reason, durationMs);
             return;
         }
@@ -139,10 +139,9 @@ public final class VacuumParticleDebug {
                 .map(e -> e.getKey() + "=" + e.getValue())
                 .collect(Collectors.joining(", "));
 
-        ClientUtils.sendDebugMessage(client,
-                "VacuumParticleDebug: captured " + capturedPacketTypeCounts.size() + " particle type(s), "
+        ClientUtils.sendDebugMessage("VacuumParticleDebug: captured " + capturedPacketTypeCounts.size() + " particle type(s), "
                         + capturedPacketCount + " packet(s), " + capturedParticleCount + " spawned particles in " + durationMs + "ms");
-        ClientUtils.sendDebugMessage(client, "VacuumParticleDebug: types: " + summary);
+        ClientUtils.sendDebugMessage("VacuumParticleDebug: types: " + summary);
 
         LOGGER.info("VacuumParticleDebug: reason={}, durationMs={}, packetTypes={}, packets={}, particles={}, types=[{}]",
                 reason, durationMs, capturedPacketTypeCounts.size(), capturedPacketCount, capturedParticleCount, summary);

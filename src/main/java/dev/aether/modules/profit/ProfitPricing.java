@@ -377,7 +377,7 @@ public final class ProfitPricing {
             return;
         }
 
-        ClientUtils.sendMessage(client, "§b[Pet XP Tracker] §fCurrently tracking:", false);
+        ClientUtils.sendMessage("§b[Pet XP Tracker] §fCurrently tracking:", false);
         for (String petConfig : AetherConfig.PET_TRACKER_LIST.get()) {
             PetInfo info = new PetInfo(petConfig);
             long lvl1Price = petLvl1Prices.getOrDefault(info.name, 0L);
@@ -388,8 +388,7 @@ public final class ProfitPricing {
             String lvlMaxStr = maxLevelPrice > 0 ? String.format("%,d", maxLevelPrice) : "not found";
             String marginStr = pricePerXp > 0 ? String.format("%.3f", pricePerXp) : "not fetched";
 
-            ClientUtils.sendMessage(client,
-                    info.name + "§f: §7L1: §6" + lvl1Str + " §7Max: §6" + lvlMaxStr + " §7-> §a"
+            ClientUtils.sendMessage(info.name + "§f: §7L1: §6" + lvl1Str + " §7Max: §6" + lvlMaxStr + " §7-> §a"
                             + marginStr + " §7C/XP",
                     false);
         }

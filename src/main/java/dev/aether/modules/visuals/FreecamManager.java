@@ -103,7 +103,7 @@ public final class FreecamManager {
     public static void toggle(Minecraft client) {
         if (!isFeatureEnabled()) {
             if (client != null) {
-                ClientUtils.sendMessage(client, "Turn the Freecam module on to use the freecam keybind.", false);
+                ClientUtils.sendMessage("Turn the Freecam module on to use the freecam keybind.", false);
             }
             return;
         }
@@ -120,7 +120,7 @@ public final class FreecamManager {
         cameraEntity.setPos(player.position());
         syncRotationState(cameraEntity, player.getYRot(), player.getXRot());
         cameraEntity.setDeltaMovement(Vec3.ZERO);
-        ClientUtils.sendMessage(client, "Teleported to player!", false);
+        ClientUtils.sendMessage("Teleported to player!", false);
     }
 
     public static void setEnabled(boolean shouldEnable) {
@@ -169,7 +169,7 @@ public final class FreecamManager {
         client.setCameraEntity(cameraEntity);
         enforceFirstPerson(client);
         clearLatchedInputState(client, player);
-        ClientUtils.sendMessage(client, "Freecam enabled!", false);
+        ClientUtils.sendMessage("Freecam enabled!", false);
     }
 
     private static void disable(Minecraft client, boolean dueToMissingWorld) {
@@ -187,7 +187,7 @@ public final class FreecamManager {
             }
             client.setCameraEntity(restore);
             if (!dueToMissingWorld) {
-                ClientUtils.sendMessage(client, "Freecam disabled!", false);
+                ClientUtils.sendMessage("Freecam disabled!", false);
             }
         }
 

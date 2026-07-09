@@ -155,13 +155,13 @@ final class ProfitChatParser {
         Matcher bazaarMatcher = BAZAAR_BUY_PATTERN.matcher(plainText);
         if (bazaarMatcher.find()) {
             if (MacroStateManager.getCurrentState() == MacroState.State.VISITING) {
-                ClientUtils.sendDebugMessage(Minecraft.getInstance(), "Bazaar buy ignored (Visiting state)");
+                ClientUtils.sendDebugMessage("Bazaar buy ignored (Visiting state)");
                 return;
             }
             try {
                 int count = Integer.parseInt(bazaarMatcher.group(1));
                 String itemName = bazaarMatcher.group(2).trim();
-                ClientUtils.sendDebugMessage(Minecraft.getInstance(), "Bazaar buy detected: " + count + "x " + itemName);
+                ClientUtils.sendDebugMessage("Bazaar buy detected: " + count + "x " + itemName);
                 sink.addDrop(itemName, -count);
                 lastBazaarSprayBuyTime = System.currentTimeMillis();
             } catch (Exception ignored) {
@@ -209,9 +209,9 @@ final class ProfitChatParser {
             String baitName = sprayMatcher.group(1).trim();
             long now = System.currentTimeMillis();
             if (now - lastBazaarSprayBuyTime < 15000) {
-                ClientUtils.sendDebugMessage(Minecraft.getInstance(), "Sprayonator use ignored due to recent Bazaar buy.");
+                ClientUtils.sendDebugMessage("Sprayonator use ignored due to recent Bazaar buy.");
             } else {
-                ClientUtils.sendDebugMessage(Minecraft.getInstance(), "Sprayonator use detected (" + baitName + ").");
+                ClientUtils.sendDebugMessage("Sprayonator use detected (" + baitName + ").");
                 sink.addDrop(baitName, -1);
             }
         }

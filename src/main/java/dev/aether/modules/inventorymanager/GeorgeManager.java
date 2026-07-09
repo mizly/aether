@@ -2,6 +2,9 @@ package dev.aether.modules.inventorymanager;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.config.ConfigHelpers;
+import dev.aether.macro.FarmingMacroManager;
+import dev.aether.macro.MacroState;
+import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
@@ -27,24 +30,24 @@ public class GeorgeManager {
     private static long lastGeorgeGuiCloseTime = 0;
     private static long lastGeorgeSequenceActionTime = 0;
 
-    private static dev.aether.macro.MacroState.State getPrepRequiredState() {
+    private static MacroState.State getPrepRequiredState() {
         return AetherConfig.FARM_WHILE_CALLING_GEORGE.get()
-                ? dev.aether.macro.MacroState.State.FARMING
-                : dev.aether.macro.MacroState.State.GEORGE;
+                ? MacroState.State.FARMING
+                : MacroState.State.GEORGE;
     }
 
     private static void pauseFarmingForGeorgeIfNeeded() {
         if (!AetherConfig.FARM_WHILE_CALLING_GEORGE.get()
-                && dev.aether.macro.MacroStateManager.getCurrentState() == dev.aether.macro.MacroState.State.FARMING) {
-            dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.GEORGE);
+                && MacroStateManager.getCurrentState() == MacroState.State.FARMING) {
+            MacroStateManager.setCurrentState(MacroState.State.GEORGE);
         }
     }
 
     private static void resumeFarmingAfterGeorgeWait(Minecraft client, String debugMessage) {
         if (AetherConfig.FARM_WHILE_CALLING_GEORGE.get()
-                && dev.aether.macro.MacroStateManager.getCurrentState() == dev.aether.macro.MacroState.State.GEORGE) {
-            dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.FARMING);
-            ClientUtils.sendDebugMessage(client, debugMessage);
+                && MacroStateManager.getCurrentState() == MacroState.State.GEORGE) {
+            MacroStateManager.setCurrentState(MacroState.State.FARMING);
+            ClientUtils.sendDebugMessage(debugMessage);
         }
     }
 
@@ -87,27 +90,26 @@ public class GeorgeManager {
         boolean isGeorgeInteractionGUI = isGeorgeInteractionScreen(title);
 
         if (!isSelling && !isPreparingToSell) {
-            if (!dev.aether.macro.MacroStateManager.isMacroRunning()) {
+            if (!MacroStateManager.isMacroRunning()) {
                 return;
             }
 
             if (isGeorgeGUI) {
-                ClientUtils.sendMessage(client,
-                        "\u00A7cUnexpected George GUI detected. Closing and returning to sequence...", false);
+                ClientUtils.sendMessage("\u00A7cUnexpected George GUI detected. Closing and returning to sequence...", false);
                 client.player.closeContainer();
 
                 MacroWorkerThread.getInstance().submit("George-UnexpectedGUI-Failsafe", () -> {
                     if (MacroWorkerThread.shouldAbortTask(client)) {
                         return;
                     }
-                    client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
+                    client.execute(() -> FarmingMacroManager.disable(client));
                     MacroWorkerThread.sleep(1000);
                     if (MacroWorkerThread.shouldAbortTask(client)) {
                         return;
                     }
-                    ClientUtils.sendDebugMessage(client, "Restarting macro after unexpected George GUI closure");
-                    client.execute(() -> dev.aether.macro.FarmingMacroManager.enable(client,
-                            dev.aether.macro.FarmingMacroManager.createMacroFromConfig()));
+                    ClientUtils.sendDebugMessage("Restarting macro after unexpected George GUI closure");
+                    client.execute(() -> FarmingMacroManager.enable(client,
+                            FarmingMacroManager.createMacroFromConfig()));
                 });
             }
             return;
@@ -120,9 +122,9 @@ public class GeorgeManager {
         }
 
         if (isSelling && isGeorgeGUI
-                && dev.aether.macro.MacroStateManager.getCurrentState() == dev.aether.macro.MacroState.State.FARMING) {
-            dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.GEORGE);
-            ClientUtils.sendMessage(client, "\u00A7eGeorge GUI detected. Pausing farming.", true);
+                && MacroStateManager.getCurrentState() == MacroState.State.FARMING) {
+            MacroStateManager.setCurrentState(MacroState.State.GEORGE);
+            ClientUtils.sendMessage("\u00A7eGeorge GUI detected. Pausing farming.", true);
         }
 
         long now = System.currentTimeMillis();
@@ -132,11 +134,11 @@ public class GeorgeManager {
 
         if (title.contains("offer pets") && interactionStage < 1) {
             interactionStage = 1;
-            ClientUtils.sendDebugMessage(client, "Stage 1: Offer pets menu detected");
+            ClientUtils.sendDebugMessage("Stage 1: Offer pets menu detected");
             interactionTime = now;
         } else if ((title.contains("confirm") || title.contains("are you sure")) && interactionStage < 3) {
             interactionStage = 3;
-            ClientUtils.sendDebugMessage(client, "Stage 3: confirm sale gui screen");
+            ClientUtils.sendDebugMessage("Stage 3: confirm sale gui screen");
             interactionTime = now;
         }
 
@@ -146,7 +148,7 @@ public class GeorgeManager {
                     int petSlotIdx = findPetSlotIdx(screen);
                     if (petSlotIdx != -1) {
                         String petName = screen.getMenu().slots.get(petSlotIdx).getItem().getHoverName().getString();
-                        ClientUtils.sendMessage(client, "\u00A7aSelling pet: " + petName, true);
+                        ClientUtils.sendMessage("\u00A7aSelling pet: " + petName, true);
                         ClientUtils.performSlotClick(client, screen, petSlotIdx, 0, ContainerInput.QUICK_MOVE);
                         interactionTime = now;
                         lastGeorgeSequenceActionTime = now;
@@ -160,7 +162,7 @@ public class GeorgeManager {
                 Slot slot13 = screen.getMenu().slots.size() > 13 ? screen.getMenu().slots.get(13) : null;
                 if (slot13 != null && slot13.hasItem() && isRatOrSlug(slot13.getItem())) {
                     interactionStage = 2;
-                    ClientUtils.sendDebugMessage(client, "Stage 2: rat/slug pet in slot 13");
+                    ClientUtils.sendDebugMessage("Stage 2: rat/slug pet in slot 13");
                     interactionTime = now;
                 } else {
                     int petSlotIdx = findPetSlotIdx(screen);
@@ -198,8 +200,8 @@ public class GeorgeManager {
     }
 
     private static boolean isPriorityEventActive(Minecraft client) {
-        dev.aether.macro.MacroState.State state = dev.aether.macro.MacroStateManager.getCurrentState();
-        if (state != dev.aether.macro.MacroState.State.FARMING && state != dev.aether.macro.MacroState.State.GEORGE) {
+        MacroState.State state = MacroStateManager.getCurrentState();
+        if (state != MacroState.State.FARMING && state != MacroState.State.GEORGE) {
             return true;
         }
         return PestManager.isCleaningInProgress
@@ -212,7 +214,8 @@ public class GeorgeManager {
                 || AutoSellManager.isPreparingToSell;
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (!shouldUseGeorgeAutomation() || client.player == null) {
             if (isSelling || isPreparingToSell) {
                 reset();
@@ -227,11 +230,11 @@ public class GeorgeManager {
         if (isPreparingToSell) {
             if (isPriorityEventActive(client)) {
                 isPreparingToSell = false;
-                if (dev.aether.macro.MacroStateManager.getCurrentState() == dev.aether.macro.MacroState.State.GEORGE) {
-                    dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.FARMING);
+                if (MacroStateManager.getCurrentState() == MacroState.State.GEORGE) {
+                    MacroStateManager.setCurrentState(MacroState.State.FARMING);
                 }
                 lastGeorgeSellAttemptTime = System.currentTimeMillis();
-                ClientUtils.sendMessage(client, "\u00A7cAborting George prep due to priority event.", false);
+                ClientUtils.sendMessage("\u00A7cAborting George prep due to priority event.", false);
             }
             return;
         }
@@ -241,10 +244,10 @@ public class GeorgeManager {
                 isSelling = false;
                 lastGeorgeGuiCloseTime = 0;
                 lastGeorgeSequenceActionTime = 0;
-                if (dev.aether.macro.MacroStateManager.getCurrentState() == dev.aether.macro.MacroState.State.GEORGE) {
-                    dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.FARMING);
+                if (MacroStateManager.getCurrentState() == MacroState.State.GEORGE) {
+                    MacroStateManager.setCurrentState(MacroState.State.FARMING);
                 }
-                ClientUtils.sendMessage(client, "\u00A7cAborting George sell due to priority event.", false);
+                ClientUtils.sendMessage("\u00A7cAborting George sell due to priority event.", false);
                 lastGeorgeSellAttemptTime = System.currentTimeMillis();
                 return;
             }
@@ -254,7 +257,7 @@ public class GeorgeManager {
 
                 if (interactionStage > 0) {
                     if (interactionStage >= 3) {
-                        ClientUtils.sendDebugMessage(client, "Stage 4: gui closed");
+                        ClientUtils.sendDebugMessage("Stage 4: gui closed");
                     }
                     interactionStage = 0;
                 }
@@ -276,13 +279,12 @@ public class GeorgeManager {
                 if (now - interactionTime > 1500) {
                     int remaining = countPetsInInventory(client);
                     if (remaining > 0) {
-                        ClientUtils.sendMessage(client,
-                                "\u00A77GUI closed, but " + remaining + " pets remain. Re-calling George...", false);
+                        ClientUtils.sendMessage("\u00A77GUI closed, but " + remaining + " pets remain. Re-calling George...", false);
                         interactionTime = now;
                         interactionStage = 0;
                         confirmationCount = 0;
                         lastGeorgeSequenceActionTime = 0;
-                        dev.aether.util.ClientUtils.sendCommand(client, "/call george");
+                        ClientUtils.sendCommand(client, "/call george");
                     } else {
                         finishSelling(client);
                     }
@@ -310,11 +312,11 @@ public class GeorgeManager {
         isPreparingToSell = false;
         lastGeorgeGuiCloseTime = 0;
         lastGeorgeSequenceActionTime = 0;
-        if (dev.aether.macro.MacroStateManager.getCurrentState() == dev.aether.macro.MacroState.State.GEORGE) {
-            dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.FARMING);
+        if (MacroStateManager.getCurrentState() == MacroState.State.GEORGE) {
+            MacroStateManager.setCurrentState(MacroState.State.FARMING);
         }
         lastGeorgeSellAttemptTime = System.currentTimeMillis();
-        ClientUtils.sendMessage(client, "\u00A7aGeorge autosell finished. Resuming tasks...", true);
+        ClientUtils.sendMessage("\u00A7aGeorge autosell finished. Resuming tasks...", true);
         client.execute(() -> GearManager.swapToFarmingTool(client));
     }
 
@@ -386,9 +388,9 @@ public class GeorgeManager {
 
     private static void triggerAutomaticSell(Minecraft client, int count) {
         if (AetherConfig.FARM_WHILE_CALLING_GEORGE.get()) {
-            ClientUtils.sendMessage(client, "\u00A7eGeorge sell threshold met. Starting prep while farming...", false);
+            ClientUtils.sendMessage("\u00A7eGeorge sell threshold met. Starting prep while farming...", false);
         } else {
-            ClientUtils.sendMessage(client, "\u00A7eGeorge sell threshold met. Pausing farming while calling George...", false);
+            ClientUtils.sendMessage("\u00A7eGeorge sell threshold met. Pausing farming while calling George...", false);
             pauseFarmingForGeorgeIfNeeded();
         }
 
@@ -404,7 +406,7 @@ public class GeorgeManager {
                             || MacroWorkerThread.shouldAbortTask(client, getPrepRequiredState())) {
                         break;
                     }
-                    ClientUtils.sendMessage(client, "\u00A7eCalling George in " + i + "s...", true);
+                    ClientUtils.sendMessage("\u00A7eCalling George in " + i + "s...", true);
                     MacroWorkerThread.sleep(1000);
                 }
 
@@ -416,11 +418,11 @@ public class GeorgeManager {
                     confirmationCount = 0;
                     lastGeorgeGuiCloseTime = 0;
                     lastGeorgeSequenceActionTime = 0;
-                    dev.aether.util.ClientUtils.sendCommand(client, "/call george");
+                    ClientUtils.sendCommand(client, "/call george");
                     if (AetherConfig.FARM_WHILE_CALLING_GEORGE.get()) {
-                        ClientUtils.sendMessage(client, "\u00A7aGeorge called. Continuing farming until GUI opens.", false);
+                        ClientUtils.sendMessage("\u00A7aGeorge called. Continuing farming until GUI opens.", false);
                     } else {
-                        ClientUtils.sendMessage(client, "\u00A7aGeorge called. Waiting for the GUI to open.", false);
+                        ClientUtils.sendMessage("\u00A7aGeorge called. Waiting for the GUI to open.", false);
                     }
                 }
             } catch (Exception e) {
@@ -442,10 +444,10 @@ public class GeorgeManager {
     }
 
     private static boolean shouldUseGeorgeAutomation() {
-        dev.aether.macro.MacroState.State state = dev.aether.macro.MacroStateManager.getCurrentState();
+        MacroState.State state = MacroStateManager.getCurrentState();
         return AetherConfig.AUTO_GEORGE_SELL.get()
-                && (state == dev.aether.macro.MacroState.State.FARMING
-                        || state == dev.aether.macro.MacroState.State.GEORGE);
+                && (state == MacroState.State.FARMING
+                        || state == MacroState.State.GEORGE);
     }
 
     private static String stripFormatting(String text) {

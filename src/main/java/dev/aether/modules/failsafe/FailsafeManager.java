@@ -330,25 +330,24 @@ public final class FailsafeManager {
                     (details + " " + actionDone).trim(),
                     shouldStopMacroOnTrigger(action));
         }
-        DiscordStatusManager.sendFailsafeAlert(client, details, actionDone);
+        DiscordStatusManager.sendFailsafeAlert(details, actionDone);
 
         if (shouldStopMacroOnTrigger(action)) {
-            ClientUtils.sendMessage(client, "\u00A7cFailsafe triggered: " + details + " Macro stopped.", false);
+            ClientUtils.sendMessage("\u00A7cFailsafe triggered: " + details + " Macro stopped.", false);
             MacroStateManager.stopMacro(client, debugReason, false);
             return;
         }
 
         if (action == FailsafeAction.CUSTOM) {
-            ClientUtils.sendMessage(client,
-                    "\u00A7eFailsafe triggered: " + details + " " + AetherLang.localize("Running custom replay."),
+            ClientUtils.sendMessage("\u00A7eFailsafe triggered: " + details + " " + AetherLang.localize("Running custom replay."),
                     false);
             FailsafeCustomReplayManager.playConfiguredReplay(client, replayType);
-            ClientUtils.sendDebugMessage(client, debugReason + " (custom replay)");
+            ClientUtils.sendDebugMessage(debugReason + " (custom replay)");
             return;
         }
 
-        ClientUtils.sendMessage(client, "\u00A7eFailsafe detected (ignored): " + details, false);
-        ClientUtils.sendDebugMessage(client, debugReason + " (ignored)");
+        ClientUtils.sendMessage("\u00A7eFailsafe detected (ignored): " + details, false);
+        ClientUtils.sendDebugMessage(debugReason + " (ignored)");
     }
 
     private static String getDefaultActionDone(FailsafeAction action) {

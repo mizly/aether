@@ -65,8 +65,7 @@ public final class AetherCommandRegistrar {
             }
             if (normalized.equals("aether debug path")) {
                 PathVisualizer.toggle();
-                ClientUtils.sendMessage(Minecraft.getInstance(),
-                        "\u00A7aPath visualizer: " + (PathVisualizer.isEnabled() ? "ON" : "OFF"), false);
+                ClientUtils.sendMessage("\u00A7aPath visualizer: " + (PathVisualizer.isEnabled() ? "ON" : "OFF"), false);
             }
             if (normalized.startsWith("aether pathtest ")) {
                 startPathTest(command);
@@ -79,14 +78,14 @@ public final class AetherCommandRegistrar {
             dispatcher.register(
                     ClientCommands.literal("aether")
                             .executes(ctx -> {
-                                AetherUiActions.toggleMainGui(Minecraft.getInstance());
+                                AetherUiActions.toggleMainGui();
                                 return 1;
                             })
                             .then(ClientCommands.literal("farming")
                                     .executes(ctx -> {
                                         Minecraft client = Minecraft.getInstance();
                                         if (MacroStateManager.getCurrentState() != MacroState.State.OFF) {
-                                            ClientUtils.sendMessage(client, "\u00A7cA macro is already running.", false);
+                                            ClientUtils.sendMessage("\u00A7cA macro is already running.", false);
                                             return 0;
                                         }
 
@@ -97,25 +96,23 @@ public final class AetherCommandRegistrar {
                                     .executes(ctx -> {
                                         Minecraft client = Minecraft.getInstance();
                                         if (MacroStateManager.getCurrentState() == MacroState.State.OFF) {
-                                            ClientUtils.sendMessage(client, "\u00A7eNo macro is currently running.", false);
+                                            ClientUtils.sendMessage("\u00A7eNo macro is currently running.", false);
                                             return 0;
                                         }
 
                                         MacroStateManager.stopMacro(client);
-                                        ClientUtils.sendMessage(client, "\u00A7eStopped active macro.", false);
+                                        ClientUtils.sendMessage("\u00A7eStopped active macro.", false);
                                         return 1;
                                     }))
                             .then(ClientCommands.literal("status")
                                     .executes(ctx -> {
                                         Minecraft client = Minecraft.getInstance();
-                                        if (DiscordStatusManager.requestManualStatusUpdate(client)) {
-                                            ClientUtils.sendMessage(client,
-                                                    "\u00A7eSending Discord webhook status update.", false);
+                                        if (DiscordStatusManager.requestManualStatusUpdate()) {
+                                            ClientUtils.sendMessage("\u00A7eSending Discord webhook status update.", false);
                                             return 1;
                                         }
 
-                                        ClientUtils.sendMessage(client,
-                                                "\u00A7cUnable to send Discord status update. Check your webhook URL or wait for the current screenshot to finish.",
+                                        ClientUtils.sendMessage("\u00A7cUnable to send Discord status update. Check your webhook URL or wait for the current screenshot to finish.",
                                                 false);
                                         return 0;
                                     }))
@@ -134,22 +131,22 @@ public final class AetherCommandRegistrar {
                                                     }))))
                             .then(ClientCommands.literal("movement")
                                     .executes(ctx -> {
-                                        sendMovementHelp(Minecraft.getInstance());
+                                        sendMovementHelp();
                                         return 1;
                                     })
                                     .then(ClientCommands.literal("record")
                                             .executes(ctx -> {
-                                                MovementPlaybackManager.startRecording(Minecraft.getInstance());
+                                                MovementPlaybackManager.startRecording();
                                                 return 1;
                                             }))
                                     .then(ClientCommands.literal("stop")
                                             .executes(ctx -> {
-                                                MovementPlaybackManager.stop(Minecraft.getInstance());
+                                                MovementPlaybackManager.stop();
                                                 return 1;
                                             }))
                                     .then(ClientCommands.literal("folder")
                                             .executes(ctx -> {
-                                                MovementPlaybackManager.openMovementFolder(Minecraft.getInstance());
+                                                MovementPlaybackManager.openMovementFolder();
                                                 return 1;
                                             }))
                                     .then(ClientCommands.literal("play")
@@ -157,12 +154,12 @@ public final class AetherCommandRegistrar {
                                                     .suggests((ctx, builder) -> suggestMovementReplays(builder))
                                                     .executes(ctx -> {
                                                         String replayFile = StringArgumentType.getString(ctx, "replay_file");
-                                                        MovementPlaybackManager.play(Minecraft.getInstance(), replayFile);
+                                                        MovementPlaybackManager.play(replayFile);
                                                         return 1;
                                                     }))))
                             .then(ClientCommands.literal("testfailsafe")
                                     .executes(ctx -> {
-                                        sendFailsafeTestHelp(Minecraft.getInstance());
+                                        sendFailsafeTestHelp();
                                         return 1;
                                     })
                                     .then(ClientCommands.literal("inventoryslot")
@@ -171,7 +168,7 @@ public final class AetherCommandRegistrar {
                                                             "1", "2", "3", "4", "5", "6", "7", "8", "9"))
                                                     .executes(ctx -> {
                                                         int slot = IntegerArgumentType.getInteger(ctx, "slot");
-                                                        FailsafeTestManager.scheduleInventorySlot(Minecraft.getInstance(), slot);
+                                                        FailsafeTestManager.scheduleInventorySlot(slot);
                                                         return 1;
                                                     })))
                                     .then(ClientCommands.literal("rotation")
@@ -183,31 +180,30 @@ public final class AetherCommandRegistrar {
                                                             .executes(ctx -> {
                                                                 float pitch = FloatArgumentType.getFloat(ctx, "pitch");
                                                                 float yaw = FloatArgumentType.getFloat(ctx, "yaw");
-                                                                FailsafeTestManager.scheduleRotation(Minecraft.getInstance(), pitch, yaw);
+                                                                FailsafeTestManager.scheduleRotation(pitch, yaw);
                                                                 return 1;
                                                             }))))
                                     .then(ClientCommands.literal("guiflash")
                                             .then(ClientCommands.argument("duration", IntegerArgumentType.integer(1))
                                                     .executes(ctx -> {
                                                         int duration = IntegerArgumentType.getInteger(ctx, "duration");
-                                                        FailsafeTestManager.scheduleGuiFlash(Minecraft.getInstance(), duration);
+                                                        FailsafeTestManager.scheduleGuiFlash(duration);
                                                         return 1;
                                                     }))))
                             .then(ClientCommands.literal("pathfind")
                                     .executes(ctx -> {
-                                        sendPathfindHelp(Minecraft.getInstance());
+                                        sendPathfindHelp();
                                         return 1;
                                     })
                                     .then(ClientCommands.literal("stop")
                                             .executes(ctx -> {
                                                 PathfindingManager.stop();
-                                                ClientUtils.sendMessage(Minecraft.getInstance(),
-                                                        "\u00A7ePathfinder stopped.", false);
+                                                ClientUtils.sendMessage("\u00A7ePathfinder stopped.", false);
                                                 return 1;
                                             }))
                                     .then(ClientCommands.literal("fly")
                                             .executes(ctx -> {
-                                                sendPathfindHelp(Minecraft.getInstance());
+                                                sendPathfindHelp();
                                                 return 1;
                                             })
                                             .then(ClientCommands.argument("x", IntegerArgumentType.integer())
@@ -223,7 +219,7 @@ public final class AetherCommandRegistrar {
                                                                     })))))
                                     .then(ClientCommands.literal("etherwarp")
                                             .executes(ctx -> {
-                                                sendPathfindHelp(Minecraft.getInstance());
+                                                sendPathfindHelp();
                                                 return 1;
                                             })
                                             .then(ClientCommands.argument("x", IntegerArgumentType.integer())
@@ -239,7 +235,7 @@ public final class AetherCommandRegistrar {
                                                                     })))))
                                     .then(ClientCommands.literal("walk")
                                             .executes(ctx -> {
-                                                sendPathfindHelp(Minecraft.getInstance());
+                                                sendPathfindHelp();
                                                 return 1;
                                             })
                                             .then(ClientCommands.argument("x", IntegerArgumentType.integer())
@@ -281,8 +277,7 @@ public final class AetherCommandRegistrar {
                                             })))
                             .then(ClientCommands.literal("bazaar")
                                     .executes(ctx -> {
-                                        ClientUtils.sendMessage(Minecraft.getInstance(),
-                                                "\u00A7eUsage: /aether bazaar <item> <count>", false);
+                                        ClientUtils.sendMessage("\u00A7eUsage: /aether bazaar <item> <count>", false);
                                         return 1;
                                     })
                                     .then(ClientCommands.argument("item", StringArgumentType.string())
@@ -294,8 +289,7 @@ public final class AetherCommandRegistrar {
                                                             if (!success) {
                                                                 Minecraft.getInstance().execute(() -> {
                                                                     if (Minecraft.getInstance().player != null) {
-                                                                        ClientUtils.sendMessage(Minecraft.getInstance(),
-                                                                                "\u00A7cBazaar buy failed.", false);
+                                                                        ClientUtils.sendMessage("\u00A7cBazaar buy failed.", false);
                                                                     }
                                                                 });
                                                             }
@@ -312,7 +306,7 @@ public final class AetherCommandRegistrar {
                                         Minecraft client = Minecraft.getInstance();
                                         if (PestDestroyer.isActive()) {
                                             PestDestroyer.stop(client);
-                                            ClientUtils.sendMessage(client, "\u00A7ePest Destroyer stopped.", false);
+                                            ClientUtils.sendMessage("\u00A7ePest Destroyer stopped.", false);
                                         } else {
                                             PestDestroyer.start(client);
                                         }
@@ -323,13 +317,13 @@ public final class AetherCommandRegistrar {
                                             .suggests((ctx, builder) -> suggestDynamicPestCrops(builder))
                                             .executes(ctx -> {
                                                 String crop = StringArgumentType.getString(ctx, "crop");
-                                                return triggerDynamicPest(Minecraft.getInstance(), crop);
+                                                return triggerDynamicPest(crop);
                                             })))
                             .then(ClientCommands.literal("autosell")
                                     .executes(ctx -> {
                                         Minecraft client = Minecraft.getInstance();
                                         if (AutoSellManager.isSelling || AutoSellManager.isPreparingToSell) {
-                                            ClientUtils.sendMessage(client, "\u00A7cAutoSell is already running.", false);
+                                            ClientUtils.sendMessage("\u00A7cAutoSell is already running.", false);
                                         } else {
                                             AutoSellManager.manualTrigger(client);
                                         }
@@ -342,22 +336,22 @@ public final class AetherCommandRegistrar {
                                     }))
                             .then(ClientCommands.literal("greenhouseharvest")
                                     .executes(ctx -> {
-                                        GreenhouseManager.harvest(Minecraft.getInstance());
+                                        GreenhouseManager.harvest();
                                         return 1;
                                     }))
                             .then(ClientCommands.literal("debugskulls")
                                     .executes(ctx -> {
-                                        GreenhouseManager.debugScanSkulls(Minecraft.getInstance());
+                                        GreenhouseManager.debugScanSkulls();
                                         return 1;
                                     }))
                             .then(ClientCommands.literal("composter")
                                     .executes(ctx -> {
-                                        ComposterManager.manualTrigger(Minecraft.getInstance());
+                                        ComposterManager.manualTrigger();
                                         return 1;
                                     }))
                             .then(ClientCommands.literal("supercraft")
                                     .executes(ctx -> {
-                                        SupercraftManager.manualTrigger(Minecraft.getInstance());
+                                        SupercraftManager.manualTrigger();
                                         return 1;
                                     }))
                             .then(ClientCommands.literal("refilltraps")
@@ -379,18 +373,18 @@ public final class AetherCommandRegistrar {
                                             })))
                             .then(ClientCommands.literal("config")
                                     .executes(ctx -> {
-                                        sendConfigHelp(Minecraft.getInstance());
+                                        sendConfigHelp();
                                         return 1;
                                     })
                                     .then(ClientCommands.literal("export")
-                                            .executes(ctx -> exportConfig(Minecraft.getInstance())))
+                                            .executes(ctx -> exportConfig()))
                                     .then(ClientCommands.literal("import")
                                             .executes(ctx -> {
-                                                sendConfigHelp(Minecraft.getInstance());
+                                                sendConfigHelp();
                                                 return 1;
                                             })
                                             .then(ClientCommands.argument("config_string", StringArgumentType.greedyString())
-                                                    .executes(ctx -> importConfig(Minecraft.getInstance(),
+                                                    .executes(ctx -> importConfig(
                                                             StringArgumentType.getString(ctx, "config_string")))))));
         });
     }
@@ -411,7 +405,7 @@ public final class AetherCommandRegistrar {
                 PathfindingManager.startDebugPathfind(Minecraft.getInstance(), x, y, z);
             }
         } catch (NumberFormatException ignored) {
-            ClientUtils.sendMessage(Minecraft.getInstance(), usage, false);
+            ClientUtils.sendMessage(usage, false);
         }
     }
 
@@ -427,60 +421,58 @@ public final class AetherCommandRegistrar {
             int z = Integer.parseInt(args[4]);
             PathfindingManager.startPathTest(Minecraft.getInstance(), x, y, z);
         } catch (NumberFormatException ignored) {
-            ClientUtils.sendMessage(Minecraft.getInstance(), "\u00A7eUsage: /aether pathtest <x> <y> <z>", false);
+            ClientUtils.sendMessage("\u00A7eUsage: /aether pathtest <x> <y> <z>", false);
         }
     }
 
-    private static void sendPathfindHelp(Minecraft client) {
-        ClientUtils.sendMessage(client, "\u00A7ePathfind commands:", false);
-        ClientUtils.sendMessage(client, "\u00A77  /aether pathfind \u00A7fx y z \u00A78- walk to coords", false);
-        ClientUtils.sendMessage(client, "\u00A77  /aether pathfind \u00A7fwalk x y z \u00A78- walk to coords", false);
-        ClientUtils.sendMessage(client, "\u00A77  /aether pathfind \u00A7ffly x y z \u00A78- fly to coords", false);
-        ClientUtils.sendMessage(client, "\u00A77  /aether pathfind \u00A7fetherwarp x y z \u00A78- etherwarp to coords", false);
-        ClientUtils.sendMessage(client, "\u00A77  /aether pathfind \u00A7fstop \u00A78- stop pathfinding", false);
+    private static void sendPathfindHelp() {
+        ClientUtils.sendMessage("\u00A7ePathfind commands:", false);
+        ClientUtils.sendMessage("\u00A77  /aether pathfind \u00A7fx y z \u00A78- walk to coords", false);
+        ClientUtils.sendMessage("\u00A77  /aether pathfind \u00A7fwalk x y z \u00A78- walk to coords", false);
+        ClientUtils.sendMessage("\u00A77  /aether pathfind \u00A7ffly x y z \u00A78- fly to coords", false);
+        ClientUtils.sendMessage("\u00A77  /aether pathfind \u00A7fetherwarp x y z \u00A78- etherwarp to coords", false);
+        ClientUtils.sendMessage("\u00A77  /aether pathfind \u00A7fstop \u00A78- stop pathfinding", false);
     }
 
-    private static void sendFailsafeTestHelp(Minecraft client) {
-        ClientUtils.sendMessage(client, "\u00A7eFailsafe test commands:", false);
-        ClientUtils.sendMessage(client, "\u00A77  /aether testfailsafe \u00A7finventoryslot <slot> \u00A78- switch hotbar slot", false);
-        ClientUtils.sendMessage(client, "\u00A77  /aether testfailsafe \u00A7frotation <pitch> <yaw>", false);
-        ClientUtils.sendMessage(client, "\u00A77  /aether testfailsafe \u00A7fguiflash <durationTicks>", false);
+    private static void sendFailsafeTestHelp() {
+        ClientUtils.sendMessage("\u00A7eFailsafe test commands:", false);
+        ClientUtils.sendMessage("\u00A77  /aether testfailsafe \u00A7finventoryslot <slot> \u00A78- switch hotbar slot", false);
+        ClientUtils.sendMessage("\u00A77  /aether testfailsafe \u00A7frotation <pitch> <yaw>", false);
+        ClientUtils.sendMessage("\u00A77  /aether testfailsafe \u00A7fguiflash <durationTicks>", false);
     }
 
-    private static void sendConfigHelp(Minecraft client) {
-        ClientUtils.sendMessage(client, "\u00A7eConfig commands:", false);
-        ClientUtils.sendMessage(client,
-                "\u00A77  /aether config \u00A7fexport \u00A78- copy your config to the clipboard", false);
-        ClientUtils.sendMessage(client,
-                "\u00A77  /aether config \u00A7fimport <string> \u00A78- apply a pasted config string", false);
+    private static void sendConfigHelp() {
+        ClientUtils.sendMessage("\u00A7eConfig commands:", false);
+        ClientUtils.sendMessage("\u00A77  /aether config \u00A7fexport \u00A78- copy your config to the clipboard", false);
+        ClientUtils.sendMessage("\u00A77  /aether config \u00A7fimport <string> \u00A78- apply a pasted config string", false);
     }
 
-    private static int exportConfig(Minecraft client) {
+    private static int exportConfig() {
+        Minecraft client = Minecraft.getInstance();
         String json = AetherConfig.exportSanitizedJson();
         client.keyboardHandler.setClipboard(json);
-        ClientUtils.sendMessage(client, String.format(
+        ClientUtils.sendMessage(String.format(
                 "\u00A7aConfig copied to clipboard (%d chars). Sensitive fields (license key, webhook, usernames) were blanked.",
                 json.length()), false);
         return 1;
     }
 
-    private static int importConfig(Minecraft client, String json) {
+    private static int importConfig(String json) {
         if (AetherConfig.importFromJson(json)) {
             AetherBootstrapHooks.onConfigProfileLoaded(AetherConfig.getConfigFile());
-            ClientUtils.sendMessage(client, "\u00A7aConfig imported and applied.", false);
+            ClientUtils.sendMessage("\u00A7aConfig imported and applied.", false);
             return 1;
         }
-        ClientUtils.sendMessage(client,
-                "\u00A7cConfig import failed - the string is not valid config JSON.", false);
+        ClientUtils.sendMessage("\u00A7cConfig import failed - the string is not valid config JSON.", false);
         return 0;
     }
 
-    private static void sendMovementHelp(Minecraft client) {
-        ClientUtils.sendMessage(client, "\u00A7eMovement commands:", false);
-        ClientUtils.sendMessage(client, "\u00A77  /aether movement \u00A7frecord \u00A78- record movement events", false);
-        ClientUtils.sendMessage(client, "\u00A77  /aether movement \u00A7fstop \u00A78- stop recording or playback", false);
-        ClientUtils.sendMessage(client, "\u00A77  /aether movement \u00A7ffolder \u00A78- open the movement folder", false);
-        ClientUtils.sendMessage(client, "\u00A77  /aether movement \u00A7fplay <replay_file> \u00A78- play a recording", false);
+    private static void sendMovementHelp() {
+        ClientUtils.sendMessage("\u00A7eMovement commands:", false);
+        ClientUtils.sendMessage("\u00A77  /aether movement \u00A7frecord \u00A78- record movement events", false);
+        ClientUtils.sendMessage("\u00A77  /aether movement \u00A7fstop \u00A78- stop recording or playback", false);
+        ClientUtils.sendMessage("\u00A77  /aether movement \u00A7ffolder \u00A78- open the movement folder", false);
+        ClientUtils.sendMessage("\u00A77  /aether movement \u00A7fplay <replay_file> \u00A78- play a recording", false);
     }
 
     private static int rotateToPitchYaw(Minecraft client, float pitch, float yaw) {
@@ -493,23 +485,21 @@ public final class AetherCommandRegistrar {
         }
 
         RotationManager.rotateToYawPitch(client, yaw, pitch, 0L);
-        ClientUtils.sendMessage(client,
-                String.format("\u00A7eRotating to pitch %.1f yaw %.1f.", pitch, yaw), false);
+        ClientUtils.sendMessage(String.format("\u00A7eRotating to pitch %.1f yaw %.1f.", pitch, yaw), false);
         return 1;
     }
 
     private static int printScoreboard(Minecraft client) {
         List<String> lines = ClientUtils.getSidebarLines(client);
         if (lines.isEmpty()) {
-            ClientUtils.sendMessage(client, "\u00A7c" + AetherLang.localize("No scoreboard lines found."), false);
+            ClientUtils.sendMessage("\u00A7c" + AetherLang.localize("No scoreboard lines found."), false);
             return 0;
         }
 
-        ClientUtils.sendMessage(client,
-                "\u00A7e" + AetherLang.localize("Scoreboard lines (%d):").formatted(lines.size()), false);
+        ClientUtils.sendMessage("\u00A7e" + AetherLang.localize("Scoreboard lines (%d):").formatted(lines.size()), false);
         for (int i = 0; i < lines.size(); i++) {
             String line = lines.get(i).isBlank() ? AetherLang.localize("[blank]") : lines.get(i);
-            ClientUtils.sendMessage(client, "\u00A77" + (i + 1) + ". " + line, false);
+            ClientUtils.sendMessage("\u00A77" + (i + 1) + ". " + line, false);
         }
         return 1;
     }
@@ -544,19 +534,18 @@ public final class AetherCommandRegistrar {
         return builder.buildFuture();
     }
 
-    private static int triggerDynamicPest(Minecraft client, String crop) {
+    private static int triggerDynamicPest(String crop) {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.getConnection() == null) {
             return 0;
         }
 
         if (DynamicPestsManager.triggerTestApply(client, crop)) {
-            ClientUtils.sendMessage(client,
-                    AetherLang.localize("Dynamic Pests test triggered for %s.").formatted(crop), false);
+            ClientUtils.sendMessage(AetherLang.localize("Dynamic Pests test triggered for %s.").formatted(crop), false);
             return 1;
         }
 
-        ClientUtils.sendMessage(client, AetherLang.localize("Unable to trigger Dynamic Pests test."), false);
+        ClientUtils.sendMessage(AetherLang.localize("Unable to trigger Dynamic Pests test."), false);
         return 0;
     }
 }
-

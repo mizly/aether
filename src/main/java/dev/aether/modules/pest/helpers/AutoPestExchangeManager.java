@@ -5,10 +5,12 @@ import dev.aether.config.ConfigHelpers;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
-import dev.aether.modules.gear.helpers.LoadoutManager;
+import dev.aether.macro.FarmingMacroManager;
 import dev.aether.modules.farming.SqueakyMousematManager;
+import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.util.ClientUtils;
+import dev.aether.util.CommandUtils;
 import net.minecraft.client.Minecraft;
 
 /**
@@ -65,7 +67,8 @@ public final class AutoPestExchangeManager {
         return isPendingTriggerReady(System.currentTimeMillis());
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.player == null || client.getConnection() == null) return;
         if (!AetherConfig.AUTO_PEST_EXCHANGE.get()) {
             bonusInactiveSinceMs = 0L;
@@ -128,8 +131,7 @@ public final class AutoPestExchangeManager {
         }
         if (MacroWorkerThread.getInstance().isBusy()) {
             MacroWorkerThread.getInstance().cancelCurrent();
-            ClientUtils.sendDebugMessage(client,
-                    "AutoPestExchange: cancelled queued worker tasks for priority.");
+            ClientUtils.sendDebugMessage("AutoPestExchange: cancelled queued worker tasks for priority.");
         }
 
         MacroStateManager.setCurrentState(MacroState.State.CLEANING);
@@ -155,14 +157,14 @@ public final class AutoPestExchangeManager {
             PestManager.isCleaningInProgress = true;
 
             msg(client, "\u00A7eBonus inactive detected. Running pest exchange...");
-            client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
+            client.execute(() -> FarmingMacroManager.disable(client));
             MacroWorkerThread.sleep(guiDelay);
 
             if (MacroWorkerThread.shouldAbortTask(client))
                 return;
 
             if (!AetherConfig.AUTO_PEST_USE_ABIPHONE.get()) {
-                if (!dev.aether.util.CommandUtils.setSpawn(client)) {
+                if (!CommandUtils.setSpawn(client)) {
                     msg(client, "\u00A7c/setspawn failed before pest exchange. Returning to farm.");
                     return;
                 }
@@ -177,7 +179,7 @@ public final class AutoPestExchangeManager {
                 return;
 
             if (!AetherConfig.AUTO_PEST_USE_ABIPHONE.get()) {
-                if (!dev.aether.util.CommandUtils.warpGarden(client)) {
+                if (!CommandUtils.warpGarden(client)) {
                     msg(client, "\u00A7c/warp garden failed after pest exchange.");
                     canResumeFarming = false;
                     return;
@@ -194,8 +196,8 @@ public final class AutoPestExchangeManager {
                 if (!AetherConfig.AUTO_PEST_USE_ABIPHONE.get()) {
                     SqueakyMousematManager.armReapplyAttempt();
                 }
-                client.execute(() -> dev.aether.macro.FarmingMacroManager.enable(client,
-                        dev.aether.macro.FarmingMacroManager.createMacroFromConfig()));
+                client.execute(() -> FarmingMacroManager.enable(client,
+                        FarmingMacroManager.createMacroFromConfig()));
                 MacroStateManager.setCurrentState(MacroState.State.FARMING);
             } else if (MacroStateManager.isMacroRunning() && !canResumeFarming) {
                 msg(client, "\u00A7cAuto pest exchange did not resume farming because garden warp failed.");
@@ -214,6 +216,6 @@ public final class AutoPestExchangeManager {
     }
 
     private static void msg(Minecraft client, String text) {
-        dev.aether.util.ClientUtils.sendMessage(client, text);
+        ClientUtils.sendMessage(text);
     }
 }

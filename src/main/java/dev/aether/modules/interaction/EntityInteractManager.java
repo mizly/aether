@@ -26,7 +26,7 @@ public final class EntityInteractManager {
 
         String targetName = entityName == null ? "" : entityName.trim();
         if (targetName.isEmpty()) {
-            ClientUtils.sendMessage(client, "\u00A7eUsage: /aether interact <entity_name>", false);
+            ClientUtils.sendMessage("\u00A7eUsage: /aether interact <entity_name>", false);
             return;
         }
 
@@ -36,13 +36,12 @@ public final class EntityInteractManager {
     private static void run(Minecraft client, String entityName) {
         Entity target = EntityUtils.findEntity(client, entityName);
         if (target == null) {
-            ClientUtils.sendMessage(client, "\u00A7cCould not find entity: \u00A7e" + entityName, false);
+            ClientUtils.sendMessage("\u00A7cCould not find entity: \u00A7e" + entityName, false);
             dumpNearbyEntityDebug(client, entityName, "initial lookup");
             return;
         }
 
-        ClientUtils.sendMessage(client,
-                "\u00A7ePathfinding to \u00A7e" + target.getName().getString() + "\u00A76...", false);
+        ClientUtils.sendMessage("\u00A7ePathfinding to \u00A7e" + target.getName().getString() + "\u00A76...", false);
 
         if (client.player.distanceTo(target) > INTERACT_RANGE_THRESHOLD) {
             BlockPos walkTarget = findBestWalkingTarget(client, target);
@@ -65,7 +64,7 @@ public final class EntityInteractManager {
 
             if (PathfindingManager.isNavigating()) {
                 PathfindingManager.stop();
-                ClientUtils.sendMessage(client, "\u00A7cTimed out pathfinding to entity: \u00A7e" + entityName, false);
+                ClientUtils.sendMessage("\u00A7cTimed out pathfinding to entity: \u00A7e" + entityName, false);
                 return;
             }
         }
@@ -74,12 +73,11 @@ public final class EntityInteractManager {
         if (refreshedTarget != null) {
             target = refreshedTarget;
         } else {
-            ClientUtils.sendDebugMessage(client, "Interact: target missing after pathing for \"" + entityName + "\"");
+            ClientUtils.sendDebugMessage("Interact: target missing after pathing for \"" + entityName + "\"");
             dumpNearbyEntityDebug(client, entityName, "post-path lookup");
         }
 
-        ClientUtils.sendMessage(client,
-                "\u00A7eInteracting with \u00A7e" + target.getName().getString() + "\u00A76...", false);
+        ClientUtils.sendMessage("\u00A7eInteracting with \u00A7e" + target.getName().getString() + "\u00A76...", false);
 
         Vec3 targetPos = new Vec3(target.getX(), target.getEyeY(), target.getZ());
         client.execute(() -> RotationManager.initiateRotation(client, targetPos, INTERACT_ROTATION_MS));
@@ -87,14 +85,13 @@ public final class EntityInteractManager {
 
         ClientUtils.performUseClick(client);
         MacroWorkerThread.sleepRandom(85, 30);
-        ClientUtils.sendMessage(client,
-                "\u00A7aInteracted with \u00A7e" + target.getName().getString(), false);
+        ClientUtils.sendMessage("\u00A7aInteracted with \u00A7e" + target.getName().getString(), false);
     }
 
     private static void dumpNearbyEntityDebug(Minecraft client, String entityName, String phase) {
-        ClientUtils.sendDebugMessage(client, "Interact: no match for \"" + entityName + "\" during " + phase);
+        ClientUtils.sendDebugMessage("Interact: no match for \"" + entityName + "\" during " + phase);
         for (String line : EntityUtils.describeNearbyEntities(client, 8.0, 12)) {
-            ClientUtils.sendDebugMessage(client, "Interact: " + line);
+            ClientUtils.sendDebugMessage("Interact: " + line);
         }
     }
 

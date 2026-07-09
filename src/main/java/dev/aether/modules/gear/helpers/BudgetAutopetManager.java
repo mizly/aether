@@ -21,7 +21,7 @@ public final class BudgetAutopetManager {
         }
 
         if (petName == null || petName.isBlank()) {
-            ClientUtils.sendDebugMessage(client, "BudgetAutopet: skipped " + triggerLabel + " because no pet name is set.");
+            ClientUtils.sendDebugMessage("BudgetAutopet: skipped " + triggerLabel + " because no pet name is set.");
             return;
         }
 
@@ -30,8 +30,7 @@ public final class BudgetAutopetManager {
             return;
         }
 
-        ClientUtils.sendDebugMessage(client,
-                "BudgetAutopet: opening Pets GUI for " + triggerLabel + " pet '" + petName + "'.");
+        ClientUtils.sendDebugMessage("BudgetAutopet: opening Pets GUI for " + triggerLabel + " pet '" + petName + "'.");
         ClientUtils.sendCommand(client, "/pets");
         MacroWorkerThread.sleep(500);
 
@@ -50,7 +49,7 @@ public final class BudgetAutopetManager {
 
         if (petsScreen == null) {
             if (!MacroWorkerThread.shouldAbortTask(client)) {
-                ClientUtils.sendDebugMessage(client, "BudgetAutopet: could not open Pets GUI.");
+                ClientUtils.sendDebugMessage("BudgetAutopet: could not open Pets GUI.");
             }
             return;
         }
@@ -86,21 +85,18 @@ public final class BudgetAutopetManager {
         }
 
         if (petSlot == -1) {
-            ClientUtils.sendDebugMessage(client,
-                    "BudgetAutopet: could not find pet matching '" + petName + "' in Pets GUI.");
+            ClientUtils.sendDebugMessage("BudgetAutopet: could not find pet matching '" + petName + "' in Pets GUI.");
             closePetsScreen(client);
             return;
         }
 
         if (alreadyEquipped) {
-            ClientUtils.sendDebugMessage(client,
-                    "BudgetAutopet: '" + petName + "' is already equipped for " + triggerLabel + ".");
+            ClientUtils.sendDebugMessage("BudgetAutopet: '" + petName + "' is already equipped for " + triggerLabel + ".");
             closePetsScreen(client);
             return;
         }
 
-        ClientUtils.sendDebugMessage(client,
-                "BudgetAutopet: equipping '" + petName + "' from slot " + petSlot + " for " + triggerLabel + ".");
+        ClientUtils.sendDebugMessage("BudgetAutopet: equipping '" + petName + "' from slot " + petSlot + " for " + triggerLabel + ".");
         final int slotToClick = petSlot;
         final AbstractContainerScreen<?> finalPetsScreen = petsScreen;
         client.execute(() -> ClientUtils.performSlotClick(client, finalPetsScreen, slotToClick, 0, ContainerInput.PICKUP));
@@ -127,8 +123,7 @@ public final class BudgetAutopetManager {
                     && client.screen == null
                     && !hasServerContainerOpen(client)) {
                 if (waited) {
-                    ClientUtils.sendDebugMessage(client,
-                            "BudgetAutopet: gear menu cleanup finished after "
+                    ClientUtils.sendDebugMessage("BudgetAutopet: gear menu cleanup finished after "
                                     + (System.currentTimeMillis() - start) + "ms for " + triggerLabel + ".");
                 }
                 return;
@@ -139,8 +134,7 @@ public final class BudgetAutopetManager {
         }
 
         if (waited && !MacroWorkerThread.shouldAbortTask(client)) {
-            ClientUtils.sendDebugMessage(client,
-                    "BudgetAutopet: continuing after gear menu cleanup wait timed out for " + triggerLabel + ".");
+            ClientUtils.sendDebugMessage("BudgetAutopet: continuing after gear menu cleanup wait timed out for " + triggerLabel + ".");
         }
     }
 

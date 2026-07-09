@@ -109,15 +109,14 @@ public final class SqueakyMousematManager {
                 break;
             }
 
-            ClientUtils.sendDebugMessage(client,
-                    "Mousemat rotation mismatch after use, retrying in 5s (" + attempt + "/" + MAX_MOUSEMAT_ATTEMPTS + ")");
+            ClientUtils.sendDebugMessage("Mousemat rotation mismatch after use, retrying in 5s (" + attempt + "/" + MAX_MOUSEMAT_ATTEMPTS + ")");
             if (!sleepMousematRetryDelay(client)) {
                 restoreFarmingToolIfExchangeHasPriority(client);
                 return false;
             }
         }
 
-        ClientUtils.sendDebugMessage(client, "Mousemat rotation mismatch after 3 attempts");
+        ClientUtils.sendDebugMessage("Mousemat rotation mismatch after 3 attempts");
         return false;
     }
 

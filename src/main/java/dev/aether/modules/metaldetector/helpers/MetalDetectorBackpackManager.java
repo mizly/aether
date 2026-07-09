@@ -55,7 +55,8 @@ public final class MetalDetectorBackpackManager {
         return phase != Phase.IDLE || getScavengedToolCount(client) >= 4;
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.player == null) {
             return;
         }
@@ -154,7 +155,7 @@ public final class MetalDetectorBackpackManager {
             return;
         }
 
-        ClientUtils.sendDebugMessage(client, "MetalDetectorBackpack: opening storage");
+        ClientUtils.sendDebugMessage("MetalDetectorBackpack: opening storage");
         ClientUtils.sendCommand(client, "/st");
         markActionPerformed();
         phase = Phase.WAITING_STORAGE_MENU;
@@ -199,11 +200,10 @@ public final class MetalDetectorBackpackManager {
         markActionPerformed();
 
         if (backpacks.isEmpty()) {
-            ClientUtils.sendMessage(client, "\u00A7cNo usable backpacks found in /st. Stopping macro.", false);
+            ClientUtils.sendMessage("\u00A7cNo usable backpacks found in /st. Stopping macro.", false);
             MacroStateManager.stopMacro(client, "MetalDetectorBackpack: no usable backpacks found");
         } else {
-            ClientUtils.sendDebugMessage(client,
-                    "MetalDetectorBackpack: found " + backpacks.size() + " usable backpacks");
+            ClientUtils.sendDebugMessage("MetalDetectorBackpack: found " + backpacks.size() + " usable backpacks");
         }
     }
 
@@ -218,7 +218,7 @@ public final class MetalDetectorBackpackManager {
             return;
         }
 
-        ClientUtils.sendDebugMessage(client, "MetalDetectorBackpack: opening backpack " + current.backpackNumber);
+        ClientUtils.sendDebugMessage("MetalDetectorBackpack: opening backpack " + current.backpackNumber);
         ClientUtils.sendCommand(client, "/bp " + current.backpackNumber);
         markActionPerformed();
         phase = Phase.WAITING_BACKPACK_MENU;
@@ -325,7 +325,7 @@ public final class MetalDetectorBackpackManager {
     }
 
     private static void stopForFullBackpacks(Minecraft client) {
-        ClientUtils.sendMessage(client, "\u00A7eAll known backpacks are full. Stopping macro.", false);
+        ClientUtils.sendMessage("\u00A7eAll known backpacks are full. Stopping macro.", false);
         MacroStateManager.stopMacro(client, "MetalDetectorBackpack: all backpacks are full");
     }
 

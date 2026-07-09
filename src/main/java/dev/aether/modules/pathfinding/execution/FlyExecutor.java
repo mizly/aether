@@ -232,7 +232,7 @@ public final class FlyExecutor {
         if (ticksSinceLastMove > TICKS_FOR_STUCK || stuckMs > STUCK_ABORT_MS) {
             if (stuckMs > STUCK_ABORT_MS) {
                 if (mc.player != null) {
-                    dev.aether.util.ClientUtils.sendMessage(mc, "\u00A7cFly stuck! Aborting navigation.", false);
+                    ClientUtils.sendMessage("\u00A7cFly stuck! Aborting navigation.", false);
                 }
                 stop(mc);
                 return;
@@ -245,7 +245,7 @@ public final class FlyExecutor {
 
         // Periodic debug output
         if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage(mc, String.format(
+            ClientUtils.sendDebugMessage(String.format(
                     "fly wp=%d/%d dist=%.2f state=%s",
                     Math.min(wpIndex + 1, path.size()), path.size(), distToGoal, state));
         }

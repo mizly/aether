@@ -1,13 +1,37 @@
 package dev.aether.macro;
 
-import net.minecraft.client.Minecraft;
 import dev.aether.util.ClientUtils;
 import dev.aether.config.AetherConfig;
+import dev.aether.modules.ComposterManager;
+import dev.aether.modules.GreenhouseManager;
+import dev.aether.modules.SupercraftManager;
 import dev.aether.modules.failsafe.FailsafeManager;
+import dev.aether.modules.farming.SqueakyMousematManager;
+import dev.aether.modules.farming.UngrabMouse;
+import dev.aether.modules.gear.GearManager;
+import dev.aether.modules.inventorymanager.AutoSellManager;
+import dev.aether.modules.inventorymanager.BookCombineManager;
+import dev.aether.modules.inventorymanager.GeorgeManager;
+import dev.aether.modules.inventorymanager.JunkManager;
 import dev.aether.modules.metaldetector.MetalDetectorSolver;
 import dev.aether.modules.misc.AutoCarnivalManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
+import dev.aether.modules.performance.MuteManager;
+import dev.aether.modules.performance.PerformanceModeManager;
+import dev.aether.modules.pest.PestManager;
+import dev.aether.modules.pest.helpers.AutoPestExchangeManager;
+import dev.aether.modules.pest.helpers.AutoSprayonatorManager;
+import dev.aether.modules.pest.helpers.PestDestroyer;
+import dev.aether.modules.pest.helpers.PestExchangeManager;
+import dev.aether.modules.pest.helpers.PestTrapManager;
+import dev.aether.modules.profit.ProfitManager;
 import dev.aether.modules.session.DailyFarmTimeTracker;
+import dev.aether.modules.session.DynamicRestManager;
+import dev.aether.modules.session.RecoveryManager;
+import dev.aether.modules.session.RestartManager;
+import dev.aether.modules.visitor.VisitorsMacro;
+import dev.aether.util.BpsTracker;
+import net.minecraft.client.Minecraft;
 
 public class MacroStateManager {
     private static volatile MacroState.State currentState = MacroState.State.OFF;
@@ -24,10 +48,10 @@ public class MacroStateManager {
             lastSessionStartTime = 0;
         }
         sessionAccumulated = 0;
-        dev.aether.modules.profit.ProfitManager.reset();
+        ProfitManager.reset();
         AutoCarnivalManager.resetTokenSession();
-        dev.aether.modules.session.DynamicRestManager.reset();
-        dev.aether.util.BpsTracker.reset();
+        DynamicRestManager.reset();
+        BpsTracker.reset();
     }
 
     public static void syncFromConfig() {
@@ -109,7 +133,7 @@ public class MacroStateManager {
             DailyFarmTimeTracker.onMacroStart();
             if (!AetherConfig.PERSIST_SESSION_TIMER.get()) {
                 sessionAccumulated = 0;
-                dev.aether.modules.profit.ProfitManager.reset();
+                ProfitManager.reset();
                 AutoCarnivalManager.resetTokenSession();
             }
             lastPeriodicSaveTime = System.currentTimeMillis();
@@ -137,16 +161,16 @@ public class MacroStateManager {
         if (state != MacroState.State.OFF) {
             runOnClientThread(client, () -> {
                 if (AetherConfig.MACRO_UNGRAB_MOUSE.get()) {
-                    dev.aether.modules.farming.UngrabMouse.requestMacroUngrab();
+                    UngrabMouse.requestMacroUngrab();
                 }
-                dev.aether.modules.performance.PerformanceModeManager.start(client);
-                dev.aether.modules.performance.MuteManager.start(client);
+                PerformanceModeManager.start(client);
+                MuteManager.start(client);
             });
         } else {
             runOnClientThread(client, () -> {
-                dev.aether.modules.farming.UngrabMouse.clearMacroUngrab();
-                dev.aether.modules.performance.PerformanceModeManager.stop(client);
-                dev.aether.modules.performance.MuteManager.stop(client);
+                UngrabMouse.clearMacroUngrab();
+                PerformanceModeManager.stop(client);
+                MuteManager.stop(client);
             });
         }
     }
@@ -166,43 +190,43 @@ public class MacroStateManager {
         MetalDetectorSolver.stopForMacro(client);
         AutoCarnivalManager.stopForMacro(client);
         FailsafeManager.reset();
-        dev.aether.modules.farming.SqueakyMousematManager.clearReapplyAttempt();
+        SqueakyMousematManager.clearReapplyAttempt();
         if (client != null) {
             client.execute(() -> {
                 if (closeScreen && client.screen != null) {
                     client.setScreen(null);
                 }
-                dev.aether.modules.farming.UngrabMouse.clearMacroUngrab();
+                UngrabMouse.clearMacroUngrab();
             });
         }
         setCurrentState(MacroState.State.OFF);
         ClientUtils.forceReleaseKeys(client);
-        ClientUtils.sendDebugMessage(client, debugReason);
-        dev.aether.modules.pest.PestManager.reset();
-        dev.aether.modules.pest.helpers.PestExchangeManager.stop();
-        dev.aether.modules.pest.helpers.PestDestroyer.stop(client);
-        dev.aether.modules.pest.helpers.PestTrapManager.cancel(client);
-        dev.aether.modules.inventorymanager.AutoSellManager.cancel(client);
-        dev.aether.modules.pest.helpers.AutoSprayonatorManager.cancel();
-        dev.aether.modules.pest.helpers.AutoSprayonatorManager.reset();
-        dev.aether.modules.pest.helpers.AutoPestExchangeManager.reset();
-        dev.aether.modules.GreenhouseManager.reset();
-        dev.aether.modules.ComposterManager.reset();
-        dev.aether.modules.SupercraftManager.reset();
-        dev.aether.modules.gear.GearManager.reset();
-        dev.aether.modules.inventorymanager.GeorgeManager.reset();
-        dev.aether.modules.inventorymanager.BookCombineManager.reset();
-        dev.aether.modules.inventorymanager.JunkManager.reset();
-        dev.aether.modules.session.RecoveryManager.reset();
-        dev.aether.modules.session.RestartManager.reset();
+        ClientUtils.sendDebugMessage(debugReason);
+        PestManager.reset();
+        PestExchangeManager.stop();
+        PestDestroyer.stop(client);
+        PestTrapManager.cancel(client);
+        AutoSellManager.cancel(client);
+        AutoSprayonatorManager.cancel();
+        AutoSprayonatorManager.reset();
+        AutoPestExchangeManager.reset();
+        GreenhouseManager.reset();
+        ComposterManager.reset();
+        SupercraftManager.reset();
+        GearManager.reset();
+        GeorgeManager.reset();
+        BookCombineManager.reset();
+        JunkManager.reset();
+        RecoveryManager.reset();
+        RestartManager.reset();
         if (!AetherConfig.PERSIST_SESSION_TIMER.get()) {
-            dev.aether.modules.session.DynamicRestManager.reset();
-            dev.aether.modules.profit.ProfitManager.reset();
+            DynamicRestManager.reset();
+            ProfitManager.reset();
             AutoCarnivalManager.resetTokenSession();
         }
         ReconnectScheduler.cancel();
-        dev.aether.modules.pathfinding.PathfindingManager.stop();
-        dev.aether.modules.visitor.VisitorsMacro.stop(client);
+        PathfindingManager.stop();
+        VisitorsMacro.stop(client);
     }
 
     private static void runOnClientThread(Minecraft client, Runnable action) {

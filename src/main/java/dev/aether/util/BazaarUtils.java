@@ -62,7 +62,7 @@ public final class BazaarUtils {
      */
     public static void buy(Minecraft client, String itemName, int count, Consumer<Boolean> callback) {
         if (isBuying) {
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Already buying, skipping.");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Already buying, skipping.");
             if (callback != null)
                 callback.accept(false);
             return;
@@ -98,7 +98,7 @@ public final class BazaarUtils {
      */
     public static void instantSell(Minecraft client, Consumer<Boolean> callback) {
         if (isSellingBazaar || isBuying) {
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Busy with another Bazaar operation.");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Busy with another Bazaar operation.");
             if (callback != null)
                 callback.accept(false);
             return;
@@ -130,75 +130,75 @@ public final class BazaarUtils {
         long longDelay = guiDelay + 250L;
 
         // Step 0: Wait for any existing screen to close
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Waiting for screen to close...");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Waiting for screen to close...");
         long screenCloseDeadline = System.currentTimeMillis() + 3000;
         while (client.screen != null && System.currentTimeMillis() < screenCloseDeadline) {
             MacroWorkerThread.sleep(100);
         }
         if (client.screen != null) {
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Screen still open after 3s, forcing close");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Screen still open after 3s, forcing close");
             closeScreen(client);
             MacroWorkerThread.sleep(fastDelay);
         }
 
         // Step 1: Open the Bazaar for this item
         msg(client, "\u00A7eOpening Bazaar for: \u00A7e" + itemName + " x" + count);
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Sending /bz command");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Sending /bz command");
         ClientUtils.sendCommand(client, "/bz " + itemName);
         MacroWorkerThread.sleep(longDelay);
 
         // Step 2: Wait for the Bazaar search result screen
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Waiting for Bazaar screen...");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Waiting for Bazaar screen...");
         if (!waitForContainerTitle(client, "Bazaar", 10_000)) {
             msg(client, "\u00A7cBazaar screen did not open. Aborting.");
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] STUCK: Bazaar screen never opened");
+            ClientUtils.sendDebugMessage("[BazaarUtils] STUCK: Bazaar screen never opened");
             closeScreen(client);
             return false;
         }
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Bazaar screen opened");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Bazaar screen opened");
         MacroWorkerThread.sleep(fastDelay);
 
         // Step 3: Find the matching item in the search results
         String target = stripColors(itemName).toLowerCase().trim();
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Searching for item: " + target);
+        ClientUtils.sendDebugMessage("[BazaarUtils] Searching for item: " + target);
         if (!clickMatchingSlot(client, target)) {
             msg(client, "\u00A7cCould not find '\u00A7e" + itemName + "\u00A7c' in Bazaar. Aborting.");
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] STUCK: Item not found in search results");
+            ClientUtils.sendDebugMessage("[BazaarUtils] STUCK: Item not found in search results");
             closeScreen(client);
             return false;
         }
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Clicked item, waiting for item page");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Clicked item, waiting for item page");
         MacroWorkerThread.sleep(fastDelay); // Wait for click to process
 
         // Step 4: Wait for item page by checking slot 10 for "Buy Instantly"
         if (!waitForBuyInstantlyStage(client, 8000)) {
             msg(client, "\u00A7cItem buy screen did not open. Aborting.");
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] STUCK: Buy Instantly stage never opened");
+            ClientUtils.sendDebugMessage("[BazaarUtils] STUCK: Buy Instantly stage never opened");
             closeScreen(client);
             return false;
         }
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Buy Instantly stage opened");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Buy Instantly stage opened");
         MacroWorkerThread.sleep(fastDelay);
 
         // Step 5: Click "Buy Instantly"
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Clicking Buy Instantly (slot " + SLOT_BUY_INSTANTLY + ")");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Clicking Buy Instantly (slot " + SLOT_BUY_INSTANTLY + ")");
         clickSlot(client, SLOT_BUY_INSTANTLY);
         MacroWorkerThread.sleep(fastDelay); // Wait for click to process
 
         // Step 6: Wait for the Instant Buy quantity screen
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Waiting for quantity selection screen...");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Waiting for quantity selection screen...");
         if (!waitForQuantityScreen(client, 8000)) {
             msg(client, "\u00A7cInstant Buy screen did not open. Aborting.");
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] STUCK: Instant Buy screen never opened");
+            ClientUtils.sendDebugMessage("[BazaarUtils] STUCK: Instant Buy screen never opened");
             closeScreen(client);
             return false;
         }
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Instant Buy screen opened");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Instant Buy screen opened");
         MacroWorkerThread.sleep(fastDelay);
 
         // Step 7: Pick quantity
         if (count == 1) {
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Selecting quantity: 1 (slot " + SLOT_QTY_1 + ")");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Selecting quantity: 1 (slot " + SLOT_QTY_1 + ")");
             clickSlot(client, SLOT_QTY_1);
             MacroWorkerThread.sleep(fastDelay); // Wait for click
             MacroWorkerThread.sleep(guiDelay);
@@ -206,40 +206,39 @@ public final class BazaarUtils {
             closeScreen(client);
             MacroWorkerThread.sleep(fastDelay);
             msg(client, "\u00A7aBazaar buy completed (\u00A7e" + count + "\u00A77).");
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Buy complete");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Buy complete");
             return true;
         } else if (count == 64) {
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Selecting quantity: 64 (slot " + SLOT_QTY_64 + ")");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Selecting quantity: 64 (slot " + SLOT_QTY_64 + ")");
             clickSlot(client, SLOT_QTY_64);
             MacroWorkerThread.sleep(fastDelay); // Wait for click
             MacroWorkerThread.sleep(guiDelay);
             closeScreen(client);
             MacroWorkerThread.sleep(fastDelay);
             msg(client, "\u00A7aBazaar buy completed (\u00A7e" + count + "\u00A77).");
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Buy complete");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Buy complete");
             return true;
         } else {
             // Custom amount - need to use the sign editor
-            ClientUtils.sendDebugMessage(client,
-                    "[BazaarUtils] Selecting custom quantity: " + count + " (slot " + SLOT_QTY_CUSTOM + ")");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Selecting custom quantity: " + count + " (slot " + SLOT_QTY_CUSTOM + ")");
             clickSlot(client, SLOT_QTY_CUSTOM);
             MacroWorkerThread.sleep(fastDelay); // Wait for click
             MacroWorkerThread.sleep(longDelay);
 
             // Wait for sign editor to appear
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Waiting for sign screen...");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Waiting for sign screen...");
             if (!waitForSignScreen(client, 5000)) {
                 msg(client, "\u00A7cSign screen did not open. Aborting.");
-                ClientUtils.sendDebugMessage(client, "[BazaarUtils] STUCK: Sign screen never opened");
+                ClientUtils.sendDebugMessage("[BazaarUtils] STUCK: Sign screen never opened");
                 closeScreen(client);
                 return false;
             }
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Sign screen opened, submitting amount");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Sign screen opened, submitting amount");
             MacroWorkerThread.sleep(fastDelay);
 
             // Type the amount into the sign
             submitSignAmount(client, count);
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Sign submitted");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Sign submitted");
             MacroWorkerThread.sleep(longDelay);
 
             return finishBuy(client, count, fastDelay, guiDelay);
@@ -261,20 +260,20 @@ public final class BazaarUtils {
             long longDelay = guiDelay + 250L;
 
             // Step 1: Open Bazaar
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Sending /bz command for instant sell");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Sending /bz command for instant sell");
             ClientUtils.sendCommand(client, "/bz");
             MacroWorkerThread.sleep(longDelay);
 
             // Step 2: Click "Sell Inventory Now"
             if (!waitForContainerTitle(client, "Bazaar", Math.max(100, globalDeadline - System.currentTimeMillis()))) {
-                ClientUtils.sendDebugMessage(client, "[BazaarUtils] Failed to open Bazaar menu (timeout)");
+                ClientUtils.sendDebugMessage("[BazaarUtils] Failed to open Bazaar menu (timeout)");
                 closeScreen(client);
                 return false;
             }
             MacroWorkerThread.sleep(fastDelay);
 
             if (!clickMatchingSlotInAny(client, "Sell Inventory Now")) {
-                ClientUtils.sendDebugMessage(client, "[BazaarUtils] Could not find 'Sell Inventory Now'");
+                ClientUtils.sendDebugMessage("[BazaarUtils] Could not find 'Sell Inventory Now'");
                 closeScreen(client);
                 return false;
             }
@@ -282,7 +281,7 @@ public final class BazaarUtils {
 
             // Check if "nothing to sell" appeared after click
             if (detectedNoItemsToSell) {
-                ClientUtils.sendDebugMessage(client, "[BazaarUtils] Nothing to sell detected after click. Aborting.");
+                ClientUtils.sendDebugMessage("[BazaarUtils] Nothing to sell detected after click. Aborting.");
                 closeScreen(client);
                 return true;
             }
@@ -291,13 +290,11 @@ public final class BazaarUtils {
             if (!waitForContainerTitle(client, "Are you sure?",
                     Math.max(100, globalDeadline - System.currentTimeMillis()))) {
                 if (detectedNoItemsToSell) {
-                    ClientUtils.sendDebugMessage(client,
-                            "[BazaarUtils] Nothing to sell detected while waiting for menu. Aborting.");
+                    ClientUtils.sendDebugMessage("[BazaarUtils] Nothing to sell detected while waiting for menu. Aborting.");
                     closeScreen(client);
                     return true;
                 }
-                ClientUtils.sendDebugMessage(client,
-                        "[BazaarUtils] Failed to open Sell Inventory menu (timeout). Current: "
+                ClientUtils.sendDebugMessage("[BazaarUtils] Failed to open Sell Inventory menu (timeout). Current: "
                                 + (client.screen != null ? client.screen.getTitle().getString() : "null"));
                 closeScreen(client);
                 return false;
@@ -305,28 +302,27 @@ public final class BazaarUtils {
             MacroWorkerThread.sleep(fastDelay);
 
             if (!clickMatchingSlotInAny(client, "Selling whole inventory")) {
-                ClientUtils.sendDebugMessage(client, "[BazaarUtils] Could not find 'Selling whole inventory'");
+                ClientUtils.sendDebugMessage("[BazaarUtils] Could not find 'Selling whole inventory'");
                 closeScreen(client);
                 return false;
             }
 
             // Step 4: Wait for chat detection
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Waiting for 'Executing instant sell...' in chat...");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Waiting for 'Executing instant sell...' in chat...");
             while (System.currentTimeMillis() < globalDeadline && !detectedInstantSell && !detectedNoItemsToSell) {
                 MacroWorkerThread.sleep(100);
             }
 
             if (detectedInstantSell) {
-                ClientUtils.sendDebugMessage(client, "[BazaarUtils] Instant sell complete.");
+                ClientUtils.sendDebugMessage("[BazaarUtils] Instant sell complete.");
             } else if (detectedNoItemsToSell) {
-                ClientUtils.sendDebugMessage(client, "[BazaarUtils] Nothing to sell detected during wait.");
+                ClientUtils.sendDebugMessage("[BazaarUtils] Nothing to sell detected during wait.");
             } else {
-                ClientUtils.sendDebugMessage(client,
-                        "[BazaarUtils] Timeout waiting for confirm message or process completion.");
+                ClientUtils.sendDebugMessage("[BazaarUtils] Timeout waiting for confirm message or process completion.");
             }
 
             // Safety delay to allow GUI transitions to settle
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] Concluding sequence, waiting 1s...");
+            ClientUtils.sendDebugMessage("[BazaarUtils] Concluding sequence, waiting 1s...");
             MacroWorkerThread.sleep(2000);
 
             closeScreen(client);
@@ -339,17 +335,16 @@ public final class BazaarUtils {
 
     private static boolean finishBuy(Minecraft client, int count, long fastDelay, long guiDelay) {
         // Wait for the Confirm screen
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Waiting for Confirm screen...");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Waiting for Confirm screen...");
         if (!waitForContainerTitle(client, "Confirm Instant Buy", 5000)) {
             // Some quantities skip the confirm screen and buy directly
-            ClientUtils.sendDebugMessage(client, "[BazaarUtils] No confirm screen - may have bought directly.");
+            ClientUtils.sendDebugMessage("[BazaarUtils] No confirm screen - may have bought directly.");
             closeScreen(client);
             MacroWorkerThread.sleep(fastDelay);
             msg(client, "\u00A7aBazaar buy completed (\u00A7e" + count + "\u00A77).");
             return true;
         }
-        ClientUtils.sendDebugMessage(client,
-                "[BazaarUtils] Confirm screen opened, clicking confirm (slot " + SLOT_CONFIRM + ")");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Confirm screen opened, clicking confirm (slot " + SLOT_CONFIRM + ")");
         MacroWorkerThread.sleep(fastDelay);
 
         // Click confirm
@@ -361,7 +356,7 @@ public final class BazaarUtils {
         closeScreen(client);
         MacroWorkerThread.sleep(fastDelay);
         msg(client, "\u00A7aBazaar buy completed (\u00A7e" + count + "\u00A77).");
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Buy complete");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Buy complete");
         return true;
     }
 
@@ -383,8 +378,7 @@ public final class BazaarUtils {
 
             // Priority 1: Exact Match
             if (name.equals(target)) {
-                ClientUtils.sendDebugMessage(client,
-                        "[BazaarUtils] Exact match found: '" + name + "' at slot " + slotIdx);
+                ClientUtils.sendDebugMessage("[BazaarUtils] Exact match found: '" + name + "' at slot " + slotIdx);
                 int finalSlotIdx = slotIdx;
                 client.execute(() -> {
                     if (client.screen instanceof AbstractContainerScreen<?> s) {
@@ -410,7 +404,7 @@ public final class BazaarUtils {
             String name = stripColors(slot.getItem().getHoverName().getString()).toLowerCase();
             if (name.contains(target)) {
                 int slotIdx = slot.index;
-                ClientUtils.sendDebugMessage(client, "[BazaarUtils] Found '" + targetName + "' at slot " + slotIdx);
+                ClientUtils.sendDebugMessage("[BazaarUtils] Found '" + targetName + "' at slot " + slotIdx);
                 client.execute(() -> {
                     if (client.screen instanceof AbstractContainerScreen<?> s) {
                         ClientUtils.performSlotClick(client, s, slotIdx, 0, ContainerInput.PICKUP);
@@ -428,16 +422,14 @@ public final class BazaarUtils {
                 if (slotIdx < s.getMenu().slots.size()) {
                     Slot slot = s.getMenu().slots.get(slotIdx);
                     String itemName = slot.hasItem() ? slot.getItem().getHoverName().getString() : "[empty]";
-                    ClientUtils.sendDebugMessage(client,
-                            "[BazaarUtils] Clicking slot " + slotIdx + ": " + stripColors(itemName));
+                    ClientUtils.sendDebugMessage("[BazaarUtils] Clicking slot " + slotIdx + ": " + stripColors(itemName));
                     ClientUtils.performSlotClick(client, s, slotIdx, 0, ContainerInput.PICKUP);
                 } else {
-                    ClientUtils.sendDebugMessage(client, "[BazaarUtils] ERROR: Slot " + slotIdx
+                    ClientUtils.sendDebugMessage("[BazaarUtils] ERROR: Slot " + slotIdx
                             + " out of bounds (size=" + s.getMenu().slots.size() + ")");
                 }
             } else {
-                ClientUtils.sendDebugMessage(client,
-                        "[BazaarUtils] ERROR: Not in container screen when trying to click");
+                ClientUtils.sendDebugMessage("[BazaarUtils] ERROR: Not in container screen when trying to click");
             }
         });
     }
@@ -451,21 +443,18 @@ public final class BazaarUtils {
             if (client.screen instanceof AbstractContainerScreen<?> screen) {
                 String title = stripColors(screen.getTitle().getString()).toLowerCase();
                 if (!title.equals(lastTitle)) {
-                    ClientUtils.sendDebugMessage(client,
-                            "[BazaarUtils] Current screen: '" + title + "' (waiting for '" + target + "')");
+                    ClientUtils.sendDebugMessage("[BazaarUtils] Current screen: '" + title + "' (waiting for '" + target + "')");
                     lastTitle = title;
                 }
                 if (title.contains(target))
                     return true;
             } else if (iterations % 20 == 0) {
-                ClientUtils.sendDebugMessage(client,
-                        "[BazaarUtils] No container screen open (waiting for '" + target + "')");
+                ClientUtils.sendDebugMessage("[BazaarUtils] No container screen open (waiting for '" + target + "')");
             }
             iterations++;
             MacroWorkerThread.sleep(TICK_MS);
         }
-        ClientUtils.sendDebugMessage(client,
-                "[BazaarUtils] Timeout waiting for '" + target + "'. Last screen: '" + lastTitle + "'");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Timeout waiting for '" + target + "'. Last screen: '" + lastTitle + "'");
         return false;
     }
 
@@ -489,20 +478,19 @@ public final class BazaarUtils {
                     if (customSlot.hasItem()) {
                         String itemName = stripColors(customSlot.getItem().getHoverName().getString()).toLowerCase();
                         if (itemName.contains("custom") || itemName.contains("amount") || itemName.contains("sign")) {
-                            ClientUtils.sendDebugMessage(client,
-                                    "[BazaarUtils] Detected quantity screen via slot 16: " + itemName);
+                            ClientUtils.sendDebugMessage("[BazaarUtils] Detected quantity screen via slot 16: " + itemName);
                             return true;
                         }
                     }
                 }
             }
             if (iterations % 20 == 0) {
-                ClientUtils.sendDebugMessage(client, "[BazaarUtils] Waiting for quantity screen (checking slot 16)...");
+                ClientUtils.sendDebugMessage("[BazaarUtils] Waiting for quantity screen (checking slot 16)...");
             }
             iterations++;
             MacroWorkerThread.sleep(TICK_MS);
         }
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Timeout waiting for quantity screen");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Timeout waiting for quantity screen");
         return false;
     }
 
@@ -516,20 +504,19 @@ public final class BazaarUtils {
                     if (buySlot.hasItem()) {
                         String itemName = stripColors(buySlot.getItem().getHoverName().getString()).toLowerCase();
                         if (itemName.contains("buy instantly")) {
-                            ClientUtils.sendDebugMessage(client,
-                                    "[BazaarUtils] Detected buy stage via slot 10: " + itemName);
+                            ClientUtils.sendDebugMessage("[BazaarUtils] Detected buy stage via slot 10: " + itemName);
                             return true;
                         }
                     }
                 }
             }
             if (iterations % 20 == 0) {
-                ClientUtils.sendDebugMessage(client, "[BazaarUtils] Waiting for buy stage (checking slot 10)...");
+                ClientUtils.sendDebugMessage("[BazaarUtils] Waiting for buy stage (checking slot 10)...");
             }
             iterations++;
             MacroWorkerThread.sleep(TICK_MS);
         }
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Timeout waiting for buy stage");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Timeout waiting for buy stage");
         return false;
     }
 
@@ -538,17 +525,16 @@ public final class BazaarUtils {
             return;
         }
 
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Confirm warning detected, waiting for slot 13 to unlock");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Confirm warning detected, waiting for slot 13 to unlock");
         long deadline = System.currentTimeMillis() + 8000L;
         while (System.currentTimeMillis() < deadline) {
             if (!(client.screen instanceof AbstractContainerScreen<?>)) {
-                ClientUtils.sendDebugMessage(client, "[BazaarUtils] Confirm warning screen closed while waiting");
+                ClientUtils.sendDebugMessage("[BazaarUtils] Confirm warning screen closed while waiting");
                 return;
             }
 
             if (!isWarningBarrierInConfirmSlot(client)) {
-                ClientUtils.sendDebugMessage(client,
-                        "[BazaarUtils] Confirm warning cleared, waiting Bazaar action delay before clicking slot 13");
+                ClientUtils.sendDebugMessage("[BazaarUtils] Confirm warning cleared, waiting Bazaar action delay before clicking slot 13");
                 MacroWorkerThread.sleep(guiDelay);
                 clickSlot(client, SLOT_CONFIRM);
                 MacroWorkerThread.sleep(fastDelay);
@@ -558,7 +544,7 @@ public final class BazaarUtils {
             MacroWorkerThread.sleep(TICK_MS);
         }
 
-        ClientUtils.sendDebugMessage(client, "[BazaarUtils] Timed out waiting for confirm warning to clear");
+        ClientUtils.sendDebugMessage("[BazaarUtils] Timed out waiting for confirm warning to clear");
     }
 
     private static boolean isWarningBarrierInConfirmSlot(Minecraft client) {
@@ -622,6 +608,6 @@ public final class BazaarUtils {
     }
 
     private static void msg(Minecraft client, String text) {
-        ClientUtils.sendMessage(client, text);
+        ClientUtils.sendMessage(text);
     }
 }

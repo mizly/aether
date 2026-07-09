@@ -61,7 +61,7 @@ public final class PipManager {
             restoreWindowMode(client);
         }
 
-        ClientUtils.sendMessage(client, enabled ? "§aPiP mode enabled." : "§cPiP mode disabled.");
+        ClientUtils.sendMessage(enabled ? "§aPiP mode enabled." : "§cPiP mode disabled.");
     }
 
     public static void render(Minecraft client) {

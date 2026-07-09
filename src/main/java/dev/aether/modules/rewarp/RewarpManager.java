@@ -63,7 +63,7 @@ public final class RewarpManager {
         }
 
         lastRewarpTime = now;
-        ClientUtils.sendMessage(client, "\u00A76Rewarp End Position reached!", true);
+        ClientUtils.sendMessage("\u00A76Rewarp End Position reached!", true);
         MacroWorkerThread.getInstance().submit("PlotTpRewarp", () -> performRewarp(client, pair));
     }
 
@@ -274,12 +274,12 @@ public final class RewarpManager {
 
         int aotvSlot = GearManager.findAspectOfTheVoidSlot(client);
         if (aotvSlot < 0 || aotvSlot > 8) {
-            ClientUtils.sendDebugMessage(client, "Rewarp align skipped: no AOTV/AOTE in hotbar");
+            ClientUtils.sendDebugMessage("Rewarp align skipped: no AOTV/AOTE in hotbar");
             return;
         }
 
         if (!stabilizeFlyPositionForAotv(client, pair)) {
-            ClientUtils.sendDebugMessage(client, "Rewarp align skipped: could not stabilize above target");
+            ClientUtils.sendDebugMessage("Rewarp align skipped: could not stabilize above target");
             return;
         }
 

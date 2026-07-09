@@ -15,6 +15,9 @@ import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.visitor.VisitorManager;
 import dev.aether.util.ClientUtils;
+import dev.aether.util.CommandUtils;
+import dev.aether.macro.FarmingMacroManager;
+import dev.aether.modules.visitor.VisitorsMacro;
 import net.minecraft.client.Minecraft;
 
 public class PestReturnManager {
@@ -80,8 +83,7 @@ public class PestReturnManager {
         clearCleaningFlags();
         releaseFinishingSequence();
         if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage(client,
-                    "Finisher aborted at " + stage + ". Cleared cleaning flags.");
+            ClientUtils.sendDebugMessage("Finisher aborted at " + stage + ". Cleared cleaning flags.");
         }
         return true;
     }
@@ -89,20 +91,20 @@ public class PestReturnManager {
     private static void recoverToFarming(Minecraft client, String stage, Exception e) {
         if (e != null) {
             e.printStackTrace();
-            ClientUtils.sendDebugMessage(client, "CRITICAL ERROR in " + stage + ": " + e.getMessage());
+            ClientUtils.sendDebugMessage("CRITICAL ERROR in " + stage + ": " + e.getMessage());
         }
 
         clearCleaningFlags();
 
         if (MacroStateManager.isMacroRunning() && client != null && client.player != null) {
-            ClientUtils.sendDebugMessage(client, "Triggering failsafe: Returning to farming...");
+            ClientUtils.sendDebugMessage("Triggering failsafe: Returning to farming...");
             MacroStateManager.setCurrentState(MacroState.State.FARMING);
-            ClientUtils.sendDebugMessage(client, "Failsafe: Warping to garden...");
-            dev.aether.util.CommandUtils.warpGarden(client);
+            ClientUtils.sendDebugMessage("Failsafe: Warping to garden...");
+            CommandUtils.warpGarden(client);
             MacroWorkerThread.sleep(250);
             SqueakyMousematManager.armReapplyAttempt();
-            client.execute(() -> dev.aether.macro.FarmingMacroManager.enable(client,
-                    dev.aether.macro.FarmingMacroManager.createMacroFromConfig()));
+            client.execute(() -> FarmingMacroManager.enable(client,
+                    FarmingMacroManager.createMacroFromConfig()));
         }
 
         releaseFinishingSequence();
@@ -114,21 +116,20 @@ public class PestReturnManager {
             MacroStateManager.setCurrentState(MacroState.State.VISITING);
         }
         releaseFinishingSequence();
-        ClientUtils.sendDebugMessage(client, stage + ": Handing off from pest cleaning to visitors.");
-        client.execute(() -> dev.aether.modules.visitor.VisitorsMacro.start(client));
+        ClientUtils.sendDebugMessage(stage + ": Handing off from pest cleaning to visitors.");
+        client.execute(() -> VisitorsMacro.start(client));
     }
 
     public static void handlePestCleaningFinished(Minecraft client) {
         if (!tryBeginFinishingSequence()) {
             long ageMs = finishingStartedAtMs <= 0L ? 0L : System.currentTimeMillis() - finishingStartedAtMs;
-            ClientUtils.sendDebugMessage(client,
-                    "Pest cleaning finish already in progress at stage " + finishingStage
+            ClientUtils.sendDebugMessage("Pest cleaning finish already in progress at stage " + finishingStage
                             + " (" + ageMs + "ms), ignoring duplicate trigger.");
             return;
         }
         setFinishingStage("starting");
-        ClientUtils.sendDebugMessage(client, "Pest cleaning finished sequence started.");
-        ClientUtils.sendMessage(client, "Pest cleaning finished detected.", true);
+        ClientUtils.sendDebugMessage("Pest cleaning finished sequence started.");
+        ClientUtils.sendMessage("Pest cleaning finished detected.", true);
         runFinisherAsync("aether-pest-finish", () -> {
             try {
                 setFinishingStage("initial checks");
@@ -136,13 +137,12 @@ public class PestReturnManager {
                     return;
                 }
                 if (PestTrapManager.isBlockedByPestExchange()) {
-                    ClientUtils.sendDebugMessage(client,
-                            "Finisher: skipping trap clear/refill while pest exchange is active.");
+                    ClientUtils.sendDebugMessage("Finisher: skipping trap clear/refill while pest exchange is active.");
                 } else if (PestManager.arePestTrapsEnabled()
                         && AetherConfig.AUTO_CLEAR_PEST_TRAPS.get()
                         && !PestTrapManager.getFullTrapsFromTab(client).isEmpty()) {
                     setFinishingStage("clear traps");
-                    ClientUtils.sendDebugMessage(client, "Finisher: Clearing full pest traps...");
+                    ClientUtils.sendDebugMessage("Finisher: Clearing full pest traps...");
                     PestTrapManager.start(client);
                     try {
                         while (PestTrapManager.isRunning && !MacroWorkerThread.shouldAbortTask(client)) {
@@ -161,7 +161,7 @@ public class PestReturnManager {
                         && AetherConfig.AUTO_REFILL_PEST_TRAPS.get()
                         && !PestTrapManager.getNoBaitTrapsFromTab(client).isEmpty()) {
                     setFinishingStage("refill traps");
-                    ClientUtils.sendDebugMessage(client, "Finisher: Refilling empty pest traps...");
+                    ClientUtils.sendDebugMessage("Finisher: Refilling empty pest traps...");
                     PestTrapManager.startRefill(client);
                     try {
                         while (PestTrapManager.isRunning && !MacroWorkerThread.shouldAbortTask(client)) {
@@ -181,11 +181,11 @@ public class PestReturnManager {
                 }
 
                 setFinishingStage("greenhouse handoff");
-                GreenhouseManager.runAutoGreenhouseIfDue(client, () -> {
+                GreenhouseManager.runAutoGreenhouseIfDue(() -> {
                     setFinishingStage("composter handoff");
-                    ComposterManager.runAutoComposterIfDue(client, () -> {
+                    ComposterManager.runAutoComposterIfDue(() -> {
                         setFinishingStage("supercraft handoff");
-                        SupercraftManager.runAutoSupercraftIfDue(client,
+                        SupercraftManager.runAutoSupercraftIfDue(
                                 () -> continueAfterCleaningIntermediaries(client));
                     });
                 });
@@ -230,12 +230,11 @@ public class PestReturnManager {
                 }
 
                 int visitors = VisitorManager.getVisitorCount(client);
-                ClientUtils.sendDebugMessage(client, "Finisher: Visitor count check: " + visitors + " (Threshold: "
+                ClientUtils.sendDebugMessage("Finisher: Visitor count check: " + visitors + " (Threshold: "
                         + AetherConfig.VISITOR_THRESHOLD.get() + ")");
                 if (visitors >= AetherConfig.VISITOR_THRESHOLD.get()
                         && VisitorManager.shouldSkipVisitorsDuringJacobsContest(client, true)) {
-                    ClientUtils.sendDebugMessage(client,
-                            "Finisher: Visitor threshold met, but Jacob's Contest window is active. Returning to farm.");
+                    ClientUtils.sendDebugMessage("Finisher: Visitor threshold met, but Jacob's Contest window is active. Returning to farm.");
                 } else if (visitors >= AetherConfig.VISITOR_THRESHOLD.get()
                         && !VisitorManager.isVisitorReentryCooldownActive(client, true)) {
                     handOffToVisitors(client, "Finisher");
@@ -243,8 +242,7 @@ public class PestReturnManager {
                 }
 
                 if (visitors >= AetherConfig.VISITOR_THRESHOLD.get()) {
-                    ClientUtils.sendDebugMessage(client,
-                            "Finisher: Visitor threshold met, but cooldown is active. Returning to farm.");
+                    ClientUtils.sendDebugMessage("Finisher: Visitor threshold met, but cooldown is active. Returning to farm.");
                 }
 
                 MacroWorkerThread.sleep(150);
@@ -253,7 +251,7 @@ public class PestReturnManager {
                 }
 
                 setFinishingStage("warp garden");
-                ClientUtils.sendDebugMessage(client, "Finisher: Warping to garden (Return to Farm)...");
+                ClientUtils.sendDebugMessage("Finisher: Warping to garden (Return to Farm)...");
                 dev.aether.util.CommandUtils.warpGarden(client);
                 MacroWorkerThread.sleep(250);
                 if (abortFinisherIfNeeded(client, "post-return warp")) {
@@ -261,7 +259,7 @@ public class PestReturnManager {
                 }
                 isReturningFromPestVisitor = true;
                 setFinishingStage("finalize return");
-                ClientUtils.sendDebugMessage(client, "Finisher: Calling finalizeReturnToFarm...");
+                ClientUtils.sendDebugMessage("Finisher: Calling finalizeReturnToFarm...");
                 finalizeReturnToFarm(client);
             } catch (Exception e) {
                 recoverToFarming(client, "continueAfterCleaningIntermediaries", e);
@@ -278,13 +276,12 @@ public class PestReturnManager {
 
         try {
             setFinishingStage("finalize");
-            ClientUtils.sendDebugMessage(client, "Finalize: Starting return sequence.");
+            ClientUtils.sendDebugMessage("Finalize: Starting return sequence.");
             int visitors = VisitorManager.getVisitorCount(client);
-            ClientUtils.sendDebugMessage(client, "Finalize: Visitor count check: " + visitors);
+            ClientUtils.sendDebugMessage("Finalize: Visitor count check: " + visitors);
             if (visitors >= AetherConfig.VISITOR_THRESHOLD.get()
                     && VisitorManager.shouldSkipVisitorsDuringJacobsContest(client, true)) {
-                ClientUtils.sendDebugMessage(client,
-                        "Finalize: Visitor threshold met, but Jacob's Contest window is active. Continuing farming.");
+                ClientUtils.sendDebugMessage("Finalize: Visitor threshold met, but Jacob's Contest window is active. Continuing farming.");
             } else if (visitors >= AetherConfig.VISITOR_THRESHOLD.get()
                     && !VisitorManager.isVisitorReentryCooldownActive(client, true)) {
                 handOffToVisitors(client, "Finalize");
@@ -292,34 +289,31 @@ public class PestReturnManager {
             }
 
             if (visitors >= AetherConfig.VISITOR_THRESHOLD.get()) {
-                ClientUtils.sendDebugMessage(client,
-                        "Finalize: Visitor threshold met, but cooldown is active. Continuing farming.");
+                ClientUtils.sendDebugMessage("Finalize: Visitor threshold met, but cooldown is active. Continuing farming.");
             }
 
             setFinishingStage("swap farming tool");
-            ClientUtils.sendDebugMessage(client, "Finalize: Swapping to farming tool...");
+            ClientUtils.sendDebugMessage("Finalize: Swapping to farming tool...");
             GearManager.swapToFarmingToolSync(client);
-            ClientUtils.sendDebugMessage(client, "Finalize: Tool swap done.");
+            ClientUtils.sendDebugMessage("Finalize: Tool swap done.");
 
 
             setFinishingStage("resume farming");
-            ClientUtils.sendDebugMessage(client, "Pest cleaning sequence completed. Next state: FARMING");
+            ClientUtils.sendDebugMessage("Pest cleaning sequence completed. Next state: FARMING");
             MacroStateManager.setCurrentState(MacroState.State.FARMING);
             clearCleaningFlags();
             PestManager.startPestReentryCooldown();
             if (client.player != null) {
-                ClientUtils.sendDebugMessage(client, "Pest cleaner finished.");
+                ClientUtils.sendDebugMessage("Pest cleaner finished.");
             }
 
             if (AutoPestExchangeManager.tryTriggerPending(client)) {
-                ClientUtils.sendDebugMessage(client,
-                        "Pest cleaning handoff: starting queued pest exchange before farming resume.");
+                ClientUtils.sendDebugMessage("Pest cleaning handoff: starting queued pest exchange before farming resume.");
                 return;
             }
 
-            ClientUtils.sendDebugMessage(client,
-                    "Pest cleaning sequence finished. Restarting farming...");
-            ClientUtils.sendDebugMessage(client, "Starting farming macro");
+            ClientUtils.sendDebugMessage("Pest cleaning sequence finished. Restarting farming...");
+            ClientUtils.sendDebugMessage("Starting farming macro");
             SqueakyMousematManager.armReapplyAttempt();
             client.execute(() -> dev.aether.macro.FarmingMacroManager.enable(client,
                     dev.aether.macro.FarmingMacroManager.createMacroFromConfig()));

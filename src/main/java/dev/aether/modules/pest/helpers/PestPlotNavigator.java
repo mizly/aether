@@ -65,7 +65,7 @@ final class PestPlotNavigator {
             navigationState.plotTpSent = false;
             navigationState.getLocationAttempts = 0;
             navigationState.waypointCycleCount = 0;
-            ClientUtils.sendDebugMessage(client, "[PestDestroyer] Moving to new first infested plot: " + firstPlot);
+            ClientUtils.sendDebugMessage("[PestDestroyer] Moving to new first infested plot: " + firstPlot);
             return true;
         }
 
@@ -89,7 +89,7 @@ final class PestPlotNavigator {
                 navigationState.plotTpSent = false;
                 navigationState.getLocationAttempts = 0;
                 navigationState.waypointCycleCount = 0;
-                ClientUtils.sendDebugMessage(client, "[PestDestroyer] Skipping to next available plot: " + plot);
+                ClientUtils.sendDebugMessage("[PestDestroyer] Skipping to next available plot: " + plot);
                 return true;
             }
         }

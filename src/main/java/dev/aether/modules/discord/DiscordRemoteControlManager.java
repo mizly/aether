@@ -271,14 +271,14 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
     private String sendMinecraftCommand(String command, String feedback) {
         Minecraft client = Minecraft.getInstance();
         ClientUtils.sendCommand(client, command);
-        ClientUtils.sendMessage(client, "\u00A7a[Remote Control] " + feedback, false);
+        ClientUtils.sendMessage("\u00A7a[Remote Control] " + feedback, false);
         return "`" + command + "` sent.";
     }
 
     private String sendChat(String message) {
         Minecraft client = Minecraft.getInstance();
         ClientUtils.sendCommand(client, message);
-        ClientUtils.sendMessage(client, "\u00A7a[Remote Control] Sent " + message, false);
+        ClientUtils.sendMessage("\u00A7a[Remote Control] Sent " + message, false);
         return "`" + message + "` sent.";
     }
 

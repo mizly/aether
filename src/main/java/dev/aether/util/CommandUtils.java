@@ -1,6 +1,8 @@
 package dev.aether.util;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.macro.MacroState;
+import dev.aether.modules.failsafe.FailsafeManager;
 import net.minecraft.client.Minecraft;
 
 import java.util.ArrayDeque;
@@ -210,7 +212,7 @@ public class CommandUtils {
         boolean success = waitForChatMessage(window, "Your spawn location has been set!", MESSAGE_TIMEOUT_MS);
 
         if (success) {
-            ClientUtils.sendDebugMessage(client, "Spawn set has been detected");
+            ClientUtils.sendDebugMessage("Spawn set has been detected");
         }
 
         return success;
@@ -276,14 +278,14 @@ public class CommandUtils {
 
         net.minecraft.world.phys.Vec3 startPos = client.player.position();
         ChatWindow window = beginChatWindow();
-        dev.aether.modules.failsafe.FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
+        FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
         ClientUtils.sendCommand(client, "/warp garden");
 
         long startTime = System.currentTimeMillis();
         while (System.currentTimeMillis() - startTime < MESSAGE_TIMEOUT_MS) {
             // Priority 1: Chat confirmation
             if (hasWarpedGarden(window)) {
-                ClientUtils.sendDebugMessage(client, "/warp garden success (chat)");
+                ClientUtils.sendDebugMessage("/warp garden success (chat)");
                 return true;
             }
 
@@ -291,10 +293,9 @@ public class CommandUtils {
             if (client.player != null) {
                 double dist = client.player.position().distanceTo(startPos);
                 if (dist > 10) {
-                    dev.aether.macro.MacroState.Location loc = ClientUtils.getCurrentLocation(client);
-                    if (loc == dev.aether.macro.MacroState.Location.GARDEN) {
-                        ClientUtils.sendDebugMessage(client,
-                                "/warp garden success (pos fallback, dist: " + String.format("%.1f", dist) + ")");
+                    MacroState.Location loc = ClientUtils.getCurrentLocation(client);
+                    if (loc == MacroState.Location.GARDEN) {
+                        ClientUtils.sendDebugMessage("/warp garden success (pos fallback, dist: " + String.format("%.1f", dist) + ")");
                         return true;
                     }
                 }
@@ -318,7 +319,7 @@ public class CommandUtils {
      * @param client The Minecraft instance
      */
     public static void initiateWarpGarden(Minecraft client) {
-        dev.aether.modules.failsafe.FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
+        FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
         ClientUtils.sendCommand(client, "/warp garden");
     }
 
@@ -351,18 +352,18 @@ public class CommandUtils {
         net.minecraft.world.phys.Vec3 startPos = client.player.position();
         ChatWindow window = beginChatWindow();
         if (System.currentTimeMillis() - lastPlotTpTime > 5000) {
-            dev.aether.modules.failsafe.FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
+            FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
             ClientUtils.sendCommand(client, "/plottp " + plotNumber);
             lastPlotTpTime = System.currentTimeMillis();
         } else {
-            ClientUtils.sendDebugMessage(client, "Skipping plottp (cooldown)");
+            ClientUtils.sendDebugMessage("Skipping plottp (cooldown)");
         }
 
         long startTime = System.currentTimeMillis();
         while (System.currentTimeMillis() - startTime < MESSAGE_TIMEOUT_MS) {
             // Priority 1: Chat confirmation
             if (hasPlotTp(window, plotNumber)) {
-                ClientUtils.sendDebugMessage(client, "plottp success (chat)");
+                ClientUtils.sendDebugMessage("plottp success (chat)");
                 return true;
             }
 
@@ -370,8 +371,7 @@ public class CommandUtils {
             if (client.player != null) {
                 double dist = client.player.position().distanceTo(startPos);
                 if (dist > 10) {
-                    ClientUtils.sendDebugMessage(client,
-                            "plottp success (pos fallback, dist: " + String.format("%.1f", dist) + ")");
+                    ClientUtils.sendDebugMessage("plottp success (pos fallback, dist: " + String.format("%.1f", dist) + ")");
                     return true;
                 }
             }
@@ -396,11 +396,11 @@ public class CommandUtils {
      */
     public static void initiatePlotTp(Minecraft client, String plotNumber) {
         if (System.currentTimeMillis() - lastPlotTpTime > 1000) {
-            dev.aether.modules.failsafe.FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
+            FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
             ClientUtils.sendCommand(client, "/plottp " + plotNumber);
             lastPlotTpTime = System.currentTimeMillis();
         } else {
-            ClientUtils.sendDebugMessage(client, "Skipping initiatePlotTp (cooldown)");
+            ClientUtils.sendDebugMessage("Skipping initiatePlotTp (cooldown)");
         }
     }
 

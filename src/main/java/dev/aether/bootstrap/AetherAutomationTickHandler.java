@@ -71,7 +71,7 @@ public final class AetherAutomationTickHandler {
 
             if (MacroStateManager.getCurrentState() == MacroState.State.RECOVERING
                     || RecoveryManager.isWorldChangeRecoveryActive()) {
-                RecoveryManager.update(client);
+                RecoveryManager.update();
                 return;
             }
 
@@ -109,43 +109,43 @@ public final class AetherAutomationTickHandler {
             MetalDetectorSolver.handleContainerMenu(client, currentScreen);
         }
         if (client.screen == currentScreen) {
-            SupercraftManager.handleRecipeGui(client, currentScreen);
+            SupercraftManager.handleRecipeGui(currentScreen);
         }
     }
 
     private static void tickManagers(Minecraft client) {
-        GeorgeManager.update(client);
-        AutoSellManager.update(client);
-        BookCombineManager.update(client);
-        JunkManager.update(client);
+        GeorgeManager.update();
+        AutoSellManager.update();
+        BookCombineManager.update();
+        JunkManager.update();
 
-        DynamicRestManager.update(client);
-        SupercraftManager.update(client);
-        PestBonusManager.updateFromTab(client);
-        AutoPestExchangeManager.update(client);
-        PestManager.update(client);
-        CropFeverManager.update(client);
-        AutoSprayonatorManager.update(client);
-        DynamicPestsManager.update(client);
+        DynamicRestManager.update();
+        SupercraftManager.update();
+        PestBonusManager.updateFromTab();
+        AutoPestExchangeManager.update();
+        PestManager.update();
+        CropFeverManager.update();
+        AutoSprayonatorManager.update();
+        DynamicPestsManager.update();
         AetherBootstrapHooks.tickFailsafes(client);
-        GearManager.cleanupTick(client);
-        RotationManager.update(client);
-        RotationExecutor.update(client);
+        GearManager.cleanupTick();
+        RotationManager.update();
+        RotationExecutor.update();
         if (MacroStateManager.getCurrentState() == MacroState.State.FARMING) {
             FarmingMacroManager.tick(client);
         }
         MacroStateManager.periodicUpdate();
-        ProfitManager.update(client);
+        ProfitManager.update();
         BpsTracker.tick();
-        DiscordStatusManager.update(client);
+        DiscordStatusManager.update();
         Theme.tickRainbow();
-        PathfindingManager.update(client);
-        RestartManager.update(client);
-        AutoCarnivalManager.update(client);
+        PathfindingManager.update();
+        RestartManager.update();
+        AutoCarnivalManager.update();
 
-        PestDestroyer.update(client);
-        MetalDetectorSolver.update(client);
-        VacuumParticleDebug.onClientTick(client);
+        PestDestroyer.update();
+        MetalDetectorSolver.update();
+        VacuumParticleDebug.onClientTick();
     }
 
     private static void handleSneakForAotv(Minecraft client) {
@@ -222,4 +222,3 @@ public final class AetherAutomationTickHandler {
     }
 
 }
-

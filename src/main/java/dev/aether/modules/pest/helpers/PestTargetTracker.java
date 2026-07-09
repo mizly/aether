@@ -100,8 +100,7 @@ final class PestTargetTracker {
         pestTargetQueue.addAll(pests);
 
         if (!pests.isEmpty()) {
-            ClientUtils.sendDebugMessage(client,
-                    "[PestDestroyer] Rebuilt target queue with " + pests.size() + " pest(s). Next: "
+            ClientUtils.sendDebugMessage("[PestDestroyer] Rebuilt target queue with " + pests.size() + " pest(s). Next: "
                             + formatPos(pests.get(0).position()));
         }
     }
@@ -195,8 +194,7 @@ final class PestTargetTracker {
             }
         }
 
-        ClientUtils.sendDebugMessage(client,
-                "[PestDestroyer] Scan: " + totalEntities + " entities, "
+        ClientUtils.sendDebugMessage("[PestDestroyer] Scan: " + totalEntities + " entities, "
                         + armorStandCount + " armor stands, "
                         + batSilverfishCount + " bats/silverfish, "
                         + pestsFound + " pests found");

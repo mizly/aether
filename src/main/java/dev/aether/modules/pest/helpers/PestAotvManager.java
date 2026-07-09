@@ -25,8 +25,7 @@ public class PestAotvManager {
             return true;
 
         boolean inAllowedList = AetherConfig.AOTV_ROOF_PLOTS.get().contains(currentInfestedPlot);
-        ClientUtils.sendDebugMessage(client,
-                inAllowedList ? "plot in list, performing aotv" : "plot not in list, skipping aotv");
+        ClientUtils.sendDebugMessage(inAllowedList ? "plot in list, performing aotv" : "plot not in list, skipping aotv");
         return inAllowedList;
     }
 
@@ -57,7 +56,7 @@ public class PestAotvManager {
         // Pre-check: ensure there is a roof (non-air block) above within 2..20 blocks.
         // If there's no roof, abort early to avoid firing AOTV into open sky.
         if (client.level != null && !hasRoofAbove(client)) {
-            ClientUtils.sendDebugMessage(client, "PestAotv: no roof detected above player (2..20). Aborting AOTV.");
+            ClientUtils.sendDebugMessage("PestAotv: no roof detected above player (2..20). Aborting AOTV.");
             isSneakingForAotv = false;
             // Ensure sneak key is released on the client thread
             client.execute(() -> {
@@ -106,12 +105,11 @@ public class PestAotvManager {
             // then fire the normal use key path immediately after.
             ClientUtils.performUseClick(client, () -> {
                 PestDestroyer.setAotvStartY(client.player.getY());
-                ClientUtils.sendDebugMessage(client,
-                        "[PestAotv] Firing AOTV (slot=" + aotvSlot + ", startY=" + String.format("%.2f", PestDestroyer.getAotvStartY()) + ")");
+                ClientUtils.sendDebugMessage("[PestAotv] Firing AOTV (slot=" + aotvSlot + ", startY=" + String.format("%.2f", PestDestroyer.getAotvStartY()) + ")");
             });
             // Worker thread exits immediately - no sleep needed
             } else {
-                ClientUtils.sendDebugMessage(client, "[PestAotv] No AOTV found in hotbar. Aborting AOTV sequence.");
+                ClientUtils.sendDebugMessage("[PestAotv] No AOTV found in hotbar. Aborting AOTV sequence.");
                 isSneakingForAotv = false;
                 client.execute(() -> {
                     if (client.options != null) ClientUtils.setKeyMappingState(client.options.keyShift, false);

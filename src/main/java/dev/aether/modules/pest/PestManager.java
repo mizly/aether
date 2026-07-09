@@ -12,6 +12,7 @@ import dev.aether.modules.pest.helpers.PestDiscoDestinationManager;
 import dev.aether.modules.pest.helpers.PestDestroyer;
 import dev.aether.modules.pest.helpers.PestReturnManager;
 import dev.aether.modules.GreenhouseManager;
+import dev.aether.modules.CropFeverManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.TablistUtils;
@@ -24,6 +25,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import dev.aether.modules.pest.helpers.PestPrepSwapManager;
+import dev.aether.modules.visitor.VisitorsMacro;
 
 public class PestManager {
     // Shared state
@@ -245,14 +247,14 @@ public class PestManager {
 
         // Handle prep swap flag updates based on cooldown
         if (data.cooldownSeconds != -1) {
-            PestPrepSwapManager.updatePrepSwapFlag(data.cooldownSeconds, isCleaningInProgress);
+                PestPrepSwapManager.updatePrepSwapFlag(data.cooldownSeconds, isCleaningInProgress);
 
             // Check if prep swap should be triggered
             boolean thresholdMet = isThresholdMet(effectiveAlive);
             if (!thresholdMet && PestPrepSwapManager.shouldTriggerPrepSwap(
                     currentState, data.cooldownSeconds, isCleaningInProgress,
                     PestReturnManager.isReturnToLocationActive)) {
-                PestPrepSwapManager.triggerPrepSwap(client);
+                PestPrepSwapManager.triggerPrepSwap();
             }
         }
 
@@ -265,7 +267,7 @@ public class PestManager {
                 if (lastZeroPestTime == 0) {
                     lastZeroPestTime = System.currentTimeMillis();
                 } else if (System.currentTimeMillis() - lastZeroPestTime > 10000) {
-                    dev.aether.util.ClientUtils.sendMessage(client, "\u00A7cFail-safe: No pests detected for 10s. Returning to farm.", true);
+                    ClientUtils.sendMessage("\u00A7cFail-safe: No pests detected for 10s. Returning to farm.", true);
                     lastZeroPestTime = 0;
                     handlePestCleaningFinished(client);
                     return;
@@ -275,11 +277,9 @@ public class PestManager {
             }
 
             if (shouldAbortCleaningForStall(effectiveAlive)) {
-                ClientUtils.sendMessage(client,
-                        "\u00A7cPest cleaner made no pest-count progress for 30s. Aborting cleaner.",
+                ClientUtils.sendMessage("\u00A7cPest cleaner made no pest-count progress for 30s. Aborting cleaner.",
                         true);
-                ClientUtils.sendDebugMessage(client,
-                        "PestManager: aborting pest cleaner after 30s without alive-count progress. Last alive="
+                ClientUtils.sendDebugMessage("PestManager: aborting pest cleaner after 30s without alive-count progress. Last alive="
                                 + lastCleaningAliveCount + ", current alive=" + effectiveAlive);
                 resetCleaningProgressTracker();
                 handlePestCleaningFinished(client);
@@ -297,7 +297,7 @@ public class PestManager {
         // Do not trigger pest cleaning while the visitors macro is actively running.
         // Visitors takes priority; pest cleaning will be re-evaluated once we return
         // to the farm after visitors finishes.
-        if (dev.aether.modules.visitor.VisitorsMacro.isRunning) {
+        if (VisitorsMacro.isRunning) {
             return;
         }
 
@@ -315,17 +315,16 @@ public class PestManager {
             }
 
             // Crop Fever delay: do not interrupt farming for pests if fever is active
-            if (AetherConfig.DELAY_PEST_FOR_CROP_FEVER.get() && dev.aether.modules.CropFeverManager.isCropFeverActive) {
+            if (AetherConfig.DELAY_PEST_FOR_CROP_FEVER.get() && CropFeverManager.isCropFeverActive) {
                 return;
             }
 
             if (effectiveAlive >= 8 && effectiveAlive < 99) {
-                dev.aether.util.ClientUtils.sendMessage(client, "\u00A7eMax Pests (8) reached. Starting cleaning...", true);
+                ClientUtils.sendMessage("\u00A7eMax Pests (8) reached. Starting cleaning...", true);
             }
             currentInfestedPlots = PestDiscoDestinationManager.prioritizePlots(data.infestedPlots);
             String targetPlot = PestDiscoDestinationManager.selectPrimaryPlot(data.infestedPlots, "0");
-            ClientUtils.sendDebugMessage(client,
-                    "[PestManager] Tab threshold met. infestedPlots=" + data.infestedPlots
+            ClientUtils.sendDebugMessage("[PestManager] Tab threshold met. infestedPlots=" + data.infestedPlots
                             + " targetPlot=" + targetPlot + " currentPlot=" + ClientUtils.getCurrentPlot(client));
             if (startCleaningSequence(client, targetPlot)) {
                 consumeRewarpTrigger();
@@ -344,7 +343,8 @@ public class PestManager {
         PestReturnManager.handlePestCleaningFinished(client);
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         checkTabListForPests(client, MacroStateManager.getCurrentState());
     }
 
@@ -401,8 +401,7 @@ public class PestManager {
 
         if (!isThresholdMet(effectiveAlive)) {
             if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage(client,
-                        "Chat pest trigger ignored: effective=" + effectiveAlive
+                ClientUtils.sendDebugMessage("Chat pest trigger ignored: effective=" + effectiveAlive
                                 + " (chat=" + predictedAliveCount + ", tab=" + data.aliveCount
                                 + ") < threshold=" + AetherConfig.PEST_THRESHOLD.get());
             }
@@ -411,8 +410,7 @@ public class PestManager {
 
         if (isPestReentryCooldownActive()) {
             if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage(client,
-                        "Chat pest trigger ignored: pest re-entry cooldown active for "
+                ClientUtils.sendDebugMessage("Chat pest trigger ignored: pest re-entry cooldown active for "
                         + getPestReentryCooldownRemainingMs() + "ms.");
             }
             return false;
@@ -420,16 +418,14 @@ public class PestManager {
 
         if (!canTriggerAfterRewarp()) {
             if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage(client,
-                        "Chat pest trigger ignored: waiting for rewarp before triggering cleaner.");
+                ClientUtils.sendDebugMessage("Chat pest trigger ignored: waiting for rewarp before triggering cleaner.");
             }
             return false;
         }
 
-        if (AetherConfig.DELAY_PEST_FOR_CROP_FEVER.get() && dev.aether.modules.CropFeverManager.isCropFeverActive) {
+        if (AetherConfig.DELAY_PEST_FOR_CROP_FEVER.get() && CropFeverManager.isCropFeverActive) {
             if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage(client,
-                        "Chat pest trigger ignored: Crop Fever is currently active.");
+                ClientUtils.sendDebugMessage("Chat pest trigger ignored: Crop Fever is currently active.");
             }
             return false;
         }
@@ -444,8 +440,7 @@ public class PestManager {
 
         currentInfestedPlots = PestDiscoDestinationManager.prioritizePlots(candidatePlots);
         if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage(client,
-                    "Chat pest trigger selecting plot " + targetPlot
+            ClientUtils.sendDebugMessage("Chat pest trigger selecting plot " + targetPlot
                             + " from tab=" + data.infestedPlots
                             + ", chat=" + normalizedRequestedPlot
                             + ", ordered=" + currentInfestedPlots);
@@ -461,8 +456,7 @@ public class PestManager {
         if (predictedAliveCount > 0) {
             predictedAliveCount--;
             lastLocalKillUpdateMs = System.currentTimeMillis();
-            ClientUtils.sendDebugMessage(client,
-                    "Pest kill detected! Predicted alive: " + predictedAliveCount
+            ClientUtils.sendDebugMessage("Pest kill detected! Predicted alive: " + predictedAliveCount
                             + ", currentPlot=" + ClientUtils.getCurrentPlot(client)
                             + ", whitelistedPlots=" + AetherConfig.LEAVE_ONE_PEST_PLOTS.get());
 
@@ -470,7 +464,7 @@ public class PestManager {
                 String reason = predictedAliveCount == 0
                         ? "0 pests predicted"
                         : "only whitelisted leave-one plot(s) predicted remaining";
-                ClientUtils.sendDebugMessage(client, "PestManager: threshold reached: " + reason + ". Finishing immediately.");
+                ClientUtils.sendDebugMessage("PestManager: threshold reached: " + reason + ". Finishing immediately.");
                 PestDestroyer.finish(client);
             }
         }
@@ -540,6 +534,4 @@ public class PestManager {
         lastCleaningProgressAtMs = 0L;
     }
 }
-
-
 

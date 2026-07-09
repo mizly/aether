@@ -15,27 +15,28 @@ public class CropFeverManager {
             isCropFeverActive = true;
             cropFeverStartTime = System.currentTimeMillis();
             if (AetherConfig.DELAY_PEST_FOR_CROP_FEVER.get()) {
-                ClientUtils.sendDebugMessage(client, "\u00A7dCrop Fever detected! Pest sequence will be delayed.");
+                ClientUtils.sendDebugMessage("\u00A7dCrop Fever detected! Pest sequence will be delayed.");
             } else {
-                ClientUtils.sendDebugMessage(client, "\u00A7dCrop Fever detected!");
+                ClientUtils.sendDebugMessage("\u00A7dCrop Fever detected!");
             }
         } else if (cleanMessage.contains("GONE! Your CROP FEVER has been cured!")) {
             isCropFeverActive = false;
             cropFeverStartTime = 0;
             if (AetherConfig.DELAY_PEST_FOR_CROP_FEVER.get()) {
-                ClientUtils.sendDebugMessage(client, "\u00A7dCrop Fever cured! Pest sequence can resume.");
+                ClientUtils.sendDebugMessage("\u00A7dCrop Fever cured! Pest sequence can resume.");
             } else {
-                ClientUtils.sendDebugMessage(client, "\u00A7dCrop Fever cured!");
+                ClientUtils.sendDebugMessage("\u00A7dCrop Fever cured!");
             }
         }
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         // Failsafe: if it's been more than 65 seconds, consider it gone
         if (isCropFeverActive && System.currentTimeMillis() - cropFeverStartTime > 65000) {
             isCropFeverActive = false;
             cropFeverStartTime = 0;
-            ClientUtils.sendDebugMessage(client, "\u00A7eCrop Fever failsafe triggered (65s elapsed).");
+            ClientUtils.sendDebugMessage("\u00A7eCrop Fever failsafe triggered (65s elapsed).");
         }
     }
 

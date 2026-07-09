@@ -1,6 +1,7 @@
 package dev.aether.modules.pathfinding;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.pathfinding.debug.PathVisualizer;
 import dev.aether.modules.pathfinding.etherwarp.EtherwarpHelper;
 import dev.aether.modules.pathfinding.execution.EtherwarpExecutor;
@@ -10,6 +11,9 @@ import dev.aether.modules.pathfinding.movement.PathSmoother;
 import dev.aether.modules.pathfinding.movement.WalkabilityChecker;
 import dev.aether.modules.pathfinding.pathfinder.AStarPathfinder;
 import dev.aether.modules.pathfinding.pathfinder.EtherwarpPathfinder;
+import dev.aether.modules.pathfinding.pathing.heuristic.HeuristicWeights;
+import dev.aether.modules.pathfinding.pathing.heuristic.IHeuristicStrategy;
+import dev.aether.modules.pathfinding.pathing.heuristic.LinearHeuristicStrategy;
 import dev.aether.modules.pathfinding.pathing.NeighborStrategies;
 import dev.aether.modules.pathfinding.pathing.configuration.PathfinderConfiguration;
 import dev.aether.modules.pathfinding.pathing.processing.impl.MinecraftPathProcessor;
@@ -21,6 +25,8 @@ import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -128,7 +134,8 @@ public final class PathfindingManager {
 
     // --- Tick ----------------------------------------------------------------
 
-    public static void update(Minecraft mc) {
+    public static void update() {
+        Minecraft mc = Minecraft.getInstance();
         if (mc.player == null) return;
 
         PathVisualizer.captureCamera(mc);
@@ -316,7 +323,7 @@ public final class PathfindingManager {
         finalY = checker.isSolid(x, y, z) ? y + 1 : y;
 
         if (mc.player != null) {
-            dev.aether.util.ClientUtils.sendMessage(mc, "\u00A7ePath test: running A* to "
+            ClientUtils.sendMessage("\u00A7ePath test: running A* to "
                             + x + ", " + finalY + ", " + z + "...", false);
         }
 
@@ -359,7 +366,7 @@ public final class PathfindingManager {
             mc.execute(() -> {
                 if (finalResult == null) {
                     if (mc.player != null) {
-                        dev.aether.util.ClientUtils.sendMessage(mc, "\u00A7cPath test error!", false);
+                        ClientUtils.sendMessage("\u00A7cPath test error!", false);
                     }
                     return;
                 }
@@ -388,15 +395,14 @@ public final class PathfindingManager {
                 long elapsedMs = System.currentTimeMillis() - startMs;
 
                 if (mc.player != null) {
-                    dev.aether.util.ClientUtils.sendMessage(mc, "\u00A7ePath test result: "
+                    ClientUtils.sendMessage("\u00A7ePath test result: "
                                     + typeStr
                                     + "\u00A76 | explored: " + pathfinder.getExploredCount()
                                     + " | waypoints: " + pathLen
                                     + String.format(" | dist: %.1f blk", pathBlocks)
                                     + " | time: " + elapsedMs + "ms",
                             false);
-                    dev.aether.util.ClientUtils.sendDebugMessage(mc,
-                            "Path profile: " + pathfinder.getProfilingReport());
+                    ClientUtils.sendDebugMessage("Path profile: " + pathfinder.getProfilingReport());
                 }
             });
         }, "Aether-PathTest");
@@ -404,7 +410,7 @@ public final class PathfindingManager {
         t.start();
     }
 
-    public static void startGreenhouseWalk(Minecraft mc, net.minecraft.world.phys.Vec3 target, Runnable onFinished, boolean isFirst) {
+    public static void startGreenhouseWalk(Minecraft mc, Vec3 target, Runnable onFinished, boolean isFirst) {
         if (mc.player == null) return;
         int tx = (int) Math.floor(target.x);
         int ty = (int) Math.floor(target.y);
@@ -447,7 +453,7 @@ public final class PathfindingManager {
         executor.setPreciseGoalTolerance(0.25);
 
         if (mc.player != null) {
-            dev.aether.util.ClientUtils.sendMessage(mc, "\u00A77Greenhouse path: direct walk to target.", false);
+            ClientUtils.sendMessage("\u00A77Greenhouse path: direct walk to target.", false);
         }
     }
 
@@ -463,7 +469,7 @@ public final class PathfindingManager {
         disableTransientDebugRendering();
         PathVisualizer.clear();
         if (announce && wasNavigating && mc.player != null) {
-            dev.aether.util.ClientUtils.sendMessage(mc, "\u00A7eNavigation stopped.", false);
+            ClientUtils.sendMessage("\u00A7eNavigation stopped.", false);
         }
     }
 
@@ -595,7 +601,7 @@ public final class PathfindingManager {
         goalZ = z;
 
         if (mc.player != null) {
-            dev.aether.util.ClientUtils.sendMessage(mc, "\u00A7eFinding path to "
+            ClientUtils.sendMessage("\u00A7eFinding path to "
                             + x + ", " + finalY + ", " + z + "...", false);
         }
 
@@ -617,7 +623,7 @@ public final class PathfindingManager {
                 activeMode = NavigationMode.NONE;
                 clearTransientDebugRenderingIfActive();
                 if (mc.player != null) {
-                    dev.aether.util.ClientUtils.sendMessage(mc, "\u00A7cFly path build failed!", false);
+                    ClientUtils.sendMessage("\u00A7cFly path build failed!", false);
                 }
                 return;
             }
@@ -625,7 +631,7 @@ public final class PathfindingManager {
             PathVisualizer.setPath(smoothed, 0);
 
             if (mc.player != null) {
-                dev.aether.util.ClientUtils.sendMessage(mc, "\u00A7aFly path: "
+                ClientUtils.sendMessage("\u00A7aFly path: "
                                 + smoothed.size() + " waypoints (direct LOS). Flying...", false);
             }
 
@@ -674,16 +680,14 @@ public final class PathfindingManager {
         WalkabilityChecker checker = new WalkabilityChecker(mc.level);
         PathPosition target = EtherwarpHelper.resolveTargetFeet(checker, x, y, z);
         if (target == null) {
-            dev.aether.util.ClientUtils.sendMessage(mc,
-                    "\u00A7cEtherwarp target must have enough crouched headroom above it.", false);
+            ClientUtils.sendMessage("\u00A7cEtherwarp target must have enough crouched headroom above it.", false);
             if (etherwarpFailureCallback != null) {
                 etherwarpFailureCallback.run();
             }
             return;
         }
-        if (dev.aether.modules.gear.GearManager.findEtherwarpAspectOfTheVoidHotbarSlot(mc) < 0) {
-            dev.aether.util.ClientUtils.sendMessage(mc,
-                    "\u00A7cNo hotbar AOTV with Ether Transmission found.", false);
+        if (GearManager.findEtherwarpAspectOfTheVoidHotbarSlot(mc) < 0) {
+            ClientUtils.sendMessage("\u00A7cNo hotbar AOTV with Ether Transmission found.", false);
             if (etherwarpFailureCallback != null) {
                 etherwarpFailureCallback.run();
             }
@@ -708,8 +712,7 @@ public final class PathfindingManager {
             activeMode = NavigationMode.NONE;
             clearTransientDebugRenderingIfActive();
             if (mc.player != null) {
-                dev.aether.util.ClientUtils.sendMessage(mc,
-                        "\u00A7cEtherwarp target no longer has enough crouched headroom.", false);
+                ClientUtils.sendMessage("\u00A7cEtherwarp target no longer has enough crouched headroom.", false);
             }
             if (etherwarpFailureCallback != null) {
                 etherwarpFailureCallback.run();
@@ -739,7 +742,7 @@ public final class PathfindingManager {
                     ? String.format("\u00A7eRepathing etherwarp route from current position (%d/%d)...",
                     etherwarpRepathCount, ETHERWARP_REPATH_MAX_RETRIES)
                     : "\u00A7eFinding etherwarp path to " + goalX + ", " + goalY + ", " + goalZ + "...";
-            dev.aether.util.ClientUtils.sendMessage(mc, message, false);
+            ClientUtils.sendMessage(message, false);
         }
 
         long startMs = System.currentTimeMillis();
@@ -777,7 +780,7 @@ public final class PathfindingManager {
             activeMode = NavigationMode.NONE;
             clearTransientDebugRenderingIfActive();
             if (mc.player != null) {
-                dev.aether.util.ClientUtils.sendMessage(mc, "\u00A7cNo etherwarp path found!", false);
+                ClientUtils.sendMessage("\u00A7cNo etherwarp path found!", false);
             }
             if (etherwarpFailureCallback != null) {
                 etherwarpFailureCallback.run();
@@ -801,8 +804,7 @@ public final class PathfindingManager {
             String assistPrefix = plan.usesWalkAssist()
                     ? String.format("walk %.1f blk -> ", plan.walkDistance())
                     : "";
-            dev.aether.util.ClientUtils.sendMessage(mc,
-                    "\u00A7aEtherwarp path found ("
+            ClientUtils.sendMessage("\u00A7aEtherwarp path found ("
                             + assistPrefix
                             + Math.max(0, path.size() - 1) + " warps"
                             + " | explored: " + plan.exploredCount()
@@ -972,8 +974,7 @@ public final class PathfindingManager {
         PathVisualizer.setCameraPath(Collections.emptyList());
 
         if (mc.player != null) {
-            dev.aether.util.ClientUtils.sendMessage(mc,
-                    String.format("\u00A7eWalking %.1f blocks to an etherwarp launch point...", plan.walkDistance()),
+            ClientUtils.sendMessage(String.format("\u00A7eWalking %.1f blocks to an etherwarp launch point...", plan.walkDistance()),
                     false);
         }
 
@@ -1027,8 +1028,7 @@ public final class PathfindingManager {
                     : "timed out";
             if (etherwarpRepathCount >= ETHERWARP_REPATH_MAX_RETRIES) {
                 if (mc != null && mc.player != null) {
-                    dev.aether.util.ClientUtils.sendMessage(mc,
-                            "\u00A7cEtherwarp " + failureLabel + " after "
+                    ClientUtils.sendMessage("\u00A7cEtherwarp " + failureLabel + " after "
                                     + ETHERWARP_REPATH_MAX_RETRIES + " replans. Cancelling.",
                             false);
                 }
@@ -1078,7 +1078,7 @@ public final class PathfindingManager {
             activeMode = NavigationMode.NONE;
             clearTransientDebugRenderingIfActive();
             if (mc.player != null) {
-                dev.aether.util.ClientUtils.sendMessage(mc, "\u00A7cNo path found!", false);
+                ClientUtils.sendMessage("\u00A7cNo path found!", false);
             }
             if (walkFailureCallback != null) {
                 walkFailureCallback.run();
@@ -1098,8 +1098,7 @@ public final class PathfindingManager {
             activeMode = NavigationMode.NONE;
             clearTransientDebugRenderingIfActive();
             if (mc.player != null) {
-                dev.aether.util.ClientUtils.sendMessage(mc,
-                        "\u00A7eWalk path result was partial. Falling back to the next recovery path...",
+                ClientUtils.sendMessage("\u00A7eWalk path result was partial. Falling back to the next recovery path...",
                         false);
             }
             if (walkFailureCallback != null) {
@@ -1125,15 +1124,13 @@ public final class PathfindingManager {
 
         String walkingColor = result.successful() ? "\u00A7a" : "\u00A7e";
         if (mc.player != null) {
-            dev.aether.util.ClientUtils.sendMessage(mc,
-                    "§ePath result: " + resultTypeStr
+            ClientUtils.sendMessage("§ePath result: " + resultTypeStr
                             + "§e | explored: " + exploredCount
                             + " | waypoints: " + pathLen
                             + String.format(" | dist: %.1f blk", pathBlocks)
                             + " | time: " + elapsedMs + "ms",
                     false);
-            dev.aether.util.ClientUtils.sendMessage(mc,
-                    walkingColor + "Path found (" + nodes.size() + " waypoints). Walking...",
+            ClientUtils.sendMessage(walkingColor + "Path found (" + nodes.size() + " waypoints). Walking...",
                     false);
         }
 
@@ -1216,13 +1213,13 @@ public final class PathfindingManager {
         return nodes;
     }
 
-    private static final dev.aether.modules.pathfinding.pathing.heuristic.IHeuristicStrategy ZERO_HEURISTIC =
-            new dev.aether.modules.pathfinding.pathing.heuristic.LinearHeuristicStrategy();
+    private static final IHeuristicStrategy ZERO_HEURISTIC =
+            new LinearHeuristicStrategy();
 
     private static Node makeNode(int x, int y, int z) {
         PathPosition pos  = new PathPosition(x, y, z);
         Node         node = new Node(pos, pos, pos,
-                new dev.aether.modules.pathfinding.pathing.heuristic.HeuristicWeights(0, 0, 0, 0),
+                new HeuristicWeights(0, 0, 0, 0),
                 ZERO_HEURISTIC,
                 0);
         node.moveType = Node.MoveType.FLY;
@@ -1232,7 +1229,7 @@ public final class PathfindingManager {
     private static Node makeWalkNode(int x, int y, int z) {
         PathPosition pos  = new PathPosition(x, y, z);
         Node         node = new Node(pos, pos, pos,
-                new dev.aether.modules.pathfinding.pathing.heuristic.HeuristicWeights(0, 0, 0, 0),
+                new HeuristicWeights(0, 0, 0, 0),
                 ZERO_HEURISTIC,
                 0);
         node.moveType = Node.MoveType.WALK;
@@ -1319,17 +1316,17 @@ public final class PathfindingManager {
 
         for (double[] xzOff : LOS_OFFSETS) {
             for (int h = 0; h < checkY.length; h++) {
-                net.minecraft.world.phys.Vec3 start = new net.minecraft.world.phys.Vec3(
+                Vec3 start = new Vec3(
                         fx + xzOff[0], checkY[h], fz + xzOff[1]);
-                net.minecraft.world.phys.Vec3 end = new net.minecraft.world.phys.Vec3(
+                Vec3 end = new Vec3(
                         tx + xzOff[0], checkTY[h], tz + xzOff[1]);
-                net.minecraft.world.phys.HitResult hit = mc.level.clip(
-                        new net.minecraft.world.level.ClipContext(
+                HitResult hit = mc.level.clip(
+                        new ClipContext(
                                 start, end,
-                                net.minecraft.world.level.ClipContext.Block.COLLIDER,
-                                net.minecraft.world.level.ClipContext.Fluid.NONE,
+                                ClipContext.Block.COLLIDER,
+                                ClipContext.Fluid.NONE,
                                 mc.player));
-                if (hit.getType() == net.minecraft.world.phys.HitResult.Type.BLOCK) {
+                if (hit.getType() == HitResult.Type.BLOCK) {
                     return false;
                 }
             }
@@ -1572,5 +1569,4 @@ public final class PathfindingManager {
         return (raw & (1L << 25)) != 0 ? (int)(raw | ~MASK_XZ) : (int) raw;
     }
 }
-
 

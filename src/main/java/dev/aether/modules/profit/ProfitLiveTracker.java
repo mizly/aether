@@ -131,7 +131,7 @@ final class ProfitLiveTracker {
                             dropRecorder.accept(currentFarmedCrop, delta);
                         }
                     } else if (delta > MAX_CULTIVATING_DELTA && AetherConfig.SHOW_DEBUG.get()) {
-                        ClientUtils.sendDebugMessage(client, "Dismissed large cultivating change: +" + delta);
+                        ClientUtils.sendDebugMessage("Dismissed large cultivating change: +" + delta);
                     }
                 }
                 lastCultivatingValue = newValue;
@@ -151,7 +151,7 @@ final class ProfitLiveTracker {
                     if (delta <= 50000L) {
                         dropRecorder.accept("Purse", delta);
                     } else if (AetherConfig.SHOW_DEBUG.get()) {
-                        ClientUtils.sendDebugMessage(client, "Dismissed large purse change: +" + delta);
+                        ClientUtils.sendDebugMessage("Dismissed large purse change: +" + delta);
                     }
                 }
                 lastPurseBalance = currentPurse;
@@ -159,7 +159,7 @@ final class ProfitLiveTracker {
         }
 
         if (client.player.tickCount % PET_XP_SAMPLE_INTERVAL_TICKS == 0 && PetXpTracker.hasTrackedPetsConfigured()) {
-            PetXpTracker.update(client);
+            PetXpTracker.update();
         }
 
         FarmingXpTracker.tick();

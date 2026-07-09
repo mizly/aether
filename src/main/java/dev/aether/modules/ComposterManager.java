@@ -46,6 +46,10 @@ public final class ComposterManager {
     private static volatile long lastAutoRunCompletedMs = System.currentTimeMillis();
     private static volatile Runnable completionCallback = null;
 
+    private static Minecraft client() {
+        return Minecraft.getInstance();
+    }
+
     private ComposterManager() {
     }
 
@@ -73,7 +77,7 @@ public final class ComposterManager {
         return getAutoComposterElapsedMs() >= intervalMs;
     }
 
-    public static void runAutoComposterIfDue(Minecraft client, Runnable onComplete) {
+    public static void runAutoComposterIfDue(Runnable onComplete) {
         if (!shouldRunAutoComposter()) {
             runCompletion(onComplete);
             return;
@@ -81,21 +85,22 @@ public final class ComposterManager {
 
         autoSequence = true;
         completionCallback = onComplete;
-        start(client, false);
+        start(false);
     }
 
-    public static void manualTrigger(Minecraft client) {
-        start(client, true);
+    public static void manualTrigger() {
+        start(true);
     }
 
-    private static synchronized void start(Minecraft client, boolean manual) {
+    private static synchronized void start(boolean manual) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.player == null || client.level == null) {
             runCompletionIfAuto();
             return;
         }
 
         if (running) {
-            ClientUtils.sendMessage(client, "\u00A7cAuto Composter is already running.", false);
+            ClientUtils.sendMessage("\u00A7cAuto Composter is already running.", false);
             runCompletionIfAuto();
             return;
         }
@@ -104,7 +109,7 @@ public final class ComposterManager {
                 && isBazaarMode()
                 && ClientUtils.getPurse(client) >= 0
                 && ClientUtils.getPurse(client) < AetherConfig.AUTO_COMPOSTER_MIN_PURSE.get()) {
-            ClientUtils.sendDebugMessage(client, "Composter: skipping because purse is below configured minimum.");
+            ClientUtils.sendDebugMessage("Composter: skipping because purse is below configured minimum.");
             markAutoComplete();
             runCompletionIfAuto();
             return;
@@ -116,23 +121,24 @@ public final class ComposterManager {
             client.execute(() -> FarmingMacroManager.disable(client));
         }
 
-        ClientUtils.sendMessage(client, "\u00A7eStarting Auto Composter...", false);
+        ClientUtils.sendMessage("\u00A7eStarting Auto Composter...", false);
         MacroWorkerThread.getInstance().submit("AutoComposter", () -> {
             try {
-                runSequence(client);
+                runSequence();
                 if (autoSequence) {
                     markAutoComplete();
                 }
             } catch (Exception e) {
-                ClientUtils.sendDebugMessage(client, "Composter error: " + e.getMessage());
+                ClientUtils.sendDebugMessage("Composter error: " + e.getMessage());
                 e.printStackTrace();
             } finally {
-                finish(client, shouldResumeFarming);
+                finish(shouldResumeFarming);
             }
         });
     }
 
-    private static void runSequence(Minecraft client) throws InterruptedException {
+    private static void runSequence() throws InterruptedException {
+        Minecraft client = client();
         if (shouldAbort(client)) {
             return;
         }
@@ -143,24 +149,24 @@ public final class ComposterManager {
 
         Entity composter = findComposter(client);
         BlockPos target = composter != null ? composter.blockPosition() : configuredComposterPos();
-        boolean openedAfterPath = walkNearAndOpen(client, target);
+        boolean openedAfterPath = walkNearAndOpen(target);
         if (shouldAbort(client)) {
             return;
         }
 
         composter = findComposter(client);
         if (composter == null) {
-            ClientUtils.sendMessage(client, "\u00A7cCould not find the Composter.", false);
+            ClientUtils.sendMessage("\u00A7cCould not find the Composter.", false);
             return;
         }
 
-        if (!openedAfterPath && !openComposter(client, composter)) {
-            ClientUtils.sendMessage(client, "\u00A7cCould not open the Composter.", false);
+        if (!openedAfterPath && !openComposter(composter)) {
+            ClientUtils.sendMessage("\u00A7cCould not open the Composter.", false);
             return;
         }
 
         if (isSacksMode()) {
-            insertFromSacks(client);
+            insertFromSacks();
             return;
         }
 
@@ -170,10 +176,10 @@ public final class ComposterManager {
             if (shouldAbort(client)) {
                 return;
             }
-            ClientUtils.sendDebugMessage(client, "Composter: buying " + purchase.amount() + " " + purchase.itemName());
+            ClientUtils.sendDebugMessage("Composter: buying " + purchase.amount() + " " + purchase.itemName());
             boolean bought = BazaarUtils.executeBuy(client, purchase.itemName(), purchase.amount());
             if (!bought) {
-                ClientUtils.sendMessage(client, "\u00A7cFailed to buy " + purchase.itemName() + ".", false);
+                ClientUtils.sendMessage("\u00A7cFailed to buy " + purchase.itemName() + ".", false);
                 return;
             }
             waitActionDelay();
@@ -181,17 +187,17 @@ public final class ComposterManager {
 
         composter = findComposter(client);
         if (composter == null) {
-            ClientUtils.sendMessage(client, "\u00A7cCould not find the Composter after Bazaar buys.", false);
+            ClientUtils.sendMessage("\u00A7cCould not find the Composter after Bazaar buys.", false);
             return;
         }
 
-        if (!openComposter(client, composter)) {
-            ClientUtils.sendMessage(client, "\u00A7cCould not reopen the Composter.", false);
+        if (!openComposter(composter)) {
+            ClientUtils.sendMessage("\u00A7cCould not reopen the Composter.", false);
             return;
         }
 
-        fillComposter(client, purchases);
-        ClientUtils.sendMessage(client, "\u00A7aSupplied composter with resources.", false);
+        fillComposter(purchases);
+        ClientUtils.sendMessage("\u00A7aSupplied composter with resources.", false);
     }
 
     public static int getSourceModeIndex() {
@@ -206,8 +212,9 @@ public final class ComposterManager {
         return !isBazaarMode();
     }
 
-    private static boolean walkNearAndOpen(Minecraft client, BlockPos target) throws InterruptedException {
-        if (client.player == null) {
+    private static boolean walkNearAndOpen(BlockPos target) throws InterruptedException {
+        Minecraft client = client();
+        if (client == null || client.player == null) {
             return false;
         }
 
@@ -247,15 +254,19 @@ public final class ComposterManager {
         }
 
         if (!rotationStarted.get()) {
-            rotateToComposterInteractTarget(client);
+            rotateToComposterInteractTarget();
         } else {
-            waitForComposterRotation(client);
+            waitForComposterRotation();
         }
-        directAttackClick(client);
-        return waitForComposterScreen(client, MENU_TIMEOUT_MS);
+        directAttackClick();
+        return waitForComposterScreen(MENU_TIMEOUT_MS);
     }
 
-    private static boolean openComposter(Minecraft client, Entity composter) throws InterruptedException {
+    private static boolean openComposter(Entity composter) throws InterruptedException {
+        Minecraft client = client();
+        if (client == null) {
+            return false;
+        }
         ensureScreenClosed(client);
         for (int attempt = 0; attempt < 3 && !shouldAbort(client); attempt++) {
             Entity refreshed = findComposter(client);
@@ -263,9 +274,9 @@ public final class ComposterManager {
                 composter = refreshed;
             }
 
-            attemptComposterInteract(client);
+            attemptComposterInteract();
 
-            if (waitForComposterScreen(client, MENU_TIMEOUT_MS)) {
+            if (waitForComposterScreen(MENU_TIMEOUT_MS)) {
                 return true;
             }
             ensureScreenClosed(client);
@@ -274,22 +285,31 @@ public final class ComposterManager {
         return false;
     }
 
-    private static void attemptComposterInteract(Minecraft client) throws InterruptedException {
-        if (shouldAbort(client)) {
+    private static void attemptComposterInteract() throws InterruptedException {
+        Minecraft client = client();
+        if (client == null || shouldAbort(client)) {
             return;
         }
 
-        rotateToComposterInteractTarget(client);
-        directAttackClick(client);
+        rotateToComposterInteractTarget();
+        directAttackClick();
     }
 
-    private static void rotateToComposterInteractTarget(Minecraft client) throws InterruptedException {
+    private static void rotateToComposterInteractTarget() throws InterruptedException {
+        Minecraft client = client();
+        if (client == null) {
+            return;
+        }
         Vec3 lookTarget = Vec3.atCenterOf(configuredComposterPos());
         client.execute(() -> RotationManager.initiateRotation(client, lookTarget, INTERACT_ROTATION_MS));
-        waitForComposterRotation(client);
+        waitForComposterRotation();
     }
 
-    private static void waitForComposterRotation(Minecraft client) throws InterruptedException {
+    private static void waitForComposterRotation() throws InterruptedException {
+        Minecraft client = client();
+        if (client == null) {
+            return;
+        }
         long deadline = System.currentTimeMillis() + Math.max(600L, INTERACT_ROTATION_MS + 250L);
         while (RotationManager.isRotating() && System.currentTimeMillis() < deadline && !shouldAbort(client)) {
             MacroWorkerThread.sleep(20);
@@ -297,7 +317,11 @@ public final class ComposterManager {
         MacroWorkerThread.sleep(50);
     }
 
-    private static void directAttackClick(Minecraft client) throws InterruptedException {
+    private static void directAttackClick() throws InterruptedException {
+        Minecraft client = client();
+        if (client == null) {
+            return;
+        }
         client.execute(() -> {
             if (client.player == null) {
                 return;
@@ -322,32 +346,36 @@ public final class ComposterManager {
         return purchases;
     }
 
-    private static void insertFromSacks(Minecraft client) throws InterruptedException {
+    private static void insertFromSacks() throws InterruptedException {
+        Minecraft client = client();
+        if (client == null) {
+            return;
+        }
         if (!(client.screen instanceof AbstractContainerScreen<?>)) {
             return;
         }
 
-        clickSlot(client, SLOT_INSERT_CROPS_FROM_SACKS);
+        clickSlot(SLOT_INSERT_CROPS_FROM_SACKS);
         waitActionDelay();
-        clickSlot(client, SLOT_CONFIRM_SACKS);
+        clickSlot(SLOT_CONFIRM_SACKS);
         waitActionDelay();
 
-        if (!waitForComposterScreen(client, MENU_TIMEOUT_MS)) {
-            ClientUtils.sendDebugMessage(client, "Composter: composter menu did not return after crop sacks insert.");
+        if (!waitForComposterScreen(MENU_TIMEOUT_MS)) {
+            ClientUtils.sendDebugMessage("Composter: composter menu did not return after crop sacks insert.");
         }
 
-        clickSlot(client, SLOT_INSERT_FUEL_FROM_SACKS);
+        clickSlot(SLOT_INSERT_FUEL_FROM_SACKS);
         waitActionDelay();
-        clickSlot(client, SLOT_CONFIRM_SACKS);
+        clickSlot(SLOT_CONFIRM_SACKS);
         waitActionDelay();
 
         ensureScreenClosed(client);
-        ClientUtils.sendMessage(client, "\u00A7aInserted composter resources from sacks.", false);
+        ClientUtils.sendMessage("\u00A7aInserted composter resources from sacks.", false);
     }
 
-    private static Resource readResource(Minecraft client, AbstractContainerScreen<?> screen, int preferredSlot, String namePart) {
+    private static Resource readResource(AbstractContainerScreen<?> screen, int preferredSlot, String namePart) {
         Slot slot = preferredSlot < screen.getMenu().slots.size() ? screen.getMenu().slots.get(preferredSlot) : null;
-        Resource resource = readResource(client, slot);
+        Resource resource = readResource(slot);
         if (resource.known()) {
             return resource;
         }
@@ -360,7 +388,7 @@ public final class ComposterManager {
             }
             String itemName = TablistUtils.stripColors(candidate.getItem().getHoverName().getString()).toLowerCase();
             if (itemName.contains(namePart)) {
-                resource = readResource(client, candidate);
+                resource = readResource(candidate);
                 if (resource.known()) {
                     return resource;
                 }
@@ -370,8 +398,9 @@ public final class ComposterManager {
         return Resource.unknown();
     }
 
-    private static Resource readResource(Minecraft client, Slot slot) {
-        if (slot == null || !slot.hasItem() || client.player == null) {
+    private static Resource readResource(Slot slot) {
+        Minecraft client = client();
+        if (client == null || slot == null || !slot.hasItem() || client.player == null) {
             return Resource.unknown();
         }
 
@@ -394,7 +423,11 @@ public final class ComposterManager {
         return Resource.unknown();
     }
 
-    private static void fillComposter(Minecraft client, List<Purchase> purchases) throws InterruptedException {
+    private static void fillComposter(List<Purchase> purchases) throws InterruptedException {
+        Minecraft client = client();
+        if (client == null) {
+            return;
+        }
         if (!(client.screen instanceof AbstractContainerScreen<?> screen)) {
             return;
         }
@@ -425,7 +458,11 @@ public final class ComposterManager {
         MacroWorkerThread.sleep((int) ACTION_DELAY_MS);
     }
 
-    private static void clickSlot(Minecraft client, int slotId) {
+    private static void clickSlot(int slotId) {
+        Minecraft client = client();
+        if (client == null) {
+            return;
+        }
         client.execute(() -> {
             if (client.screen instanceof AbstractContainerScreen<?> screen
                     && slotId >= 0
@@ -451,7 +488,11 @@ public final class ComposterManager {
         return -1;
     }
 
-    private static boolean waitForComposterScreen(Minecraft client, long timeoutMs) {
+    private static boolean waitForComposterScreen(long timeoutMs) {
+        Minecraft client = client();
+        if (client == null) {
+            return false;
+        }
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {
             if (client.screen instanceof AbstractContainerScreen<?> screen) {
@@ -515,7 +556,8 @@ public final class ComposterManager {
         return !running || MacroWorkerThread.getInstance().isCancelled() || client == null || client.player == null || client.level == null;
     }
 
-    private static void finish(Minecraft client, boolean shouldResumeFarming) {
+    private static void finish(boolean shouldResumeFarming) {
+        Minecraft client = client();
         ensureScreenClosed(client);
         PathfindingManager.stop(false);
         RotationManager.cancelRotation();
@@ -531,11 +573,11 @@ public final class ComposterManager {
             return;
         }
 
-        if (shouldResumeFarming && MacroStateManager.isMacroRunning()) {
+        if (client != null && shouldResumeFarming && MacroStateManager.isMacroRunning()) {
             MacroStateManager.setCurrentState(MacroState.State.FARMING);
             client.execute(() -> FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig()));
         } else if (!wasAuto) {
-            ClientUtils.sendMessage(client, "\u00A7aAuto Composter finished.", false);
+            ClientUtils.sendMessage("\u00A7aAuto Composter finished.", false);
         }
     }
 

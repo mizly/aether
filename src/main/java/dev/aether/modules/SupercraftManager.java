@@ -71,7 +71,7 @@ public final class SupercraftManager {
         return getAutoSupercraftElapsedMs() >= intervalMs;
     }
 
-    public static void runAutoSupercraftIfDue(Minecraft client, Runnable onComplete) {
+    public static void runAutoSupercraftIfDue(Runnable onComplete) {
         if (!shouldRunAutoSupercraft()) {
             runCompletion(onComplete);
             return;
@@ -79,10 +79,10 @@ public final class SupercraftManager {
 
         autoSequence = true;
         completionCallback = onComplete;
-        start(client, false);
+        start(false);
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
         if (!running) {
             return;
         }
@@ -98,28 +98,29 @@ public final class SupercraftManager {
             return;
         }
 
-        failAndContinue(client, "stalled for " + stalledMs + "ms");
+        failAndContinue("stalled for " + stalledMs + "ms");
     }
 
-    public static void manualTrigger(Minecraft client) {
-        start(client, true);
+    public static void manualTrigger() {
+        start(true);
     }
 
-    private static synchronized void start(Minecraft client, boolean manual) {
+    private static synchronized void start(boolean manual) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.player == null || client.level == null) {
             runCompletionIfAuto();
             return;
         }
 
         if (running) {
-            ClientUtils.sendMessage(client, "\u00A7cAuto Supercraft is already running.", false);
+            ClientUtils.sendMessage("\u00A7cAuto Supercraft is already running.", false);
             runCompletionIfAuto();
             return;
         }
 
         List<String> items = getConfiguredItems();
         if (items.isEmpty()) {
-            ClientUtils.sendMessage(client, "\u00A7cNo supercraft items configured.", false);
+            ClientUtils.sendMessage("\u00A7cNo supercraft items configured.", false);
             runCompletionIfAuto();
             return;
         }
@@ -136,18 +137,19 @@ public final class SupercraftManager {
         guiOpenedAtMs = 0L;
         markProgress();
 
-        ClientUtils.sendMessage(client, "\u00A7eStarting Auto Supercraft...", false);
-        sendRecipeCommand(client);
+        ClientUtils.sendMessage("\u00A7eStarting Auto Supercraft...", false);
+        sendRecipeCommand();
     }
 
-    public static void handleRecipeGui(Minecraft client, AbstractContainerScreen<?> screen) {
+    public static void handleRecipeGui(AbstractContainerScreen<?> screen) {
+        Minecraft client = Minecraft.getInstance();
         if (!running || client == null || client.player == null) {
             return;
         }
 
         List<String> items = getConfiguredItems();
         if (currentItemIndex < 0 || currentItemIndex >= items.size()) {
-            finish(client);
+            finish();
             return;
         }
 
@@ -178,33 +180,34 @@ public final class SupercraftManager {
 
         switch (craftingStage) {
             case 0 -> {
-                ClientUtils.sendDebugMessage(client, "Supercraft: opening supercraft for " + currentItem);
+                ClientUtils.sendDebugMessage("Supercraft: opening supercraft for " + currentItem);
                 ClientUtils.performSlotClick(client, screen, SLOT_OPEN_SUPERCRAFT, 0, ContainerInput.PICKUP);
                 markProgress(now);
                 nextActionAtMs = now + ACTION_DELAY_MS;
                 craftingStage = 1;
             }
             case 1 -> {
-                ClientUtils.sendDebugMessage(client, "Supercraft: maximizing craft amount for " + currentItem);
+                ClientUtils.sendDebugMessage("Supercraft: maximizing craft amount for " + currentItem);
                 ClientUtils.performSlotClick(client, screen, SLOT_CRAFT_AMOUNT, 0, ContainerInput.QUICK_MOVE);
                 markProgress(now);
                 nextActionAtMs = now + SHIFT_TO_CRAFT_CLICK_DELAY_MS;
                 craftingStage = 2;
             }
             case 2 -> {
-                ClientUtils.sendDebugMessage(client, "Supercraft: crafting " + currentItem);
+                ClientUtils.sendDebugMessage("Supercraft: crafting " + currentItem);
                 ClientUtils.performSlotClick(client, screen, SLOT_CRAFT_AMOUNT, 0, ContainerInput.PICKUP);
                 markProgress(now);
                 nextActionAtMs = now + ACTION_DELAY_MS;
                 craftingStage = 3;
             }
-            case 3 -> advanceToNextItem(client);
+            case 3 -> advanceToNextItem();
             default -> {
             }
         }
     }
 
-    private static void advanceToNextItem(Minecraft client) {
+    private static void advanceToNextItem() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
         }
@@ -223,33 +226,35 @@ public final class SupercraftManager {
         markProgress();
 
         if (currentItemIndex >= items.size()) {
-            finish(client);
+            finish();
             return;
         }
 
         MacroWorkerThread.getInstance().submit("AutoSupercraft-Next", () -> {
             MacroWorkerThread.sleep((int) NEXT_ITEM_DELAY_MS);
-            if (shouldAbort(client)) {
+            if (shouldAbort()) {
                 return;
             }
-            sendRecipeCommand(client);
+            sendRecipeCommand();
         });
     }
 
-    private static void sendRecipeCommand(Minecraft client) {
+    private static void sendRecipeCommand() {
+        Minecraft client = Minecraft.getInstance();
         List<String> items = getConfiguredItems();
         if (currentItemIndex < 0 || currentItemIndex >= items.size()) {
-            finish(client);
+            finish();
             return;
         }
 
         String item = items.get(currentItemIndex);
-        ClientUtils.sendDebugMessage(client, "Supercraft: sending /recipe " + item);
+        ClientUtils.sendDebugMessage("Supercraft: sending /recipe " + item);
         markProgress();
         ClientUtils.sendCommand(client, "/recipe " + item);
     }
 
-    private static void finish(Minecraft client) {
+    private static void finish() {
+        Minecraft client = Minecraft.getInstance();
         boolean shouldResumeFarming = resumeFarmingOnFinish;
         if (autoSequence) {
             lastAutoRunCompletedMs = System.currentTimeMillis();
@@ -264,16 +269,17 @@ public final class SupercraftManager {
         }
 
         if (client != null && client.player != null) {
-            ClientUtils.sendMessage(client, "\u00A7aAuto Supercraft finished.", false);
+            ClientUtils.sendMessage("\u00A7aAuto Supercraft finished.", false);
         }
     }
 
-    private static synchronized void failAndContinue(Minecraft client, String reason) {
+    private static synchronized void failAndContinue(String reason) {
         if (!running) {
             return;
         }
 
-        ClientUtils.sendDebugMessage(client, "Supercraft: " + reason + ". Continuing handoff.");
+        Minecraft client = Minecraft.getInstance();
+        ClientUtils.sendDebugMessage("Supercraft: " + reason + ". Continuing handoff.");
         boolean shouldResumeFarming = resumeFarmingOnFinish;
         if (autoSequence) {
             lastAutoRunCompletedMs = System.currentTimeMillis();
@@ -326,7 +332,8 @@ public final class SupercraftManager {
                 .toList();
     }
 
-    private static boolean shouldAbort(Minecraft client) {
+    private static boolean shouldAbort() {
+        Minecraft client = Minecraft.getInstance();
         return !running || client == null || client.player == null || client.level == null;
     }
 }
