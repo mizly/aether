@@ -1,6 +1,8 @@
 package dev.aether.ui;
 
+import dev.aether.macro.MacroStateManager;
 import dev.aether.renderer.NVGRenderer;
+import dev.aether.renderer.SkinFaceProvider;
 import dev.aether.ui.util.Fonts;
 import dev.aether.ui.theme.Theme;
 import dev.aether.util.AetherLang;
@@ -190,6 +192,8 @@ final class MainGUIChromeRenderer {
         owner.setSearchBoxBounds(searchX, searchY, searchW, searchH);
         context = owner.context();
 
+        renderFarmProfile(nvg, searchX - 16f, context.layout.contY);
+
         int searchBg = Theme.BG_FIELD;
         int searchOutline = context.navigation.searchMode ? Theme.ACCENT_PRIMARY : Theme.BORDER_DEFAULT;
         nvg.roundedRect(searchX, searchY, searchW, searchH, 7f, searchBg);
@@ -231,6 +235,25 @@ final class MainGUIChromeRenderer {
 
         owner.addClickArea(searchX, searchY, searchW, searchH, owner::activateSearchField);
         nvg.rect(context.layout.contX, context.layout.contY + MainGUI.TOP_BAR_H, context.layout.contW, 1f, Theme.SEPARATOR);
+    }
+
+    private void renderFarmProfile(NVGRenderer nvg, float rightEdge, float contY) {
+        float headSize = 20f;
+        float gap = 7f;
+        String hours = formatFarmedHours(MacroStateManager.getLifetimeRunningTime());
+        float textSize = 12f;
+        float textW = nvg.textWidth(Fonts.BOLD, hours, textSize);
+        float total = headSize + gap + textW;
+        float x = rightEdge - total;
+        float cy = contY + MainGUI.TOP_BAR_H / 2f;
+
+        SkinFaceProvider.render(nvg, x, cy - headSize / 2f, headSize, 1f);
+        nvg.text(Fonts.BOLD, hours, x + headSize + gap, cy - textSize / 2f, textSize, Theme.ACCENT_PRIMARY);
+    }
+
+    private static String formatFarmedHours(long ms) {
+        long totalMinutes = ms / 60000L;
+        return (totalMinutes / 60L) + "h " + (totalMinutes % 60L) + "m";
     }
 
     void renderFilterBar(NVGRenderer nvg, float mx, float my) {
