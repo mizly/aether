@@ -917,6 +917,15 @@ public final class AetherConfig {
                         .string("failsafeWorldChangeCustomReplay", "Random");
         public static final StringEntry FAILSAFE_ACTION = Config.string("failsafeAction", "STOP");
         public static final BooleanEntry FAILSAFE_SOUND_ENABLED = Config.bool("failsafeSoundEnabled", true);
+        public static final BooleanEntry FAILSAFE_COLOUR_FLASH_ENABLED = Config.bool("failsafeColourFlashEnabled", false);
+        public static final IntEntry FAILSAFE_COLOUR_FLASH_FIRST = Config.integer("failsafeColourFlashFirst", 0xFFFF2020);
+        public static final IntEntry FAILSAFE_COLOUR_FLASH_SECOND = Config.integer("failsafeColourFlashSecond", 0xFF2020FF);
+        public static final FloatEntry FAILSAFE_COLOUR_FLASH_OPACITY = Config
+                        .floatVal("failsafeColourFlashOpacity", 0.35f)
+                        .range(0.0f, 1.0f);
+        public static final FloatEntry FAILSAFE_COLOUR_FLASH_SWAP_DELAY_SECONDS = Config
+                        .floatVal("failsafeColourFlashSwapDelaySeconds", 0.5f)
+                        .range(0.1f, 5.0f);
         public static final StringEntry FAILSAFE_SOUND_FILE = Config.string("failsafeSoundFile", "fnaf.mp3");
         // Per-action overrides. Blank = fall back to the shared FAILSAFE_SOUND_FILE above.
         public static final StringEntry FAILSAFE_SOUND_FILE_STOP = Config.string("failsafeSoundFileStop", "");

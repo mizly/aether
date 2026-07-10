@@ -3,6 +3,7 @@ package dev.aether.ui;
 import dev.aether.config.AetherConfig;
 import dev.aether.config.entries.StringEntry;
 import dev.aether.modules.failsafe.FailsafeSoundManager;
+import dev.aether.ui.settings.ColorSetting;
 import dev.aether.ui.settings.DropdownSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.SettingGroup;
@@ -55,6 +56,42 @@ public final class GeneralFailsafesRegistryProvider extends AbstractFailsafesReg
                             AetherConfig.FAILSAFE_AUTO_ALT_TAB.set(v);
                             AetherConfig.save();
                         }))
+                .add(new ToggleSetting("Colour Flash on Failsafe Trigger",
+                        () -> AetherConfig.FAILSAFE_COLOUR_FLASH_ENABLED.get(),
+                        v -> {
+                            AetherConfig.FAILSAFE_COLOUR_FLASH_ENABLED.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(new ColorSetting("First Flash Colour",
+                        () -> AetherConfig.FAILSAFE_COLOUR_FLASH_FIRST.get(),
+                        v -> {
+                            AetherConfig.FAILSAFE_COLOUR_FLASH_FIRST.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(() -> AetherConfig.FAILSAFE_COLOUR_FLASH_ENABLED.get()))
+                .add(new ColorSetting("Second Flash Colour",
+                        () -> AetherConfig.FAILSAFE_COLOUR_FLASH_SECOND.get(),
+                        v -> {
+                            AetherConfig.FAILSAFE_COLOUR_FLASH_SECOND.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(() -> AetherConfig.FAILSAFE_COLOUR_FLASH_ENABLED.get()))
+                .add(new SliderSetting("Flash Opacity", 0, 100,
+                        () -> AetherConfig.FAILSAFE_COLOUR_FLASH_OPACITY.get() * 100.0f,
+                        v -> {
+                            AetherConfig.FAILSAFE_COLOUR_FLASH_OPACITY.set(clamp01(v / 100.0f));
+                            AetherConfig.save();
+                        })
+                        .withDecimals(0).withSuffix("%")
+                        .visibleWhen(() -> AetherConfig.FAILSAFE_COLOUR_FLASH_ENABLED.get()))
+                .add(new SliderSetting("Colour Swap Delay", 0.1f, 5.0f,
+                        () -> AetherConfig.FAILSAFE_COLOUR_FLASH_SWAP_DELAY_SECONDS.get(),
+                        v -> {
+                            AetherConfig.FAILSAFE_COLOUR_FLASH_SWAP_DELAY_SECONDS.set(v);
+                            AetherConfig.save();
+                        })
+                        .withDecimals(1).withSuffix("s")
+                        .visibleWhen(() -> AetherConfig.FAILSAFE_COLOUR_FLASH_ENABLED.get()))
                 .add(new DropdownSetting("Default Failsafe Sound", defaultOptions,
                         () -> getFailsafeSoundIndex(defaultOptions),
                         i -> {

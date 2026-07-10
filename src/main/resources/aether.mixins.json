@@ -27,6 +27,7 @@
         "MixinCamera",
         "MixinMouseHandler",
         "MixinLocalPlayer",
+        "MixinKeyboardHandler",
         "MixinKeyboardInput",
         "MixinClientPacketListener",
         "MixinClientSuggestionProvider",

@@ -53,6 +53,12 @@ public final class AetherBootstrapHooks {
         default void onGameRenderEnd() {
         }
 
+        default void renderFailsafeColourFlash() {
+        }
+
+        default void onUserInput() {
+        }
+
         default boolean shouldSuppressVanillaHud(Screen screen) {
             return false;
         }
@@ -229,6 +235,14 @@ public final class AetherBootstrapHooks {
 
     public static void onGameRenderEnd() {
         hooks.onGameRenderEnd();
+    }
+
+    public static void renderFailsafeColourFlash() {
+        hooks.renderFailsafeColourFlash();
+    }
+
+    public static void onUserInput() {
+        hooks.onUserInput();
     }
 
     public static boolean shouldSuppressVanillaHud(Screen screen) {

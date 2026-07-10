@@ -258,6 +258,7 @@ public final class FailsafeManager {
     }
 
     public static void onFailsafeTriggered(FailsafeAction action) {
+        FailsafeColourFlashManager.trigger();
         FailsafeSoundManager.playConfiguredSound(action);
         FailsafeWindowFocusManager.bringWindowToFront();
     }

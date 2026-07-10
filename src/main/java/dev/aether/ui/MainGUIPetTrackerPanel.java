@@ -192,7 +192,7 @@ final class MainGUIPetTrackerPanel {
         boolean clipped = owner.pushContentLocalScissor(nvg, x + 7f, fieldY, w - 24f, fieldH);
         nvg.text(Fonts.REGULAR, AetherLang.localize(setting.getSelectedOption()), x + 7f, fieldY + (fieldH - 13f) / 2f, 12f, Theme.TEXT_PRIMARY);
         owner.popContentLocalScissor(nvg, clipped);
-        nvg.textCentered(Fonts.REGULAR, "\u25BE", x + w - 24f, fieldY, 24f, fieldH, 15f, Theme.TEXT_SECONDARY);
+        DropdownChevron.renderDown(nvg, x + w - 24f, fieldY, 24f, fieldH, Theme.TEXT_SECONDARY);
         if (open) {
             owner.setDropdownOverlayBounds(x, fieldY + fieldH, w, fieldH);
         }

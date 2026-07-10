@@ -417,7 +417,7 @@ final class MainGUISettingRowRenderer {
         nvg.text(Fonts.REGULAR, picker.getSelectedOption(), x + textPad, rowY + (itemH - fieldTextSize) / 2f, fieldTextSize, Theme.TEXT_PRIMARY);
         owner.popContentLocalScissor(nvg, clippedDrop);
         nvg.rect(x + dropW - 30f, rowY + 6f, 1f, itemH - 12f, Theme.SEPARATOR);
-        nvg.textCentered(Fonts.REGULAR, "▾", x + dropW - 30f, rowY, 30f, itemH, 16f, Theme.TEXT_MUTED);
+        DropdownChevron.renderDown(nvg, x + dropW - 30f, rowY, 30f, itemH, Theme.TEXT_MUTED);
         if (open) {
             owner.setDropdownOverlayBounds(x, rowY + itemH, dropW, itemH);
         }
@@ -450,7 +450,7 @@ final class MainGUISettingRowRenderer {
                 boxY + (boxH - fieldTextSize) / 2f, fieldTextSize, Theme.TEXT_PRIMARY);
         owner.popContentLocalScissor(nvg, clipped);
         nvg.rect(boxX + boxW - 30f, boxY + 6f, 1f, boxH - 12f, Theme.SEPARATOR);
-        nvg.textCentered(Fonts.REGULAR, "\u25be", boxX + boxW - 30f, boxY, 30f, boxH, 16f, Theme.TEXT_MUTED);
+        DropdownChevron.renderDown(nvg, boxX + boxW - 30f, boxY, 30f, boxH, Theme.TEXT_MUTED);
         if (open) {
             owner.setDropdownOverlayBounds(boxX, boxY + boxH, boxW, boxH);
         }
