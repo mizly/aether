@@ -449,6 +449,7 @@ public final class AetherConfig {
         public static final BooleanEntry LEAVE_ONE_PEST_ALIVE = Config.bool("leaveOnePestAlive", false);
         public static final ListEntry<String> LEAVE_ONE_PEST_PLOTS = Config.list("leaveOnePestPlots",
                         Collections.emptyList(), String.class);
+        public static final BooleanEntry SUNSET_PESTS = Config.bool("sunsetPests", false);
         public static final BooleanEntry PEST_DISCO_DESTINATION_MODE = Config.bool("pestDiscoDestinationMode", false);
         public static final StringEntry PEST_DISCO_DESTINATION_PLOT = Config.string("pestDiscoDestinationPlot", "0");
         public static final BooleanEntry PEST_AOTV_BETWEEN = Config.bool("pestAotvBetween", false);

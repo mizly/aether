@@ -448,6 +448,7 @@ public class PestDestroyer {
         runtime.targetWithoutSkullTicks = 0;
         runtime.lastPreRotateAt = 0;
         runtime.accountedKilledPestEntityIds.clear();
+        runtime.sunsetPestsRestoreNight = false;
 
         // Build plot queue from tab list (always fresh read)
         runtime.navigation.plotQueue.clear();
@@ -476,6 +477,26 @@ public class PestDestroyer {
         ClientUtils.sendDebugMessage("[PestDestroyer] Started in-client pest killer. Plots: " + runtime.navigation.plotQueue);
         ClientUtils.sendMessage("\u00A7ePest destroyer active. Hunting pests...", false);
 
+        if (AetherConfig.SUNSET_PESTS.get()) {
+            runtime.sunsetPestsRestoreNight = true;
+            MacroWorkerThread.getInstance().submit("PestDestroyer-SunsetPests-Daytime", () -> {
+                boolean switched = GardenTimeManager.switchToDaytime(client);
+                if (!switched) {
+                    ClientUtils.sendDebugMessage("[PestDestroyer] Sunset Pests: failed to switch garden time to day.");
+                }
+                client.execute(() -> {
+                    if (runtime.active) {
+                        beginInitialPestState(client);
+                    }
+                });
+            });
+            return;
+        }
+
+        beginInitialPestState(client);
+    }
+
+    private static void beginInitialPestState(Minecraft client) {
         // Check if we need to TP to an infested plot
         if (!runtime.navigation.plotQueue.isEmpty()) {
             String currentPlot = getEffectivePlot(client);
@@ -554,6 +575,7 @@ public class PestDestroyer {
         runtime.arrivedAtCurrentTargetViaAotv = false;
         runtime.lastRoofRescanAt = 0L;
         runtime.roofAotvReturnState = null;
+        restoreSunsetPestsNightAsync(client);
         if (client != null && client.options != null) {
             ClientUtils.setKeyMappingState(client.options.keyUse, false);
             ClientUtils.setKeyMappingState(client.options.keyAttack, false);
@@ -609,6 +631,7 @@ public class PestDestroyer {
         runtime.navigation.trustedPlot = null;
         runtime.navigation.trustedPlotExpiresAt = 0;
         runtime.lastPreRotateAt = 0;
+        runtime.sunsetPestsRestoreNight = false;
     }
 
     /**
@@ -1410,11 +1433,34 @@ public class PestDestroyer {
         runtime.roofAotvReturnState = null;
         PathfindingManager.stop();
 
-        // Signal back to the pest management system
-        PestManager.handlePestCleaningFinished(client);
+        restoreSunsetPestsNightThen(client, () -> PestManager.handlePestCleaningFinished(client));
     }
 
     // -- Helpers --------------------------------------------------------------
+
+    private static void restoreSunsetPestsNightAsync(Minecraft client) {
+        restoreSunsetPestsNightThen(client, null);
+    }
+
+    private static void restoreSunsetPestsNightThen(Minecraft client, Runnable afterRestore) {
+        if (!runtime.sunsetPestsRestoreNight) {
+            if (afterRestore != null) {
+                afterRestore.run();
+            }
+            return;
+        }
+
+        runtime.sunsetPestsRestoreNight = false;
+        MacroWorkerThread.getInstance().submit("PestDestroyer-SunsetPests-Night", () -> {
+            boolean switched = GardenTimeManager.switchToNightTime(client);
+            if (!switched) {
+                ClientUtils.sendDebugMessage("[PestDestroyer] Sunset Pests: failed to switch garden time to night.");
+            }
+            if (afterRestore != null) {
+                client.execute(afterRestore);
+            }
+        });
+    }
 
     public static boolean shouldFinishForAliveCount(Minecraft client, int aliveCount) {
         if (aliveCount < 0) {

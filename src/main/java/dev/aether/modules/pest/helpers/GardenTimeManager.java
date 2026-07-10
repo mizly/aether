@@ -14,9 +14,9 @@ public final class GardenTimeManager {
     private static final int TIME_MENU_SLOT = 50;
     private static final int DAYTIME_SLOT = 11;
     private static final int NIGHTTIME_SLOT = 13;
-    private static final long MENU_DELAY_MS = 1000L;
     private static final char DAYTIME_MARKER = '\u2600';
     private static final char NIGHTTIME_MARKER = '\u263D';
+    private static volatile boolean switchingGardenTime = false;
 
     private GardenTimeManager() {}
 
@@ -44,6 +44,10 @@ public final class GardenTimeManager {
         return sidebarContains(client, NIGHTTIME_MARKER);
     }
 
+    public static boolean isSwitchingGardenTime() {
+        return switchingGardenTime;
+    }
+
     private static boolean sidebarContains(Minecraft client, char marker) {
         if (client == null || client.player == null || client.getConnection() == null) {
             return false;
@@ -63,37 +67,42 @@ public final class GardenTimeManager {
         }
 
         ClientUtils.sendDebugMessage("GardenTimeManager: switching garden time to " + label);
-        ClientUtils.sendCommand("/desk");
+        switchingGardenTime = true;
+        try {
+            ClientUtils.sendCommand("/desk");
 
-        if (!MacroWorkerThread.sleep(MENU_DELAY_MS)) {
-            return false;
-        }
-
-        if (!clickSlot(client, TIME_MENU_SLOT)) {
-            ClientUtils.sendDebugMessage("GardenTimeManager: failed to click desk slot " + TIME_MENU_SLOT);
-            return false;
-        }
-
-        if (!MacroWorkerThread.sleep(MENU_DELAY_MS)) {
-            return false;
-        }
-
-        if (!clickSlot(client, timeSlot)) {
-            ClientUtils.sendDebugMessage("GardenTimeManager: failed to click time slot " + timeSlot);
-            return false;
-        }
-
-        if (!MacroWorkerThread.sleep(MENU_DELAY_MS)) {
-            return false;
-        }
-
-        client.execute(() -> {
-            if (client.player != null) {
-                client.player.closeContainer();
+            if (!MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false))) {
+                return false;
             }
-        });
 
-        return true;
+            if (!clickSlot(client, TIME_MENU_SLOT)) {
+                ClientUtils.sendDebugMessage("GardenTimeManager: failed to click desk slot " + TIME_MENU_SLOT);
+                return false;
+            }
+
+            if (!MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false))) {
+                return false;
+            }
+
+            if (!clickSlot(client, timeSlot)) {
+                ClientUtils.sendDebugMessage("GardenTimeManager: failed to click time slot " + timeSlot);
+                return false;
+            }
+
+            if (!MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false))) {
+                return false;
+            }
+
+            client.execute(() -> {
+                if (client.player != null) {
+                    client.player.closeContainer();
+                }
+            });
+
+            return true;
+        } finally {
+            switchingGardenTime = false;
+        }
     }
 
     private static boolean clickSlot(Minecraft client, int slotId) {
