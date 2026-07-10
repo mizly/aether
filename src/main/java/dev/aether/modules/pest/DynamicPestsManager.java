@@ -183,7 +183,7 @@ public final class DynamicPestsManager {
         boolean complete = json.has("complete") && json.get("complete").getAsBoolean();
         JsonArray currentArr = json.has("current") ? json.getAsJsonArray("current") : null;
 
-        if (!complete || currentArr == null || currentArr.size() != 3) {
+        if (!complete || currentArr == null || currentArr.isEmpty()) {
             feastActive = false;
             feastActiveCrops = List.of();
             feastNextCropTimestamps = java.util.Map.of();
@@ -329,7 +329,8 @@ public final class DynamicPestsManager {
         for (String crop : priorityList) {
             if (eventCrops.contains(crop)) return crop;
         }
-        return null;
+        // no configured priority matched an active crop; still target an active one
+        return eventCrops.get(0);
     }
 
     private static String normalizeRequestedCrop(String cropName) {
