@@ -241,7 +241,7 @@ public class VisitorsMacro {
                 String normalizedName = normalizeVisitorName(visitorName);
 
                 boolean success;
-                if (isRejectedVisitor(visitorName) || isBelowMinimumRarity(client, visitorName)) {
+                if (isRejectedVisitor(visitorName)) {
                     success = processRejectedVisitor(client, visitorName);
                 } else {
                     success = processVisitor(client, visitorName);
@@ -535,86 +535,6 @@ public class VisitorsMacro {
         }
 
         return filtered;
-    }
-
-    private static boolean isBelowMinimumRarity(Minecraft client, String visitorName) {
-        VisitorRarity minimum = VisitorRarity.fromSelectableIndex(AetherConfig.VISITOR_MIN_RARITY.get());
-        if (minimum == VisitorRarity.UNCOMMON) {
-            return false;
-        }
-
-        VisitorRarity rarity = getVisitorRarityFromTab(client, visitorName);
-        if (rarity == VisitorRarity.UNKNOWN) {
-            ClientUtils.sendDebugMessage("[VisitorsMacro] Could not determine rarity for " + visitorName
-                    + ". Treating as accepted.");
-            return false;
-        }
-        if (rarity.ordinal() >= minimum.ordinal()) {
-            return false;
-        }
-
-        msg(client, "§eVisitor §c" + visitorName + " §eis §c" + rarity.getDisplayName()
-                + "§e, below minimum rarity §a" + minimum.getDisplayName() + "§e. Rejecting.");
-        return true;
-    }
-
-    private static VisitorRarity getVisitorRarityFromTab(Minecraft client, String visitorName) {
-        String target = normalizeVisitorName(visitorName);
-        try {
-            boolean foundVisitorsHeader = false;
-            int seen = 0;
-            for (String colored : TablistUtils.getColoredTabLines(client)) {
-                String clean = stripColors(colored).trim();
-                if (clean.contains("Visitors:")) {
-                    foundVisitorsHeader = true;
-                    continue;
-                }
-                if (!foundVisitorsHeader) {
-                    continue;
-                }
-                if (clean.isEmpty() || clean.contains("Next Visitor") || seen >= 5) {
-                    break;
-                }
-                seen++;
-
-                String name = clean.replace("NEW!", "").trim();
-                if (name.isEmpty() || !normalizeVisitorName(name).equals(target)) {
-                    continue;
-                }
-                return rarityFromColoredLine(colored, name);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return VisitorRarity.UNKNOWN;
-    }
-
-    // Rarity is encoded as the color code active where the visitor's name starts.
-    private static VisitorRarity rarityFromColoredLine(String coloredLine, String cleanName) {
-        if (cleanName.isEmpty()) {
-            return VisitorRarity.UNKNOWN;
-        }
-
-        char color = 0;
-        for (int i = 0; i < coloredLine.length(); i++) {
-            char ch = coloredLine.charAt(i);
-            if (ch == '§' && i + 1 < coloredLine.length()) {
-                char code = Character.toLowerCase(coloredLine.charAt(++i));
-                if (code == 'x') {
-                    i += 12;
-                    color = 0;
-                } else if (code == 'r') {
-                    color = 0;
-                } else if ((code >= '0' && code <= '9') || (code >= 'a' && code <= 'f')) {
-                    color = code;
-                }
-                continue;
-            }
-            if (ch == cleanName.charAt(0) && stripColors(coloredLine.substring(i)).startsWith(cleanName)) {
-                return VisitorRarity.fromColorCode(color);
-            }
-        }
-        return VisitorRarity.UNKNOWN;
     }
 
     private static boolean isRejectedVisitor(String name) {

@@ -1,8 +1,6 @@
 package dev.aether.ui;
 
 import dev.aether.config.AetherConfig;
-import dev.aether.modules.visitor.VisitorRarity;
-import dev.aether.ui.settings.DropdownSetting;
 import dev.aether.ui.settings.ListSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.SettingGroup;
@@ -41,12 +39,6 @@ public final class VisitorRegistryProvider extends AbstractModulesRegistryProvid
                     AetherConfig.save();
                 })
                 .withDecimals(1).withSuffix("m"));
-        group.add(new DropdownSetting("Minimum Visitor Rarity", VisitorRarity.selectableNames(),
-                () -> AetherConfig.VISITOR_MIN_RARITY.get(),
-                idx -> {
-                    AetherConfig.VISITOR_MIN_RARITY.set(idx);
-                    AetherConfig.save();
-                }));
         group.add(new ListSetting("Visitor Ignored", "Add visitor name",
                 () -> AetherConfig.VISITOR_ignore.get(),
                 v -> {
