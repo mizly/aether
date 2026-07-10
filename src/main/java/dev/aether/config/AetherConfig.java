@@ -369,6 +369,13 @@ public final class AetherConfig {
                         LOADOUT_SLOT_PEST.set(readInt(root, "wardrobeSlotPest", LOADOUT_SLOT_PEST.get()));
                         updated = true;
                 }
+                if (!root.has("loadoutSlotPestKill") && root.has("loadoutSlotFarming")) {
+                        LOADOUT_SLOT_PEST_KILL.set(readInt(root, "loadoutSlotFarming", LOADOUT_SLOT_PEST_KILL.get()));
+                        updated = true;
+                } else if (!root.has("loadoutSlotPestKill") && root.has("wardrobeSlotFarming")) {
+                        LOADOUT_SLOT_PEST_KILL.set(readInt(root, "wardrobeSlotFarming", LOADOUT_SLOT_PEST_KILL.get()));
+                        updated = true;
+                }
                 if (!root.has("loadoutSlotVisitor") && root.has("wardrobeSlotVisitor")) {
                         LOADOUT_SLOT_VISITOR.set(readInt(root, "wardrobeSlotVisitor", LOADOUT_SLOT_VISITOR.get()));
                         updated = true;
@@ -517,6 +524,7 @@ public final class AetherConfig {
         public static final BooleanEntry AUTO_LOADOUT_VISITOR = Config.bool("autoLoadoutVisitor", false);
         public static final IntEntry LOADOUT_SLOT_FARMING = Config.integer("loadoutSlotFarming", 1).range(1, 12);
         public static final IntEntry LOADOUT_SLOT_PEST = Config.integer("loadoutSlotPest", 2).range(1, 12);
+        public static final IntEntry LOADOUT_SLOT_PEST_KILL = Config.integer("loadoutSlotPestKill", 1).range(1, 12);
         public static final IntEntry LOADOUT_SLOT_VISITOR = Config.integer("loadoutSlotVisitor", 3).range(1, 12);
         public static final IntEntry LOADOUT_PEST_SWAP_TIME_SECONDS = Config.integer("loadoutPestSwapTimeSeconds", 170)
                         .range(0, 180);

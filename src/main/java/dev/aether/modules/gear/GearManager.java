@@ -91,8 +91,10 @@ public class GearManager {
     }
 
     public static boolean hasAnyGearSwapTasksEnabled() {
-        return AetherConfig.AUTO_LOADOUT_PEST.get()
-                || AetherConfig.AUTO_LOADOUT_VISITOR.get();
+        int farmingSlot = AetherConfig.LOADOUT_SLOT_FARMING.get();
+        return AetherConfig.LOADOUT_SLOT_PEST.get() != farmingSlot
+                || AetherConfig.LOADOUT_SLOT_PEST_KILL.get() != farmingSlot
+                || AetherConfig.LOADOUT_SLOT_VISITOR.get() != farmingSlot;
     }
 
     private static void scheduleFinalResumeRetry(Minecraft client) {

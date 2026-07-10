@@ -81,21 +81,15 @@ public class PestPrepSwapManager {
     }
 
     private static boolean hasAnyPrepSwapTasksEnabled() {
-        return AetherConfig.AUTO_LOADOUT_PEST.get();
+        return AetherConfig.LOADOUT_SLOT_PEST.get() != AetherConfig.LOADOUT_SLOT_FARMING.get();
     }
 
     private static int getPrepSwapTriggerCooldownSeconds() {
-        if (AetherConfig.AUTO_LOADOUT_PEST.get()) {
-            return AetherConfig.LOADOUT_PEST_SWAP_TIME_SECONDS.get();
-        }
-        return 3;
+        return AetherConfig.LOADOUT_PEST_SWAP_TIME_SECONDS.get();
     }
 
     private static int getPrepSwapResetCooldownSeconds() {
-        if (AetherConfig.AUTO_LOADOUT_PEST.get()) {
-            return AetherConfig.LOADOUT_PEST_SWAP_TIME_SECONDS.get();
-        }
-        return 3;
+        return AetherConfig.LOADOUT_PEST_SWAP_TIME_SECONDS.get();
     }
 
     private static boolean shouldAbortPrepSwap() {
@@ -112,7 +106,7 @@ public class PestPrepSwapManager {
 
     private static boolean runPrepLoadoutSwap() throws InterruptedException {
         Minecraft client = client();
-        if (!AetherConfig.AUTO_LOADOUT_PEST.get() || AetherConfig.LOADOUT_SLOT_PEST.get() <= 0) {
+        if (AetherConfig.LOADOUT_SLOT_PEST.get() <= 0) {
             return !shouldAbortPrepSwap();
         }
 

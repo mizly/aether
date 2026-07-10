@@ -110,39 +110,35 @@ public class PestCleaningSequencer {
     }
 
     private static boolean restoreGearForCleaning(Minecraft client) throws InterruptedException {
-        if (AetherConfig.AUTO_LOADOUT_PEST.get()) {
-            int targetSlot = AetherConfig.LOADOUT_SLOT_FARMING.get();
-            if ((PestPrepSwapManager.prepSwappedForCurrentPestCycle
-                    || LoadoutManager.trackedLoadoutSlot != targetSlot)
-                    && targetSlot > 0) {
-                ClientUtils.sendMessage("§eRestoring farming loadout (slot " + targetSlot + ") for vacuuming...", true);
-                client.execute(() -> GearManager.ensureLoadoutSlot(client, targetSlot));
+        int targetSlot = AetherConfig.LOADOUT_SLOT_PEST_KILL.get();
+        if (LoadoutManager.trackedLoadoutSlot != targetSlot && targetSlot > 0) {
+            ClientUtils.sendMessage("§eSwapping to pest kill loadout (slot " + targetSlot + ") for vacuuming...", true);
+            client.execute(() -> GearManager.ensureLoadoutSlot(client, targetSlot));
 
-                // client.execute is async; wait for swap state to actually start so later waits
-                // are not skipped.
-                long wardrobeStartWait = System.currentTimeMillis();
-                while (!LoadoutManager.isSwappingLoadout && System.currentTimeMillis() - wardrobeStartWait < 2000) {
-                    if (MacroWorkerThread.shouldAbortTask(client))
-                        return false;
-                    MacroWorkerThread.sleep(25);
-                }
-
-                ClientUtils.waitForWardrobeGui();
-                long wardrobeFinishWait = System.currentTimeMillis();
-                while (LoadoutManager.isSwappingLoadout && System.currentTimeMillis() - wardrobeFinishWait < 7000)
-                    MacroWorkerThread.sleep(50);
-
-                if (LoadoutManager.isSwappingLoadout) {
-                    ClientUtils.sendDebugMessage("§eLoadout swap wait timeout in cleaning sequence. Triggering failsafe completion.");
-                    LoadoutManager.forceLoadoutCompletionFailsafe(client);
-                }
-
-                while (LoadoutManager.loadoutCleanupTicks > 0)
-                    MacroWorkerThread.sleep(50);
-                MacroWorkerThread.sleep(250);
+            // client.execute is async; wait for swap state to actually start so later waits
+            // are not skipped.
+            long wardrobeStartWait = System.currentTimeMillis();
+            while (!LoadoutManager.isSwappingLoadout && System.currentTimeMillis() - wardrobeStartWait < 2000) {
                 if (MacroWorkerThread.shouldAbortTask(client))
                     return false;
+                MacroWorkerThread.sleep(25);
             }
+
+            ClientUtils.waitForWardrobeGui();
+            long wardrobeFinishWait = System.currentTimeMillis();
+            while (LoadoutManager.isSwappingLoadout && System.currentTimeMillis() - wardrobeFinishWait < 7000)
+                MacroWorkerThread.sleep(50);
+
+            if (LoadoutManager.isSwappingLoadout) {
+                ClientUtils.sendDebugMessage("§eLoadout swap wait timeout in cleaning sequence. Triggering failsafe completion.");
+                LoadoutManager.forceLoadoutCompletionFailsafe(client);
+            }
+
+            while (LoadoutManager.loadoutCleanupTicks > 0)
+                MacroWorkerThread.sleep(50);
+            MacroWorkerThread.sleep(250);
+            if (MacroWorkerThread.shouldAbortTask(client))
+                return false;
         }
 
         return true;

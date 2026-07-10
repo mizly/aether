@@ -11,6 +11,7 @@ import dev.aether.modules.ComposterManager;
 import dev.aether.modules.SupercraftManager;
 import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.gear.GearManager;
+import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.visitor.VisitorManager;
@@ -293,6 +294,9 @@ public class PestReturnManager {
             }
 
             setFinishingStage("swap farming tool");
+            if (!restoreFarmingLoadout(client)) {
+                return;
+            }
             ClientUtils.sendDebugMessage("Finalize: Swapping to farming tool...");
             GearManager.swapToFarmingToolSync(client);
             ClientUtils.sendDebugMessage("Finalize: Tool swap done.");
@@ -326,5 +330,30 @@ public class PestReturnManager {
         } finally {
             releaseFinishingSequence();
         }
+    }
+
+    private static boolean restoreFarmingLoadout(Minecraft client) throws InterruptedException {
+        int targetSlot = AetherConfig.LOADOUT_SLOT_FARMING.get();
+        if (targetSlot <= 0 || LoadoutManager.trackedLoadoutSlot == targetSlot) {
+            return true;
+        }
+
+        ClientUtils.sendMessage("§eRestoring farming loadout (slot " + targetSlot + ")...", true);
+        GearManager.ensureLoadoutSlot(client, targetSlot);
+        if (LoadoutManager.isSwappingLoadout) {
+            ClientUtils.sendDebugMessage("Pest finalize: Waiting for loadout GUI...");
+            ClientUtils.waitForWardrobeGui();
+            ClientUtils.sendDebugMessage("Pest finalize: Loadout GUI detected, waiting for swap to complete...");
+            while (LoadoutManager.isSwappingLoadout) {
+                MacroWorkerThread.sleep(50);
+            }
+            while (LoadoutManager.loadoutCleanupTicks > 0) {
+                MacroWorkerThread.sleep(50);
+            }
+            MacroWorkerThread.sleep(350);
+            ClientUtils.sendDebugMessage("Pest finalize: Farming loadout restore complete.");
+        }
+
+        return !abortFinisherIfNeeded(client, "restore farming loadout");
     }
 }
