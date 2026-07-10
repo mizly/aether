@@ -1,6 +1,8 @@
 package dev.aether.ui;
 
+import dev.aether.macro.MacroStateManager;
 import dev.aether.renderer.NVGRenderer;
+import dev.aether.renderer.SkinFaceProvider;
 import dev.aether.ui.util.Fonts;
 import dev.aether.ui.theme.Theme;
 import dev.aether.util.AetherLang;
@@ -86,7 +88,8 @@ final class MainGUIChromeRenderer {
             }
         }
 
-        float settingsTabY = context.layout.py + context.layout.ph - MainGUI.SB_BOT_PAD - 44f;
+        float profileTabY = context.layout.py + context.layout.ph - MainGUI.SB_BOT_PAD - 44f;
+        float settingsTabY = profileTabY - 44f - MainGUI.SB_SEP_GAP;
         float keybindsTabY = settingsTabY - 44f;
         float hudPositionsTabY = keybindsTabY - 44f;
         nvg.rect(context.layout.px + MainGUI.SB_H_PAD, hudPositionsTabY - MainGUI.SB_SEP_GAP,
@@ -165,6 +168,10 @@ final class MainGUIChromeRenderer {
             nvg.restore();
         }
 
+        nvg.rect(context.layout.px + MainGUI.SB_H_PAD, profileTabY - MainGUI.SB_SEP_GAP,
+                sbW - MainGUI.SB_H_PAD * 2f, 1f, Theme.SEPARATOR);
+        renderFarmProfile(nvg, context, textX, profileTabY);
+
         nvg.popScissor();
     }
 
@@ -231,6 +238,35 @@ final class MainGUIChromeRenderer {
 
         owner.addClickArea(searchX, searchY, searchW, searchH, owner::activateSearchField);
         nvg.rect(context.layout.contX, context.layout.contY + MainGUI.TOP_BAR_H, context.layout.contW, 1f, Theme.SEPARATOR);
+    }
+
+    private void renderFarmProfile(NVGRenderer nvg, MainGUIContext context, float textX, float rowY) {
+        float headSize = 28f;
+        float pillY = rowY + MainGUI.SB_ROW_PAD;
+        float headX = context.layout.px + MainGUI.SB_H_PAD + (MainGUI.SB_PILL - headSize) / 2f;
+        float headY = pillY + (MainGUI.SB_PILL - headSize) / 2f;
+
+        SkinFaceProvider.render(nvg, headX, headY, headSize, 1f);
+
+        if (context.animation.sidebarAnim > 0.01f) {
+            String hours = formatFarmedHours(MacroStateManager.getLifetimeRunningTime());
+            String label = "HOURS FARMED";
+            float textSize = 12f;
+            float labelSize = 8f;
+            float cy = pillY + MainGUI.SB_PILL / 2f;
+
+            nvg.save();
+            nvg.globalAlpha(context.animation.sidebarAnim);
+            nvg.translate((1f - context.animation.sidebarAnim) * -6f, 0f);
+            nvg.text(Fonts.BOLD, hours, textX, cy - textSize + 1f, textSize, Theme.ACCENT_PRIMARY);
+            nvg.text(Fonts.BOLD, label, textX, cy + 2f, labelSize, Theme.TEXT_TERTIARY);
+            nvg.restore();
+        }
+    }
+
+    private static String formatFarmedHours(long ms) {
+        long totalMinutes = ms / 60000L;
+        return (totalMinutes / 60L) + "h " + (totalMinutes % 60L) + "m";
     }
 
     void renderFilterBar(NVGRenderer nvg, float mx, float my) {

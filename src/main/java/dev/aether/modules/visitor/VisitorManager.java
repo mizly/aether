@@ -10,13 +10,18 @@ import java.util.regex.Pattern;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
+import dev.aether.macro.FarmingMacroManager;
+import dev.aether.util.CommandUtils;
 import dev.aether.util.ClientUtils;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.item.component.CustomData;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
@@ -24,6 +29,10 @@ import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.pest.helpers.PestPrepSwapManager;
 import dev.aether.modules.pest.helpers.PestReturnManager;
 import dev.aether.modules.profit.ProfitManager;
+
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 public class VisitorManager {
     private static final Pattern VISITORS_PATTERN = Pattern.compile("Visitors:\\s*\\(?(\\d+)\\)?");
@@ -48,12 +57,12 @@ public class VisitorManager {
             return 0;
 
         if (!client.isSameThread()) {
-            java.util.concurrent.CompletableFuture<Integer> future = new java.util.concurrent.CompletableFuture<>();
+            CompletableFuture<Integer> future = new CompletableFuture<>();
             client.execute(() -> {
                 future.complete(getVisitorCount(client));
             });
             try {
-                return future.get(1, java.util.concurrent.TimeUnit.SECONDS);
+                return future.get(1, TimeUnit.SECONDS);
             } catch (Exception e) {
                 return 0;
             }
@@ -74,18 +83,18 @@ public class VisitorManager {
 
     public static void handleVisitorScriptFinished(Minecraft client) {
         startVisitorReentryCooldown(client);
-        dev.aether.util.ClientUtils.sendMessage(client, "\u00A7aVisitor sequence complete. Returning to farm...", true);
+        ClientUtils.sendMessage("\u00A7aVisitor sequence complete. Returning to farm...", true);
         MacroWorkerThread.getInstance().submit("VisitorFinished-ReturnToFarm", () -> {
             try {
                 if (MacroWorkerThread.shouldAbortTask(client))
                     return;
-                ClientUtils.sendDebugMessage(client, "Warping to garden...");
-                dev.aether.util.CommandUtils.warpGarden(client);
+                ClientUtils.sendDebugMessage("Warping to garden...");
+                CommandUtils.warpGarden();
                 VisitorsMacro.reenableCompactorsIfPending(client);
                 PestReturnManager.isReturningFromPestVisitor = true;
                 if (MacroWorkerThread.shouldAbortTask(client))
                     return;
-                ClientUtils.sendDebugMessage(client, "Finalizing return to farm...");
+                ClientUtils.sendDebugMessage("Finalizing return to farm...");
                 finalizeReturnToFarm(client);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -96,25 +105,22 @@ public class VisitorManager {
     public static void finalizeReturnToFarm(Minecraft client) {
         if (MacroWorkerThread.shouldAbortTask(client))
             return;
-        ClientUtils.sendDebugMessage(client,
-                "finalizeReturnToFarm triggered. State: " + MacroStateManager.getCurrentState());
+        ClientUtils.sendDebugMessage("finalizeReturnToFarm triggered. State: " + MacroStateManager.getCurrentState());
         if (MacroStateManager.getCurrentState() == MacroState.State.OFF)
             return;
 
         int visitors = getVisitorCount(client);
         if (visitors >= AetherConfig.VISITOR_THRESHOLD.get() && shouldSkipVisitorsDuringJacobsContest(client, true)) {
-            ClientUtils.sendDebugMessage(client,
-                    "Visitor threshold met, but Jacob's Contest window is active. Continuing farming.");
+            ClientUtils.sendDebugMessage("Visitor threshold met, but Jacob's Contest window is active. Continuing farming.");
         } else if (visitors >= AetherConfig.VISITOR_THRESHOLD.get() && !isVisitorReentryCooldownActive(client, true)) {
-            dev.aether.util.ClientUtils.sendMessage(client, "\u00A7eVisitor threshold met (" + visitors + "). Redirecting to Visitors...", true);
+            ClientUtils.sendMessage("\u00A7eVisitor threshold met (" + visitors + "). Redirecting to Visitors...", true);
             
-            client.execute(() -> dev.aether.modules.visitor.VisitorsMacro.start(client));
+            client.execute(() -> VisitorsMacro.start(client));
             return;
         }
 
         if (visitors >= AetherConfig.VISITOR_THRESHOLD.get()) {
-            ClientUtils.sendDebugMessage(client,
-                    "Visitor threshold met, but re-entry cooldown is active. Continuing farming.");
+            ClientUtils.sendDebugMessage("Visitor threshold met, but re-entry cooldown is active. Continuing farming.");
         }
 
         client.execute(() -> {
@@ -122,29 +128,27 @@ public class VisitorManager {
         });
         MacroWorkerThread.sleep(250);
 
-        if (AetherConfig.AUTO_LOADOUT_VISITOR.get() && AetherConfig.LOADOUT_SLOT_FARMING.get() > 0
+        if (AetherConfig.LOADOUT_SLOT_FARMING.get() > 0
                 && LoadoutManager.trackedLoadoutSlot != AetherConfig.LOADOUT_SLOT_FARMING.get()) {
-            dev.aether.util.ClientUtils.sendMessage(client, 
-                    "\u00A7eRestoring farming loadout (slot " + AetherConfig.LOADOUT_SLOT_FARMING.get() + ")...", true);
+            ClientUtils.sendMessage("\u00A7eRestoring farming loadout (slot " + AetherConfig.LOADOUT_SLOT_FARMING.get() + ")...", true);
             GearManager.ensureLoadoutSlot(client, AetherConfig.LOADOUT_SLOT_FARMING.get());
             if (LoadoutManager.isSwappingLoadout) {
-                ClientUtils.sendDebugMessage(client, "finalizeReturnToFarm: Waiting for loadout GUI...");
-                ClientUtils.waitForWardrobeGui(client);
-                ClientUtils.sendDebugMessage(client,
-                        "finalizeReturnToFarm: Loadout GUI detected, waiting for swap to complete...");
+                ClientUtils.sendDebugMessage("finalizeReturnToFarm: Waiting for loadout GUI...");
+                ClientUtils.waitForWardrobeGui();
+                ClientUtils.sendDebugMessage("finalizeReturnToFarm: Loadout GUI detected, waiting for swap to complete...");
                 while (LoadoutManager.isSwappingLoadout)
                     MacroWorkerThread.sleep(50);
                 while (LoadoutManager.loadoutCleanupTicks > 0)
                     MacroWorkerThread.sleep(50);
                 MacroWorkerThread.sleep(350);
-                ClientUtils.sendDebugMessage(client, "finalizeReturnToFarm: Loadout swap fully complete.");
+                ClientUtils.sendDebugMessage("finalizeReturnToFarm: Loadout swap fully complete.");
             }
         }
 
 
-        ClientUtils.waitForGearAndGui(client);
+        ClientUtils.waitForGearAndGui();
 
-        ClientUtils.waitForGearAndGui(client);
+        ClientUtils.waitForGearAndGui();
         PestReturnManager.isReturningFromPestVisitor = false;
         PestReturnManager.isReturnToLocationActive = false;
         restartFarmingAfterVisitors(client);
@@ -153,18 +157,17 @@ public class VisitorManager {
     }
 
     private static void restartFarmingAfterVisitors(Minecraft client) {
-        dev.aether.util.ClientUtils.sendMessage(client, "\u00A7aRestarting farming...", true);
-        ClientUtils.sendDebugMessage(client, "Restarting farming macro after visitor sequence.");
+        ClientUtils.sendMessage("\u00A7aRestarting farming...", true);
+        ClientUtils.sendDebugMessage("Restarting farming macro after visitor sequence.");
         client.execute(() -> {
             if (client.player == null) {
                 return;
             }
 
-            dev.aether.macro.FarmingMacroManager.disable(client);
-            dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.FARMING);
+            FarmingMacroManager.disable(client);
+            MacroStateManager.setCurrentState(MacroState.State.FARMING);
             GearManager.swapToFarmingTool(client);
-            dev.aether.macro.FarmingMacroManager.enable(client,
-                    dev.aether.macro.FarmingMacroManager.createMacroFromConfig());
+            FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig());
         });
     }
 
@@ -172,7 +175,7 @@ public class VisitorManager {
 
     @SuppressWarnings("rawtypes")
     public static void scanVisitorGui(Minecraft client,
-            net.minecraft.client.gui.screens.inventory.AbstractContainerScreen screen) {
+            AbstractContainerScreen screen) {
         if (!MacroStateManager.isMacroRunning() || client.player == null)
             return;
 
@@ -184,7 +187,7 @@ public class VisitorManager {
         if (screen.getMenu().slots.size() <= slotIndex)
             return;
 
-        net.minecraft.world.inventory.Slot slot = screen.getMenu().getSlot(slotIndex);
+        Slot slot = screen.getMenu().getSlot(slotIndex);
         if (slot == null || !slot.hasItem())
             return;
 
@@ -198,9 +201,9 @@ public class VisitorManager {
         offer.visitorName = title;
         StringBuilder costBreakdown = new StringBuilder("\u00A7d[Aether] \u00A77Costs: ");
 
-        net.minecraft.world.item.component.ItemLore loreCmp = stack.get(DataComponents.LORE);
+        ItemLore loreCmp = stack.get(DataComponents.LORE);
         if (loreCmp == null) {
-            dev.aether.util.ClientUtils.sendMessage(client, "\u00A7cNo lore found on the Accept Offer button!", false);
+            ClientUtils.sendMessage("\u00A7cNo lore found on the Accept Offer button!", false);
             return;
         }
         List<Component> lore = loreCmp.lines();
@@ -280,7 +283,7 @@ public class VisitorManager {
             if (customData != null) {
                 CompoundTag tag = customData.copyTag();
                 if (tag.contains("ExtraAttributes")) {
-                    java.util.Optional<CompoundTag> eaOpt = tag.getCompound("ExtraAttributes");
+                    Optional<CompoundTag> eaOpt = tag.getCompound("ExtraAttributes");
                     if (eaOpt.isPresent()) {
                         CompoundTag ea = eaOpt.get();
                         if (ea.contains("id")) {
@@ -332,7 +335,7 @@ public class VisitorManager {
 
     public static void startVisitorReentryCooldown(Minecraft client) {
         visitorReentryCooldownUntilMs = System.currentTimeMillis() + VISITOR_REENTRY_COOLDOWN_MS;
-        ClientUtils.sendDebugMessage(client, "Visitor re-entry cooldown started (1 minute).");
+        ClientUtils.sendDebugMessage("Visitor re-entry cooldown started (1 minute).");
     }
 
     public static long getVisitorReentryCooldownRemainingMs() {
@@ -347,10 +350,9 @@ public class VisitorManager {
         }
 
         long remainingSeconds = (remainingMs + 999L) / 1000L;
-        ClientUtils.sendDebugMessage(client,
-                "Visitor re-entry cooldown active (" + remainingSeconds + "s remaining). Skipping visitor macro.");
+        ClientUtils.sendDebugMessage("Visitor re-entry cooldown active (" + remainingSeconds + "s remaining). Skipping visitor macro.");
         if (showMessage && client.player != null) {
-            dev.aether.util.ClientUtils.sendMessage(client, "\u00A7eVisitor cooldown active (" + remainingSeconds + "s). Staying on farm.", true);
+            ClientUtils.sendMessage("\u00A7eVisitor cooldown active (" + remainingSeconds + "s). Staying on farm.", true);
         }
         return true;
     }
@@ -364,15 +366,12 @@ public class VisitorManager {
             return false;
         }
 
-        ClientUtils.sendDebugMessage(client,
-                "Jacob's Contest visitor skip window active (:15-:35). Skipping visitors.");
+        ClientUtils.sendDebugMessage("Jacob's Contest visitor skip window active (:15-:35). Skipping visitors.");
         if (showMessage && client.player != null) {
-            ClientUtils.sendMessage(client,
-                    "\u00A7eJacob's Contest window active (:15-:35). Skipping visitors.", true);
+            ClientUtils.sendMessage("\u00A7eJacob's Contest window active (:15-:35). Skipping visitors.", true);
         }
         return true;
     }
 }
-
 
 

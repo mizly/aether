@@ -1,5 +1,8 @@
 package dev.aether.modules.gear.helpers;
 
+import dev.aether.macro.FarmingMacroManager;
+import dev.aether.macro.MacroState;
+import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.pest.PestManager;
@@ -20,6 +23,7 @@ public class LoadoutManager {
     public static volatile int targetLoadoutSlot = -1;
     public static volatile boolean shouldRestartFarmingAfterSwap = false;
     public static volatile long loadoutOpenPendingTime = 0;
+    public static volatile long loadoutFirstClickDelayMs = 0;
     public static volatile boolean loadoutGuiDetected = false;
     public static volatile long loadoutTimelineStartTime = 0;
 
@@ -33,37 +37,38 @@ public class LoadoutManager {
         loadoutInteractionStage = 0;
         loadoutGuiDetected = false;
         loadoutOpenPendingTime = 0;
+        loadoutFirstClickDelayMs = 0;
         loadoutTimelineStartTime = 0;
     }
 
     public static void triggerLoadoutSwap(Minecraft client, int slot) {
         if (trackedLoadoutSlot == slot) {
-            ClientUtils.sendDebugMessage(client, "Loadout already on target slot, restarting farming");
-            client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
+            ClientUtils.sendDebugMessage("Loadout already on target slot, restarting farming");
+            client.execute(() -> FarmingMacroManager.disable(client));
             MacroWorkerThread.getInstance().submit("Wardrobe-AlreadyOnSlot-FastResume", () -> {
-                if (MacroWorkerThread.shouldAbortTask(client, dev.aether.macro.MacroState.State.FARMING)) {
+                if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING)) {
                     return;
                 }
                 MacroWorkerThread.sleep(400);
-                if (MacroWorkerThread.shouldAbortTask(client, dev.aether.macro.MacroState.State.FARMING)) {
+                if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING)) {
                     return;
                 }
                 if (AutoPestExchangeManager.shouldBlockFarmingResume()) {
-                ClientUtils.sendDebugMessage(client, "Loadout resume deferred because pest exchange has priority.");
+                ClientUtils.sendDebugMessage("Loadout resume deferred because pest exchange has priority.");
                     return;
                 }
                 client.execute(() -> GearManager.swapToFarmingTool(client));
                 MacroWorkerThread.sleep(250);
-                if (MacroWorkerThread.shouldAbortTask(client, dev.aether.macro.MacroState.State.FARMING)) {
+                if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING)) {
                     return;
                 }
                 if (AutoPestExchangeManager.shouldBlockFarmingResume()) {
-                ClientUtils.sendDebugMessage(client, "Loadout resume deferred because pest exchange has priority.");
+                ClientUtils.sendDebugMessage("Loadout resume deferred because pest exchange has priority.");
                     return;
                 }
-                ClientUtils.sendDebugMessage(client, "Restarting farming macro after loadout swap");
-                client.execute(() -> dev.aether.macro.FarmingMacroManager.enable(client,
-                        dev.aether.macro.FarmingMacroManager.createMacroFromConfig()));
+                ClientUtils.sendDebugMessage("Restarting farming macro after loadout swap");
+                client.execute(() -> FarmingMacroManager.enable(client,
+                        FarmingMacroManager.createMacroFromConfig()));
             });
             return;
         }
@@ -74,10 +79,12 @@ public class LoadoutManager {
         loadoutInteractionTime = 0;
         loadoutInteractionStage = 0;
         loadoutTimelineStartTime = 0;
+        loadoutOpenPendingTime = 0;
+        loadoutFirstClickDelayMs = 0;
         shouldRestartFarmingAfterSwap = true;
-        dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.WARDROBE);
-        ClientUtils.sendDebugMessage(client, "Triggering loadout swap to slot " + slot);
-        client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
+        MacroStateManager.setCurrentState(MacroState.State.WARDROBE);
+        ClientUtils.sendDebugMessage("Triggering loadout swap to slot " + slot);
+        client.execute(() -> FarmingMacroManager.disable(client));
         MacroWorkerThread.getInstance().submit("Loadout-OpenGui", () -> {
             if (MacroWorkerThread.shouldAbortTask(client)) {
                 return;
@@ -86,8 +93,8 @@ public class LoadoutManager {
             if (MacroWorkerThread.shouldAbortTask(client)) {
                 return;
             }
-            client.execute(() -> ClientUtils.sendCommand(client, "/loadout"));
-            ClientUtils.waitForWardrobeGui(client);
+            client.execute(() -> ClientUtils.sendCommand("/loadout"));
+            ClientUtils.waitForWardrobeGui();
         });
     }
 
@@ -101,7 +108,9 @@ public class LoadoutManager {
         loadoutInteractionTime = 0;
         loadoutInteractionStage = 0;
         loadoutTimelineStartTime = 0;
-        ClientUtils.sendCommand(client, "/loadout");
+        loadoutOpenPendingTime = 0;
+        loadoutFirstClickDelayMs = 0;
+        ClientUtils.sendCommand("/loadout");
     }
 
     public static void abortSwapForPriorityTask(Minecraft client, String taskName) {
@@ -115,12 +124,14 @@ public class LoadoutManager {
         loadoutInteractionTime = 0;
         loadoutInteractionStage = 0;
         loadoutTimelineStartTime = 0;
+        loadoutOpenPendingTime = 0;
+        loadoutFirstClickDelayMs = 0;
 
-        if (dev.aether.macro.MacroStateManager.getCurrentState() == dev.aether.macro.MacroState.State.WARDROBE) {
-            dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.FARMING);
+        if (MacroStateManager.getCurrentState() == MacroState.State.WARDROBE) {
+            MacroStateManager.setCurrentState(MacroState.State.FARMING);
         }
 
-        ClientUtils.sendDebugMessage(client, "Aborted loadout swap because " + taskName + " has priority.");
+        ClientUtils.sendDebugMessage("Aborted loadout swap because " + taskName + " has priority.");
         if (client.player != null) {
             client.execute(() -> client.player.closeContainer());
         }
@@ -141,6 +152,8 @@ public class LoadoutManager {
         if (!loadoutGuiDetected) {
             loadoutGuiDetected = true;
             loadoutTimelineStartTime = now;
+            loadoutOpenPendingTime = now;
+            loadoutFirstClickDelayMs = ClientUtils.getGuiClickDelayMs(true);
             sendTimedDebug(client, "Loadout GUI opened", now);
         }
 
@@ -166,8 +179,12 @@ public class LoadoutManager {
             return;
         }
 
+        if (now - loadoutOpenPendingTime < loadoutFirstClickDelayMs) {
+            return;
+        }
+
         sendTimedDebug(client, "Clicked loadout slot " + targetLoadoutSlot, now);
-        ClientUtils.performSlotClick(client, screen, slot.index, 0, ContainerInput.PICKUP);
+        ClientUtils.performSlotClick(screen, slot.index, 0, ContainerInput.PICKUP);
         loadoutInteractionTime = now;
         loadoutInteractionStage = 1;
     }
@@ -182,6 +199,8 @@ public class LoadoutManager {
         isSwappingLoadout = false;
         loadoutGuiDetected = false;
         loadoutInteractionStage = 0;
+        loadoutOpenPendingTime = 0;
+        loadoutFirstClickDelayMs = 0;
 
         if (client.player != null) {
             sendTimedDebug(client, "Loadout GUI close requested", now);
@@ -201,24 +220,24 @@ public class LoadoutManager {
 
         shouldRestartFarmingAfterSwap = false;
 
-        if (dev.aether.macro.MacroStateManager.getCurrentState() == dev.aether.macro.MacroState.State.WARDROBE) {
-            dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.FARMING);
+        if (MacroStateManager.getCurrentState() == MacroState.State.WARDROBE) {
+            MacroStateManager.setCurrentState(MacroState.State.FARMING);
         }
 
         if (PestManager.isCleaningInProgress) {
-            ClientUtils.sendMessage(client, "\u00A7aLoadout swap finished. Cleaning in progress, skipping restart.", true);
+            ClientUtils.sendMessage("\u00A7aLoadout swap finished. Cleaning in progress, skipping restart.", true);
             return;
         }
 
         if (AutoPestExchangeManager.shouldBlockFarmingResume()) {
-            ClientUtils.sendDebugMessage(client, "Loadout completion deferred because pest exchange has priority.");
+            ClientUtils.sendDebugMessage("Loadout completion deferred because pest exchange has priority.");
             return;
         }
 
-        ClientUtils.sendMessage(client, "\u00A7aLoadout swap finished. Restarting farming...", true);
+        ClientUtils.sendMessage("\u00A7aLoadout swap finished. Restarting farming...", true);
         client.execute(() -> GearManager.swapToFarmingTool(client));
         MacroWorkerThread.getInstance().submit("LoadoutCompletion-Resume", () -> {
-            if (MacroWorkerThread.shouldAbortTask(client, dev.aether.macro.MacroState.State.FARMING)) {
+            if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING)) {
                 return;
             }
             if (PestManager.isCleaningInProgress) {
@@ -234,11 +253,13 @@ public class LoadoutManager {
 
     public static void forceLoadoutCompletionFailsafe(Minecraft client) {
         if (isSwappingLoadout && shouldRestartFarmingAfterSwap) {
-            ClientUtils.sendDebugMessage(client, "Loadout swap failsafe triggered. Forcing completion.");
+            ClientUtils.sendDebugMessage("Loadout swap failsafe triggered. Forcing completion.");
             trackedLoadoutSlot = targetLoadoutSlot;
             isSwappingLoadout = false;
             loadoutGuiDetected = false;
             loadoutInteractionStage = 0;
+            loadoutOpenPendingTime = 0;
+            loadoutFirstClickDelayMs = 0;
             handleLoadoutCompletion(client);
         }
     }
@@ -253,7 +274,6 @@ public class LoadoutManager {
     }
 
     private static void sendTimedDebug(Minecraft client, String action, long now) {
-        ClientUtils.sendDebugMessage(client,
-                action + " at " + ClientUtils.formatElapsedMs(loadoutTimelineStartTime, now) + ".");
+        ClientUtils.sendDebugMessage(action + " at " + ClientUtils.formatElapsedMs(loadoutTimelineStartTime, now) + ".");
     }
 }

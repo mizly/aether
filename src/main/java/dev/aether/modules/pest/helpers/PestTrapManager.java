@@ -55,34 +55,34 @@ public class PestTrapManager {
 
     public static void start(Minecraft client) {
         if (!PestManager.arePestTrapsEnabled()) {
-            ClientUtils.sendMessage(client, "\u00A7cPest traps are disabled.", false);
+            ClientUtils.sendMessage("\u00A7cPest traps are disabled.", false);
             return;
         }
         if (isBlockedByPestExchange()) {
-            ClientUtils.sendDebugMessage(client, "PestTrapManager: skipping clear while pest exchange is active.");
+            ClientUtils.sendDebugMessage("PestTrapManager: skipping clear while pest exchange is active.");
             return;
         }
         if (isRunning) {
-            ClientUtils.sendMessage(client, "\u00A7cPest traps sequence is already running.", false);
+            ClientUtils.sendMessage("\u00A7cPest traps sequence is already running.", false);
             return;
         }
 
         String plot = AetherConfig.PEST_TRAPS_PLOT.get();
-        ClientUtils.sendMessage(client, "\u00A7eStarting pest traps sequence for plot " + plot, false);
+        ClientUtils.sendMessage("\u00A7eStarting pest traps sequence for plot " + plot, false);
 
         beginOperation(Operation.CLEAR);
         MacroWorkerThread.getInstance().submit("PestTraps", () -> {
             try {
                 runSequence(client, plot);
             } catch (Exception e) {
-                ClientUtils.sendDebugMessage(client, "PestTrapManager error: " + e.getMessage());
+                ClientUtils.sendDebugMessage("PestTrapManager error: " + e.getMessage());
                 e.printStackTrace();
             } finally {
                 final boolean cancelled = cancelRequested;
                 finishOperation();
                 client.execute(() -> {
                     if (client.player != null && !cancelled) {
-                        ClientUtils.sendMessage(client, "\u00A7aPest traps sequence finished.", false);
+                        ClientUtils.sendMessage("\u00A7aPest traps sequence finished.", false);
                     }
                 });
             }
@@ -91,34 +91,34 @@ public class PestTrapManager {
 
     public static void startRefill(Minecraft client) {
         if (!PestManager.arePestTrapsEnabled()) {
-            ClientUtils.sendMessage(client, "\u00A7cPest traps are disabled.", false);
+            ClientUtils.sendMessage("\u00A7cPest traps are disabled.", false);
             return;
         }
         if (isBlockedByPestExchange()) {
-            ClientUtils.sendDebugMessage(client, "PestTrapManager: skipping refill while pest exchange is active.");
+            ClientUtils.sendDebugMessage("PestTrapManager: skipping refill while pest exchange is active.");
             return;
         }
         if (isRunning) {
-            ClientUtils.sendMessage(client, "\u00A7cPest traps sequence is already running.", false);
+            ClientUtils.sendMessage("\u00A7cPest traps sequence is already running.", false);
             return;
         }
 
         String plot = AetherConfig.PEST_TRAPS_PLOT.get();
-        ClientUtils.sendMessage(client, "\u00A7eStarting pest traps refill sequence for plot " + plot, false);
+        ClientUtils.sendMessage("\u00A7eStarting pest traps refill sequence for plot " + plot, false);
 
         beginOperation(Operation.REFILL);
         MacroWorkerThread.getInstance().submit("PestRefill", () -> {
             try {
                 runRefillSequence(client, plot);
             } catch (Exception e) {
-                ClientUtils.sendDebugMessage(client, "PestRefillManager error: " + e.getMessage());
+                ClientUtils.sendDebugMessage("PestRefillManager error: " + e.getMessage());
                 e.printStackTrace();
             } finally {
                 final boolean cancelled = cancelRequested;
                 finishOperation();
                 client.execute(() -> {
                     if (client.player != null && !cancelled) {
-                        ClientUtils.sendMessage(client, "\u00A7aPest traps refill sequence finished.", false);
+                        ClientUtils.sendMessage("\u00A7aPest traps refill sequence finished.", false);
                     }
                 });
             }
@@ -164,11 +164,11 @@ public class PestTrapManager {
             ensureGuiClosed(client);
             List<Integer> fullTraps = getFullTrapsFromTab(client);
             if (fullTraps.isEmpty()) {
-                ClientUtils.sendDebugMessage(client, "No more full traps detected in tablist.");
+                ClientUtils.sendDebugMessage("No more full traps detected in tablist.");
                 break;
             }
 
-            ClientUtils.sendMessage(client, "Found " + fullTraps.size() + " full traps: " + fullTraps);
+            ClientUtils.sendMessage("Found " + fullTraps.size() + " full traps: " + fullTraps);
             int clearedThisPass = 0;
 
             for (int trapId : fullTraps) {
@@ -177,10 +177,10 @@ public class PestTrapManager {
                 }
 
                 ensureGuiClosed(client);
-                ClientUtils.sendDebugMessage(client, "Looking for trap #" + trapId);
+                ClientUtils.sendDebugMessage("Looking for trap #" + trapId);
                 Entity trapMarker = findTrapEntity(client, trapId);
                 if (trapMarker == null) {
-                    ClientUtils.sendDebugMessage(client, "Could not find armor stand for trap #" + trapId);
+                    ClientUtils.sendDebugMessage("Could not find armor stand for trap #" + trapId);
                     continue;
                 }
 
@@ -195,15 +195,14 @@ public class PestTrapManager {
                 RotationManager.initiateRotation(client, trapEyePos, 200);
                 MacroWorkerThread.sleep(250);
 
-                ClientUtils.sendDebugMessage(client, "Interacting with trap entity #" + trapId
+                ClientUtils.sendDebugMessage("Interacting with trap entity #" + trapId
                         + " (dist=" + String.format("%.2f", Math.sqrt(client.player.distanceToSqr(trapMarker))) + ")");
 
                 boolean guiOpened = false;
                 for (int attempt = 0; attempt < 3 && !guiOpened && isRunning && !shouldAbort(); attempt++) {
                     if (attempt > 0) {
                         Vec3 retryTarget = getTrapInteractTarget(trapEyePos, attempt);
-                        ClientUtils.sendDebugMessage(client,
-                                "Retry interact attempt " + (attempt + 1) + " using y offset "
+                        ClientUtils.sendDebugMessage("Retry interact attempt " + (attempt + 1) + " using y offset "
                                         + String.format("%.1f", retryTarget.y - trapEyePos.y));
                         RotationManager.initiateRotation(client, retryTarget, 150);
                         MacroWorkerThread.sleep(200);
@@ -237,11 +236,10 @@ public class PestTrapManager {
                     client.execute(() -> {
                         int releaseSlot = findReleasePestsSlot(finalScreen);
                         if (releaseSlot != -1) {
-                            ClientUtils.sendDebugMessage(client,
-                                    "Clicking 'Release All Pests' button at slot " + releaseSlot);
-                            ClientUtils.performSlotClick(client, finalScreen, releaseSlot, 0, ContainerInput.PICKUP);
+                            ClientUtils.sendDebugMessage("Clicking 'Release All Pests' button at slot " + releaseSlot);
+                            ClientUtils.performSlotClick(finalScreen, releaseSlot, 0, ContainerInput.PICKUP);
                         } else {
-                            ClientUtils.sendDebugMessage(client, "Could not find 'Release All Pests' button.");
+                            ClientUtils.sendDebugMessage("Could not find 'Release All Pests' button.");
                         }
                     });
 
@@ -251,13 +249,13 @@ public class PestTrapManager {
                     MacroWorkerThread.sleep(200);
                     clearedThisPass++;
                 } else {
-                    ClientUtils.sendDebugMessage(client, "Failed to open trap GUI for #" + trapId
+                    ClientUtils.sendDebugMessage("Failed to open trap GUI for #" + trapId
                             + " (dist=" + String.format("%.2f", Math.sqrt(client.player.distanceToSqr(trapMarker))) + ")");
                 }
             }
 
             if (clearedThisPass == 0) {
-                ClientUtils.sendDebugMessage(client, "No traps cleared this pass - stopping.");
+                ClientUtils.sendDebugMessage("No traps cleared this pass - stopping.");
                 break;
             }
 
@@ -273,18 +271,18 @@ public class PestTrapManager {
 
         List<Integer> emptyTraps = getNoBaitTrapsFromTab(client);
         if (emptyTraps.isEmpty()) {
-            ClientUtils.sendDebugMessage(client, "No empty traps found (no bait).");
+            ClientUtils.sendDebugMessage("No empty traps found (no bait).");
             return;
         }
 
         String baitMaterial = AetherConfig.PEST_TRAPS_BAIT_MATERIAL.get();
         int baitAmount = Math.max(1, AetherConfig.PEST_TRAPS_BAIT_AMOUNT.get());
         int baitNeeded = emptyTraps.size() * baitAmount;
-        ClientUtils.sendDebugMessage(client, "Buying " + baitNeeded + " " + baitMaterial + "...");
+        ClientUtils.sendDebugMessage("Buying " + baitNeeded + " " + baitMaterial + "...");
         boolean bought = dev.aether.util.BazaarUtils.executeBuy(client, baitMaterial, baitNeeded);
         if (!bought || shouldAbort()) {
             if (!shouldAbort()) {
-                ClientUtils.sendDebugMessage(client, "Failed to buy " + baitMaterial + ". Aborting.");
+                ClientUtils.sendDebugMessage("Failed to buy " + baitMaterial + ". Aborting.");
             }
             return;
         }
@@ -298,7 +296,7 @@ public class PestTrapManager {
             ensureGuiClosed(client);
             List<Integer> targets = getNoBaitTrapsFromTab(client);
             if (targets.isEmpty()) {
-                ClientUtils.sendDebugMessage(client, "No more empty traps (no bait) detected in tablist.");
+                ClientUtils.sendDebugMessage("No more empty traps (no bait) detected in tablist.");
                 break;
             }
 
@@ -310,10 +308,10 @@ public class PestTrapManager {
                 }
 
                 ensureGuiClosed(client);
-                ClientUtils.sendDebugMessage(client, "Looking for empty trap #" + trapId);
+                ClientUtils.sendDebugMessage("Looking for empty trap #" + trapId);
                 Entity trapMarker = findTrapEntity(client, trapId);
                 if (trapMarker == null) {
-                    ClientUtils.sendDebugMessage(client, "Could not find armor stand for trap #" + trapId);
+                    ClientUtils.sendDebugMessage("Could not find armor stand for trap #" + trapId);
                     continue;
                 }
 
@@ -326,8 +324,7 @@ public class PestTrapManager {
                     ensureGuiClosed(client);
                     if (attempt > 0) {
                         Vec3 retryTarget = getTrapInteractTarget(trapEyePos, attempt);
-                        ClientUtils.sendDebugMessage(client,
-                                "Retry interact attempt " + (attempt + 1) + " using y offset "
+                        ClientUtils.sendDebugMessage("Retry interact attempt " + (attempt + 1) + " using y offset "
                                         + String.format("%.1f", retryTarget.y - trapEyePos.y));
                         RotationManager.initiateRotation(client, retryTarget, 150);
                         MacroWorkerThread.sleep(200);
@@ -368,23 +365,21 @@ public class PestTrapManager {
                     int trapBaitSlot = findBaitSlot(finalScreen);
 
                     if (inventoryBaitSlot != -1 && trapBaitSlot != -1) {
-                        ClientUtils.sendDebugMessage(client,
-                                "Refilling trap with " + baitMaterial + " from slot " + inventoryBaitSlot
+                        ClientUtils.sendDebugMessage("Refilling trap with " + baitMaterial + " from slot " + inventoryBaitSlot
                                         + " to bait slot " + trapBaitSlot);
 
-                        client.execute(() -> ClientUtils.performSlotClick(client, finalScreen, inventoryBaitSlot, 0,
+                        client.execute(() -> ClientUtils.performSlotClick(finalScreen, inventoryBaitSlot, 0,
                                 ContainerInput.PICKUP));
             MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false));
 
-                        client.execute(() -> ClientUtils.performSlotClick(client, finalScreen, trapBaitSlot, 0,
+                        client.execute(() -> ClientUtils.performSlotClick(finalScreen, trapBaitSlot, 0,
                                 ContainerInput.PICKUP));
             MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false));
 
                         client.execute(() -> client.player.closeContainer());
                         success = true;
                     } else {
-                        ClientUtils.sendDebugMessage(client,
-                                "Could not find bait item or bait slot. Item=" + inventoryBaitSlot
+                        ClientUtils.sendDebugMessage("Could not find bait item or bait slot. Item=" + inventoryBaitSlot
                                         + ", BaitSlot=" + trapBaitSlot);
                         client.execute(() -> client.player.closeContainer());
                     }
@@ -394,7 +389,7 @@ public class PestTrapManager {
                     }
                     MacroWorkerThread.sleep(1000);
                 } else {
-                    ClientUtils.sendDebugMessage(client, "Failed to open trap GUI for #" + trapId
+                    ClientUtils.sendDebugMessage("Failed to open trap GUI for #" + trapId
                             + " (dist=" + String.format("%.2f", Math.sqrt(client.player.distanceToSqr(trapMarker))) + ")");
                     ensureGuiClosed(client);
                 }
@@ -433,19 +428,18 @@ public class PestTrapManager {
     }
 
     private static void teleportToTrapPlotIfNeeded(Minecraft client, String plot) throws InterruptedException {
-        String currentPlot = ClientUtils.getCurrentPlot(client);
+        String currentPlot = ClientUtils.getCurrentPlot();
         String freshChatPlot = CommandUtils.getFreshKnownPlotChat();
         boolean scoreboardMatch = plot != null && plot.equalsIgnoreCase(currentPlot);
         boolean chatMatch = plot != null && plot.equalsIgnoreCase(freshChatPlot);
 
         if (scoreboardMatch || chatMatch) {
             String source = scoreboardMatch ? "scoreboard" : "chat";
-            ClientUtils.sendDebugMessage(client,
-                    "Already on trap plot " + plot + " (via " + source + "), skipping plottp.");
+            ClientUtils.sendDebugMessage("Already on trap plot " + plot + " (via " + source + "), skipping plottp.");
             return;
         }
 
-        CommandUtils.initiatePlotTp(client, plot);
+        CommandUtils.initiatePlotTp(plot);
         MacroWorkerThread.sleep(2000);
     }
 
@@ -458,8 +452,7 @@ public class PestTrapManager {
             return false;
         }
 
-        ClientUtils.sendDebugMessage(client,
-                "PestTrapManager: aborting trap " + operation + " because pest exchange is active.");
+        ClientUtils.sendDebugMessage("PestTrapManager: aborting trap " + operation + " because pest exchange is active.");
         isRunning = false;
         ensureGuiClosed(client);
         PathfindingManager.stop();

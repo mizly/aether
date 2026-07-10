@@ -12,6 +12,7 @@ import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.RotationUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.PauseScreen;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
@@ -86,7 +87,8 @@ public class RecoveryManager {
                 && worldChangeTargetPosition != null;
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (recoveryMode == RecoveryMode.WORLD_CHANGE) {
             updateWorldChangeRecovery(client);
             return;
@@ -95,13 +97,13 @@ public class RecoveryManager {
         if (MacroStateManager.getCurrentState() != MacroState.State.RECOVERING)
             return;
 
-        if (client.screen instanceof net.minecraft.client.gui.screens.PauseScreen)
+        if (client.screen instanceof PauseScreen)
             return;
 
         if (System.currentTimeMillis() - lastRecoveryActionTime < 5000)
             return;
 
-        MacroState.Location currentLoc = ClientUtils.getCurrentLocation(client);
+        MacroState.Location currentLoc = ClientUtils.getCurrentLocation();
 
         if (currentLoc != lastRecoveryLocation) {
             recoveryFailedAttempts = 0;
@@ -111,7 +113,7 @@ public class RecoveryManager {
         }
 
         if (recoveryFailedAttempts >= 15) {
-            dev.aether.util.ClientUtils.sendMessage(client, "\u00A7cAuto-recovery failed after 15 attempts. Stopping farming.", false);
+            ClientUtils.sendMessage("\u00A7cAuto-recovery failed after 15 attempts. Stopping farming.", false);
             MacroStateManager.stopMacro(client);
             return;
         }
@@ -124,41 +126,39 @@ public class RecoveryManager {
                 long limboElapsed = System.currentTimeMillis() - lastRecoveryLocationChangeTime;
                 if (limboElapsed < LIMBO_RECOVERY_DELAY_MS) {
                     if (!limboDelayAnnounced) {
-                        dev.aether.util.ClientUtils.sendMessage(client,
-                                "\u00A7eIn Limbo. Waiting 10s before attempting recovery...", false);
+                        ClientUtils.sendMessage("\u00A7eIn Limbo. Waiting 10s before attempting recovery...", false);
                         limboDelayAnnounced = true;
                     }
                     lastRecoveryActionTime = 0;
                     recoveryFailedAttempts--;
                     return;
                 }
-                dev.aether.util.ClientUtils.sendMessage(client, "\u00A7eRecovery (attempt "
+                ClientUtils.sendMessage("\u00A7eRecovery (attempt "
                         + recoveryFailedAttempts + "): Warping to Lobby from Limbo...", false);
-                ClientUtils.sendCommand(client, "/lobby");
+                ClientUtils.sendCommand("/lobby");
                 break;
             case LOBBY:
                 if (recoveryMode == RecoveryMode.PROXY_RESTART) {
-                    dev.aether.util.ClientUtils.sendMessage(client, "\u00A7eRecovery (attempt "
+                    ClientUtils.sendMessage("\u00A7eRecovery (attempt "
                             + recoveryFailedAttempts + "): Rejoining SkyBlock with /play sb...", false);
-                    ClientUtils.sendCommand(client, "/play sb");
+                    ClientUtils.sendCommand("/play sb");
                 } else {
-                    dev.aether.util.ClientUtils.sendMessage(client, "\u00A7eRecovery (attempt "
+                    ClientUtils.sendMessage("\u00A7eRecovery (attempt "
                             + recoveryFailedAttempts + "): Warping to SkyBlock from Lobby...", false);
-                    ClientUtils.sendCommand(client, "/skyblock");
+                    ClientUtils.sendCommand("/skyblock");
                 }
                 break;
             case HUB:
             case UNKNOWN:
-                dev.aether.util.ClientUtils.sendMessage(client, 
-                        "\u00A7eRecovery (attempt " + recoveryFailedAttempts + "): Warping to Garden...", false);
-                ClientUtils.sendCommand(client, "/warp garden");
+                ClientUtils.sendMessage("\u00A7eRecovery (attempt " + recoveryFailedAttempts + "): Warping to Garden...", false);
+                ClientUtils.sendCommand("/warp garden");
                 break;
             case GARDEN:
-                dev.aether.util.ClientUtils.sendMessage(client, "\u00A7aRecovery successful. Resuming farming...", false);
+                ClientUtils.sendMessage("\u00A7aRecovery successful. Resuming farming...", false);
                 recoveryFailedAttempts = 0;
                 recoveryMode = RecoveryMode.STANDARD;
-                dev.aether.modules.session.DynamicRestManager.scheduleNextRest();
-                ClientUtils.sendDebugMessage(client, "Starting farming macro after successful recovery");
+                DynamicRestManager.scheduleNextRest();
+                ClientUtils.sendDebugMessage("Starting farming macro after successful recovery");
                 client.execute(() -> {
                     if (MacroStateManager.getCurrentState() != MacroState.State.RECOVERING) {
                         return;
@@ -171,7 +171,7 @@ public class RecoveryManager {
                     FailsafeManager.syncSelectedSlotFromClient(client);
                     MacroStateManager.setCurrentState(MacroState.State.FARMING);
                     SqueakyMousematManager.armReapplyAttempt();
-                    dev.aether.macro.FarmingMacroManager.enable(client, dev.aether.macro.FarmingMacroManager.createMacroFromConfig());
+                    FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig());
                     FailsafeManager.syncSelectedSlotFromClient(client);
                 });
                 break;
@@ -184,7 +184,7 @@ public class RecoveryManager {
         }
 
         if (worldChangeTargetPosition == null) {
-            ClientUtils.sendMessage(client, "\u00A7cWorld change recovery failed: no saved position.", false);
+            ClientUtils.sendMessage("\u00A7cWorld change recovery failed: no saved position.", false);
             MacroStateManager.stopMacro(client, "World change recovery failed: no saved position", false);
             return;
         }
@@ -197,8 +197,8 @@ public class RecoveryManager {
 
             worldChangePhase = WorldChangeRecoveryPhase.WAITING_FOR_SKYBLOCK;
             worldChangeWaitUntilMs = now + randomWorldChangeSkyBlockWaitMs();
-            ClientUtils.sendMessage(client, "\u00A7eWorld change recovery: running /play sb...", false);
-            ClientUtils.sendCommand(client, "/play sb");
+            ClientUtils.sendMessage("\u00A7eWorld change recovery: running /play sb...", false);
+            ClientUtils.sendCommand("/play sb");
             lastRecoveryActionTime = now;
             return;
         }
@@ -211,14 +211,14 @@ public class RecoveryManager {
 
             worldChangePhase = WorldChangeRecoveryPhase.WAITING_FOR_GARDEN;
             worldChangeWaitUntilMs = 0L;
-            ClientUtils.sendMessage(client, "\u00A7eWorld change recovery: running /warp garden...", false);
-            ClientUtils.sendCommand(client, "/warp garden");
+            ClientUtils.sendMessage("\u00A7eWorld change recovery: running /warp garden...", false);
+            ClientUtils.sendCommand("/warp garden");
             lastRecoveryActionTime = now;
             return;
         }
 
         if (worldChangePhase == WorldChangeRecoveryPhase.WAITING_FOR_GARDEN) {
-            MacroState.Location location = ClientUtils.getCurrentLocation(client);
+            MacroState.Location location = ClientUtils.getCurrentLocation();
             if (location == MacroState.Location.GARDEN) {
                 startWorldChangePrimaryRecovery(client);
                 return;
@@ -226,8 +226,8 @@ public class RecoveryManager {
 
             long now = System.currentTimeMillis();
             if (now - lastRecoveryActionTime >= WORLD_CHANGE_GARDEN_RETRY_MS) {
-                ClientUtils.sendDebugMessage(client, "World change recovery: retrying /warp garden");
-                ClientUtils.sendCommand(client, "/warp garden");
+                ClientUtils.sendDebugMessage("World change recovery: retrying /warp garden");
+                ClientUtils.sendCommand("/warp garden");
                 lastRecoveryActionTime = now;
             }
             return;
@@ -237,7 +237,7 @@ public class RecoveryManager {
             if (!worldChangeAlignClicked) {
                 worldChangeAlignClicked = true;
                 GearManager.swapToAOTVSync(client);
-                ClientUtils.performUseClick(client);
+                ClientUtils.performUseClick();
                 lastRecoveryActionTime = System.currentTimeMillis();
                 return;
             }
@@ -264,8 +264,7 @@ public class RecoveryManager {
 
         worldChangePhase = WorldChangeRecoveryPhase.WALK_ETHERWARP;
         worldChangeUsedWalkAssist = true;
-        ClientUtils.sendMessage(client,
-                "\u00A7eWorld change recovery: pure etherwarp failed, trying walk-assisted etherwarp...",
+        ClientUtils.sendMessage("\u00A7eWorld change recovery: pure etherwarp failed, trying walk-assisted etherwarp...",
                 false);
         PathfindingManager.startConfiguredEtherwarp(
                 client,
@@ -274,7 +273,7 @@ public class RecoveryManager {
                 Mth.floor(worldChangeTargetPosition.z),
                 () -> client.execute(() -> finishWorldChangeNavigation(client, true)),
                 () -> client.execute(() -> {
-                    ClientUtils.sendMessage(client, "\u00A7cWorld change recovery failed. Stopping farming.", false);
+                    ClientUtils.sendMessage("\u00A7cWorld change recovery failed. Stopping farming.", false);
                     MacroStateManager.stopMacro(client, "World change recovery path failed", false);
                 }));
     }
@@ -287,14 +286,12 @@ public class RecoveryManager {
         int currentY = Mth.floor(client.player.getY());
         int targetY = Mth.floor(worldChangeTargetPosition.y);
         if (targetY > currentY) {
-            ClientUtils.sendDebugMessage(client,
-                    "World change recovery: target is above current position, prioritizing etherwarp");
+            ClientUtils.sendDebugMessage("World change recovery: target is above current position, prioritizing etherwarp");
             startWorldChangeEtherwarpRecovery(client);
             return;
         }
 
-        ClientUtils.sendDebugMessage(client,
-                "World change recovery: target is level or below current position, prioritizing walk");
+        ClientUtils.sendDebugMessage("World change recovery: target is level or below current position, prioritizing walk");
         startWorldChangeWalkRecovery(client);
     }
 
@@ -304,7 +301,7 @@ public class RecoveryManager {
         }
 
         worldChangePhase = WorldChangeRecoveryPhase.WALK_PATH;
-        ClientUtils.sendMessage(client, "\u00A7eWorld change recovery: walking back to the saved position...", false);
+        ClientUtils.sendMessage("\u00A7eWorld change recovery: walking back to the saved position...", false);
         PathfindingManager.startConfiguredWalk(
                 client,
                 Mth.floor(worldChangeTargetPosition.x),
@@ -325,7 +322,7 @@ public class RecoveryManager {
 
         worldChangePhase = WorldChangeRecoveryPhase.PURE_ETHERWARP;
         worldChangeUsedWalkAssist = false;
-        ClientUtils.sendMessage(client, "\u00A7eWorld change recovery: walking failed, trying etherwarp...", false);
+        ClientUtils.sendMessage("\u00A7eWorld change recovery: walking failed, trying etherwarp...", false);
         PathfindingManager.startConfiguredPureEtherwarp(
                 client,
                 Mth.floor(worldChangeTargetPosition.x),
@@ -356,7 +353,7 @@ public class RecoveryManager {
 
         int slot = GearManager.findAspectOfTheVoidSlot(client);
         if (slot < 0 || slot > 8) {
-            ClientUtils.sendDebugMessage(client, "World change recovery align skipped: no AOTV/AOTE in hotbar");
+            ClientUtils.sendDebugMessage("World change recovery align skipped: no AOTV/AOTE in hotbar");
             finishWorldChangeRecovery(client);
             return;
         }
@@ -390,7 +387,7 @@ public class RecoveryManager {
         worldChangeUsedWalkAssist = false;
         worldChangeAlignClicked = false;
         DynamicRestManager.scheduleNextRest();
-        ClientUtils.sendMessage(client, "\u00A7aWorld change recovery complete. Resuming farming...", false);
+        ClientUtils.sendMessage("\u00A7aWorld change recovery complete. Resuming farming...", false);
         client.execute(() -> {
             if (recoveryMode != RecoveryMode.STANDARD) {
                 return;
@@ -410,5 +407,4 @@ public class RecoveryManager {
         return java.util.concurrent.ThreadLocalRandom.current().nextLong(10_000L, 15_001L);
     }
 }
-
 

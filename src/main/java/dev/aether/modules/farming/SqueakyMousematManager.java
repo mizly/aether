@@ -98,7 +98,7 @@ public final class SqueakyMousematManager {
                 return false;
             }
 
-            ClientUtils.performAttackClick(client);
+            ClientUtils.performAttackClick();
             FailsafeManager.addRotationGracePeriod(MOUSEMAT_ROTATION_SETTLE_TIMEOUT_MS + MOUSEMAT_DELAY_MS);
             if (waitForMousematRotation(client, snapshot)) {
                 FailsafeManager.syncExpectedRotationFromClient(client);
@@ -109,15 +109,14 @@ public final class SqueakyMousematManager {
                 break;
             }
 
-            ClientUtils.sendDebugMessage(client,
-                    "Mousemat rotation mismatch after use, retrying in 5s (" + attempt + "/" + MAX_MOUSEMAT_ATTEMPTS + ")");
+            ClientUtils.sendDebugMessage("Mousemat rotation mismatch after use, retrying in 5s (" + attempt + "/" + MAX_MOUSEMAT_ATTEMPTS + ")");
             if (!sleepMousematRetryDelay(client)) {
                 restoreFarmingToolIfExchangeHasPriority(client);
                 return false;
             }
         }
 
-        ClientUtils.sendDebugMessage(client, "Mousemat rotation mismatch after 3 attempts");
+        ClientUtils.sendDebugMessage("Mousemat rotation mismatch after 3 attempts");
         return false;
     }
 

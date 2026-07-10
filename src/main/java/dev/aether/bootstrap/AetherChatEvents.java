@@ -112,8 +112,7 @@ public final class AetherChatEvents {
         }
 
         if (PestDestroyer.isActive()) {
-            ClientUtils.sendDebugMessage(Minecraft.getInstance(),
-                    "[PestDestroyer] Detected 'No Pests' message. Finishing destroyer.");
+            ClientUtils.sendDebugMessage("[PestDestroyer] Detected 'No Pests' message. Finishing destroyer.");
             PestDestroyer.finish(Minecraft.getInstance());
         }
     }
@@ -159,8 +158,7 @@ public final class AetherChatEvents {
 
         if (MacroStateManager.getCurrentState() != MacroState.State.OFF
                 && MacroStateManager.getCurrentState() != MacroState.State.RECOVERING) {
-            ClientUtils.sendMessage(Minecraft.getInstance(),
-                    "Disconnect detected! Starting recovery sequence...");
+            ClientUtils.sendMessage("Disconnect detected! Starting recovery sequence...");
             MacroStateManager.stopMacro(Minecraft.getInstance());
             MacroStateManager.setCurrentState(MacroState.State.RECOVERING);
         }
@@ -191,8 +189,7 @@ public final class AetherChatEvents {
             long coins = Long.parseLong(matcher.group(2).replace(",", ""));
             ProfitManager.addSprayCost(qty, coins);
             if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage(Minecraft.getInstance(),
-                        "Spray buy detected: " + qty + " items for " + coins + " coins");
+                ClientUtils.sendDebugMessage("Spray buy detected: " + qty + " items for " + coins + " coins");
             }
         } catch (NumberFormatException ignored) {
         }
@@ -200,8 +197,7 @@ public final class AetherChatEvents {
 
     private static void handleYuckDebug(String lowerText, String plainText) {
         if (lowerText.contains("yuck") && AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage(Minecraft.getInstance(),
-                    "Diagnose: Seen YUCK in chat. Text: " + plainText);
+            ClientUtils.sendDebugMessage("Diagnose: Seen YUCK in chat. Text: " + plainText);
         }
     }
 
@@ -211,8 +207,7 @@ public final class AetherChatEvents {
         }
 
         if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage(Minecraft.getInstance(),
-                    "YUCK detected. State: " + MacroStateManager.getCurrentState());
+            ClientUtils.sendDebugMessage("YUCK detected. State: " + MacroStateManager.getCurrentState());
         }
         if ((!lowerText.contains("spawned") && !lowerText.contains("phillip"))
                 || MacroStateManager.getCurrentState() != MacroState.State.FARMING) {
@@ -222,8 +217,7 @@ public final class AetherChatEvents {
         Matcher plotMatcher = PLOT_PATTERN.matcher(plainText);
         if (!plotMatcher.find()) {
             if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage(Minecraft.getInstance(),
-                        "Chat pest trigger failed regex on: " + plainText);
+                ClientUtils.sendDebugMessage("Chat pest trigger failed regex on: " + plainText);
             }
             return;
         }

@@ -1,14 +1,15 @@
 package dev.aether.util;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import dev.aether.util.AetherLang;
 import dev.aether.config.AetherConfig;
 import dev.aether.config.ConfigHelpers;
 import dev.aether.mixin.AccessorAbstractContainerScreen;
 import dev.aether.mixin.AccessorKeyMapping;
 import dev.aether.mixin.MixinMinecraft;
 import dev.aether.macro.MacroState;
+import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.farming.UngrabMouse;
+import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.visuals.StreamerModeManager;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -16,9 +17,14 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.DisplaySlot;
 import net.minecraft.world.scores.Objective;
@@ -28,6 +34,7 @@ import net.minecraft.world.scores.Scoreboard;
 
 import java.time.LocalTime;
 import java.time.ZoneOffset;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -36,6 +43,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class ClientUtils {
@@ -64,11 +72,12 @@ public class ClientUtils {
     private static final AtomicLong USE_CLICK_SEQUENCE = new AtomicLong();
     private static final AtomicLong ATTACK_CLICK_SEQUENCE = new AtomicLong();
 
-    public static void sendMessage(Minecraft client, String message) {
-        sendMessage(client, message, false);
+    public static void sendMessage(String message) {
+        sendMessage(message, false);
     }
 
-    public static void sendMessage(Minecraft client, String message, boolean overlay) {
+    public static void sendMessage(String message, boolean overlay) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
         }
@@ -88,7 +97,11 @@ public class ClientUtils {
         });
     }
 
-    public static void sendDebugMessage(Minecraft client, String message) {
+    public static void sendDebugMessage(String message) {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null) {
+            return;
+        }
         if (StreamerModeManager.isEnabled()) {
             return;
         }
@@ -132,8 +145,8 @@ public class ClientUtils {
                 .trim();
     }
 
-
-    public static void sendCommand(Minecraft client, String cmd) {
+    public static void sendCommand(String cmd) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || cmd == null || cmd.isBlank()) {
             return;
         }
@@ -159,7 +172,8 @@ public class ClientUtils {
         }), delayMs, TimeUnit.MILLISECONDS);
     }
 
-    public static void disconnectWithScreen(Minecraft client, Screen screen, Component reason) {
+    public static void disconnectWithScreen(Screen screen, Component reason) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
         }
@@ -174,7 +188,8 @@ public class ClientUtils {
         });
     }
 
-    public static void forceReleaseKeys(Minecraft client) {
+    public static void forceReleaseKeys() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
         }
@@ -198,11 +213,13 @@ public class ClientUtils {
         }
     }
 
-    public static boolean isInventoryScreenOpen(Minecraft client) {
+    public static boolean isInventoryScreenOpen() {
+        Minecraft client = Minecraft.getInstance();
         return client != null && client.screen instanceof AbstractContainerScreen<?>;
     }
 
-    public static void forceReleaseMovementKeys(Minecraft client) {
+    public static void forceReleaseMovementKeys() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null) {
             return;
         }
@@ -216,7 +233,12 @@ public class ClientUtils {
         releaseKeyMapping(client.options.keySprint);
     }
 
-    public static MacroState.Location getCurrentLocation(Minecraft client) {
+    public static MacroState.Location getCurrentLocation() {
+        Minecraft client = Minecraft.getInstance();
+        return getCurrentLocation(client);
+    }
+
+    private static MacroState.Location getCurrentLocation(Minecraft client) {
         if (client.level == null || client.player == null)
             return MacroState.Location.UNKNOWN;
 
@@ -242,7 +264,7 @@ public class ClientUtils {
 
         boolean hasLobbyItems = false;
         for (int i = 0; i < 9; i++) {
-            net.minecraft.world.item.ItemStack stack = client.player.getInventory().getItem(i);
+            ItemStack stack = client.player.getInventory().getItem(i);
             if (stack != null && !stack.isEmpty()) {
                 String itemName = TablistUtils.stripColors(stack.getHoverName().getString()).trim();
                 if (itemName.contains("Game Menu") || itemName.contains("My Profile")) {
@@ -268,7 +290,8 @@ public class ClientUtils {
         return MacroState.Location.HUB;
     }
 
-    public static boolean isSupportedHudArea(Minecraft client) {
+    public static boolean isSupportedHudArea() {
+        Minecraft client = Minecraft.getInstance();
         return isSupportedHudArea(getCurrentLocation(client));
     }
 
@@ -284,10 +307,11 @@ public class ClientUtils {
         }
 
         LocalTime contestEnd = utcTime.withMinute(JACOBS_CONTEST_END_MINUTE_UTC).withSecond(0).withNano(0);
-        return java.time.Duration.between(utcTime, contestEnd).toMillis();
+        return Duration.between(utcTime, contestEnd).toMillis();
     }
 
-    public static long getPurse(Minecraft client) {
+    public static long getPurse() {
+        Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.player == null)
             return 0;
 
@@ -322,7 +346,8 @@ public class ClientUtils {
         return -1;
     }
 
-    public static String getCurrentPlot(Minecraft client) {
+    public static String getCurrentPlot() {
+        Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.player == null)
             return "Unknown";
 
@@ -347,9 +372,9 @@ public class ClientUtils {
             // Match formats: "Plot: 14", "Plot - 6", "Plot #14", "Plot: Barn"
             // Handles non-standard color codes like \u00A7y and multiple spaces.
             if (line.toLowerCase().contains("plot")) {
-                java.util.regex.Pattern p = java.util.regex.Pattern.compile("plot\\s*[:\\-#]\\s*([a-z0-9]+)",
-                        java.util.regex.Pattern.CASE_INSENSITIVE);
-                java.util.regex.Matcher m = p.matcher(line);
+                Pattern p = Pattern.compile("plot\\s*[:\\-#]\\s*([a-z0-9]+)",
+                        Pattern.CASE_INSENSITIVE);
+                Matcher m = p.matcher(line);
                 if (m.find()) {
                     return m.group(1).trim();
                 }
@@ -359,7 +384,7 @@ public class ClientUtils {
         // If we reached here, we couldn't find the "Plot:" line.
         // Let's print all lines to debug if showDebug is on.
         if (AetherConfig.SHOW_DEBUG.get()) {
-            sendDebugMessage(client, "Failed to find Plot in Scoreboard. Lines found:");
+            sendDebugMessage("Failed to find Plot in Scoreboard. Lines found:");
             for (PlayerScoreEntry entry : scores) {
                 String entryName = entry.owner();
                 PlayerTeam team = scoreboard.getPlayersTeam(entryName);
@@ -367,21 +392,22 @@ public class ClientUtils {
                 if (team != null) {
                     fullText = team.getPlayerPrefix().getString() + entryName + team.getPlayerSuffix().getString();
                 }
-                sendDebugMessage(client, " - " + fullText.replaceAll("(?i)\u00A7[0-9A-FK-ORZ]", ""));
+                sendDebugMessage(" - " + fullText.replaceAll("(?i)\u00A7[0-9A-FK-ORZ]", ""));
             }
         }
 
         return "Unknown";
     }
 
-    public static List<String> getSidebarLines(Minecraft client) {
+    public static List<String> getSidebarLines() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.level == null || client.player == null) {
             return List.of();
         }
 
         if (!client.isSameThread()) {
             CompletableFuture<List<String>> future = new CompletableFuture<>();
-            client.execute(() -> future.complete(getSidebarLines(client)));
+            client.execute(() -> future.complete(getSidebarLines()));
             try {
                 return future.get(1, TimeUnit.SECONDS);
             } catch (Exception e) {
@@ -428,24 +454,24 @@ public class ClientUtils {
         if (player.level() == null)
             return false;
         Vec3 eyePos = player.getEyePosition();
-        net.minecraft.world.level.ClipContext context = new net.minecraft.world.level.ClipContext(
+        ClipContext context = new ClipContext(
                 eyePos, target,
-                net.minecraft.world.level.ClipContext.Block.VISUAL,
-                net.minecraft.world.level.ClipContext.Fluid.NONE,
+                ClipContext.Block.VISUAL,
+                ClipContext.Fluid.NONE,
                 player);
-        net.minecraft.world.phys.BlockHitResult result = player.level().clip(context);
-        return result.getType() == net.minecraft.world.phys.HitResult.Type.MISS;
+        BlockHitResult result = player.level().clip(context);
+        return result.getType() == HitResult.Type.MISS;
     }
 
     public static void lookAt(Player player, Vec3 target) {
-        dev.aether.util.RotationUtils.Rotation rot = dev.aether.util.RotationUtils
+        RotationUtils.Rotation rot = RotationUtils
                 .calculateLookAt(player.getEyePosition(), target);
-        dev.aether.util.RotationUtils.Rotation adjustedRot = dev.aether.util.RotationUtils.getAdjustedEnd(
-                new dev.aether.util.RotationUtils.Rotation(player.getYRot(), player.getXRot()),
+        RotationUtils.Rotation adjustedRot = RotationUtils.getAdjustedEnd(
+                new RotationUtils.Rotation(player.getYRot(), player.getXRot()),
                 rot);
         player.setYRot(adjustedRot.yaw);
         player.setXRot(adjustedRot.pitch);
-        dev.aether.modules.failsafe.FailsafeManager.expectRotation(adjustedRot.yaw, adjustedRot.pitch);
+        FailsafeManager.expectRotation(adjustedRot.yaw, adjustedRot.pitch);
     }
 
     public static void sleepRandom(int min, int max) throws InterruptedException {
@@ -453,17 +479,18 @@ public class ClientUtils {
         Thread.sleep(sleepTime);
     }
 
-    public static void waitForGearAndGui(Minecraft client) {
+    public static void waitForGearAndGui() {
+        Minecraft client = Minecraft.getInstance();
         try {
             long loadoutStart = System.currentTimeMillis();
-            while (dev.aether.modules.gear.helpers.LoadoutManager.isSwappingLoadout
+            while (LoadoutManager.isSwappingLoadout
                     && System.currentTimeMillis() - loadoutStart < 6000) {
                 Thread.sleep(50);
             }
-            if (dev.aether.modules.gear.helpers.LoadoutManager.isSwappingLoadout) {
-                sendDebugMessage(client,
+            if (LoadoutManager.isSwappingLoadout) {
+                sendDebugMessage(
                         "\u00A7eWARNING: Loadout swap detection timeout. Force-completing and resuming sequence...");
-                dev.aether.modules.gear.helpers.LoadoutManager.forceLoadoutCompletionFailsafe(client);
+                LoadoutManager.forceLoadoutCompletionFailsafe(client);
             }
 
             long guiStart = System.currentTimeMillis();
@@ -477,23 +504,24 @@ public class ClientUtils {
         }
     }
 
-    public static void waitForWardrobeGui(Minecraft client) {
+    public static void waitForWardrobeGui() {
+        Minecraft client = Minecraft.getInstance();
         try {
             long start = System.currentTimeMillis();
             long lastRetry = start;
             int retryCount = 0;
-            while (!dev.aether.modules.gear.helpers.LoadoutManager.loadoutGuiDetected
+            while (!LoadoutManager.loadoutGuiDetected
                     && System.currentTimeMillis() - start < 5000) {
-                if (!dev.aether.modules.gear.helpers.LoadoutManager.isSwappingLoadout)
+                if (!LoadoutManager.isSwappingLoadout)
                     return;
 
                 long now = System.currentTimeMillis();
                 if (now - lastRetry >= 500) {
                     retryCount++;
-                    sendDebugMessage(client,
+                    sendDebugMessage(
                             "Loadout GUI not detected after " + (now - start)
                                     + "ms. Retrying /loadout (" + retryCount + ")");
-                    client.execute(() -> sendCommand(client, "/loadout"));
+                    client.execute(() -> sendCommand("/loadout"));
                     lastRetry = now;
                 }
                 Thread.sleep(50);
@@ -502,7 +530,8 @@ public class ClientUtils {
         }
     }
 
-    public static boolean waitForYChange(Minecraft client, double startY, long timeoutMs) {
+    public static boolean waitForYChange(double startY, long timeoutMs) {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null)
             return false;
 
@@ -510,7 +539,7 @@ public class ClientUtils {
         while (System.currentTimeMillis() - startTime < timeoutMs) {
             double currentY = client.player.getY();
             if (Math.abs(currentY - startY) > 0.1) {
-                sendDebugMessage(client, "AOTV Y-change detected: " + String.format("%.2f", startY) + " -> " + String.format("%.2f", currentY) + " (+" + (System.currentTimeMillis() - startTime) + "ms)");
+                sendDebugMessage("AOTV Y-change detected: " + String.format("%.2f", startY) + " -> " + String.format("%.2f", currentY) + " (+" + (System.currentTimeMillis() - startTime) + "ms)");
                 return true;
             }
             try {
@@ -519,16 +548,17 @@ public class ClientUtils {
                 break;
             }
         }
-        sendDebugMessage(client, "AOTV Y-change timeout after " + timeoutMs + "ms. startY=" + String.format("%.2f", startY) + " currentY=" + String.format("%.2f", client.player.getY()));
+        sendDebugMessage("AOTV Y-change timeout after " + timeoutMs + "ms. startY=" + String.format("%.2f", startY) + " currentY=" + String.format("%.2f", client.player.getY()));
         return false;
     }
 
-    public static int findAspectOfTheVoidSlot(Minecraft client) {
+    public static int findAspectOfTheVoidSlot() {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null)
             return -1;
 
         for (int i = 0; i < 36; i++) {
-            net.minecraft.world.item.ItemStack stack = client.player.getInventory().getItem(i);
+            ItemStack stack = client.player.getInventory().getItem(i);
             if (stack != null && !stack.isEmpty()) {
                 String itemName = stack.getHoverName().getString().replaceAll("\u00A7[0-9a-fk-or]", "").trim();
                 String lowercaseName = itemName.toLowerCase();
@@ -540,7 +570,8 @@ public class ClientUtils {
         return -1;
     }
 
-    public static void performShiftRightClick(Minecraft client) {
+    public static void performShiftRightClick() {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.options == null)
             return;
 
@@ -560,7 +591,8 @@ public class ClientUtils {
      * Holds shift, fires one swing packet, and returns - shift is NOT released.
      * The caller must call releaseShiftKey() when done (e.g. after the GUI opens).
      */
-    public static void performShiftLeftClick(Minecraft client) {
+    public static void performShiftLeftClick() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null)
             return;
 
@@ -575,12 +607,13 @@ public class ClientUtils {
 
         client.execute(() -> {
             if (client.player == null) return;
-            client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            client.player.swing(InteractionHand.MAIN_HAND);
             ((MixinMinecraft) client).aether$startAttack();
         });
     }
 
-    public static void releaseShiftKey(Minecraft client) {
+    public static void releaseShiftKey() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null) return;
         client.execute(() -> {
             setKeyMappingState(client.options.keyShift, false);
@@ -588,11 +621,12 @@ public class ClientUtils {
         });
     }
 
-    public static void performUseClick(Minecraft client) {
-        performUseClick(client, null);
+    public static void performUseClick() {
+        performUseClick(null);
     }
 
-    public static void performUseClick(Minecraft client, Runnable beforePress) {
+    public static void performUseClick(Runnable beforePress) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null) {
             return;
         }
@@ -608,16 +642,18 @@ public class ClientUtils {
                 INPUT_CLICK_HOLD_MS);
     }
 
-    public static void performAttackClickDirect(Minecraft client) {
+    public static void performAttackClickDirect() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
         client.execute(() -> {
             if (client.player == null) return;
-            client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            client.player.swing(InteractionHand.MAIN_HAND);
             ((MixinMinecraft) client).aether$startAttack();
         });
     }
 
-    public static void performAttackClick(Minecraft client) {
+    public static void performAttackClick() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null) {
             return;
         }
@@ -627,7 +663,7 @@ public class ClientUtils {
                 if (client.player == null) {
                     return;
                 }
-                client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                client.player.swing(InteractionHand.MAIN_HAND);
                 ((MixinMinecraft) client).aether$startAttack();
             });
             return;
@@ -644,9 +680,10 @@ public class ClientUtils {
      * Routes through the screen's slotClicked handler rather than calling
      * gameMode.handleInventoryMouseClick directly.
      */
-    public static void performSlotClick(Minecraft client, AbstractContainerScreen<?> screen, int slotIndex, int mouseButton, ContainerInput type) {
+    public static void performSlotClick(AbstractContainerScreen<?> screen, int slotIndex, int mouseButton, ContainerInput type) {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null || screen.getMenu() == null) return;
-        java.util.List<Slot> slots = screen.getMenu().slots;
+        List<Slot> slots = screen.getMenu().slots;
         if (slotIndex < 0 || slotIndex >= slots.size()) return;
         Slot slot = slots.get(slotIndex);
         ((AccessorAbstractContainerScreen) screen).invokeSlotClicked(slot, slot.index, mouseButton, type);
@@ -662,7 +699,8 @@ public class ClientUtils {
                         AetherConfig.GUI_CLICK_DELAY_MAX.get());
     }
 
-    public static void performHotbarSlotClick(Minecraft client, int slot) {
+    public static void performHotbarSlotClick(int slot) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null || slot < 0 || slot >= client.options.keyHotbarSlots.length) {
             return;
         }
@@ -753,7 +791,8 @@ public class ClientUtils {
         return ((AccessorKeyMapping) mapping).getKey();
     }
 
-    public static void waitForRotationToComplete(Minecraft client, float targetPitch, int rotationTime) {
+    public static void waitForRotationToComplete(float targetPitch, int rotationTime) {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null)
             return;
 
@@ -775,6 +814,3 @@ public class ClientUtils {
         }
     }
 }
-
-
-

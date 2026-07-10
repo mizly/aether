@@ -41,7 +41,7 @@ public final class AetherKeybindHandler {
         tickHandlerRegistered = true;
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
                         while (AetherKeybindRegistry.getClickGuiKey().consumeClick()) {
-                AetherUiActions.toggleMainGui(client);
+                AetherUiActions.toggleMainGui();
             }
 
             if (client.player == null) {
@@ -56,11 +56,11 @@ public final class AetherKeybindHandler {
             // FreecamManager (like Freelook), so they are not consumed here.
 
             while (AetherKeybindRegistry.getPipKey().consumeClick()) {
-                PipManager.toggle(client);
+                PipManager.toggle();
             }
 
             while (AetherKeybindRegistry.getUngrabMouseKey().consumeClick()) {
-                UngrabMouseManager.toggle(client);
+                UngrabMouseManager.toggle();
             }
         });
     }
@@ -99,7 +99,7 @@ public final class AetherKeybindHandler {
         if (!AetherConfig.PERSIST_SESSION_TIMER.get()) {
             DynamicRestManager.reset();
         }
-        MacroStateManager.stopMacro(client);
+        MacroStateManager.stopMacro();
     }
 
     public static void startFarmingMacro(Minecraft client) {
@@ -123,11 +123,11 @@ public final class AetherKeybindHandler {
         SqueakyMousematManager.armReapplyAttempt();
         MacroStateManager.setCurrentState(MacroState.State.FARMING);
         ProfitManager.startStartupPriceFetch();
-        ProfitManager.printPetXpPriceDebug(client);
+        ProfitManager.printPetXpPriceDebug();
         DynamicRestManager.scheduleNextRest();
         client.execute(() -> FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig()));
         if (announce) {
-            ClientUtils.sendMessage(client, "\u00A7aFarming macro started.", false);
+            ClientUtils.sendMessage("\u00A7aFarming macro started.", false);
         }
     }
 
@@ -135,4 +135,3 @@ public final class AetherKeybindHandler {
     }
 
 }
-

@@ -9,6 +9,7 @@ import org.lwjgl.glfw.GLFW;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.List;
 
 public final class AetherKeybindRegistry {
     private static KeyMapping macroToggleKey;
@@ -162,9 +163,9 @@ public final class AetherKeybindRegistry {
         return ungrabMouseKey;
     }
 
-    public static java.util.List<RegisteredKeybind> getRegisteredKeybinds() {
+    public static List<RegisteredKeybind> getRegisteredKeybinds() {
         register();
-        return java.util.List.of(
+        return List.of(
                 new RegisteredKeybind("Toggle Macro", "Starts or stops the active farming macro", getMacroToggleKey()),
                 new RegisteredKeybind("Open GUI", "Opens the Aether sidebar menu", getClickGuiKey()),
                 new RegisteredKeybind("Open NVG Demo", "Opens the NanoVG demo screen", getNvgDemoKey()),

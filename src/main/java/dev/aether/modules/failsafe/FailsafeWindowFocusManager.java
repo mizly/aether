@@ -94,7 +94,7 @@ public final class FailsafeWindowFocusManager {
                 }
             }
             if (!focused) {
-                ClientUtils.sendDebugMessage(client, "Failsafe window focus failed");
+                ClientUtils.sendDebugMessage("Failsafe window focus failed");
             } else {
                 debug(client, "FailsafeWindowFocus: window focused");
             }
@@ -327,7 +327,7 @@ public final class FailsafeWindowFocusManager {
 
     private static void debug(Minecraft client, String message) {
         if (client != null) {
-            ClientUtils.sendDebugMessage(client, message);
+            ClientUtils.sendDebugMessage(message);
         }
     }
 

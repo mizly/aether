@@ -104,7 +104,8 @@ public class RotationManager {
         isRotating = true;
     }
 
-    public static void update(Minecraft mc) {
+    public static void update() {
+        Minecraft mc = Minecraft.getInstance();
         if (mc.player == null)
             return;
 

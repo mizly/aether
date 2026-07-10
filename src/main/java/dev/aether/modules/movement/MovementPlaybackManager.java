@@ -25,6 +25,7 @@ import net.minecraft.world.item.ItemStack;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
+import java.awt.Desktop;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -67,16 +68,17 @@ public final class MovementPlaybackManager {
         ClientTickEvents.END_CLIENT_TICK.register(MovementPlaybackManager::onClientTick);
     }
 
-    public static synchronized void startRecording(Minecraft client) {
+    public static synchronized void startRecording() {
+        Minecraft client = Minecraft.getInstance();
         if (!isClientReady(client)) {
-            ClientUtils.sendMessage(client, "\u00A7cJoin a world before recording movement.", false);
+            ClientUtils.sendMessage("\u00A7cJoin a world before recording movement.", false);
             return;
         }
         if (playing) {
             stopPlayback(client, true);
         }
         if (recording) {
-            ClientUtils.sendMessage(client, "\u00A7eMovement recording is already running.", false);
+            ClientUtils.sendMessage("\u00A7eMovement recording is already running.", false);
             return;
         }
 
@@ -85,10 +87,11 @@ public final class MovementPlaybackManager {
         recordingFile = MOVEMENT_DIR.resolve("movement_" + FILE_TIME_FORMAT.format(LocalDateTime.now()) + ".json");
         lastRecordedInput = null;
         recordingEvents.clear();
-        ClientUtils.sendMessage(client, "\u00A7aStarted movement recording.", false);
+        ClientUtils.sendMessage("\u00A7aStarted movement recording.", false);
     }
 
-    public static synchronized void stop(Minecraft client) {
+    public static synchronized void stop() {
+        Minecraft client = Minecraft.getInstance();
         if (recording) {
             stopRecording(client);
             return;
@@ -97,20 +100,21 @@ public final class MovementPlaybackManager {
             stopPlayback(client, true);
             return;
         }
-        ClientUtils.sendMessage(client, "\u00A7eNo movement recording or playback is running.", false);
+        ClientUtils.sendMessage("\u00A7eNo movement recording or playback is running.", false);
     }
 
-    public static synchronized void play(Minecraft client, String replayFile) {
+    public static synchronized void play(String replayFile) {
+        Minecraft client = Minecraft.getInstance();
         playFromDirectory(client, MOVEMENT_DIR, replayFile);
     }
 
     public static synchronized void playFromDirectory(Minecraft client, Path replayDirectory, String replayFile) {
         if (!isClientReady(client)) {
-            ClientUtils.sendMessage(client, "\u00A7cJoin a world before playing movement.", false);
+            ClientUtils.sendMessage("\u00A7cJoin a world before playing movement.", false);
             return;
         }
         if (replayFile == null || replayFile.isBlank()) {
-            ClientUtils.sendMessage(client, "\u00A7eUsage: /aether movement play <replay_file>", false);
+            ClientUtils.sendMessage("\u00A7eUsage: /aether movement play <replay_file>", false);
             return;
         }
         if (recording) {
@@ -133,9 +137,9 @@ public final class MovementPlaybackManager {
             playbackIndex = 0;
             playbackDurationTicks = loadDurationTicks(path, loadedEvents);
             playing = true;
-            ClientUtils.sendMessage(client, "\u00A7aPlaying movement replay: " + path.getFileName(), false);
+            ClientUtils.sendMessage("\u00A7aPlaying movement replay: " + path.getFileName(), false);
         } catch (Exception ex) {
-            ClientUtils.sendMessage(client, "\u00A7cFailed to load movement replay: " + ex.getMessage(), false);
+            ClientUtils.sendMessage("\u00A7cFailed to load movement replay: " + ex.getMessage(), false);
         }
     }
 
@@ -181,26 +185,24 @@ public final class MovementPlaybackManager {
         }
     }
 
-    public static void openMovementFolder(Minecraft client) {
+    public static void openMovementFolder() {
         try {
             Files.createDirectories(MOVEMENT_DIR);
 
             if (isWindows()) {
                 new ProcessBuilder("explorer.exe", MOVEMENT_DIR.toAbsolutePath().toString()).start();
-            } else if (java.awt.Desktop.isDesktopSupported()) {
-                java.awt.Desktop.getDesktop().open(MOVEMENT_DIR.toFile());
+            } else if (Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().open(MOVEMENT_DIR.toFile());
             } else {
                 throw new IOException("desktop open is not supported on this platform");
             }
 
-            ClientUtils.sendMessage(client,
-                    "\u00A7a" + String.format(
+            ClientUtils.sendMessage("\u00A7a" + String.format(
                             AetherLang.localize("Opened movement folder: %s"),
                             MOVEMENT_DIR.toAbsolutePath()),
                     false);
         } catch (IOException ex) {
-            ClientUtils.sendMessage(client,
-                    "\u00A7c" + String.format(
+            ClientUtils.sendMessage("\u00A7c" + String.format(
                             AetherLang.localize("Failed to open movement folder: %s"),
                             ex.getMessage()),
                     false);
@@ -251,7 +253,7 @@ public final class MovementPlaybackManager {
 
         if (playbackIndex >= playbackEvents.size() && playbackTick >= playbackDurationTicks) {
             stopPlayback(client, false);
-            ClientUtils.sendMessage(client, "\u00A7aMovement playback finished.", false);
+            ClientUtils.sendMessage("\u00A7aMovement playback finished.", false);
         }
     }
 
@@ -260,9 +262,9 @@ public final class MovementPlaybackManager {
         lastRecordedInput = null;
         try {
             saveRecording();
-            ClientUtils.sendMessage(client, "\u00A7aSaved movement recording: " + recordingFile.getFileName(), false);
+            ClientUtils.sendMessage("\u00A7aSaved movement recording: " + recordingFile.getFileName(), false);
         } catch (IOException ex) {
-            ClientUtils.sendMessage(client, "\u00A7cFailed to save movement recording: " + ex.getMessage(), false);
+            ClientUtils.sendMessage("\u00A7cFailed to save movement recording: " + ex.getMessage(), false);
         }
     }
 
@@ -274,7 +276,7 @@ public final class MovementPlaybackManager {
         playbackEvents.clear();
         releasePlaybackInputs(client);
         if (notify) {
-            ClientUtils.sendMessage(client, "\u00A7eMovement playback stopped.", false);
+            ClientUtils.sendMessage("\u00A7eMovement playback stopped.", false);
         }
     }
 
@@ -388,7 +390,7 @@ public final class MovementPlaybackManager {
         if (action.message == null || action.message.isBlank()) {
             return;
         }
-        ClientUtils.sendCommand(client, action.command ? "/" + action.message : action.message);
+        ClientUtils.sendCommand(action.command ? "/" + action.message : action.message);
     }
 
     private static void selectHotbarItem(Minecraft client, String itemName, int fallbackSlot) {

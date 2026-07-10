@@ -35,7 +35,7 @@ public final class PositionHighlighter {
 
     private static boolean hasVisibleGardenHighlights() {
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null || mc.player == null || ClientUtils.getCurrentLocation(mc) != MacroState.Location.GARDEN) {
+        if (mc.level == null || mc.player == null || ClientUtils.getCurrentLocation() != MacroState.Location.GARDEN) {
             return false;
         }
         if (AetherConfig.PEST_HIGHLIGHT_DESK.get()) {
@@ -73,7 +73,7 @@ public final class PositionHighlighter {
         if (StreamerModeManager.isEnabled()) return;
         if (mc.level == null || mc.player == null) return;
         if (!hasVisibleHighlights()) return;
-        boolean inGarden = ClientUtils.getCurrentLocation(mc) == MacroState.Location.GARDEN;
+        boolean inGarden = ClientUtils.getCurrentLocation() == MacroState.Location.GARDEN;
 
         if (inGarden) {
             MultiBufferSource.BufferSource textBuffer = ctx.bufferSource() instanceof MultiBufferSource.BufferSource bufferSource

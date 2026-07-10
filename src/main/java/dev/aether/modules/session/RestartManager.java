@@ -95,16 +95,14 @@ public class RestartManager {
                     .nextLong(RESTART_MIN_DELAY_SECONDS, RESTART_MAX_DELAY_SECONDS + 1);
             long contestMs = isImmediate ? 0 : ClientUtils.getJacobsContestRemainingMs();
             if (contestMs > 0) {
-                dev.aether.util.ClientUtils.sendMessage(client,
-                        "\u00A7c" + String.format(
+                ClientUtils.sendMessage("\u00A7c" + String.format(
                                 dev.aether.util.AetherLang.localize(
                                         "Server restart detected. Delaying abort until Jacob's contest ends, then waiting %ds..."),
                                 restartDelaySeconds),
                         false);
                 restartExecutionTime = System.currentTimeMillis() + contestMs + (restartDelaySeconds * 1000L);
             } else {
-                dev.aether.util.ClientUtils.sendMessage(client,
-                        "\u00A7c" + String.format(
+                ClientUtils.sendMessage("\u00A7c" + String.format(
                                 dev.aether.util.AetherLang.localize(
                                         "Server restart or evacuation detected. Waiting %ds before aborting..."),
                                 restartDelaySeconds),
@@ -129,8 +127,7 @@ public class RestartManager {
         proxyRestartDelaySeconds = ThreadLocalRandom.current()
                 .nextLong(PROXY_RESTART_MIN_DELAY_SECONDS, PROXY_RESTART_MAX_DELAY_SECONDS + 1);
 
-        ClientUtils.sendMessage(client,
-                "\u00A7eProxy restart detected. Waiting for farming to resume, then disconnecting for "
+        ClientUtils.sendMessage("\u00A7eProxy restart detected. Waiting for farming to resume, then disconnecting for "
                         + proxyRestartDelaySeconds + "s...",
                 false);
         isProxyRestartPending = true;
@@ -138,7 +135,8 @@ public class RestartManager {
         nextProxyRestartActionTime = System.currentTimeMillis();
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         MacroState.State state = MacroStateManager.getCurrentState();
 
         if (isProxyRestartPending) {
@@ -155,14 +153,13 @@ public class RestartManager {
         }
 
         if (restartSequenceStage == 0 && System.currentTimeMillis() >= restartExecutionTime) {
-            MacroState.Location loc = ClientUtils.getCurrentLocation(client);
+            MacroState.Location loc = ClientUtils.getCurrentLocation();
             boolean alreadyDisplaced = loc != MacroState.Location.GARDEN && loc != MacroState.Location.UNKNOWN;
 
             if (!alreadyDisplaced && (LoadoutManager.isSwappingLoadout || state == MacroState.State.WARDROBE)) {
                 if (!restartQueuedAfterWardrobe) {
                     restartQueuedAfterWardrobe = true;
-                    ClientUtils.sendDebugMessage(client,
-                            "Server restart abort queued until the wardrobe swap finishes.");
+                    ClientUtils.sendDebugMessage("Server restart abort queued until the wardrobe swap finishes.");
                 }
                 return;
             }
@@ -174,17 +171,17 @@ public class RestartManager {
             restartQueuedAfterWardrobe = false;
 
             if (alreadyDisplaced) {
-                ClientUtils.sendDebugMessage(client, "Displaced during restart delay (Location: " + loc + "). Aborting immediately.");
+                ClientUtils.sendDebugMessage("Displaced during restart delay (Location: " + loc + "). Aborting immediately.");
             }
 
-            dev.aether.util.ClientUtils.sendMessage(client, "\u00A7cExecuting delayed restart abort sequence...", false);
-            ClientUtils.sendDebugMessage(client, "Disabling farming macro: Server restart/evacuation detected");
+            ClientUtils.sendMessage("\u00A7cExecuting delayed restart abort sequence...", false);
+            ClientUtils.sendDebugMessage("Disabling farming macro: Server restart/evacuation detected");
             // Cancel worker tasks right before abort execution.
             MacroWorkerThread.getInstance().cancelCurrent();
             client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
-            ClientUtils.forceReleaseKeys(client);
+            ClientUtils.forceReleaseKeys();
             restartSetSpawnWindow = CommandUtils.beginChatWindow();
-            dev.aether.util.CommandUtils.initiateSetSpawn(client);
+            dev.aether.util.CommandUtils.initiateSetSpawn();
             restartSetSpawnTime = System.currentTimeMillis();
             restartSequenceStage = 1;
             nextRestartActionTime = System.currentTimeMillis() + 5000; // Fallback timeout
@@ -199,15 +196,14 @@ public class RestartManager {
                 return;
             }
 
-            ClientUtils.sendDebugMessage(client,
-                    CommandUtils.shouldSkipSetSpawn()
+            ClientUtils.sendDebugMessage(CommandUtils.shouldSkipSetSpawn()
                             ? "Restart sequence: queueing /hub without /setspawn."
                             : "Restart sequence: queueing /hub after /setspawn.");
-            ClientUtils.sendCommand(client, "/hub");
+            ClientUtils.sendCommand("/hub");
             restartSequenceStage = 2;
             nextRestartActionTime = now + 10000;
         } else if (restartSequenceStage == 2 && System.currentTimeMillis() >= nextRestartActionTime) {
-            ClientUtils.sendDebugMessage(client, "Disabling farming macro: Entering recovery mode after server restart");
+            ClientUtils.sendDebugMessage("Disabling farming macro: Entering recovery mode after server restart");
             client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
             MacroStateManager.setCurrentState(MacroState.State.RECOVERING);
             restartSequenceStage = 0;
@@ -225,8 +221,7 @@ public class RestartManager {
             if (LoadoutManager.isSwappingLoadout || state == MacroState.State.WARDROBE) {
                 if (!proxyRestartQueuedAfterWardrobe) {
                     proxyRestartQueuedAfterWardrobe = true;
-                    ClientUtils.sendDebugMessage(client,
-                            "Proxy restart queued until the wardrobe swap finishes.");
+                    ClientUtils.sendDebugMessage("Proxy restart queued until the wardrobe swap finishes.");
                 }
                 return;
             }
@@ -236,17 +231,16 @@ public class RestartManager {
             }
 
             proxyRestartQueuedAfterWardrobe = false;
-            ClientUtils.sendMessage(client,
-                    CommandUtils.shouldSkipSetSpawn()
+            ClientUtils.sendMessage(CommandUtils.shouldSkipSetSpawn()
                             ? "\u00A7eProxy restart recovery: preparing disconnect..."
                             : "\u00A7eProxy restart recovery: running /setspawn before disconnecting...",
                     false);
-            ClientUtils.sendDebugMessage(client, "Disabling farming macro: Proxy restart recovery");
+            ClientUtils.sendDebugMessage("Disabling farming macro: Proxy restart recovery");
             MacroWorkerThread.getInstance().cancelCurrent();
             client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
-            ClientUtils.forceReleaseKeys(client);
+            ClientUtils.forceReleaseKeys();
             proxyRestartSetSpawnWindow = CommandUtils.beginChatWindow();
-            CommandUtils.initiateSetSpawn(client);
+            CommandUtils.initiateSetSpawn();
             proxyRestartSetSpawnTime = now;
             MacroStateManager.setCurrentState(MacroState.State.OFF);
             proxyRestartSequenceStage = 1;
@@ -269,8 +263,7 @@ public class RestartManager {
 
         long reconnectDelayMs = proxyRestartDelaySeconds * 1000L;
         long reconnectAtMs = now + reconnectDelayMs;
-        ClientUtils.sendMessage(client,
-                "\u00A7eProxy restart recovery: disconnecting from Hypixel for "
+        ClientUtils.sendMessage("\u00A7eProxy restart recovery: disconnecting from Hypixel for "
                         + proxyRestartDelaySeconds + "s...",
                 false);
         MacroStateManager.setIntentionalDisconnect(true);
@@ -278,7 +271,7 @@ public class RestartManager {
                 proxyRestartDelaySeconds,
                 true,
                 ReconnectScheduler.ReconnectMode.PROXY_RESTART);
-        ClientUtils.disconnectWithScreen(client, new DynamicRestScreen(
+        ClientUtils.disconnectWithScreen(new DynamicRestScreen(
                 "Proxy Restart Recovery",
                 "Proxy Restart Recovery",
                 "reconnecting to Hypixel in",
@@ -298,15 +291,13 @@ public class RestartManager {
 
     public static void onWardrobeSwapCompleted(Minecraft client) {
         if (isRestartPending && restartQueuedAfterWardrobe && restartSequenceStage == 0) {
-            ClientUtils.sendDebugMessage(client,
-                    "Wardrobe swap finished. Resuming queued server restart abort.");
+            ClientUtils.sendDebugMessage("Wardrobe swap finished. Resuming queued server restart abort.");
             restartQueuedAfterWardrobe = false;
             restartExecutionTime = Math.min(restartExecutionTime, System.currentTimeMillis());
         }
 
         if (isProxyRestartPending && proxyRestartQueuedAfterWardrobe && proxyRestartSequenceStage == 0) {
-            ClientUtils.sendDebugMessage(client,
-                    "Wardrobe swap finished. Resuming queued proxy restart recovery.");
+            ClientUtils.sendDebugMessage("Wardrobe swap finished. Resuming queued proxy restart recovery.");
             proxyRestartQueuedAfterWardrobe = false;
             nextProxyRestartActionTime = Math.min(nextProxyRestartActionTime, System.currentTimeMillis());
         }

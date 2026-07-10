@@ -83,10 +83,10 @@ public class BookCombineManager {
                 pendingSlot0 = slots.get(0);
                 pendingSlot1 = slots.get(1);
 
-                dev.aether.util.ClientUtils.sendMessage(client, "\u00A77BookCombine: combining " + key
+                ClientUtils.sendMessage("\u00A77BookCombine: combining " + key
                                 + "' (slots " + pendingSlot0 + " + " + pendingSlot1 + ")", true);
 
-                dev.aether.util.ClientUtils.performSlotClick(client, screen, pendingSlot0, 0, ContainerInput.QUICK_MOVE);
+                dev.aether.util.ClientUtils.performSlotClick(screen, pendingSlot0, 0, ContainerInput.QUICK_MOVE);
                 interactionTime = now;
                 interactionStage = 1;
                 return;
@@ -104,19 +104,19 @@ public class BookCombineManager {
                 interactionStage = 0;
                 return;
             }
-            dev.aether.util.ClientUtils.performSlotClick(client, screen, pendingSlot1, 0, ContainerInput.QUICK_MOVE);
+            dev.aether.util.ClientUtils.performSlotClick(screen, pendingSlot1, 0, ContainerInput.QUICK_MOVE);
             interactionTime = now;
             interactionStage = 2;
         }
         // Stage 2: Pick up the combined result from the output slot (slot 22)
         else if (interactionStage == 2) {
-            dev.aether.util.ClientUtils.performSlotClick(client, screen, 22, 0, ContainerInput.PICKUP);
+            dev.aether.util.ClientUtils.performSlotClick(screen, 22, 0, ContainerInput.PICKUP);
             interactionTime = now;
             interactionStage = 3;
         }
         // Stage 3: Place the result back in inventory
         else if (interactionStage == 3) {
-            dev.aether.util.ClientUtils.performSlotClick(client, screen, 22, 0, ContainerInput.PICKUP);
+            dev.aether.util.ClientUtils.performSlotClick(screen, 22, 0, ContainerInput.PICKUP);
             interactionTime = now;
             interactionStage = 0;
             pendingSlot0 = -1;
@@ -153,14 +153,15 @@ public class BookCombineManager {
                 || (AetherConfig.AUTO_DROP_JUNK.get() && JunkManager.countJunkItems(client) >= AetherConfig.JUNK_THRESHOLD.get());
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (!AetherConfig.AUTO_BOOK_COMBINE.get() || client.player == null)
             return;
 
         if (isPreparingToCombine) {
             if (isPriorityEventActive(client)) {
                 isPreparingToCombine = false;
-                dev.aether.util.ClientUtils.sendMessage(client, "\u00A7cAborting Book Combine prep due to priority event.", false);
+                ClientUtils.sendMessage("\u00A7cAborting Book Combine prep due to priority event.", false);
             }
             return;
         }
@@ -168,7 +169,7 @@ public class BookCombineManager {
         if (isCombining) {
             if (isPriorityEventActive(client)) {
                 isCombining = false;
-                dev.aether.util.ClientUtils.sendMessage(client, "\u00A7cAborting Book Combine due to priority event.", false);
+                ClientUtils.sendMessage("\u00A7cAborting Book Combine due to priority event.", false);
                 return;
             }
 
@@ -192,9 +193,9 @@ public class BookCombineManager {
     }
 
     private static void triggerAutomaticCombine(Minecraft client, int count) {
-        dev.aether.util.ClientUtils.sendMessage(client, "\u00A7eAuto combining books (" + count + " books in inventory)...", false);
+        ClientUtils.sendMessage("\u00A7eAuto combining books (" + count + " books in inventory)...", false);
 
-        dev.aether.util.ClientUtils.forceReleaseKeys(client);
+        dev.aether.util.ClientUtils.forceReleaseKeys();
 
         isPreparingToCombine = true;
         isCombining = false;
@@ -205,7 +206,7 @@ public class BookCombineManager {
                     isPreparingToCombine = false;
                     return;
                 }
-                ClientUtils.sendDebugMessage(client, "Disabling farming macro: Preparing book combine");
+                ClientUtils.sendDebugMessage("Disabling farming macro: Preparing book combine");
                 client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
 
                 MacroWorkerThread.sleep(400); // Stabilization delay
@@ -215,7 +216,7 @@ public class BookCombineManager {
                     isCombining = true;
                     interactionStage = 0;
                     interactionTime = System.currentTimeMillis();
-                    dev.aether.util.ClientUtils.sendCommand(client, "/av");
+                    dev.aether.util.ClientUtils.sendCommand("/av");
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -241,7 +242,7 @@ public class BookCombineManager {
         }
 
         if (client.player != null) {
-            dev.aether.util.ClientUtils.sendMessage(client, "\u00A7aBook Combine finished. Resuming script...", true);
+            ClientUtils.sendMessage("\u00A7aBook Combine finished. Resuming script...", true);
         }
 
         if (dev.aether.macro.MacroStateManager.getCurrentState() == dev.aether.macro.MacroState.State.FARMING) {
@@ -261,7 +262,7 @@ public class BookCombineManager {
                 if (MacroWorkerThread.shouldAbortTask(client, dev.aether.macro.MacroState.State.FARMING))
                     return;
 
-                ClientUtils.sendDebugMessage(client, "Restarting farming macro after book combine");
+                ClientUtils.sendDebugMessage("Restarting farming macro after book combine");
                 client.execute(() -> dev.aether.macro.FarmingMacroManager.enable(client, dev.aether.macro.FarmingMacroManager.createMacroFromConfig()));
             });
         }

@@ -6,8 +6,17 @@ plugins {
 version = (findProperty('aether_version') ?: '0.0.0').toString()
 group = project.maven_group
 
+def artifactVersion = project.version.replaceFirst(/(-r\d+)$/, "-${project.minecraft_version}\$1")
+if (artifactVersion == project.version) {
+    artifactVersion = "${project.version}-${project.minecraft_version}"
+}
+
 base {
     archivesName = project.archives_base_name
+}
+
+tasks.withType(AbstractArchiveTask).configureEach {
+    archiveVersion = artifactVersion
 }
 
 repositories {

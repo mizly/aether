@@ -11,9 +11,11 @@ import javax.sound.sampled.BooleanControl;
 import javax.sound.sampled.Clip;
 import javax.sound.sampled.FloatControl;
 import javax.sound.sampled.LineEvent;
+import java.awt.Desktop;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.file.Files;
@@ -67,8 +69,8 @@ public final class FailsafeSoundManager {
                 return;
             }
 
-            if (java.awt.Desktop.isDesktopSupported()) {
-                java.awt.Desktop.getDesktop().open(SOUND_DIR.toFile());
+            if (Desktop.isDesktopSupported()) {
+                Desktop.getDesktop().open(SOUND_DIR.toFile());
             }
         } catch (IOException e) {
             System.err.println("[Aether] Failed to open failsafe sound folder: " + e.getMessage());
@@ -135,7 +137,7 @@ public final class FailsafeSoundManager {
             return null;
         }
 
-        List<String> candidates = new java.util.ArrayList<>();
+        List<String> candidates = new ArrayList<>();
         candidates.add(requested);
         candidates.add(sanitizeSoundName(AetherConfig.FAILSAFE_SOUND_FILE.get()));
         candidates.add(DEFAULT_SOUND_FILE);
@@ -417,4 +419,3 @@ public final class FailsafeSoundManager {
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
     }
 }
-

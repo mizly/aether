@@ -22,7 +22,8 @@ public class PestBonusManager {
         isReactivatingBonus = false;
     }
 
-    public static void updateFromTab(Minecraft client) {
+    public static void updateFromTab() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.player == null || client.getConnection() == null) {
             return;
         }
@@ -62,23 +63,20 @@ public class PestBonusManager {
             return;
         }
 
-        ClientUtils.sendMessage(client,
-                "\u00A7aPhillip reactivation detected. Returning to plot \u00A7e" + currentInfestedPlot + "...",
+        ClientUtils.sendMessage("\u00A7aPhillip reactivation detected. Returning to plot \u00A7e" + currentInfestedPlot + "...",
                 true);
         MacroWorkerThread.getInstance().submit("PhillipReactivation", () -> {
             try {
                 if (MacroWorkerThread.shouldAbortTask(client)) {
                     return;
                 }
-                ClientUtils.sendDebugMessage(client,
-                        "Disabling farming macro: Phillip reactivation detected");
+                ClientUtils.sendDebugMessage("Disabling farming macro: Phillip reactivation detected");
                 client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
                 MacroWorkerThread.sleep(ConfigHelpers.getRandomizedDelay(250));
                 if (MacroWorkerThread.shouldAbortTask(client)) {
                     return;
                 }
-                ClientUtils.sendDebugMessage(client,
-                        "PestDestroyer: starting after Phillip reactivation");
+                ClientUtils.sendDebugMessage("PestDestroyer: starting after Phillip reactivation");
                 client.execute(() -> PestDestroyer.start(client));
             } catch (Exception e) {
                 e.printStackTrace();

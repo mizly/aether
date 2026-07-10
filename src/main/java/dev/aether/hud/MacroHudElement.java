@@ -1,15 +1,15 @@
 package dev.aether.hud;
 
 import dev.aether.config.AetherConfig;
-
-
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.farming.FastLaneSwitchManager;
-import dev.aether.ui.theme.Theme;
 import dev.aether.modules.session.DynamicRestManager;
-import dev.aether.ui.util.Fonts;
 import dev.aether.renderer.NVGRenderer;
+import dev.aether.ui.theme.Theme;
+import dev.aether.ui.util.Fonts;
+import dev.aether.util.BpsTracker;
+import dev.aether.util.ClientUtils;
 
 /**
  * NVG-rendered macro status panel (state, timers, rest progress).
@@ -72,7 +72,7 @@ public class MacroHudElement extends HudElement {
     @Override public float   getHeight()      { return computeHeight(); }
     @Override public boolean isVisible()      {
         net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-        boolean inSupportedArea = dev.aether.util.ClientUtils.isSupportedHudArea(mc);
+        boolean inSupportedArea = ClientUtils.isSupportedHudArea();
         return AetherConfig.SHOW_HUD.get() && (inSupportedArea || AetherConfig.SHOW_HUD_OUTSIDE_GARDEN.get());
     }
     @Override public String  getName()        { return "Macro HUD"; }

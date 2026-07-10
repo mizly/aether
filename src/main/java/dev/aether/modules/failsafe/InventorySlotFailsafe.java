@@ -64,7 +64,7 @@ final class InventorySlotFailsafe {
             ((AccessorInventory) client.player.getInventory()).setSelected(slot);
         }
 
-        ClientUtils.performHotbarSlotClick(client, slot);
+        ClientUtils.performHotbarSlotClick(slot);
     }
 
     static void tick(Minecraft client) {

@@ -160,7 +160,7 @@ public class SDSMushroomMacro extends AbstractMacro {
         int currentTick = mc.player.tickCount;
         if (intervalTicks > 0 && currentTick - lastDebugTick < intervalTicks) return;
         lastDebugTick = currentTick;
-        ClientUtils.sendDebugMessage(mc, "SDSMushroom: " + message);
+        ClientUtils.sendDebugMessage("SDSMushroom: " + message);
     }
 
     private void resetMovementTracking(Minecraft mc, int newGraceTicks) {

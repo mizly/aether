@@ -18,6 +18,10 @@ public class PestPrepSwapManager {
         isPrepSwapping = false;
     }
 
+    private static Minecraft client() {
+        return Minecraft.getInstance();
+    }
+
     public static void updatePrepSwapFlag(int cooldownSeconds, boolean isCleaningInProgress) {
         if (cooldownSeconds > getPrepSwapResetCooldownSeconds()
                 && prepSwappedForCurrentPestCycle
@@ -44,23 +48,24 @@ public class PestPrepSwapManager {
         return cooldownSeconds <= getPrepSwapTriggerCooldownSeconds();
     }
 
-    public static void triggerPrepSwap(Minecraft client) {
+    public static void triggerPrepSwap() {
         prepSwappedForCurrentPestCycle = true;
         isPrepSwapping = true;
-        ClientUtils.sendDebugMessage(client, "Pest cooldown detected. Triggering prep-swap...");
+        ClientUtils.sendDebugMessage("Pest cooldown detected. Triggering prep-swap...");
         MacroWorkerThread.getInstance().submit("PrepSwap", () -> {
             try {
-                if (shouldAbortPrepSwap(client)) {
+                Minecraft client = client();
+                if (shouldAbortPrepSwap()) {
                     return;
                 }
-                ClientUtils.sendDebugMessage(client, "Disabling farming macro: Triggering prep-swap");
+                ClientUtils.sendDebugMessage("Disabling farming macro: Triggering prep-swap");
                 client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
                 MacroWorkerThread.sleep(400);
-                if (shouldAbortPrepSwap(client)) {
+                if (shouldAbortPrepSwap()) {
                     return;
                 }
 
-                if (!runPrepLoadoutSwap(client)) {
+                if (!runPrepLoadoutSwap()) {
                     return;
                 }
 
@@ -76,24 +81,19 @@ public class PestPrepSwapManager {
     }
 
     private static boolean hasAnyPrepSwapTasksEnabled() {
-        return AetherConfig.AUTO_LOADOUT_PEST.get();
+        return AetherConfig.LOADOUT_SLOT_PEST.get() != AetherConfig.LOADOUT_SLOT_FARMING.get();
     }
 
     private static int getPrepSwapTriggerCooldownSeconds() {
-        if (AetherConfig.AUTO_LOADOUT_PEST.get()) {
-            return AetherConfig.LOADOUT_PEST_SWAP_TIME_SECONDS.get();
-        }
-        return 3;
+        return AetherConfig.LOADOUT_PEST_SWAP_TIME_SECONDS.get();
     }
 
     private static int getPrepSwapResetCooldownSeconds() {
-        if (AetherConfig.AUTO_LOADOUT_PEST.get()) {
-            return AetherConfig.LOADOUT_PEST_SWAP_TIME_SECONDS.get();
-        }
-        return 3;
+        return AetherConfig.LOADOUT_PEST_SWAP_TIME_SECONDS.get();
     }
 
-    private static boolean shouldAbortPrepSwap(Minecraft client) {
+    private static boolean shouldAbortPrepSwap() {
+        Minecraft client = client();
         if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING) || PestManager.isCleaningInProgress) {
             if (dev.aether.macro.MacroStateManager.getCurrentState() != MacroState.State.FARMING
                     || !dev.aether.macro.MacroStateManager.isMacroRunning()) {
@@ -104,35 +104,34 @@ public class PestPrepSwapManager {
         return false;
     }
 
-    private static boolean runPrepLoadoutSwap(Minecraft client) throws InterruptedException {
-        if (!AetherConfig.AUTO_LOADOUT_PEST.get() || AetherConfig.LOADOUT_SLOT_PEST.get() <= 0) {
-            return !shouldAbortPrepSwap(client);
+    private static boolean runPrepLoadoutSwap() throws InterruptedException {
+        Minecraft client = client();
+        if (AetherConfig.LOADOUT_SLOT_PEST.get() <= 0) {
+            return !shouldAbortPrepSwap();
         }
 
-        ClientUtils.sendDebugMessage(client,
-                "Prep-swap: Initiating loadout swap to slot " + AetherConfig.LOADOUT_SLOT_PEST.get());
+        ClientUtils.sendDebugMessage("Prep-swap: Initiating loadout swap to slot " + AetherConfig.LOADOUT_SLOT_PEST.get());
         GearManager.ensureLoadoutSlot(client, AetherConfig.LOADOUT_SLOT_PEST.get());
         if (!LoadoutManager.isSwappingLoadout) {
-            ClientUtils.sendDebugMessage(client, "Prep-swap: Loadout swap not needed (already on correct slot).");
-            return !shouldAbortPrepSwap(client);
+            ClientUtils.sendDebugMessage("Prep-swap: Loadout swap not needed (already on correct slot).");
+            return !shouldAbortPrepSwap();
         }
 
-        ClientUtils.sendDebugMessage(client, "Prep-swap: Waiting for loadout GUI...");
-        ClientUtils.waitForWardrobeGui(client);
+        ClientUtils.sendDebugMessage("Prep-swap: Waiting for loadout GUI...");
+        ClientUtils.waitForWardrobeGui();
         if (!LoadoutManager.loadoutGuiDetected) {
-            ClientUtils.sendDebugMessage(client, "\u00A7cPrep-swap: Loadout GUI not detected! Retrying in 1 second...");
+            ClientUtils.sendDebugMessage("\u00A7cPrep-swap: Loadout GUI not detected! Retrying in 1 second...");
             MacroWorkerThread.sleep(1000);
-            if (shouldAbortPrepSwap(client)) {
+            if (shouldAbortPrepSwap()) {
                 return false;
             }
 
             GearManager.ensureLoadoutSlot(client, AetherConfig.LOADOUT_SLOT_PEST.get());
             if (LoadoutManager.isSwappingLoadout) {
-                ClientUtils.sendDebugMessage(client, "Prep-swap: Retry - Waiting for loadout GUI...");
-                ClientUtils.waitForWardrobeGui(client);
+                ClientUtils.sendDebugMessage("Prep-swap: Retry - Waiting for loadout GUI...");
+                ClientUtils.waitForWardrobeGui();
                 if (!LoadoutManager.loadoutGuiDetected) {
-                    ClientUtils.sendDebugMessage(client,
-                            "\u00A7cPrep-swap: Loadout GUI still not detected after retry! Aborting prep-swap.");
+                    ClientUtils.sendDebugMessage("\u00A7cPrep-swap: Loadout GUI still not detected after retry! Aborting prep-swap.");
                     prepSwappedForCurrentPestCycle = false;
                     return false;
                 }
@@ -143,11 +142,11 @@ public class PestPrepSwapManager {
             MacroWorkerThread.sleep(50);
         }
         MacroWorkerThread.sleep(250);
-        if (shouldAbortPrepSwap(client)) {
+        if (shouldAbortPrepSwap()) {
             return false;
         }
 
-        ClientUtils.sendDebugMessage(client, "Prep-swap: Loadout swap completed.");
+        ClientUtils.sendDebugMessage("Prep-swap: Loadout swap completed.");
         return true;
     }
 }

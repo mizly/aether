@@ -3,12 +3,15 @@ package dev.aether.bootstrap;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.ReconnectScheduler;
+import dev.aether.modules.session.RecoveryManager;
 import dev.aether.util.AetherResources;
 import dev.aether.ui.DynamicRestScreen;
 import dev.aether.util.ClientUtils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
+
+import java.time.Instant;
 
 public final class AetherReconnectTickHandler {
     private static boolean hasCheckedPersistenceOnJoin = false;
@@ -35,7 +38,7 @@ public final class AetherReconnectTickHandler {
                     return;
                 }
 
-                long now = java.time.Instant.now().getEpochSecond();
+                long now = Instant.now().getEpochSecond();
                 long remaining = reconnectAt - now;
                 if (remaining <= 0) {
                     if (!ReconnectScheduler.isPending()) {
@@ -43,7 +46,7 @@ public final class AetherReconnectTickHandler {
                         if (client.screen instanceof DisconnectedScreen) {
                             client.execute(() -> client.setScreen(createReconnectScreen(
                                     reconnectMode,
-                                    java.time.Instant.now().getEpochSecond() * 1000 + 10000,
+                                    Instant.now().getEpochSecond() * 1000 + 10000,
                                     10000)));
                         }
                     }
@@ -67,14 +70,11 @@ public final class AetherReconnectTickHandler {
             if (reconnectAt != 0) {
                 if (ReconnectScheduler.shouldResume()) {
                     if (ReconnectScheduler.getReconnectMode() == ReconnectScheduler.ReconnectMode.PROXY_RESTART) {
-                        dev.aether.modules.session.RecoveryManager.beginRecovery(
-                                dev.aether.modules.session.RecoveryManager.RecoveryMode.PROXY_RESTART);
+                        RecoveryManager.beginRecovery(RecoveryManager.RecoveryMode.PROXY_RESTART);
                     } else {
-                        dev.aether.modules.session.RecoveryManager.beginRecovery(
-                                dev.aether.modules.session.RecoveryManager.RecoveryMode.STANDARD);
+                        RecoveryManager.beginRecovery(RecoveryManager.RecoveryMode.STANDARD);
                     }
-                    ClientUtils.sendMessage(client,
-                            "Session persistence detected! Initializing recovery...");
+                    ClientUtils.sendMessage("Session persistence detected! Initializing recovery...");
                     MacroStateManager.setCurrentState(MacroState.State.RECOVERING);
                 }
                 ReconnectScheduler.clearState();
@@ -103,4 +103,3 @@ public final class AetherReconnectTickHandler {
     }
 
 }
-

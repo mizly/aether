@@ -23,7 +23,8 @@ public class DiscordStatusManager {
     private static volatile boolean forceStatusUpdatePending = false;
     private static volatile String pendingScreenshotPayloadJson = null;
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (!shouldSendStatus() && !forceStatusUpdatePending) {
             isTakingScreenshot = false;
             return;
@@ -37,7 +38,8 @@ public class DiscordStatusManager {
         }
     }
 
-    public static boolean requestManualStatusUpdate(Minecraft client) {
+    public static boolean requestManualStatusUpdate() {
+        Minecraft client = Minecraft.getInstance();
         String webhookUrl = AetherConfig.DISCORD_WEBHOOK_URL.get();
         if (client == null || webhookUrl == null || webhookUrl.isBlank()) {
             return false;
@@ -53,7 +55,8 @@ public class DiscordStatusManager {
         return true;
     }
 
-    public static void sendFailsafeAlert(Minecraft client, String reason, String actionDone) {
+    public static void sendFailsafeAlert(String reason, String actionDone) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || !isWebhookConfigured() || isTakingScreenshot) {
             return;
         }

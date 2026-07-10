@@ -175,7 +175,7 @@ public abstract class AbstractMacro {
     public final void onTick(Minecraft mc) {
         if (mc.player == null || mc.level == null) return;
 
-        if (ClientUtils.isInventoryScreenOpen(mc)) {
+        if (ClientUtils.isInventoryScreenOpen()) {
             interruptAttack();
             releaseAll(mc);
             return;
@@ -285,7 +285,7 @@ public abstract class AbstractMacro {
                                   boolean forward, boolean back,
                                   boolean attack, boolean sprint,
                                   boolean sneak) {
-        if (ClientUtils.isInventoryScreenOpen(mc)) {
+        if (ClientUtils.isInventoryScreenOpen()) {
             ProgrammaticMovementTracker.set(mc.options.keyLeft, false);
             ProgrammaticMovementTracker.set(mc.options.keyRight, false);
             ProgrammaticMovementTracker.set(mc.options.keyUp, false);
@@ -296,7 +296,7 @@ public abstract class AbstractMacro {
             ProgrammaticAttackTracker.setHeld(mc.options.keyAttack, false);
             attackHeldByMacro = false;
             ClientUtils.setKeyMappingState(mc.options.keyAttack, false);
-            ClientUtils.forceReleaseMovementKeys(mc);
+            ClientUtils.forceReleaseMovementKeys();
             return;
         }
 

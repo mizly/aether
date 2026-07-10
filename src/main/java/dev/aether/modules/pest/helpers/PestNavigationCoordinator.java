@@ -49,12 +49,11 @@ final class PestNavigationCoordinator {
                 return;
             }
 
-            String currentPlot = ClientUtils.getCurrentPlot(client);
+            String currentPlot = ClientUtils.getCurrentPlot();
             boolean forceCurrentPlotTeleport = AetherConfig.PEST_PLOT_TP_FOR_CURRENT_PLOT.get()
                     || PestDiscoDestinationManager.shouldForcePlotTeleport(targetPlot);
             if (targetPlot.equals(currentPlot) && !forceCurrentPlotTeleport) {
-                ClientUtils.sendDebugMessage(client,
-                        "[PestDestroyer] Already on plot " + targetPlot + ", skipping TP.");
+                ClientUtils.sendDebugMessage("[PestDestroyer] Already on plot " + targetPlot + ", skipping TP.");
                 finalizePlotArrival(client, navigationState, context, targetPlot);
                 return;
             }
@@ -74,9 +73,9 @@ final class PestNavigationCoordinator {
                 }
             }
 
-            ClientUtils.sendDebugMessage(client, "[PestDestroyer] Teleporting to plot " + targetPlot);
+            ClientUtils.sendDebugMessage("[PestDestroyer] Teleporting to plot " + targetPlot);
             navigationState.plotTpWindow = CommandUtils.beginChatWindow();
-            CommandUtils.initiatePlotTp(client, targetPlot);
+            CommandUtils.initiatePlotTp(targetPlot);
             navigationState.lastTargetPlot = targetPlot;
             navigationState.plotTpSent = true;
             context.setStateEnteredAt(System.currentTimeMillis());
@@ -89,7 +88,7 @@ final class PestNavigationCoordinator {
                 : CommandUtils.hasPlotTp(navigationState.plotTpWindow);
 
         if (confirmed && navigationState.lastTargetPlot != null) {
-            ClientUtils.sendDebugMessage(client, "[PestDestroyer] Teleport to plot " + navigationState.lastTargetPlot
+            ClientUtils.sendDebugMessage("[PestDestroyer] Teleport to plot " + navigationState.lastTargetPlot
                     + " confirmed via chat. Trusting this location.");
             finalizePlotArrival(client, navigationState, context, navigationState.lastTargetPlot);
             return;
@@ -99,22 +98,19 @@ final class PestNavigationCoordinator {
             String targetPlot = navigationState.lastTargetPlot;
             String currentPlot = PestPlotNavigator.getEffectivePlot(client, navigationState);
             if (targetPlot != null && PestPlotNavigator.plotsEqual(targetPlot, currentPlot)) {
-                ClientUtils.sendDebugMessage(client,
-                        "[PestDestroyer] Teleport to plot " + targetPlot + " confirmed by current plot.");
+                ClientUtils.sendDebugMessage("[PestDestroyer] Teleport to plot " + targetPlot + " confirmed by current plot.");
                 finalizePlotArrival(client, navigationState, context, targetPlot);
                 return;
             }
 
             if (targetPlot != null && PestDiscoDestinationManager.matchesPlot(targetPlot)) {
-                ClientUtils.sendDebugMessage(client,
-                        "[PestDestroyer] Waiting for disco plot " + targetPlot
+                ClientUtils.sendDebugMessage("[PestDestroyer] Waiting for disco plot " + targetPlot
                                 + " confirmation; not retrying plottp.");
                 context.setStateEnteredAt(System.currentTimeMillis());
                 return;
             }
 
-            ClientUtils.sendDebugMessage(client,
-                    "[PestDestroyer] Waiting for plot " + targetPlot + " arrival; current plot is " + currentPlot + ".");
+            ClientUtils.sendDebugMessage("[PestDestroyer] Waiting for plot " + targetPlot + " arrival; current plot is " + currentPlot + ".");
             navigationState.plotTpSent = false;
             navigationState.plotTpWindow = null;
             context.setStateEnteredAt(System.currentTimeMillis());
@@ -167,8 +163,7 @@ final class PestNavigationCoordinator {
                 if (RotationManager.isRotating()) {
                     RotationManager.cancelRotation();
                 }
-                ClientUtils.sendDebugMessage(client,
-                        "PestDestroyer: hint pitch did not settle; probing vacuum anyway.");
+                ClientUtils.sendDebugMessage("PestDestroyer: hint pitch did not settle; probing vacuum anyway.");
             } else if (!ensureHintPitchReady(client, context)) {
                 ClientUtils.setKeyMappingState(client.options.keyAttack, false);
                 return;
@@ -200,16 +195,14 @@ final class PestNavigationCoordinator {
         if (waypoint != null) {
             navigationState.waypointCycleCount++;
             navigationState.calculatedWaypoint = waypoint;
-            ClientUtils.sendDebugMessage(client,
-                    "[PestDestroyer] Firework trail: " + navigationState.fireworkParticleCount
+            ClientUtils.sendDebugMessage("[PestDestroyer] Firework trail: " + navigationState.fireworkParticleCount
                             + " particles. Waypoint: "
                             + String.format("%.0f, %.0f, %.0f", waypoint.x, waypoint.y, waypoint.z)
                             + " (cycle " + navigationState.waypointCycleCount + "/" + maxWaypointCycles + ")");
 
             if (navigationState.waypointCycleCount > maxWaypointCycles) {
                 navigationState.waypointCycleCount = 0;
-                ClientUtils.sendDebugMessage(client,
-                        "[PestDestroyer] Max waypoint cycles reached without finding pest entity.");
+                ClientUtils.sendDebugMessage("[PestDestroyer] Max waypoint cycles reached without finding pest entity.");
                 if (!context.tryNextPlot(client)) {
                     context.setState(PestDestroyer.State.FINISH);
                 }
@@ -220,13 +213,12 @@ final class PestNavigationCoordinator {
         }
 
         navigationState.getLocationAttempts++;
-        ClientUtils.sendDebugMessage(client,
-                "[PestDestroyer] No firework trail detected (attempt "
+        ClientUtils.sendDebugMessage("[PestDestroyer] No firework trail detected (attempt "
                         + navigationState.getLocationAttempts + "/" + maxGetLocationAttempts + ")");
 
         if (navigationState.getLocationAttempts >= maxGetLocationAttempts) {
             if (!context.tryNextPlot(client)) {
-                ClientUtils.sendDebugMessage(client, "[PestDestroyer] No more plots to check. Finishing.");
+                ClientUtils.sendDebugMessage("[PestDestroyer] No more plots to check. Finishing.");
                 context.setState(PestDestroyer.State.FINISH);
             }
         } else {
@@ -254,8 +246,7 @@ final class PestNavigationCoordinator {
         if (pest != null) {
             PathfindingManager.stop();
             navigationState.waypointCycleCount = 0;
-            ClientUtils.sendDebugMessage(client,
-                    "PestDestroyer: found pest while flying to waypoint at "
+            ClientUtils.sendDebugMessage("PestDestroyer: found pest while flying to waypoint at "
                             + String.format("%.0f, %.0f, %.0f", pest.getX(), pest.getY(), pest.getZ())
                             + " (dist: " + String.format("%.1f", client.player.distanceTo(pest)) + ")");
             context.engagePestTarget(client, pest);
@@ -286,7 +277,7 @@ final class PestNavigationCoordinator {
         }
 
         if (System.currentTimeMillis() - context.getStateEnteredAt() > stateTimeoutMs) {
-            ClientUtils.sendDebugMessage(client, "[PestDestroyer] Fly-to-waypoint timed out.");
+            ClientUtils.sendDebugMessage("[PestDestroyer] Fly-to-waypoint timed out.");
             PathfindingManager.stop();
             context.setState(PestDestroyer.State.GET_LOCATION);
         }
@@ -307,21 +298,20 @@ final class PestNavigationCoordinator {
         navigationState.discoWalkStartedAt = 0L;
 
         if (PestDiscoDestinationManager.matchesPlot(plot)) {
-            ClientUtils.sendDebugMessage(client,
-                    "[PestDestroyer] Disco destination active on plot " + plot + ". Holding position after plot TP.");
+            ClientUtils.sendDebugMessage("[PestDestroyer] Disco destination active on plot " + plot + ". Holding position after plot TP.");
             navigationState.discoTargetReached = true;
             context.setState(PestDestroyer.State.DISCO_SPIN);
             return;
         }
 
         if (PestAotvManager.shouldDoAotvOnCurrentPlot(client, plot, true)) {
-            ClientUtils.sendDebugMessage(client, "[PestDestroyer] AOTV to roof needed for plot " + plot);
+            ClientUtils.sendDebugMessage("[PestDestroyer] AOTV to roof needed for plot " + plot);
             context.startRoofAotv(client, plot);
             return;
         }
 
         if (!client.player.getAbilities().flying && client.player.getAbilities().mayfly) {
-            ClientUtils.sendDebugMessage(client, "[PestDestroyer] Not flying after arrival, triggering flight.");
+            ClientUtils.sendDebugMessage("[PestDestroyer] Not flying after arrival, triggering flight.");
             context.setState(PestDestroyer.State.FLY_UP);
             return;
         }
@@ -337,15 +327,15 @@ final class PestNavigationCoordinator {
 
         Entity immediatePest = context.findClosestPest(client);
         if (immediatePest != null) {
-            ClientUtils.sendDebugMessage(client, "PestDestroyer: pest detected right after arrival. Engaging.");
+            ClientUtils.sendDebugMessage("PestDestroyer: pest detected right after arrival. Engaging.");
             context.engagePestTarget(client, immediatePest);
             return;
         }
 
         if (context.countVisiblePestSkulls(client) == 0
                 && ((AccessorInventory) client.player.getInventory()).getSelected() == context.getVacuumSlot()) {
-            ClientUtils.performUseClick(client);
-            ClientUtils.sendDebugMessage(client, "[PestDestroyer] No skulls visible. Probing vacuum.");
+            ClientUtils.performUseClick();
+            ClientUtils.sendDebugMessage("[PestDestroyer] No skulls visible. Probing vacuum.");
         }
 
         context.setState(PestDestroyer.State.CHECK_NEXT);

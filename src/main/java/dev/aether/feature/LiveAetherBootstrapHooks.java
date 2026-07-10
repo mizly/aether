@@ -106,8 +106,8 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
         if (minecraft.player == null) {
             return;
         }
-        RotationManager.update(minecraft);
-        RotationExecutor.update(minecraft);
+        RotationManager.update();
+        RotationExecutor.update();
     }
 
     @Override
@@ -175,7 +175,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public boolean isFreecamProgrammaticKeyDown(Minecraft client, KeyMapping keyMapping) {
-        return FreecamManager.isProgrammaticKeyDown(client, keyMapping);
+        return FreecamManager.isProgrammaticKeyDown(keyMapping);
     }
 
     @Override
@@ -309,10 +309,9 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public void onParticlePacket(Minecraft minecraft, ClientboundLevelParticlesPacket packet) {
-        VacuumParticleDebug.onParticlePacket(minecraft, packet);
+        VacuumParticleDebug.onParticlePacket(packet);
         if (packet.getParticle().getType() == ParticleTypes.ANGRY_VILLAGER) {
             PestDestroyer.onFireworkParticle(packet.getX(), packet.getY(), packet.getZ());
         }
     }
 }
-

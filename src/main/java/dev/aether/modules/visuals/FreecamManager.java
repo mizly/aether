@@ -71,14 +71,11 @@ public final class FreecamManager {
     }
 
     public static void setFeatureEnabled(boolean shouldEnable) {
-        setFeatureEnabled(Minecraft.getInstance(), shouldEnable);
-    }
-
-    public static void setFeatureEnabled(Minecraft client, boolean shouldEnable) {
+        Minecraft client = Minecraft.getInstance();
         AetherConfig.FREECAM_ENABLED.set(shouldEnable);
         AetherConfig.save();
         if (!shouldEnable) {
-            setEnabled(client, false);
+            setEnabled(false);
         }
     }
 
@@ -96,21 +93,24 @@ public final class FreecamManager {
         return player != null && System.currentTimeMillis() < macroMovementGraceUntilMs;
     }
 
-    public static boolean isProgrammaticKeyDown(Minecraft client, KeyMapping mapping) {
+    public static boolean isProgrammaticKeyDown(KeyMapping mapping) {
+        Minecraft client = Minecraft.getInstance();
         return mapping != null && mapping.isDown() && !isKeyDown(client, mapping);
     }
 
-    public static void toggle(Minecraft client) {
+    public static void toggle() {
+        Minecraft client = Minecraft.getInstance();
         if (!isFeatureEnabled()) {
             if (client != null) {
-                ClientUtils.sendMessage(client, "Turn the Freecam module on to use the freecam keybind.", false);
+                ClientUtils.sendMessage("Turn the Freecam module on to use the freecam keybind.", false);
             }
             return;
         }
-        setEnabled(client, !enabled);
+        setEnabled(!enabled);
     }
 
-    public static void teleportCameraToPlayer(Minecraft client) {
+    public static void teleportCameraToPlayer() {
+        Minecraft client = Minecraft.getInstance();
         if (!enabled || client == null || client.player == null || cameraEntity == null) {
             return;
         }
@@ -120,14 +120,11 @@ public final class FreecamManager {
         cameraEntity.setPos(player.position());
         syncRotationState(cameraEntity, player.getYRot(), player.getXRot());
         cameraEntity.setDeltaMovement(Vec3.ZERO);
-        ClientUtils.sendMessage(client, "Teleported to player!", false);
+        ClientUtils.sendMessage("Teleported to player!", false);
     }
 
     public static void setEnabled(boolean shouldEnable) {
-        setEnabled(Minecraft.getInstance(), shouldEnable);
-    }
-
-    public static void setEnabled(Minecraft client, boolean shouldEnable) {
+        Minecraft client = Minecraft.getInstance();
         if (shouldEnable && StreamerModeManager.isEnabled()) {
             return;
         }
@@ -138,7 +135,7 @@ public final class FreecamManager {
             return;
         }
         if (!client.isSameThread()) {
-            client.execute(() -> setEnabled(client, shouldEnable));
+            client.execute(() -> setEnabled(shouldEnable));
             return;
         }
         if (shouldEnable) {
@@ -169,7 +166,7 @@ public final class FreecamManager {
         client.setCameraEntity(cameraEntity);
         enforceFirstPerson(client);
         clearLatchedInputState(client, player);
-        ClientUtils.sendMessage(client, "Freecam enabled!", false);
+        ClientUtils.sendMessage("Freecam enabled!", false);
     }
 
     private static void disable(Minecraft client, boolean dueToMissingWorld) {
@@ -187,7 +184,7 @@ public final class FreecamManager {
             }
             client.setCameraEntity(restore);
             if (!dueToMissingWorld) {
-                ClientUtils.sendMessage(client, "Freecam disabled!", false);
+                ClientUtils.sendMessage("Freecam disabled!", false);
             }
         }
 
@@ -221,13 +218,13 @@ public final class FreecamManager {
 
         boolean toggleDown = isKeyDown(client, AetherKeybindRegistry.getFreecamKey());
         if (toggleDown && !toggleKeyWasDown) {
-            toggle(client);
+            toggle();
         }
         toggleKeyWasDown = toggleDown;
 
         boolean teleportDown = isKeyDown(client, AetherKeybindRegistry.getFreecamTeleportToPlayerKey());
         if (teleportDown && !teleportKeyWasDown && enabled) {
-            teleportCameraToPlayer(client);
+            teleportCameraToPlayer();
         }
         teleportKeyWasDown = teleportDown;
     }

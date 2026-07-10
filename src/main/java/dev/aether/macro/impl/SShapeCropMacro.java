@@ -558,7 +558,7 @@ public class SShapeCropMacro extends AbstractMacro {
                 break;
         }
 
-        ClientUtils.sendDebugMessage(mc, "[SShape] " + message);
+        ClientUtils.sendDebugMessage("[SShape] " + message);
     }
 
     private static String fmt(double value) {

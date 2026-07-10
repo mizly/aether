@@ -225,7 +225,7 @@ public class WSFarmMacro extends AbstractMacro {
         int currentTick = mc.player.tickCount;
         if (intervalTicks > 0 && currentTick - lastDebugTick < intervalTicks) return;
         lastDebugTick = currentTick;
-        ClientUtils.sendDebugMessage(mc, debugPrefix + " " + message);
+        ClientUtils.sendDebugMessage(debugPrefix + " " + message);
     }
 
     private float snapYaw(float yaw) {

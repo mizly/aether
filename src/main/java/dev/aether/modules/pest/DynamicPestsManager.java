@@ -9,6 +9,7 @@ import dev.aether.macro.FarmingMacroManager;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
+import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.pest.helpers.AutoSprayonatorManager;
 import dev.aether.modules.pest.helpers.GardenTimeManager;
@@ -81,7 +82,8 @@ public final class DynamicPestsManager {
         lastInitialFetchWaitDebugMs = 0L;
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.getConnection() == null) return;
         if (!AetherConfig.DYNAMIC_PESTS_ENABLED.get()) return;
         if (!MacroStateManager.isMacroRunning()) return;
@@ -93,7 +95,7 @@ public final class DynamicPestsManager {
             long now = System.currentTimeMillis();
             if (AetherConfig.SHOW_DEBUG.get() && now - lastInitialFetchWaitDebugMs >= 5000L) {
                 lastInitialFetchWaitDebugMs = now;
-                ClientUtils.sendDebugMessage(client, "DynamicPests: waiting for initial Feast data before applying fallback");
+                ClientUtils.sendDebugMessage("DynamicPests: waiting for initial Feast data before applying fallback");
             }
             return;
         }
@@ -127,7 +129,7 @@ public final class DynamicPestsManager {
                     appliedCrop = normalizedCrop;
                 }
             } catch (Exception e) {
-                ClientUtils.sendDebugMessage(client, "DynamicPests test apply error: " + e.getMessage());
+                ClientUtils.sendDebugMessage("DynamicPests test apply error: " + e.getMessage());
             } finally {
                 isApplying = false;
             }
@@ -366,7 +368,7 @@ public final class DynamicPestsManager {
                     appliedCrop = targetKey;
                 }
             } catch (Exception e) {
-                ClientUtils.sendDebugMessage(client, "DynamicPests apply error: " + e.getMessage());
+                ClientUtils.sendDebugMessage("DynamicPests apply error: " + e.getMessage());
             } finally {
                 isApplying = false;
             }
@@ -399,7 +401,7 @@ public final class DynamicPestsManager {
         boolean gardenTimeAlreadyCorrect = isGardenTimeAlreadyCorrect(client, crop);
         if (!force && sprayAlreadyCorrect && vinylAlreadyCorrect && gardenTimeAlreadyCorrect) {
             if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage(client, "DynamicPests: spray, vinyl, and garden time already match target, skipping apply");
+                ClientUtils.sendDebugMessage("DynamicPests: spray, vinyl, and garden time already match target, skipping apply");
             }
             return true;
         }
@@ -433,17 +435,17 @@ public final class DynamicPestsManager {
                                 && currentMaterial != null
                                 && currentMaterial.equalsIgnoreCase(sprayMaterial);
             } else {
-                ClientUtils.sendMessage(client, "\u00A7cDynamic Pests: Sprayonator not found in hotbar.");
+                ClientUtils.sendMessage("\u00A7cDynamic Pests: Sprayonator not found in hotbar.");
             }
             if (!sprayApplied) {
-                ClientUtils.sendDebugMessage(client, "DynamicPests: failed to set spray material " + sprayMaterial);
+                ClientUtils.sendDebugMessage("DynamicPests: failed to set spray material " + sprayMaterial);
                 return false;
             }
 
             if (sprayChanged) {
                 boolean sprayTriggered = AutoSprayonatorManager.sprayHeldMaterialAndHandleMissing(client, guiDelay);
                 if (!sprayTriggered) {
-                    ClientUtils.sendDebugMessage(client, "DynamicPests: failed to trigger spray after material swap");
+                    ClientUtils.sendDebugMessage("DynamicPests: failed to trigger spray after material swap");
                     return false;
                 }
             }
@@ -453,7 +455,7 @@ public final class DynamicPestsManager {
             if (vinylName != null) {
                 boolean vinylApplied = VinylManager.setVinyl(client, vinylName);
                 if (!vinylApplied) {
-                    ClientUtils.sendDebugMessage(client, "DynamicPests: failed to set vinyl " + vinylName);
+                    ClientUtils.sendDebugMessage("DynamicPests: failed to set vinyl " + vinylName);
                     return false;
                 }
             }
@@ -461,18 +463,21 @@ public final class DynamicPestsManager {
             if (shouldAbortApply(client, requireMacroRunning)) return false;
 
             if (!switchGardenTimeForCrop(client, crop)) {
-                ClientUtils.sendDebugMessage(client, "DynamicPests: failed to switch garden time for " + crop);
+                ClientUtils.sendDebugMessage("DynamicPests: failed to switch garden time for " + crop);
                 return false;
             }
 
             if (shouldAbortApply(client, requireMacroRunning)) return false;
 
             String label = crop != null ? crop : "fallback";
-            ClientUtils.sendMessage(client, "\u00A7aDynamic Pests: Switched to \u00A7e" + label + "\u00A7a.");
+            ClientUtils.sendMessage("\u00A7aDynamic Pests: Switched to \u00A7e" + label + "\u00A7a.");
             return true;
         } finally {
             GearManager.swapToFarmingToolSync(client);
             if (macroWasRunning) {
+                // faceStraightDown() rotated us off the farming orientation; arm the mousemat
+                // reapply so farming resume snaps us back, matching the other resume paths.
+                SqueakyMousematManager.armReapplyAttempt();
                 client.execute(() -> FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig()));
                 MacroStateManager.setCurrentState(MacroState.State.FARMING);
             } else if (MacroStateManager.getCurrentState() != previousState) {

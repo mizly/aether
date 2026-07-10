@@ -210,7 +210,7 @@ public final class PathExecutor {
     public void tick(Minecraft mc) {
         if (mc.player == null) return;
         if (state != State.WALKING && state != State.REPLANNING) return;
-        if (ClientUtils.isInventoryScreenOpen(mc)) {
+        if (ClientUtils.isInventoryScreenOpen()) {
             releaseAll(mc);
             return;
         }
@@ -283,7 +283,7 @@ public final class PathExecutor {
             double dx = wp.position.centeredX() - playerPos.x;
             double dz = wp.position.centeredZ() - playerPos.z;
             double hDist = Math.sqrt(dx * dx + dz * dz);
-            ClientUtils.sendDebugMessage(mc, String.format(
+            ClientUtils.sendDebugMessage(String.format(
                     "path seg=%d/%d hDist=%.2f",
                     pursuitSegment, path.size(), hDist));
         }

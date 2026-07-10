@@ -186,7 +186,7 @@ public final class MacroWorkerThread {
     private static void debugLog(String message) {
         Minecraft mc = Minecraft.getInstance();
         if (mc != null && AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage(mc, "[Worker] " + message);
+            ClientUtils.sendDebugMessage("[Worker] " + message);
         }
     }
 

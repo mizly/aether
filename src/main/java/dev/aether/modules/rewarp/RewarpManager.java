@@ -63,7 +63,7 @@ public final class RewarpManager {
         }
 
         lastRewarpTime = now;
-        ClientUtils.sendMessage(client, "\u00A76Rewarp End Position reached!", true);
+        ClientUtils.sendMessage("\u00A76Rewarp End Position reached!", true);
         MacroWorkerThread.getInstance().submit("PlotTpRewarp", () -> performRewarp(client, pair));
     }
 
@@ -78,7 +78,7 @@ public final class RewarpManager {
 
         lastRewarpTime = now;
         client.execute(() -> {
-            ConfigHelpers.executeRewarpCommand(client, pair.rewarpMode, pair.plotTpNumber);
+            ConfigHelpers.executeRewarpCommand(pair.rewarpMode, pair.plotTpNumber);
             PestManager.markRewarpCompleted();
             AbstractMacro active = FarmingMacroManager.getActiveMacro();
             if (active != null) {
@@ -167,7 +167,7 @@ public final class RewarpManager {
 
     private static void performCommandRewarp(Minecraft client, RewarpPointPair pair) {
         client.execute(() -> {
-            ConfigHelpers.executeRewarpCommand(client, pair.rewarpMode, pair.plotTpNumber);
+            ConfigHelpers.executeRewarpCommand(pair.rewarpMode, pair.plotTpNumber);
             AbstractMacro active = FarmingMacroManager.getActiveMacro();
             if (active != null) {
                 active.suppressDropDetection(3000);
@@ -274,12 +274,12 @@ public final class RewarpManager {
 
         int aotvSlot = GearManager.findAspectOfTheVoidSlot(client);
         if (aotvSlot < 0 || aotvSlot > 8) {
-            ClientUtils.sendDebugMessage(client, "Rewarp align skipped: no AOTV/AOTE in hotbar");
+            ClientUtils.sendDebugMessage("Rewarp align skipped: no AOTV/AOTE in hotbar");
             return;
         }
 
         if (!stabilizeFlyPositionForAotv(client, pair)) {
-            ClientUtils.sendDebugMessage(client, "Rewarp align skipped: could not stabilize above target");
+            ClientUtils.sendDebugMessage("Rewarp align skipped: could not stabilize above target");
             return;
         }
 
@@ -298,8 +298,8 @@ public final class RewarpManager {
             return;
         }
 
-        ClientUtils.performUseClick(client);
-        ClientUtils.waitForYChange(client, playerPos.y, 900);
+        ClientUtils.performUseClick();
+        ClientUtils.waitForYChange(playerPos.y, 900);
         MacroWorkerThread.sleepRandom(170, 60);
     }
 

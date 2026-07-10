@@ -56,7 +56,7 @@ public final class FailsafeCustomReplayManager {
         if (isRandomGlobalOption(selected)) {
             List<Path> replays = getAvailableGlobalReplays();
             if (replays.isEmpty()) {
-                ClientUtils.sendMessage(client, "\u00A7c" + AetherLang.localize("No custom failsafe replays found."), false);
+                ClientUtils.sendMessage("\u00A7c" + AetherLang.localize("No custom failsafe replays found."), false);
                 return;
             }
 
@@ -67,7 +67,7 @@ public final class FailsafeCustomReplayManager {
 
         List<String> replays = getAvailableReplays(type);
         if (replays.isEmpty()) {
-            ClientUtils.sendMessage(client, "\u00A7c" + AetherLang.localize("No custom failsafe replays found."), false);
+            ClientUtils.sendMessage("\u00A7c" + AetherLang.localize("No custom failsafe replays found."), false);
             return;
         }
 

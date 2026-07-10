@@ -12,15 +12,12 @@ public final class UngrabMouseManager {
         return UngrabMouse.isVisualUngrabEnabled();
     }
 
-    public static void toggle(Minecraft client) {
-        setEnabled(client, !isEnabled());
+    public static void toggle() {
+        setEnabled(!isEnabled());
     }
 
     public static void setEnabled(boolean shouldEnable) {
-        setEnabled(Minecraft.getInstance(), shouldEnable);
-    }
-
-    public static void setEnabled(Minecraft client, boolean shouldEnable) {
+        Minecraft client = Minecraft.getInstance();
         if (shouldEnable && StreamerModeManager.isEnabled()) {
             return;
         }
@@ -33,7 +30,7 @@ public final class UngrabMouseManager {
             return;
         }
         if (!client.isSameThread()) {
-            client.execute(() -> setEnabled(client, shouldEnable));
+            client.execute(() -> setEnabled(shouldEnable));
             return;
         }
         if (isEnabled() == shouldEnable) {
@@ -46,6 +43,6 @@ public final class UngrabMouseManager {
             UngrabMouse.clearVisualUngrab();
         }
 
-        ClientUtils.sendMessage(client, shouldEnable ? "§aUngrab mouse enabled." : "§cUngrab mouse disabled.");
+        ClientUtils.sendMessage(shouldEnable ? "§aUngrab mouse enabled." : "§cUngrab mouse disabled.");
     }
 }

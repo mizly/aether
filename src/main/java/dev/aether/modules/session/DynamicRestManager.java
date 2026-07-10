@@ -138,7 +138,8 @@ public class DynamicRestManager {
      * Must be called every client END_CLIENT_TICK while player != null.
      * Handles both the countdown HUD and the shutdown sequence.
      */
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null) {
             return;
         }
@@ -174,8 +175,7 @@ public class DynamicRestManager {
                     restSequencePending = true;
                     restSequenceStage = 0;
                     nextStageActionTime = now;
-                    ClientUtils.sendMessage(client,
-                            "\u00A7eDynamic Rest queued. Waiting for farming to resume before resting...",
+                    ClientUtils.sendMessage("\u00A7eDynamic Rest queued. Waiting for farming to resume before resting...",
                             false);
                 }
             }
@@ -195,16 +195,15 @@ public class DynamicRestManager {
                     return;
                 }
 
-                ClientUtils.sendDebugMessage(client, "Disabling farming macro: Initiating dynamic rest sequence");
+                ClientUtils.sendDebugMessage("Disabling farming macro: Initiating dynamic rest sequence");
                 client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
-                ClientUtils.forceReleaseKeys(client);
-                ClientUtils.sendMessage(client,
-                        CommandUtils.shouldSkipSetSpawn()
+                ClientUtils.forceReleaseKeys();
+                ClientUtils.sendMessage(CommandUtils.shouldSkipSetSpawn()
                                 ? "\u00A7eDynamic Rest: preparing disconnect..."
                                 : "\u00A7eDynamic Rest: running /setspawn...",
                         false);
                 restSetSpawnWindow = CommandUtils.beginChatWindow();
-                dev.aether.util.CommandUtils.initiateSetSpawn(client);
+                dev.aether.util.CommandUtils.initiateSetSpawn();
                 MacroStateManager.setCurrentState(MacroState.State.OFF);
 
                 restSequenceStage = 1;
@@ -222,7 +221,7 @@ public class DynamicRestManager {
                 long randomOffsetSecs = offsetSecs > 0 ? (long) (new Random().nextDouble() * offsetSecs) : 0;
                 long breakSeconds = baseSecs + randomOffsetSecs;
 
-                ClientUtils.sendMessage(client, String.format(
+                ClientUtils.sendMessage(String.format(
                         "\u00A7eDynamic Rest: disconnecting. Reconnecting in %.1f minutes...",
                         (double) breakSeconds / 60.0), false);
 
@@ -238,7 +237,6 @@ public class DynamicRestManager {
                         ? new FunnyDynamicRestScreen(restEndTimeMs)
                         : new DynamicRestScreen(restEndTimeMs, durationMs);
                 ClientUtils.disconnectWithScreen(
-                        client,
                         restScreen,
                         net.minecraft.network.chat.Component.literal("Dynamic rest"));
 
@@ -276,7 +274,7 @@ public class DynamicRestManager {
         }
 
         dailyThresholdTriggered = true;
-        ClientUtils.sendMessage(client, "\u00A7e" + String.format(
+        ClientUtils.sendMessage("\u00A7e" + String.format(
                 AetherLang.localize("Daily farming threshold reached (%.2f hours). Stopping macro..."),
                 thresholdHours), false);
         MacroStateManager.stopMacro(client, "Dynamic Rest: daily farming threshold reached");

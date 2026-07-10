@@ -580,6 +580,25 @@ public class NVGRenderer {
         SVGRenderer.render(vg, resourcePath, x, y, width, height, color, paint);
     }
 
+    public int createImageRGBA(int width, int height, java.nio.ByteBuffer pixels) {
+        return nvgCreateImageRGBA(vg, width, height, 0, pixels);
+    }
+
+    public void deleteImage(int handle) {
+        if (handle != -1) nvgDeleteImage(vg, handle);
+    }
+
+    public void image(int handle, float x, float y, float width, float height, float radius, float alpha) {
+        if (handle == -1) return;
+        nvgSave(vg);
+        nvgBeginPath(vg);
+        nvgRoundedRect(vg, x, y, width, height, radius);
+        nvgImagePattern(vg, x, y, width, height, 0f, handle, alpha, paint);
+        nvgFillPaint(vg, paint);
+        nvgFill(vg);
+        nvgRestore(vg);
+    }
+
     // -- Text ------------------------------------------------------------------
 
     /**

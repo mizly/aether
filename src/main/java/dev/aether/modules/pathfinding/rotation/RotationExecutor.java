@@ -45,7 +45,8 @@ public final class RotationExecutor {
     public static float   getTargetPitch() { return targetPitch; }
 
     /** Called every client tick from AetherClient. */
-    public static void update(Minecraft mc) {
+    public static void update() {
+        Minecraft mc = Minecraft.getInstance();
         var player = mc.player;
         if (player == null || !isRotating) return;
 

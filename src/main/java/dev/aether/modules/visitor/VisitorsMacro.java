@@ -1,9 +1,14 @@
 package dev.aether.modules.visitor;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.macro.FarmingMacroManager;
+import dev.aether.macro.MacroState;
+import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.gear.GearManager;
+import dev.aether.modules.gear.helpers.LoadoutManager;
+import dev.aether.modules.inventorymanager.AutoSellManager;
 import dev.aether.modules.profit.ProfitManager;
 import dev.aether.mixin.MixinMinecraft;
 import dev.aether.modules.pathfinding.PathfindingManager;
@@ -18,11 +23,14 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.ItemLore;
 import net.minecraft.world.phys.Vec3;
 
@@ -30,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -96,7 +105,7 @@ public class VisitorsMacro {
             return;
         }
 
-        wasRunningBefore = !forceNoResume && dev.aether.macro.MacroStateManager.isMacroRunning();
+        wasRunningBefore = !forceNoResume && MacroStateManager.isMacroRunning();
         isRunning = true;
         shouldStop = false;
         int generation = ++runGeneration;
@@ -109,10 +118,10 @@ public class VisitorsMacro {
                     return;
                 }
                 // Ensure farming is disabled
-                client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
+                client.execute(() -> FarmingMacroManager.disable(client));
 
                 if (wasRunningBefore) {
-                    dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.VISITING);
+                    MacroStateManager.setCurrentState(MacroState.State.VISITING);
                 }
 
                 run(client);
@@ -153,7 +162,7 @@ public class VisitorsMacro {
         try {
         // Step 0: check auto sell after wardrobe per user request (regardless of threshold)
         // This is now synchronous when called from the worker thread, so we don't need to restart the macro.
-        dev.aether.modules.inventorymanager.AutoSellManager.checkBeforeVisitors(client, true, wasRunningBefore);
+        AutoSellManager.checkBeforeVisitors(client, true, wasRunningBefore);
         if (shouldStop) return;
 
         // Step 1: TP to barn
@@ -163,9 +172,9 @@ public class VisitorsMacro {
 
         Vec3 posBefore = client.player.position();
         hasBarnTeleportMessage = false;
-        FailsafeManager.addRotationGracePeriod(dev.aether.config.AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
+        FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
         CommandUtils.ChatWindow barnTeleportWindow = CommandUtils.beginChatWindow();
-        ClientUtils.sendCommand(client, "/plottp barn");
+        ClientUtils.sendCommand("/plottp barn");
         MacroWorkerThread.sleep(600);
 
         if (!waitForTeleport(client, posBefore, barnTeleportWindow, 5000)) {
@@ -182,7 +191,7 @@ public class VisitorsMacro {
             return;
         }
         MacroWorkerThread.sleep(150);
-        ClientUtils.waitForGearAndGui(client);
+        ClientUtils.waitForGearAndGui();
 
         if (AetherConfig.DISABLE_COMPACTORS_DURING_VISITORS.get()) {
             compactorsDisabled = setCompactorsEnabled(client, false);
@@ -242,7 +251,7 @@ public class VisitorsMacro {
                     servedThisRound++;
                     servedVisitorsThisRun.add(normalizedName);
                 } else {
-                    ClientUtils.sendDebugMessage(client, "[VisitorsMacro] Failed to process visitor: " + visitorName);
+                    ClientUtils.sendDebugMessage("[VisitorsMacro] Failed to process visitor: " + visitorName);
                     skippedVisitorsThisRun.add(normalizedName);
                 }
                 MacroWorkerThread.sleep(500);
@@ -250,8 +259,7 @@ public class VisitorsMacro {
 
             if (servedThisRound == 0) {
                 roundsWithoutProgress++;
-                ClientUtils.sendDebugMessage(client,
-                        "[VisitorsMacro] No visitors were served this round (" + roundsWithoutProgress
+                ClientUtils.sendDebugMessage("[VisitorsMacro] No visitors were served this round (" + roundsWithoutProgress
                                 + "/3). Rescanning queue...");
                 if (roundsWithoutProgress >= 3) {
                     msg(client,
@@ -271,7 +279,7 @@ public class VisitorsMacro {
         if (!shouldStop && wasRunningBefore) {
             VisitorManager.handleVisitorScriptFinished(client);
         } else {
-            dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.OFF);
+            MacroStateManager.setCurrentState(MacroState.State.OFF);
         }
         } finally {
             if (compactorsDisabled) {
@@ -371,8 +379,7 @@ public class VisitorsMacro {
 
         boolean acceptedByChat = waitForOfferAcceptedChat(offerAcceptedWindow, visitorName, 3000);
         if (!acceptedByChat) {
-            ClientUtils.sendDebugMessage(client,
-                    "[VisitorsMacro] Chat confirmation missing for " + visitorName + ", using fallback checks...");
+            ClientUtils.sendDebugMessage("[VisitorsMacro] Chat confirmation missing for " + visitorName + ", using fallback checks...");
             if (!waitForVisitorCompletionFallback(client, visitorName, 3000)) {
                 msg(client, "\u00A7cCould not confirm offer acceptance for: " + visitorName);
                 closeScreen(client);
@@ -399,16 +406,14 @@ public class VisitorsMacro {
         if (estimatedCost <= 0L) {
             msg(client, "\u00A7cCould not verify Bazaar cost for " + req.count + "x " + req.name
                     + ". Refusing visitor.");
-            ClientUtils.sendDebugMessage(client,
-                    "VisitorsMacro: purchase price unknown for " + req.count + "x " + req.name);
+            ClientUtils.sendDebugMessage("VisitorsMacro: purchase price unknown for " + req.count + "x " + req.name);
             return false;
         }
 
         if (estimatedCost > limit) {
             msg(client, "\u00A7cSkipping " + req.count + "x " + req.name + ": estimated cost "
                     + formatCoins(estimatedCost) + " exceeds limit " + formatCoins(limit) + ".");
-            ClientUtils.sendDebugMessage(client,
-                    "VisitorsMacro: purchase exceeds limit: " + req.count + "x " + req.name
+            ClientUtils.sendDebugMessage("VisitorsMacro: purchase exceeds limit: " + req.count + "x " + req.name
                             + " costs " + estimatedCost + ", limit " + limit);
             return false;
         }
@@ -664,7 +669,7 @@ public class VisitorsMacro {
         int y = target.getY();
         int z = target.getZ();
 
-        ClientUtils.sendDebugMessage(client, "[VisitorsMacro] Walking to destination near visitor: " + x + ", " + y + ", " + z);
+        ClientUtils.sendDebugMessage("[VisitorsMacro] Walking to destination near visitor: " + x + ", " + y + ", " + z);
         // Start the pathfind and then set the walk-sneak latch on the main thread.
         // Latch decision is per-visitor: `currentVisitorRetrySneak` is false for
         // the first attempt (walk normally), and set to true if we need to retry
@@ -681,6 +686,11 @@ public class VisitorsMacro {
 
         long deadline = System.currentTimeMillis() + 15000;
         while (PathfindingManager.isNavigating() && System.currentTimeMillis() < deadline && !shouldStop) {
+            if (client.screen instanceof AbstractContainerScreen<?> screen && isVisitorScreen(screen)) {
+                ClientUtils.sendDebugMessage("[VisitorsMacro] Closing visitor GUI opened during pathing.");
+                closeScreen(client);
+                MacroWorkerThread.sleep(250);
+            }
             MacroWorkerThread.sleep(200);
         }
 
@@ -769,7 +779,7 @@ public class VisitorsMacro {
             if (client.player == null) {
                 return;
             }
-            client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            client.player.swing(InteractionHand.MAIN_HAND);
             ((MixinMinecraft) client).aether$startAttack();
         });
         MacroWorkerThread.sleep(100);
@@ -831,8 +841,7 @@ public class VisitorsMacro {
             }
 
             if (attempt < MAX_VISITOR_INTERACTION_RETRIES) {
-                ClientUtils.sendDebugMessage(client,
-                        "[VisitorsMacro] Initial prep retry (" + (attempt + 1) + "/"
+                ClientUtils.sendDebugMessage("[VisitorsMacro] Initial prep retry (" + (attempt + 1) + "/"
                                 + MAX_VISITOR_INTERACTION_RETRIES + ") for " + visitorName);
                 MacroWorkerThread.sleep(250);
             }
@@ -867,14 +876,12 @@ public class VisitorsMacro {
             if (!isVisitorInRetryRange(client, entity, retryRange)
                     || !isLookingAt(client, entity, AetherConfig.VISITOR_FOV_RANGE.get())) {
                 if (prepRetries >= MAX_VISITOR_INTERACTION_RETRIES) {
-                    ClientUtils.sendDebugMessage(client,
-                            "[VisitorsMacro] Visitor interaction retries exceeded for " + visitorName);
+                    ClientUtils.sendDebugMessage("[VisitorsMacro] Visitor interaction retries exceeded for " + visitorName);
                     return false;
                 }
 
                 prepRetries++;
-                ClientUtils.sendDebugMessage(client,
-                        "[VisitorsMacro] Re-prepping visitor interaction (" + prepRetries + "/"
+                ClientUtils.sendDebugMessage("[VisitorsMacro] Re-prepping visitor interaction (" + prepRetries + "/"
                                 + MAX_VISITOR_INTERACTION_RETRIES + ") for " + visitorName);
                 entity = prepareVisitorForInteraction(client, visitorName, entity, getRetryRangeForAttempt(prepRetries));
                 if (entity == null) {
@@ -886,16 +893,51 @@ public class VisitorsMacro {
             // Wait up to 500ms, checking for GUI every 100ms
             for (int i = 0; i < 5; i++) {
                 MacroWorkerThread.sleep(100);
-                if (client.screen instanceof AbstractContainerScreen)
+                if (client.screen instanceof AbstractContainerScreen<?> screen) {
+                    if (isWrongVisitorScreen(screen, visitorName)) {
+                        ClientUtils.sendDebugMessage("[VisitorsMacro] Closing wrong visitor GUI while targeting " + visitorName + ".");
+                        closeScreen(client);
+                        MacroWorkerThread.sleep(250);
+                        break;
+                    }
                     return true;
+                }
                 if (shouldStop)
                     return false;
             }
+        }
+        if (client.screen instanceof AbstractContainerScreen<?> screen && isWrongVisitorScreen(screen, visitorName)) {
+            closeScreen(client);
+            return false;
         }
         return client.screen instanceof AbstractContainerScreen;
     }
 
     // -- GUI Interaction --
+
+    private static boolean isVisitorScreen(AbstractContainerScreen<?> screen) {
+        return hasNamedSlot(screen, ACCEPT_OFFER_SLOT, "Accept Offer")
+                || hasNamedSlot(screen, REJECT_OFFER_SLOT, "Refuse Offer");
+    }
+
+    private static boolean hasNamedSlot(AbstractContainerScreen<?> screen, int slotIndex, String nameFragment) {
+        if (slotIndex >= screen.getMenu().slots.size()) {
+            return false;
+        }
+        Slot slot = screen.getMenu().slots.get(slotIndex);
+        return slot.hasItem() && stripColors(slot.getItem().getHoverName().getString()).contains(nameFragment);
+    }
+
+    private static boolean isWrongVisitorScreen(AbstractContainerScreen<?> screen, String visitorName) {
+        if (!isVisitorScreen(screen)) {
+            return false;
+        }
+        String title = normalizeVisitorName(screen.getTitle().getString());
+        String target = normalizeVisitorName(visitorName);
+        return !title.equals(target)
+                && !title.startsWith(target)
+                && !target.startsWith(title);
+    }
 
     private static List<ItemRequirement> readRequirements(Minecraft client) {
         if (!(client.screen instanceof AbstractContainerScreen<?> screen))
@@ -943,13 +985,11 @@ public class VisitorsMacro {
                     String itemName = m.group(1).trim();
                     int count = Integer.parseInt(m.group(2).replace(",", ""));
                     requirements.add(new ItemRequirement(itemName, count));
-                    ClientUtils.sendDebugMessage(Minecraft.getInstance(),
-                            "[VisitorsMacro] Required: " + itemName + " x" + count);
+                    ClientUtils.sendDebugMessage("[VisitorsMacro] Required: " + itemName + " x" + count);
                 } else if (!text.isEmpty()) {
                     // Single item with no count suffix
                     requirements.add(new ItemRequirement(text.trim(), 1));
-                    ClientUtils.sendDebugMessage(Minecraft.getInstance(),
-                            "[VisitorsMacro] Required: " + text.trim() + " x1");
+                    ClientUtils.sendDebugMessage("[VisitorsMacro] Required: " + text.trim() + " x1");
                 }
             }
         }
@@ -969,9 +1009,9 @@ public class VisitorsMacro {
 
         ItemStack stack = slot.getItem();
         List<Component> tooltipLines = stack.getTooltipLines(
-                net.minecraft.world.item.Item.TooltipContext.EMPTY,
+                Item.TooltipContext.EMPTY,
                 client.player,
-                net.minecraft.world.item.TooltipFlag.NORMAL);
+                TooltipFlag.NORMAL);
 
         for (Component line : tooltipLines) {
             String text = stripColors(line.getString());
@@ -997,7 +1037,7 @@ public class VisitorsMacro {
 
         client.execute(() -> {
             if (client.screen instanceof AbstractContainerScreen<?> s) {
-                ClientUtils.performSlotClick(client, s, ACCEPT_OFFER_SLOT, 0, ContainerInput.PICKUP);
+                ClientUtils.performSlotClick(s, ACCEPT_OFFER_SLOT, 0, ContainerInput.PICKUP);
             }
         });
         return true;
@@ -1019,7 +1059,7 @@ public class VisitorsMacro {
 
         client.execute(() -> {
             if (client.screen instanceof AbstractContainerScreen<?> s) {
-                ClientUtils.performSlotClick(client, s, REJECT_OFFER_SLOT, 0, ContainerInput.PICKUP);
+                ClientUtils.performSlotClick(s, REJECT_OFFER_SLOT, 0, ContainerInput.PICKUP);
             }
         });
         return true;
@@ -1032,7 +1072,7 @@ public class VisitorsMacro {
         while (System.currentTimeMillis() < deadline && !shouldStop) {
             if (hasBarnTeleportMessage)
                 return true;
-            if (dev.aether.util.CommandUtils
+            if (CommandUtils
                     .hasReceivedMessageMatching(window, msg -> msg.contains("Teleported you to The Barn!")
                             || msg.contains("Teleported you to the Barn!"))) {
                 return true;
@@ -1068,17 +1108,17 @@ public class VisitorsMacro {
     }
 
     private static boolean ensureVisitorLoadout(Minecraft client) {
-        if (AetherConfig.AUTO_LOADOUT_VISITOR.get() && AetherConfig.LOADOUT_SLOT_VISITOR.get() > 0
-                && dev.aether.modules.gear.helpers.LoadoutManager.trackedLoadoutSlot != AetherConfig.LOADOUT_SLOT_VISITOR
+        if (AetherConfig.LOADOUT_SLOT_VISITOR.get() > 0
+                && LoadoutManager.trackedLoadoutSlot != AetherConfig.LOADOUT_SLOT_VISITOR
                         .get()) {
             msg(client, "\u00A7eSwapping to visitor loadout (Slot " + AetherConfig.LOADOUT_SLOT_VISITOR.get()
                     + ")...");
             GearManager.ensureLoadoutSlot(client, AetherConfig.LOADOUT_SLOT_VISITOR.get());
-            if (dev.aether.modules.gear.helpers.LoadoutManager.isSwappingLoadout) {
-                ClientUtils.waitForWardrobeGui(client);
-                while (dev.aether.modules.gear.helpers.LoadoutManager.isSwappingLoadout)
+            if (LoadoutManager.isSwappingLoadout) {
+                ClientUtils.waitForWardrobeGui();
+                while (LoadoutManager.isSwappingLoadout)
                     MacroWorkerThread.sleep(50);
-                while (dev.aether.modules.gear.helpers.LoadoutManager.loadoutCleanupTicks > 0)
+                while (LoadoutManager.loadoutCleanupTicks > 0)
                     MacroWorkerThread.sleep(50);
                 MacroWorkerThread.sleep(250);
             }
@@ -1092,19 +1132,19 @@ public class VisitorsMacro {
         if (AetherConfig.EQUIP_VISITOR_CUSTOM_ITEM.get()) {
             String customItem = AetherConfig.VISITOR_CUSTOM_ITEM.get().trim();
             if (customItem.isEmpty()) {
-                ClientUtils.sendDebugMessage(client, "VisitorsMacro: custom item name is blank.");
+                ClientUtils.sendDebugMessage("VisitorsMacro: custom item name is blank.");
                 return false;
             }
 
             boolean swapped = GearManager.swapToNamedHotbarItemSync(client, customItem);
             if (!swapped) {
-                ClientUtils.sendDebugMessage(client, "VisitorsMacro: custom item not found in hotbar: " + customItem);
+                ClientUtils.sendDebugMessage("VisitorsMacro: custom item not found in hotbar: " + customItem);
             }
             return swapped;
         }
 
         if (GearManager.findFarmingToolSlot(client) == -1) {
-            ClientUtils.sendDebugMessage(client, "VisitorsMacro: no farming tool found in hotbar.");
+            ClientUtils.sendDebugMessage("VisitorsMacro: no farming tool found in hotbar.");
             return false;
         }
 
@@ -1119,7 +1159,7 @@ public class VisitorsMacro {
 
         List<Integer> compactorSlots = findCompactorHotbarSlots(client);
         if (compactorSlots.isEmpty()) {
-            ClientUtils.sendDebugMessage(client, "VisitorsMacro: no compactors found in hotbar.");
+            ClientUtils.sendDebugMessage("VisitorsMacro: no compactors found in hotbar.");
             return false;
         }
 
@@ -1182,26 +1222,26 @@ public class VisitorsMacro {
         closeScreen(client);
         client.execute(() -> FailsafeManager.selectHotbarSlot(client, hotbarSlot));
         if (!waitForSelectedHotbarSlot(client, hotbarSlot, 1500L)) {
-            ClientUtils.sendDebugMessage(client, "VisitorsMacro: failed to select compactor slot " + hotbarSlot);
+            ClientUtils.sendDebugMessage("VisitorsMacro: failed to select compactor slot " + hotbarSlot);
             return false;
         }
 
         ItemStack currentItem = client.player.getMainHandItem();
         if (currentItem.isEmpty() || !stripColors(currentItem.getHoverName().getString()).contains("Compactor")) {
-            ClientUtils.sendDebugMessage(client, "VisitorsMacro: selected item is not a compactor.");
+            ClientUtils.sendDebugMessage("VisitorsMacro: selected item is not a compactor.");
             return false;
         }
 
-        ClientUtils.performUseClick(client);
+        ClientUtils.performUseClick();
         if (!waitForContainer(client, COMPACTOR_GUI_TIMEOUT_MS, true)) {
-            ClientUtils.sendDebugMessage(client, "VisitorsMacro: compactor GUI did not open.");
+            ClientUtils.sendDebugMessage("VisitorsMacro: compactor GUI did not open.");
             return false;
         }
         MacroWorkerThread.sleep(COMPACTOR_POST_OPEN_DELAY_MS);
 
         int statusSlotIndex = waitForCompactorStatusSlot(client, COMPACTOR_SLOT_TIMEOUT_MS);
         if (statusSlotIndex < 0) {
-            ClientUtils.sendDebugMessage(client, "VisitorsMacro: compactor status slot was not found.");
+            ClientUtils.sendDebugMessage("VisitorsMacro: compactor status slot was not found.");
             closeScreen(client);
             return false;
         }
@@ -1210,7 +1250,7 @@ public class VisitorsMacro {
         Slot statusSlot = statusScreen.getMenu().slots.get(statusSlotIndex);
         Boolean currentEnabled = readCompactorEnabled(client, statusSlot.getItem());
         if (currentEnabled == null) {
-            ClientUtils.sendDebugMessage(client, "VisitorsMacro: compactor status could not be read.");
+            ClientUtils.sendDebugMessage("VisitorsMacro: compactor status could not be read.");
             closeScreen(client);
             return false;
         }
@@ -1220,12 +1260,11 @@ public class VisitorsMacro {
             return false;
         }
 
-        ClientUtils.sendDebugMessage(client,
-                "VisitorsMacro: " + (enabled ? "enabling" : "disabling") + " compactor in hotbar slot "
+        ClientUtils.sendDebugMessage("VisitorsMacro: " + (enabled ? "enabling" : "disabling") + " compactor in hotbar slot "
                         + (hotbarSlot + 1));
         client.execute(() -> {
             if (client.screen instanceof AbstractContainerScreen<?> screen) {
-                ClientUtils.performSlotClick(client, screen, statusSlotIndex, 0, ContainerInput.PICKUP);
+                ClientUtils.performSlotClick(screen, statusSlotIndex, 0, ContainerInput.PICKUP);
             }
         });
         MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false));
@@ -1258,7 +1297,7 @@ public class VisitorsMacro {
     }
 
     private static Boolean readCompactorEnabled(Minecraft client, ItemStack stack) {
-        String name = stripColors(stack.getHoverName().getString()).toUpperCase(java.util.Locale.ROOT);
+        String name = stripColors(stack.getHoverName().getString()).toUpperCase(Locale.ROOT);
         if (name.contains("ON")) {
             return true;
         }
@@ -1267,11 +1306,11 @@ public class VisitorsMacro {
         }
 
         List<Component> tooltipLines = stack.getTooltipLines(
-                net.minecraft.world.item.Item.TooltipContext.EMPTY,
+                Item.TooltipContext.EMPTY,
                 client.player,
-                net.minecraft.world.item.TooltipFlag.NORMAL);
+                TooltipFlag.NORMAL);
         for (Component line : tooltipLines) {
-            String text = stripColors(line.getString()).toUpperCase(java.util.Locale.ROOT);
+            String text = stripColors(line.getString()).toUpperCase(Locale.ROOT);
             if (text.contains("ON")) {
                 return true;
             }
@@ -1298,7 +1337,7 @@ public class VisitorsMacro {
     }
 
     private static void msg(Minecraft client, String text) {
-        ClientUtils.sendMessage(client, text);
+        ClientUtils.sendMessage(text);
     }
 
     private static float getRetryRangeForAttempt(int attempt) {
