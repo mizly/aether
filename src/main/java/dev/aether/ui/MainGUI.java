@@ -2654,7 +2654,8 @@ public class MainGUI extends NVGScreen {
                 return true;
             }
         }
-        float settClickY = py + ph - SB_BOT_PAD - 44f;
+        float profileClickY = py + ph - SB_BOT_PAD - 44f;
+        float settClickY = profileClickY - 44f - SB_SEP_GAP;
         float keybindsClickY = settClickY - 44f;
         float hudPosClickY = keybindsClickY - 44f;
         if (mx >= px && mx <= px + sbClickW && my >= hudPosClickY && my <= hudPosClickY + 44f) {
