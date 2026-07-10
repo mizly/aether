@@ -68,6 +68,12 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.save();
                         })
                         .visibleWhen(() -> AetherConfig.LEAVE_ONE_PEST_ALIVE.get()))
+                .add(new ToggleSetting("Sunset Pests",
+                        () -> AetherConfig.SUNSET_PESTS.get(),
+                        v -> {
+                            AetherConfig.SUNSET_PESTS.set(v);
+                            AetherConfig.save();
+                        }))
                 .add(new ToggleSetting("AOTV Between Distant Pests",
                         () -> AetherConfig.PEST_AOTV_BETWEEN.get(),
                         v -> {

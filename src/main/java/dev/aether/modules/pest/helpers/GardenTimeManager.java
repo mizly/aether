@@ -14,7 +14,6 @@ public final class GardenTimeManager {
     private static final int TIME_MENU_SLOT = 50;
     private static final int DAYTIME_SLOT = 11;
     private static final int NIGHTTIME_SLOT = 13;
-    private static final long MENU_DELAY_MS = 1000L;
     private static final char DAYTIME_MARKER = '\u2600';
     private static final char NIGHTTIME_MARKER = '\u263D';
 
@@ -65,7 +64,7 @@ public final class GardenTimeManager {
         ClientUtils.sendDebugMessage("GardenTimeManager: switching garden time to " + label);
         ClientUtils.sendCommand("/desk");
 
-        if (!MacroWorkerThread.sleep(MENU_DELAY_MS)) {
+        if (!MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false))) {
             return false;
         }
 
@@ -74,7 +73,7 @@ public final class GardenTimeManager {
             return false;
         }
 
-        if (!MacroWorkerThread.sleep(MENU_DELAY_MS)) {
+        if (!MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false))) {
             return false;
         }
 
@@ -83,7 +82,7 @@ public final class GardenTimeManager {
             return false;
         }
 
-        if (!MacroWorkerThread.sleep(MENU_DELAY_MS)) {
+        if (!MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false))) {
             return false;
         }
 
