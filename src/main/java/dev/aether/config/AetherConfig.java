@@ -919,7 +919,7 @@ public final class AetherConfig {
         public static final BooleanEntry FAILSAFE_SOUND_ENABLED = Config.bool("failsafeSoundEnabled", true);
         public static final BooleanEntry FAILSAFE_COLOUR_FLASH_ENABLED = Config.bool("failsafeColourFlashEnabled", false);
         public static final IntEntry FAILSAFE_COLOUR_FLASH_FIRST = Config.integer("failsafeColourFlashFirst", 0xFFFF2020);
-        public static final IntEntry FAILSAFE_COLOUR_FLASH_SECOND = Config.integer("failsafeColourFlashSecond", 0xFFFFFFFF);
+        public static final IntEntry FAILSAFE_COLOUR_FLASH_SECOND = Config.integer("failsafeColourFlashSecond", 0xFF2020FF);
         public static final FloatEntry FAILSAFE_COLOUR_FLASH_OPACITY = Config
                         .floatVal("failsafeColourFlashOpacity", 0.35f)
                         .range(0.0f, 1.0f);
