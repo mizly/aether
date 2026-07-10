@@ -102,6 +102,18 @@ public final class TablistUtils {
     }
 
     /**
+     * Returns tab-list entries in vanilla order with color codes preserved.
+     */
+    public static List<String> getColoredTabLines(Minecraft client) {
+        List<PlayerInfo> sortedInfo = getSortedPlayerInfo(client);
+        List<String> lines = new ArrayList<>(sortedInfo.size());
+        for (PlayerInfo info : sortedInfo) {
+            lines.add(rawLine(info));
+        }
+        return lines;
+    }
+
+    /**
      * Returns the first tab-list line containing the substring, case-insensitive.
      */
     public static String findLine(Minecraft client, String substring) {
@@ -133,6 +145,10 @@ public final class TablistUtils {
     }
 
     private static String cleanLine(PlayerInfo info) {
+        return stripColors(rawLine(info)).trim();
+    }
+
+    private static String rawLine(PlayerInfo info) {
         String raw;
         if (info.getTabListDisplayName() != null) {
             raw = info.getTabListDisplayName().getString();
@@ -141,7 +157,7 @@ public final class TablistUtils {
         } else {
             raw = "";
         }
-        return stripColors(raw).replace('\u00A0', ' ').trim();
+        return raw.replace('\u00A0', ' ').trim();
     }
 
     private static List<PlayerInfo> buildSortedPlayerInfo(Minecraft client, int connectionId) {

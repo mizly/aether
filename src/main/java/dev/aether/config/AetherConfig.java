@@ -484,6 +484,7 @@ public final class AetherConfig {
                         Arrays.asList("Spaceman", "Rhino", "Taylor"), String.class);
         public static final ListEntry<String> VISITOR_REJECT = Config.list("visitorReject",
                         Collections.emptyList(), String.class);
+        public static final IntEntry VISITOR_MIN_RARITY = Config.integer("visitorMinRarity", 0).range(0, 4);
         public static final BooleanEntry EQUIP_VISITOR_CUSTOM_ITEM = Config.bool("equipVisitorCustomItem", false);
         public static final StringEntry VISITOR_CUSTOM_ITEM = Config.string("visitorCustomItem", "");
         public static final IntEntry VISITOR_MAX_PURCHASE_LIMIT = Config.integer("visitorMaxPurchaseLimit", 10_000_000)
