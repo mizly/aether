@@ -5,7 +5,6 @@ import com.google.gson.JsonParser;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import com.mojang.blaze3d.platform.NativeImage;
-import dev.aether.macro.MacroWorkerThread;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.PlayerInfo;
 import org.lwjgl.system.MemoryUtil;
@@ -20,9 +19,12 @@ public final class SkinFaceProvider {
     private static final int CELL = 8;
     private static final int TEX = SRC * CELL;
 
-    private static volatile UUID requestedUuid;
+    private static final long RETRY_COOLDOWN_MS = 10_000L;
+
+    private static volatile UUID loadedUuid;
     private static volatile ByteBuffer pendingPixels;
     private static volatile boolean fetching;
+    private static volatile long nextAttemptMs;
     private static int imageHandle = -1;
 
     private SkinFaceProvider() {
@@ -49,7 +51,8 @@ public final class SkinFaceProvider {
         if (mc.player == null || mc.getConnection() == null) return;
 
         UUID uuid = mc.player.getUUID();
-        if (uuid.equals(requestedUuid)) return;
+        if (uuid.equals(loadedUuid) || fetching) return;
+        if (System.currentTimeMillis() < nextAttemptMs) return;
 
         PlayerInfo info = mc.getConnection().getPlayerInfo(uuid);
         if (info == null) return;
@@ -57,21 +60,26 @@ public final class SkinFaceProvider {
         String url = skinUrl(info.getProfile());
         if (url == null) return;
 
-        requestedUuid = uuid;
         fetching = true;
-        MacroWorkerThread.getInstance().submit("skin-face", () -> download(url));
+        // Own daemon thread, not MacroWorkerThread: macro stops drain that queue
+        // and would silently drop the fetch.
+        Thread thread = new Thread(() -> download(uuid, url), "aether-skin-face");
+        thread.setDaemon(true);
+        thread.start();
     }
 
-    private static void download(String url) {
+    private static void download(UUID uuid, String url) {
         try (var in = java.net.URI.create(url).toURL().openStream()) {
             byte[] bytes = in.readAllBytes();
             NativeImage img = NativeImage.read(bytes);
             try {
                 pendingPixels = buildPixels(img);
+                loadedUuid = uuid;
             } finally {
                 img.close();
             }
         } catch (Exception e) {
+            nextAttemptMs = System.currentTimeMillis() + RETRY_COOLDOWN_MS;
             System.err.println("[Aether] failed to load skin face: " + e.getMessage());
         } finally {
             fetching = false;
