@@ -95,9 +95,14 @@ that services file** — it is not auto-discovered otherwise. `/aether` opens th
 - `dev.aether.renderer` — NanoVG/SVG rendering, blur framebuffer, world-space highlighters.
 - Failsafe sounds use the bundled mp3 libs; all listed native deps (nanovg, jna, soundlibs) are shaded into the jar via Gradle `include(...)`.
 
-# other
+## Core Rules
 
-- dont leave any comments, none ;)
-- ALWAYS git commit along the way!!
-- dont add yourself as a co author on any commits
-- commits should be structured like feat: fix: etc, dont add capitaisation or full stopns. also dont add descriptions to the commits, just the title is enough.
+**Commits**
+
+- Commit frequently.
+- Format: `type: description` (e.g. `feat: add user auth`, `fix: null check on login`)
+- Do not add yourself as co-author
+
+**Code**
+
+Do not use comments that are over two lines long. There isn't a huge need to add comments to literally every singular thing
