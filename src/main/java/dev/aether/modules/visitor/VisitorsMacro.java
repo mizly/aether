@@ -686,6 +686,11 @@ public class VisitorsMacro {
 
         long deadline = System.currentTimeMillis() + 15000;
         while (PathfindingManager.isNavigating() && System.currentTimeMillis() < deadline && !shouldStop) {
+            if (client.screen instanceof AbstractContainerScreen<?> screen && isVisitorScreen(screen)) {
+                ClientUtils.sendDebugMessage("[VisitorsMacro] Closing visitor GUI opened during pathing.");
+                closeScreen(client);
+                MacroWorkerThread.sleep(250);
+            }
             MacroWorkerThread.sleep(200);
         }
 
@@ -888,16 +893,51 @@ public class VisitorsMacro {
             // Wait up to 500ms, checking for GUI every 100ms
             for (int i = 0; i < 5; i++) {
                 MacroWorkerThread.sleep(100);
-                if (client.screen instanceof AbstractContainerScreen)
+                if (client.screen instanceof AbstractContainerScreen<?> screen) {
+                    if (isWrongVisitorScreen(screen, visitorName)) {
+                        ClientUtils.sendDebugMessage("[VisitorsMacro] Closing wrong visitor GUI while targeting " + visitorName + ".");
+                        closeScreen(client);
+                        MacroWorkerThread.sleep(250);
+                        break;
+                    }
                     return true;
+                }
                 if (shouldStop)
                     return false;
             }
+        }
+        if (client.screen instanceof AbstractContainerScreen<?> screen && isWrongVisitorScreen(screen, visitorName)) {
+            closeScreen(client);
+            return false;
         }
         return client.screen instanceof AbstractContainerScreen;
     }
 
     // -- GUI Interaction --
+
+    private static boolean isVisitorScreen(AbstractContainerScreen<?> screen) {
+        return hasNamedSlot(screen, ACCEPT_OFFER_SLOT, "Accept Offer")
+                || hasNamedSlot(screen, REJECT_OFFER_SLOT, "Refuse Offer");
+    }
+
+    private static boolean hasNamedSlot(AbstractContainerScreen<?> screen, int slotIndex, String nameFragment) {
+        if (slotIndex >= screen.getMenu().slots.size()) {
+            return false;
+        }
+        Slot slot = screen.getMenu().slots.get(slotIndex);
+        return slot.hasItem() && stripColors(slot.getItem().getHoverName().getString()).contains(nameFragment);
+    }
+
+    private static boolean isWrongVisitorScreen(AbstractContainerScreen<?> screen, String visitorName) {
+        if (!isVisitorScreen(screen)) {
+            return false;
+        }
+        String title = normalizeVisitorName(screen.getTitle().getString());
+        String target = normalizeVisitorName(visitorName);
+        return !title.equals(target)
+                && !title.startsWith(target)
+                && !target.startsWith(title);
+    }
 
     private static List<ItemRequirement> readRequirements(Minecraft client) {
         if (!(client.screen instanceof AbstractContainerScreen<?> screen))
