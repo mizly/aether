@@ -144,7 +144,7 @@ public final class BazaarUtils {
         // Step 1: Open the Bazaar for this item
         msg(client, "\u00A7eOpening Bazaar for: \u00A7e" + itemName + " x" + count);
         ClientUtils.sendDebugMessage("[BazaarUtils] Sending /bz command");
-        ClientUtils.sendCommand(client, "/bz " + itemName);
+        ClientUtils.sendCommand("/bz " + itemName);
         MacroWorkerThread.sleep(longDelay);
 
         // Step 2: Wait for the Bazaar search result screen
@@ -261,7 +261,7 @@ public final class BazaarUtils {
 
             // Step 1: Open Bazaar
             ClientUtils.sendDebugMessage("[BazaarUtils] Sending /bz command for instant sell");
-            ClientUtils.sendCommand(client, "/bz");
+            ClientUtils.sendCommand("/bz");
             MacroWorkerThread.sleep(longDelay);
 
             // Step 2: Click "Sell Inventory Now"
@@ -382,7 +382,7 @@ public final class BazaarUtils {
                 int finalSlotIdx = slotIdx;
                 client.execute(() -> {
                     if (client.screen instanceof AbstractContainerScreen<?> s) {
-                        ClientUtils.performSlotClick(client, s, finalSlotIdx, 0, ContainerInput.PICKUP);
+                        ClientUtils.performSlotClick(s, finalSlotIdx, 0, ContainerInput.PICKUP);
                     }
                 });
                 return true;
@@ -407,7 +407,7 @@ public final class BazaarUtils {
                 ClientUtils.sendDebugMessage("[BazaarUtils] Found '" + targetName + "' at slot " + slotIdx);
                 client.execute(() -> {
                     if (client.screen instanceof AbstractContainerScreen<?> s) {
-                        ClientUtils.performSlotClick(client, s, slotIdx, 0, ContainerInput.PICKUP);
+                        ClientUtils.performSlotClick(s, slotIdx, 0, ContainerInput.PICKUP);
                     }
                 });
                 return true;
@@ -423,7 +423,7 @@ public final class BazaarUtils {
                     Slot slot = s.getMenu().slots.get(slotIdx);
                     String itemName = slot.hasItem() ? slot.getItem().getHoverName().getString() : "[empty]";
                     ClientUtils.sendDebugMessage("[BazaarUtils] Clicking slot " + slotIdx + ": " + stripColors(itemName));
-                    ClientUtils.performSlotClick(client, s, slotIdx, 0, ContainerInput.PICKUP);
+                    ClientUtils.performSlotClick(s, slotIdx, 0, ContainerInput.PICKUP);
                 } else {
                     ClientUtils.sendDebugMessage("[BazaarUtils] ERROR: Slot " + slotIdx
                             + " out of bounds (size=" + s.getMenu().slots.size() + ")");

@@ -174,7 +174,7 @@ public class VisitorsMacro {
         hasBarnTeleportMessage = false;
         FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
         CommandUtils.ChatWindow barnTeleportWindow = CommandUtils.beginChatWindow();
-        ClientUtils.sendCommand(client, "/plottp barn");
+        ClientUtils.sendCommand("/plottp barn");
         MacroWorkerThread.sleep(600);
 
         if (!waitForTeleport(client, posBefore, barnTeleportWindow, 5000)) {
@@ -191,7 +191,7 @@ public class VisitorsMacro {
             return;
         }
         MacroWorkerThread.sleep(150);
-        ClientUtils.waitForGearAndGui(client);
+        ClientUtils.waitForGearAndGui();
 
         if (AetherConfig.DISABLE_COMPACTORS_DURING_VISITORS.get()) {
             compactorsDisabled = setCompactorsEnabled(client, false);
@@ -997,7 +997,7 @@ public class VisitorsMacro {
 
         client.execute(() -> {
             if (client.screen instanceof AbstractContainerScreen<?> s) {
-                ClientUtils.performSlotClick(client, s, ACCEPT_OFFER_SLOT, 0, ContainerInput.PICKUP);
+                ClientUtils.performSlotClick(s, ACCEPT_OFFER_SLOT, 0, ContainerInput.PICKUP);
             }
         });
         return true;
@@ -1019,7 +1019,7 @@ public class VisitorsMacro {
 
         client.execute(() -> {
             if (client.screen instanceof AbstractContainerScreen<?> s) {
-                ClientUtils.performSlotClick(client, s, REJECT_OFFER_SLOT, 0, ContainerInput.PICKUP);
+                ClientUtils.performSlotClick(s, REJECT_OFFER_SLOT, 0, ContainerInput.PICKUP);
             }
         });
         return true;
@@ -1075,7 +1075,7 @@ public class VisitorsMacro {
                     + ")...");
             GearManager.ensureLoadoutSlot(client, AetherConfig.LOADOUT_SLOT_VISITOR.get());
             if (LoadoutManager.isSwappingLoadout) {
-                ClientUtils.waitForWardrobeGui(client);
+                ClientUtils.waitForWardrobeGui();
                 while (LoadoutManager.isSwappingLoadout)
                     MacroWorkerThread.sleep(50);
                 while (LoadoutManager.loadoutCleanupTicks > 0)
@@ -1192,7 +1192,7 @@ public class VisitorsMacro {
             return false;
         }
 
-        ClientUtils.performUseClick(client);
+        ClientUtils.performUseClick();
         if (!waitForContainer(client, COMPACTOR_GUI_TIMEOUT_MS, true)) {
             ClientUtils.sendDebugMessage("VisitorsMacro: compactor GUI did not open.");
             return false;
@@ -1224,7 +1224,7 @@ public class VisitorsMacro {
                         + (hotbarSlot + 1));
         client.execute(() -> {
             if (client.screen instanceof AbstractContainerScreen<?> screen) {
-                ClientUtils.performSlotClick(client, screen, statusSlotIndex, 0, ContainerInput.PICKUP);
+                ClientUtils.performSlotClick(screen, statusSlotIndex, 0, ContainerInput.PICKUP);
             }
         });
         MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false));

@@ -34,21 +34,22 @@ public final class UpdateChecker {
     private UpdateChecker() {
     }
 
-    public static void checkAndNotify(Minecraft client) {
+    public static void checkAndNotify() {
+        Minecraft client = Minecraft.getInstance();
         if (!fetchStarted) {
             fetchStarted = true;
             CompletableFuture.runAsync(() -> {
                 String latest = fetchLatestTag();
                 cachedLatestVersion = latest != null ? latest : "";
                 if (latest != null) {
-                    notifyIfOutdated(client, latest);
+                    notifyIfOutdated(latest);
                 }
             });
             return;
         }
 
         if (cachedLatestVersion != null && !cachedLatestVersion.isEmpty()) {
-            notifyIfOutdated(client, cachedLatestVersion);
+            notifyIfOutdated(cachedLatestVersion);
         }
     }
 
@@ -90,7 +91,8 @@ public final class UpdateChecker {
         return null;
     }
 
-    private static void notifyIfOutdated(Minecraft client, String latestTag) {
+    private static void notifyIfOutdated(String latestTag) {
+        Minecraft client = Minecraft.getInstance();
         String currentVersion = getCurrentVersion();
         String normalizedLatest = normalizeTag(latestTag);
         String normalizedCurrent = normalizeTag(currentVersion);

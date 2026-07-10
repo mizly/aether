@@ -197,13 +197,13 @@ public class DynamicRestManager {
 
                 ClientUtils.sendDebugMessage("Disabling farming macro: Initiating dynamic rest sequence");
                 client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
-                ClientUtils.forceReleaseKeys(client);
+                ClientUtils.forceReleaseKeys();
                 ClientUtils.sendMessage(CommandUtils.shouldSkipSetSpawn()
                                 ? "\u00A7eDynamic Rest: preparing disconnect..."
                                 : "\u00A7eDynamic Rest: running /setspawn...",
                         false);
                 restSetSpawnWindow = CommandUtils.beginChatWindow();
-                dev.aether.util.CommandUtils.initiateSetSpawn(client);
+                dev.aether.util.CommandUtils.initiateSetSpawn();
                 MacroStateManager.setCurrentState(MacroState.State.OFF);
 
                 restSequenceStage = 1;
@@ -237,7 +237,6 @@ public class DynamicRestManager {
                         ? new FunnyDynamicRestScreen(restEndTimeMs)
                         : new DynamicRestScreen(restEndTimeMs, durationMs);
                 ClientUtils.disconnectWithScreen(
-                        client,
                         restScreen,
                         net.minecraft.network.chat.Component.literal("Dynamic rest"));
 

@@ -119,7 +119,7 @@ public final class FlyExecutor {
         if (mc.player == null)
             return;
 
-        if (ClientUtils.isInventoryScreenOpen(mc)) {
+        if (ClientUtils.isInventoryScreenOpen()) {
             releaseAll(mc);
             return;
         }

@@ -142,7 +142,7 @@ public final class FarmingMacroManager {
             return;
         }
 
-        ClientUtils.forceReleaseKeys(mc);
+        ClientUtils.forceReleaseKeys();
         if (!GearManager.swapToFarmingToolSync(mc)) {
             ClientUtils.sendDebugMessage("Farming start: no farming tool found in hotbar, continuing with current item.");
         }

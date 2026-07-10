@@ -175,7 +175,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public boolean isFreecamProgrammaticKeyDown(Minecraft client, KeyMapping keyMapping) {
-        return FreecamManager.isProgrammaticKeyDown(client, keyMapping);
+        return FreecamManager.isProgrammaticKeyDown(keyMapping);
     }
 
     @Override

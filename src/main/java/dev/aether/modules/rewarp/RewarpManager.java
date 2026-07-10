@@ -78,7 +78,7 @@ public final class RewarpManager {
 
         lastRewarpTime = now;
         client.execute(() -> {
-            ConfigHelpers.executeRewarpCommand(client, pair.rewarpMode, pair.plotTpNumber);
+            ConfigHelpers.executeRewarpCommand(pair.rewarpMode, pair.plotTpNumber);
             PestManager.markRewarpCompleted();
             AbstractMacro active = FarmingMacroManager.getActiveMacro();
             if (active != null) {
@@ -167,7 +167,7 @@ public final class RewarpManager {
 
     private static void performCommandRewarp(Minecraft client, RewarpPointPair pair) {
         client.execute(() -> {
-            ConfigHelpers.executeRewarpCommand(client, pair.rewarpMode, pair.plotTpNumber);
+            ConfigHelpers.executeRewarpCommand(pair.rewarpMode, pair.plotTpNumber);
             AbstractMacro active = FarmingMacroManager.getActiveMacro();
             if (active != null) {
                 active.suppressDropDetection(3000);
@@ -298,8 +298,8 @@ public final class RewarpManager {
             return;
         }
 
-        ClientUtils.performUseClick(client);
-        ClientUtils.waitForYChange(client, playerPos.y, 900);
+        ClientUtils.performUseClick();
+        ClientUtils.waitForYChange(playerPos.y, 900);
         MacroWorkerThread.sleepRandom(170, 60);
     }
 

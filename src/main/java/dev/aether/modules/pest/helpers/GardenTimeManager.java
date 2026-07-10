@@ -49,7 +49,7 @@ public final class GardenTimeManager {
             return false;
         }
 
-        for (String line : ClientUtils.getSidebarLines(client)) {
+        for (String line : ClientUtils.getSidebarLines()) {
             if (line.indexOf(marker) >= 0) {
                 return true;
             }
@@ -63,7 +63,7 @@ public final class GardenTimeManager {
         }
 
         ClientUtils.sendDebugMessage("GardenTimeManager: switching garden time to " + label);
-        ClientUtils.sendCommand(client, "/desk");
+        ClientUtils.sendCommand("/desk");
 
         if (!MacroWorkerThread.sleep(MENU_DELAY_MS)) {
             return false;
@@ -123,7 +123,7 @@ public final class GardenTimeManager {
         if (client.screen instanceof AbstractContainerScreen<?> screen
                 && slotId >= 0
                 && slotId < screen.getMenu().slots.size()) {
-            ClientUtils.performSlotClick(client, screen, slotId, 0, ContainerInput.PICKUP);
+            ClientUtils.performSlotClick(screen, slotId, 0, ContainerInput.PICKUP);
             return true;
         }
         return false;

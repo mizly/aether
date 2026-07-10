@@ -33,7 +33,7 @@ public class PestCleaningSequencer {
                 // Set spawn with 10s timeout (increased in CommandUtils)
                 if (MacroWorkerThread.shouldAbortTask(client))
                     return;
-                if (!dev.aether.util.CommandUtils.setSpawn(client)) {
+                if (!dev.aether.util.CommandUtils.setSpawn()) {
                     ClientUtils.sendMessage("§c[Aether] /setspawn timed out - aborting pest cleaning to prevent roof spawn.", false);
                     PestManager.isCleaningInProgress = false;
                     dev.aether.macro.MacroStateManager.setCurrentState(MacroState.State.FARMING);
@@ -57,7 +57,7 @@ public class PestCleaningSequencer {
                     return;
 
                 if (PestDiscoDestinationManager.isUsablePlot(currentInfestedPlot)) {
-                    String currentPlot = ClientUtils.getCurrentPlot(client);
+                    String currentPlot = ClientUtils.getCurrentPlot();
                     boolean scribePlotMatch = currentPlot != null && currentPlot.equalsIgnoreCase(currentInfestedPlot);
                     String freshChatPlot = dev.aether.util.CommandUtils.getFreshKnownPlotChat();
                     boolean chatPlotMatch = freshChatPlot != null && freshChatPlot.equalsIgnoreCase(currentInfestedPlot);
@@ -82,7 +82,7 @@ public class PestCleaningSequencer {
                     }
 
                     if (!alreadyOnPlot || forcePlotTpForCurrentPlot) {
-                        dev.aether.util.CommandUtils.plotTp(client, currentInfestedPlot);
+                        dev.aether.util.CommandUtils.plotTp(currentInfestedPlot);
                         MacroWorkerThread.sleep(200); // Wait for world load / stable position
                     }
                 }
@@ -127,7 +127,7 @@ public class PestCleaningSequencer {
                     MacroWorkerThread.sleep(25);
                 }
 
-                ClientUtils.waitForWardrobeGui(client);
+                ClientUtils.waitForWardrobeGui();
                 long wardrobeFinishWait = System.currentTimeMillis();
                 while (LoadoutManager.isSwappingLoadout && System.currentTimeMillis() - wardrobeFinishWait < 7000)
                     MacroWorkerThread.sleep(50);

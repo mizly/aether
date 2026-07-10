@@ -81,7 +81,7 @@ public final class EtherwarpExecutor {
             finish(mc);
             return;
         }
-        if (state == State.FAILED || ClientUtils.isInventoryScreenOpen(mc)) {
+        if (state == State.FAILED || ClientUtils.isInventoryScreenOpen()) {
             return;
         }
 
@@ -136,7 +136,7 @@ public final class EtherwarpExecutor {
             return;
         }
 
-        ClientUtils.performUseClick(mc);
+        ClientUtils.performUseClick();
         warpAttempts++;
         warpStartPos = mc.player.position();
         state = State.WAITING_FOR_WARP;

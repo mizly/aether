@@ -66,7 +66,7 @@ public class GearManager {
             return;
         }
 
-        ClientUtils.waitForGearAndGui(client);
+        ClientUtils.waitForGearAndGui();
         swapToFarmingToolSync(client);
 
         if (!waitForContainerCloseSync(client, 3500)) {

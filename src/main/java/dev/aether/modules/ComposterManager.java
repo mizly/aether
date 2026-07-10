@@ -107,8 +107,8 @@ public final class ComposterManager {
 
         if (!manual
                 && isBazaarMode()
-                && ClientUtils.getPurse(client) >= 0
-                && ClientUtils.getPurse(client) < AetherConfig.AUTO_COMPOSTER_MIN_PURSE.get()) {
+                && ClientUtils.getPurse() >= 0
+                && ClientUtils.getPurse() < AetherConfig.AUTO_COMPOSTER_MIN_PURSE.get()) {
             ClientUtils.sendDebugMessage("Composter: skipping because purse is below configured minimum.");
             markAutoComplete();
             runCompletionIfAuto();
@@ -144,7 +144,7 @@ public final class ComposterManager {
         }
 
         ensureScreenClosed(client);
-        ClientUtils.sendCommand(client, "/tptoplot barn");
+        ClientUtils.sendCommand("/tptoplot barn");
         MacroWorkerThread.sleep(2_000);
 
         Entity composter = findComposter(client);
@@ -445,7 +445,7 @@ public final class ComposterManager {
             int finalSlotId = slotId;
             client.execute(() -> {
                 if (client.screen instanceof AbstractContainerScreen<?> currentScreen) {
-                    ClientUtils.performSlotClick(client, currentScreen, finalSlotId, 0, ContainerInput.PICKUP);
+                    ClientUtils.performSlotClick(currentScreen, finalSlotId, 0, ContainerInput.PICKUP);
                 }
             });
             waitActionDelay();
@@ -467,7 +467,7 @@ public final class ComposterManager {
             if (client.screen instanceof AbstractContainerScreen<?> screen
                     && slotId >= 0
                     && slotId < screen.getMenu().slots.size()) {
-                ClientUtils.performSlotClick(client, screen, slotId, 0, ContainerInput.PICKUP);
+                ClientUtils.performSlotClick(screen, slotId, 0, ContainerInput.PICKUP);
             }
         });
     }

@@ -267,7 +267,7 @@ public final class AutoSprayonatorManager {
         awaitingSprayResult = true;
 
         try {
-            ClientUtils.performUseClick(client);
+            ClientUtils.performUseClick();
 
             long deadline = System.currentTimeMillis() + 5000L;
             while (System.currentTimeMillis() < deadline) {
@@ -329,7 +329,7 @@ public final class AutoSprayonatorManager {
             if (shouldAbort()) return false;
 
             pendingMaterialChange = null;
-            ClientUtils.performAttackClickDirect(client);
+            ClientUtils.performAttackClickDirect();
 
             // Wait for the click to fire and Hypixel to respond before polling
             MacroWorkerThread.sleep(200);

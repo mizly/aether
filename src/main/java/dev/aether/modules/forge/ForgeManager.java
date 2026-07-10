@@ -96,7 +96,7 @@ public class ForgeManager {
         ClientUtils.sendMessage("§a[Aether] Forge menu opened successfully.", false);
         MacroWorkerThread.sleepRandom(255, 90);
 
-        // Close the menu — we've confirmed it opened, nothing more to do yet
+        // Close the menu â€” we've confirmed it opened, nothing more to do yet
         client.execute(() -> {
             if (client.player != null) client.player.closeContainer();
         });
@@ -106,7 +106,7 @@ public class ForgeManager {
         if (client.player == null) return false;
         Vec3 startPos = client.player.position();
 
-        client.execute(() -> ClientUtils.sendCommand(client, "/warp forge"));
+        client.execute(() -> ClientUtils.sendCommand("/warp forge"));
 
         long deadline = System.currentTimeMillis() + WARP_TIMEOUT_MS;
         while (System.currentTimeMillis() < deadline && isRunning) {
@@ -214,7 +214,7 @@ public class ForgeManager {
     private static boolean interactUntilGui(Minecraft client, Entity entity, long timeoutMs) throws InterruptedException {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline && isRunning) {
-            ClientUtils.performUseClick(client);
+            ClientUtils.performUseClick();
             for (int i = 0; i < 5; i++) {
                 Thread.sleep(100);
                 if (client.screen instanceof AbstractContainerScreen) return true;

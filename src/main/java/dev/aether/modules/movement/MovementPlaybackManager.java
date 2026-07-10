@@ -390,7 +390,7 @@ public final class MovementPlaybackManager {
         if (action.message == null || action.message.isBlank()) {
             return;
         }
-        ClientUtils.sendCommand(client, action.command ? "/" + action.message : action.message);
+        ClientUtils.sendCommand(action.command ? "/" + action.message : action.message);
     }
 
     private static void selectHotbarItem(Minecraft client, String itemName, int fallbackSlot) {

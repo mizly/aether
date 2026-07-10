@@ -167,7 +167,7 @@ public class HudRegistry {
             return false;
         }
         return !AetherConfig.GUI_ONLY_IN_GARDEN.get()
-                || ClientUtils.isSupportedHudArea(mc);
+                || ClientUtils.isSupportedHudArea();
     }
 
     private static float tickHudAlpha(boolean visible) {

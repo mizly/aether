@@ -490,7 +490,7 @@ public final class AetherCommandRegistrar {
     }
 
     private static int printScoreboard(Minecraft client) {
-        List<String> lines = ClientUtils.getSidebarLines(client);
+        List<String> lines = ClientUtils.getSidebarLines();
         if (lines.isEmpty()) {
             ClientUtils.sendMessage("\u00A7c" + AetherLang.localize("No scoreboard lines found."), false);
             return 0;

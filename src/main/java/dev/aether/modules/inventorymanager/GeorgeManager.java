@@ -149,7 +149,7 @@ public class GeorgeManager {
                     if (petSlotIdx != -1) {
                         String petName = screen.getMenu().slots.get(petSlotIdx).getItem().getHoverName().getString();
                         ClientUtils.sendMessage("\u00A7aSelling pet: " + petName, true);
-                        ClientUtils.performSlotClick(client, screen, petSlotIdx, 0, ContainerInput.QUICK_MOVE);
+                        ClientUtils.performSlotClick(screen, petSlotIdx, 0, ContainerInput.QUICK_MOVE);
                         interactionTime = now;
                         lastGeorgeSequenceActionTime = now;
                     } else if (countPetsInInventory(client) == 0) {
@@ -167,7 +167,7 @@ public class GeorgeManager {
                 } else {
                     int petSlotIdx = findPetSlotIdx(screen);
                     if (petSlotIdx != -1 && petSlotIdx != 13) {
-                        ClientUtils.performSlotClick(client, screen, petSlotIdx, 0, ContainerInput.QUICK_MOVE);
+                        ClientUtils.performSlotClick(screen, petSlotIdx, 0, ContainerInput.QUICK_MOVE);
                         interactionTime = now;
                         lastGeorgeSequenceActionTime = now;
                     }
@@ -178,7 +178,7 @@ public class GeorgeManager {
                 if (title.contains("offer pets")) {
                     int sellButtonIdx = findButtonSlot(screen, "sell pet", "accept", "confirm", "offer");
                     if (sellButtonIdx != -1 && client.gameMode != null) {
-                        ClientUtils.performSlotClick(client, screen, sellButtonIdx, 0, ContainerInput.PICKUP);
+                        ClientUtils.performSlotClick(screen, sellButtonIdx, 0, ContainerInput.PICKUP);
                         interactionTime = now;
                         lastGeorgeSequenceActionTime = now;
                     }
@@ -188,7 +188,7 @@ public class GeorgeManager {
             case 3:
                 int confirmSlotIdx = findButtonSlot(screen, "confirm", "yes", "accept", "click to accept");
                 if (confirmSlotIdx != -1) {
-                    ClientUtils.performSlotClick(client, screen, confirmSlotIdx, 0, ContainerInput.PICKUP);
+                    ClientUtils.performSlotClick(screen, confirmSlotIdx, 0, ContainerInput.PICKUP);
                     interactionTime = now + 500;
                     lastGeorgeSequenceActionTime = now;
                 }
@@ -284,7 +284,7 @@ public class GeorgeManager {
                         interactionStage = 0;
                         confirmationCount = 0;
                         lastGeorgeSequenceActionTime = 0;
-                        ClientUtils.sendCommand(client, "/call george");
+                        ClientUtils.sendCommand("/call george");
                     } else {
                         finishSelling(client);
                     }
@@ -418,7 +418,7 @@ public class GeorgeManager {
                     confirmationCount = 0;
                     lastGeorgeGuiCloseTime = 0;
                     lastGeorgeSequenceActionTime = 0;
-                    ClientUtils.sendCommand(client, "/call george");
+                    ClientUtils.sendCommand("/call george");
                     if (AetherConfig.FARM_WHILE_CALLING_GEORGE.get()) {
                         ClientUtils.sendMessage("\u00A7aGeorge called. Continuing farming until GUI opens.", false);
                     } else {

@@ -98,7 +98,7 @@ public final class SqueakyMousematManager {
                 return false;
             }
 
-            ClientUtils.performAttackClick(client);
+            ClientUtils.performAttackClick();
             FailsafeManager.addRotationGracePeriod(MOUSEMAT_ROTATION_SETTLE_TIMEOUT_MS + MOUSEMAT_DELAY_MS);
             if (waitForMousematRotation(client, snapshot)) {
                 FailsafeManager.syncExpectedRotationFromClient(client);

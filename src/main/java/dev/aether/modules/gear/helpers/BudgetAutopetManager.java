@@ -31,7 +31,7 @@ public final class BudgetAutopetManager {
         }
 
         ClientUtils.sendDebugMessage("BudgetAutopet: opening Pets GUI for " + triggerLabel + " pet '" + petName + "'.");
-        ClientUtils.sendCommand(client, "/pets");
+        ClientUtils.sendCommand("/pets");
         MacroWorkerThread.sleep(500);
 
         long deadline = System.currentTimeMillis() + 3000;
@@ -99,7 +99,7 @@ public final class BudgetAutopetManager {
         ClientUtils.sendDebugMessage("BudgetAutopet: equipping '" + petName + "' from slot " + petSlot + " for " + triggerLabel + ".");
         final int slotToClick = petSlot;
         final AbstractContainerScreen<?> finalPetsScreen = petsScreen;
-        client.execute(() -> ClientUtils.performSlotClick(client, finalPetsScreen, slotToClick, 0, ContainerInput.PICKUP));
+        client.execute(() -> ClientUtils.performSlotClick(finalPetsScreen, slotToClick, 0, ContainerInput.PICKUP));
         MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false));
         closePetsScreen(client);
     }

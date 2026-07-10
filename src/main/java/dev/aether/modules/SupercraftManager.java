@@ -181,21 +181,21 @@ public final class SupercraftManager {
         switch (craftingStage) {
             case 0 -> {
                 ClientUtils.sendDebugMessage("Supercraft: opening supercraft for " + currentItem);
-                ClientUtils.performSlotClick(client, screen, SLOT_OPEN_SUPERCRAFT, 0, ContainerInput.PICKUP);
+                ClientUtils.performSlotClick(screen, SLOT_OPEN_SUPERCRAFT, 0, ContainerInput.PICKUP);
                 markProgress(now);
                 nextActionAtMs = now + ACTION_DELAY_MS;
                 craftingStage = 1;
             }
             case 1 -> {
                 ClientUtils.sendDebugMessage("Supercraft: maximizing craft amount for " + currentItem);
-                ClientUtils.performSlotClick(client, screen, SLOT_CRAFT_AMOUNT, 0, ContainerInput.QUICK_MOVE);
+                ClientUtils.performSlotClick(screen, SLOT_CRAFT_AMOUNT, 0, ContainerInput.QUICK_MOVE);
                 markProgress(now);
                 nextActionAtMs = now + SHIFT_TO_CRAFT_CLICK_DELAY_MS;
                 craftingStage = 2;
             }
             case 2 -> {
                 ClientUtils.sendDebugMessage("Supercraft: crafting " + currentItem);
-                ClientUtils.performSlotClick(client, screen, SLOT_CRAFT_AMOUNT, 0, ContainerInput.PICKUP);
+                ClientUtils.performSlotClick(screen, SLOT_CRAFT_AMOUNT, 0, ContainerInput.PICKUP);
                 markProgress(now);
                 nextActionAtMs = now + ACTION_DELAY_MS;
                 craftingStage = 3;
@@ -250,7 +250,7 @@ public final class SupercraftManager {
         String item = items.get(currentItemIndex);
         ClientUtils.sendDebugMessage("Supercraft: sending /recipe " + item);
         markProgress();
-        ClientUtils.sendCommand(client, "/recipe " + item);
+        ClientUtils.sendCommand("/recipe " + item);
     }
 
     private static void finish() {

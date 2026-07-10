@@ -86,7 +86,7 @@ public class BookCombineManager {
                 ClientUtils.sendMessage("\u00A77BookCombine: combining " + key
                                 + "' (slots " + pendingSlot0 + " + " + pendingSlot1 + ")", true);
 
-                dev.aether.util.ClientUtils.performSlotClick(client, screen, pendingSlot0, 0, ContainerInput.QUICK_MOVE);
+                dev.aether.util.ClientUtils.performSlotClick(screen, pendingSlot0, 0, ContainerInput.QUICK_MOVE);
                 interactionTime = now;
                 interactionStage = 1;
                 return;
@@ -104,19 +104,19 @@ public class BookCombineManager {
                 interactionStage = 0;
                 return;
             }
-            dev.aether.util.ClientUtils.performSlotClick(client, screen, pendingSlot1, 0, ContainerInput.QUICK_MOVE);
+            dev.aether.util.ClientUtils.performSlotClick(screen, pendingSlot1, 0, ContainerInput.QUICK_MOVE);
             interactionTime = now;
             interactionStage = 2;
         }
         // Stage 2: Pick up the combined result from the output slot (slot 22)
         else if (interactionStage == 2) {
-            dev.aether.util.ClientUtils.performSlotClick(client, screen, 22, 0, ContainerInput.PICKUP);
+            dev.aether.util.ClientUtils.performSlotClick(screen, 22, 0, ContainerInput.PICKUP);
             interactionTime = now;
             interactionStage = 3;
         }
         // Stage 3: Place the result back in inventory
         else if (interactionStage == 3) {
-            dev.aether.util.ClientUtils.performSlotClick(client, screen, 22, 0, ContainerInput.PICKUP);
+            dev.aether.util.ClientUtils.performSlotClick(screen, 22, 0, ContainerInput.PICKUP);
             interactionTime = now;
             interactionStage = 0;
             pendingSlot0 = -1;
@@ -195,7 +195,7 @@ public class BookCombineManager {
     private static void triggerAutomaticCombine(Minecraft client, int count) {
         ClientUtils.sendMessage("\u00A7eAuto combining books (" + count + " books in inventory)...", false);
 
-        dev.aether.util.ClientUtils.forceReleaseKeys(client);
+        dev.aether.util.ClientUtils.forceReleaseKeys();
 
         isPreparingToCombine = true;
         isCombining = false;
@@ -216,7 +216,7 @@ public class BookCombineManager {
                     isCombining = true;
                     interactionStage = 0;
                     interactionTime = System.currentTimeMillis();
-                    dev.aether.util.ClientUtils.sendCommand(client, "/av");
+                    dev.aether.util.ClientUtils.sendCommand("/av");
                 }
             } catch (Exception e) {
                 e.printStackTrace();

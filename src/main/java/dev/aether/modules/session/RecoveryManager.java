@@ -103,7 +103,7 @@ public class RecoveryManager {
         if (System.currentTimeMillis() - lastRecoveryActionTime < 5000)
             return;
 
-        MacroState.Location currentLoc = ClientUtils.getCurrentLocation(client);
+        MacroState.Location currentLoc = ClientUtils.getCurrentLocation();
 
         if (currentLoc != lastRecoveryLocation) {
             recoveryFailedAttempts = 0;
@@ -135,23 +135,23 @@ public class RecoveryManager {
                 }
                 ClientUtils.sendMessage("\u00A7eRecovery (attempt "
                         + recoveryFailedAttempts + "): Warping to Lobby from Limbo...", false);
-                ClientUtils.sendCommand(client, "/lobby");
+                ClientUtils.sendCommand("/lobby");
                 break;
             case LOBBY:
                 if (recoveryMode == RecoveryMode.PROXY_RESTART) {
                     ClientUtils.sendMessage("\u00A7eRecovery (attempt "
                             + recoveryFailedAttempts + "): Rejoining SkyBlock with /play sb...", false);
-                    ClientUtils.sendCommand(client, "/play sb");
+                    ClientUtils.sendCommand("/play sb");
                 } else {
                     ClientUtils.sendMessage("\u00A7eRecovery (attempt "
                             + recoveryFailedAttempts + "): Warping to SkyBlock from Lobby...", false);
-                    ClientUtils.sendCommand(client, "/skyblock");
+                    ClientUtils.sendCommand("/skyblock");
                 }
                 break;
             case HUB:
             case UNKNOWN:
                 ClientUtils.sendMessage("\u00A7eRecovery (attempt " + recoveryFailedAttempts + "): Warping to Garden...", false);
-                ClientUtils.sendCommand(client, "/warp garden");
+                ClientUtils.sendCommand("/warp garden");
                 break;
             case GARDEN:
                 ClientUtils.sendMessage("\u00A7aRecovery successful. Resuming farming...", false);
@@ -198,7 +198,7 @@ public class RecoveryManager {
             worldChangePhase = WorldChangeRecoveryPhase.WAITING_FOR_SKYBLOCK;
             worldChangeWaitUntilMs = now + randomWorldChangeSkyBlockWaitMs();
             ClientUtils.sendMessage("\u00A7eWorld change recovery: running /play sb...", false);
-            ClientUtils.sendCommand(client, "/play sb");
+            ClientUtils.sendCommand("/play sb");
             lastRecoveryActionTime = now;
             return;
         }
@@ -212,13 +212,13 @@ public class RecoveryManager {
             worldChangePhase = WorldChangeRecoveryPhase.WAITING_FOR_GARDEN;
             worldChangeWaitUntilMs = 0L;
             ClientUtils.sendMessage("\u00A7eWorld change recovery: running /warp garden...", false);
-            ClientUtils.sendCommand(client, "/warp garden");
+            ClientUtils.sendCommand("/warp garden");
             lastRecoveryActionTime = now;
             return;
         }
 
         if (worldChangePhase == WorldChangeRecoveryPhase.WAITING_FOR_GARDEN) {
-            MacroState.Location location = ClientUtils.getCurrentLocation(client);
+            MacroState.Location location = ClientUtils.getCurrentLocation();
             if (location == MacroState.Location.GARDEN) {
                 startWorldChangePrimaryRecovery(client);
                 return;
@@ -227,7 +227,7 @@ public class RecoveryManager {
             long now = System.currentTimeMillis();
             if (now - lastRecoveryActionTime >= WORLD_CHANGE_GARDEN_RETRY_MS) {
                 ClientUtils.sendDebugMessage("World change recovery: retrying /warp garden");
-                ClientUtils.sendCommand(client, "/warp garden");
+                ClientUtils.sendCommand("/warp garden");
                 lastRecoveryActionTime = now;
             }
             return;
@@ -237,7 +237,7 @@ public class RecoveryManager {
             if (!worldChangeAlignClicked) {
                 worldChangeAlignClicked = true;
                 GearManager.swapToAOTVSync(client);
-                ClientUtils.performUseClick(client);
+                ClientUtils.performUseClick();
                 lastRecoveryActionTime = System.currentTimeMillis();
                 return;
             }

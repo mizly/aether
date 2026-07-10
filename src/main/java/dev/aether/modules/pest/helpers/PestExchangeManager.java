@@ -107,7 +107,7 @@ public class PestExchangeManager {
 
         Vec3 posBefore = client.player.position();
         dev.aether.modules.failsafe.FailsafeManager.addRotationGracePeriod(dev.aether.config.AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
-        ClientUtils.sendCommand(client, "/plottp barn");
+        ClientUtils.sendCommand("/plottp barn");
         MacroWorkerThread.sleep(600);
 
         // Wait for teleport (up to 5 seconds)
@@ -187,7 +187,7 @@ public class PestExchangeManager {
 
         // left-click Phillip
         ClientUtils.sendDebugMessage("[PestExchange] Interacting with Phillip...");
-        ClientUtils.performAttackClick(client);
+        ClientUtils.performAttackClick();
 
         // Wait for GUI to appear (up to 5 seconds)
         interactionStage = 1; // Waiting for Pesthunter GUI
@@ -209,7 +209,7 @@ public class PestExchangeManager {
             // Try clicking again
             ClientUtils.sendDebugMessage("[PestExchange] GUI didn't open, retrying click...");
             facePhillipForInteraction(client, phillip);
-            ClientUtils.performUseClick(client);
+            ClientUtils.performUseClick();
 
             guiDeadline = System.currentTimeMillis() + 5000;
             while (System.currentTimeMillis() < guiDeadline && isExchanging) {
@@ -258,7 +258,7 @@ public class PestExchangeManager {
             if (lore.contains("Click to empty")) {
                 if (client.player != null)
                     ClientUtils.sendMessage("§aEmptying vacuum bag!", false);
-                dev.aether.util.ClientUtils.performSlotClick(client, screen, vacuumSlot, 0, ContainerInput.PICKUP);
+                dev.aether.util.ClientUtils.performSlotClick(screen, vacuumSlot, 0, ContainerInput.PICKUP);
             } else if (lore.contains("exchanged enough Pests")) {
                 if (client.player != null)
                     ClientUtils.sendMessage("§eAlready emptied the vacuum recently!", false);
@@ -298,7 +298,7 @@ public class PestExchangeManager {
                     + currentAttempt + "/" + MAX_ABIPHONE_CALL_ATTEMPTS);
             client.execute(() -> ClientUtils.sendMessage("§eCalling Phillip via Abiphone (" + currentAttempt + "/" + MAX_ABIPHONE_CALL_ATTEMPTS + ")...",
                     false));
-            dev.aether.util.ClientUtils.sendCommand(client, "/call phillip");
+            dev.aether.util.ClientUtils.sendCommand("/call phillip");
 
             if (waitForPesthunterGui(client, ABIPHONE_GUI_WAIT_MS)) {
                 ClientUtils.sendDebugMessage("PestExchange: Pesthunter GUI opened via Abiphone");
@@ -363,7 +363,7 @@ public class PestExchangeManager {
             if (lore.contains("Click to empty")) {
                 if (client.player != null)
                     ClientUtils.sendMessage("§aEmptying vacuum bag!", false);
-                dev.aether.util.ClientUtils.performSlotClick(client, screen, vacuumSlot, 0, ContainerInput.PICKUP);
+                dev.aether.util.ClientUtils.performSlotClick(screen, vacuumSlot, 0, ContainerInput.PICKUP);
             } else if (lore.contains("exchanged enough Pests")) {
                 if (client.player != null)
                     ClientUtils.sendMessage("§eAlready emptied the vacuum recently!", false);

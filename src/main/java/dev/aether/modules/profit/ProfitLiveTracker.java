@@ -143,7 +143,7 @@ final class ProfitLiveTracker {
         }
 
         if (client.player.tickCount % PURSE_SAMPLE_INTERVAL_TICKS == 0) {
-            long currentPurse = ClientUtils.getPurse(client);
+            long currentPurse = ClientUtils.getPurse();
             if (currentPurse != -1L) {
                 if (lastPurseBalance != -1L && currentPurse > lastPurseBalance
                         && MacroStateManager.getCurrentState() != MacroState.State.AUTOSELLING) {

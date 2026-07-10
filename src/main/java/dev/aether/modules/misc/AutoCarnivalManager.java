@@ -666,7 +666,7 @@ public final class AutoCarnivalManager {
                 player.getEyePosition(),
                 pendingTarget,
                 AIM_TOLERANCE_DEGREES)) {
-            ClientUtils.performUseClick(client);
+            ClientUtils.performUseClick();
             lastClickMs = now;
             resetAimState();
             return;

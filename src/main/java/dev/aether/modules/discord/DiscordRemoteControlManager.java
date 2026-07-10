@@ -270,14 +270,14 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
 
     private String sendMinecraftCommand(String command, String feedback) {
         Minecraft client = Minecraft.getInstance();
-        ClientUtils.sendCommand(client, command);
+        ClientUtils.sendCommand(command);
         ClientUtils.sendMessage("\u00A7a[Remote Control] " + feedback, false);
         return "`" + command + "` sent.";
     }
 
     private String sendChat(String message) {
         Minecraft client = Minecraft.getInstance();
-        ClientUtils.sendCommand(client, message);
+        ClientUtils.sendCommand(message);
         ClientUtils.sendMessage("\u00A7a[Remote Control] Sent " + message, false);
         return "`" + message + "` sent.";
     }
@@ -299,7 +299,6 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
 
     private String disconnect() {
         ClientUtils.disconnectWithScreen(
-                Minecraft.getInstance(),
                 new TitleScreen(),
                 Component.literal("Remote control disconnect requested"));
         return "Disconnect requested.";

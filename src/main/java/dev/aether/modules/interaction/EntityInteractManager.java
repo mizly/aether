@@ -83,7 +83,7 @@ public final class EntityInteractManager {
         client.execute(() -> RotationManager.initiateRotation(client, targetPos, INTERACT_ROTATION_MS));
         MacroWorkerThread.sleepRandom(INTERACT_ROTATION_MS + 60L, 30L);
 
-        ClientUtils.performUseClick(client);
+        ClientUtils.performUseClick();
         MacroWorkerThread.sleepRandom(85, 30);
         ClientUtils.sendMessage("\u00A7aInteracted with \u00A7e" + target.getName().getString(), false);
     }

@@ -153,7 +153,7 @@ public class RestartManager {
         }
 
         if (restartSequenceStage == 0 && System.currentTimeMillis() >= restartExecutionTime) {
-            MacroState.Location loc = ClientUtils.getCurrentLocation(client);
+            MacroState.Location loc = ClientUtils.getCurrentLocation();
             boolean alreadyDisplaced = loc != MacroState.Location.GARDEN && loc != MacroState.Location.UNKNOWN;
 
             if (!alreadyDisplaced && (LoadoutManager.isSwappingLoadout || state == MacroState.State.WARDROBE)) {
@@ -179,9 +179,9 @@ public class RestartManager {
             // Cancel worker tasks right before abort execution.
             MacroWorkerThread.getInstance().cancelCurrent();
             client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
-            ClientUtils.forceReleaseKeys(client);
+            ClientUtils.forceReleaseKeys();
             restartSetSpawnWindow = CommandUtils.beginChatWindow();
-            dev.aether.util.CommandUtils.initiateSetSpawn(client);
+            dev.aether.util.CommandUtils.initiateSetSpawn();
             restartSetSpawnTime = System.currentTimeMillis();
             restartSequenceStage = 1;
             nextRestartActionTime = System.currentTimeMillis() + 5000; // Fallback timeout
@@ -199,7 +199,7 @@ public class RestartManager {
             ClientUtils.sendDebugMessage(CommandUtils.shouldSkipSetSpawn()
                             ? "Restart sequence: queueing /hub without /setspawn."
                             : "Restart sequence: queueing /hub after /setspawn.");
-            ClientUtils.sendCommand(client, "/hub");
+            ClientUtils.sendCommand("/hub");
             restartSequenceStage = 2;
             nextRestartActionTime = now + 10000;
         } else if (restartSequenceStage == 2 && System.currentTimeMillis() >= nextRestartActionTime) {
@@ -238,9 +238,9 @@ public class RestartManager {
             ClientUtils.sendDebugMessage("Disabling farming macro: Proxy restart recovery");
             MacroWorkerThread.getInstance().cancelCurrent();
             client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
-            ClientUtils.forceReleaseKeys(client);
+            ClientUtils.forceReleaseKeys();
             proxyRestartSetSpawnWindow = CommandUtils.beginChatWindow();
-            CommandUtils.initiateSetSpawn(client);
+            CommandUtils.initiateSetSpawn();
             proxyRestartSetSpawnTime = now;
             MacroStateManager.setCurrentState(MacroState.State.OFF);
             proxyRestartSequenceStage = 1;
@@ -271,7 +271,7 @@ public class RestartManager {
                 proxyRestartDelaySeconds,
                 true,
                 ReconnectScheduler.ReconnectMode.PROXY_RESTART);
-        ClientUtils.disconnectWithScreen(client, new DynamicRestScreen(
+        ClientUtils.disconnectWithScreen(new DynamicRestScreen(
                 "Proxy Restart Recovery",
                 "Proxy Restart Recovery",
                 "reconnecting to Hypixel in",

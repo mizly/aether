@@ -39,7 +39,7 @@ public final class VinylManager {
         }
 
         ClientUtils.sendDebugMessage("VinylManager: holding shift");
-        ClientUtils.performShiftLeftClick(client);
+        ClientUtils.performShiftLeftClick();
         ClientUtils.sendDebugMessage("VinylManager: left click sent");
 
         long deadline = System.currentTimeMillis() + 5000L;
@@ -50,7 +50,7 @@ public final class VinylManager {
 
         // Release shift only after GUI is confirmed open - releasing earlier causes
         // Hypixel to close the container in response to the RELEASE_SHIFT_KEY packet.
-        ClientUtils.releaseShiftKey(client);
+        ClientUtils.releaseShiftKey();
         MacroWorkerThread.sleep(guiDelay);
         ClientUtils.sendDebugMessage("VinylManager: shift released");
 
@@ -128,7 +128,7 @@ public final class VinylManager {
             }
 
             int slotIdx = i;
-            client.execute(() -> ClientUtils.performSlotClick(client, screen, slotIdx, 0, ContainerInput.PICKUP));
+            client.execute(() -> ClientUtils.performSlotClick(screen, slotIdx, 0, ContainerInput.PICKUP));
             MacroWorkerThread.sleep(guiDelay);
             return true;
         }

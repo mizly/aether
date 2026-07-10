@@ -251,7 +251,7 @@ public class GreenhouseManager {
         currentPlotStartedAt = System.currentTimeMillis();
         clearSneakState();
 
-        String currentPlot = ClientUtils.getCurrentPlot(mc);
+        String currentPlot = ClientUtils.getCurrentPlot();
         if (targetPlot.equalsIgnoreCase(currentPlot)) {
             ClientUtils.sendDebugMessage("Already on plot " + targetPlot + ". Scanning...");
             detectSkulls();
@@ -263,7 +263,7 @@ public class GreenhouseManager {
         float yaw = mc.player.getYRot();
         float pitch = mc.player.getXRot();
         MacroWorkerThread.getInstance().submit("GreenhouseHarvest-Plot-" + targetPlot, () -> {
-            boolean success = CommandUtils.plotTp(mc, targetPlot);
+            boolean success = CommandUtils.plotTp(targetPlot);
             if (success) {
                 try { Thread.sleep(500); } catch (InterruptedException ignored) {}
                 mc.execute(() -> {

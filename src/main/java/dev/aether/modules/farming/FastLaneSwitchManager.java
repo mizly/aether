@@ -135,7 +135,7 @@ public final class FastLaneSwitchManager {
         return AetherConfig.MACRO_FAST_LANE_SWITCH.get()
                 && mc.level != null
                 && mc.player != null
-                && ClientUtils.getCurrentLocation(mc) == MacroState.Location.GARDEN
+                && ClientUtils.getCurrentLocation() == MacroState.Location.GARDEN
                 && hasValidBoundaries();
     }
 
