@@ -48,6 +48,9 @@ public class MixinMouseHandler {
 
     @Inject(method = "onButton", at = @At("HEAD"), cancellable = true)
     private void onMouseClick(long l, MouseButtonInfo mouseButtonInfo, int i, CallbackInfo ci) {
+        if (i == 1) {
+            AetherBootstrapHooks.onUserInput();
+        }
         if (AetherBootstrapHooks.isMouseUngrabbed()) {
             ci.cancel();
             return;
@@ -65,6 +68,7 @@ public class MixinMouseHandler {
 
     @Inject(method = "onScroll", at = @At("HEAD"), cancellable = true)
     private void onMouseScroll(long l, double d, double e, CallbackInfo ci) {
+        AetherBootstrapHooks.onUserInput();
         if (AetherBootstrapHooks.isMouseUngrabbed()) {
             ci.cancel();
         }
