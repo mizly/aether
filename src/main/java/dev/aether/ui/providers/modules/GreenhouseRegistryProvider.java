@@ -8,8 +8,6 @@ import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.TextSetting;
 import dev.aether.ui.settings.ToggleSetting;
-import net.minecraft.client.Minecraft;
-
 import java.util.List;
 
 public final class GreenhouseRegistryProvider extends AbstractModulesRegistryProvider {
@@ -67,7 +65,7 @@ public final class GreenhouseRegistryProvider extends AbstractModulesRegistryPro
                             AetherConfig.save();
                         }))
                 .add(new ActionSetting("Harvest Now",
-                        () -> dev.aether.modules.GreenhouseManager.harvest(Minecraft.getInstance())));
+                        dev.aether.modules.GreenhouseManager::harvest));
 
         return MainGUIRegistry.toggleSubTab(
                 "Auto Greenhouse",

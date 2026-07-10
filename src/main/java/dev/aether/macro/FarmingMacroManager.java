@@ -102,7 +102,7 @@ public final class FarmingMacroManager {
             return;
         }
         if (AutoPestExchangeManager.shouldBlockFarmingResume()) {
-            ClientUtils.sendDebugMessage(mc, "Farming start deferred because pest exchange has priority.");
+            ClientUtils.sendDebugMessage("Farming start deferred because pest exchange has priority.");
             return;
         }
 
@@ -113,7 +113,7 @@ public final class FarmingMacroManager {
 
         if (SqueakyMousematManager.shouldUseBeforeFarming(mc)) {
             if (AutoPestExchangeManager.shouldBlockFarmingResume()) {
-                ClientUtils.sendDebugMessage(mc, "Mousemat start skipped because pest exchange has priority.");
+                ClientUtils.sendDebugMessage("Mousemat start skipped because pest exchange has priority.");
                 return;
             }
             MacroWorkerThread.getInstance().submit("FarmingStartMousemat", () -> {
@@ -142,9 +142,9 @@ public final class FarmingMacroManager {
             return;
         }
 
-        ClientUtils.forceReleaseKeys(mc);
+        ClientUtils.forceReleaseKeys();
         if (!GearManager.swapToFarmingToolSync(mc)) {
-            ClientUtils.sendDebugMessage(mc, "Farming start: no farming tool found in hotbar, continuing with current item.");
+            ClientUtils.sendDebugMessage("Farming start: no farming tool found in hotbar, continuing with current item.");
         }
 
         activeMacro = macro;
@@ -157,7 +157,7 @@ public final class FarmingMacroManager {
         }
 
         deferredStartPending = true;
-        ClientUtils.sendDebugMessage(mc, "Farming start deferred until open GUI/container closes.");
+        ClientUtils.sendDebugMessage("Farming start deferred until open GUI/container closes.");
         MacroWorkerThread.getInstance().submit("FarmingStart-WaitForGuiClose", () -> {
             long deadline = System.currentTimeMillis() + START_GUI_CLOSE_TIMEOUT_MS;
             while (System.currentTimeMillis() < deadline && !MacroWorkerThread.shouldAbortTask(mc)) {
@@ -171,8 +171,7 @@ public final class FarmingMacroManager {
 
             deferredStartPending = false;
             if (!MacroWorkerThread.shouldAbortTask(mc)) {
-                ClientUtils.sendDebugMessage(mc,
-                        "Farming start aborted: GUI/container did not close before resume timeout.");
+                ClientUtils.sendDebugMessage("Farming start aborted: GUI/container did not close before resume timeout.");
             }
         });
     }

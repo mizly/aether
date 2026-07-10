@@ -8,7 +8,9 @@ import dev.aether.util.TablistUtils;
 import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import dev.aether.modules.profit.ProfitManager;
@@ -114,7 +116,7 @@ public class PetXpTracker {
     private static final Pattern XP_VALUE_PATTERN = Pattern.compile("([\\d,]+(?:\\.\\d+)?)\\s*/[\\d,.]+[KkMmBb]?\\s*XP",
             Pattern.CASE_INSENSITIVE);
 
-    private static java.util.Map<String, Long> lastPetXp = new java.util.HashMap<>();
+    private static Map<String, Long> lastPetXp = new HashMap<>();
     private static List<String> cachedPetTrackerConfig = List.of();
     private static List<TrackedPet> trackedPets = List.of();
 
@@ -175,7 +177,8 @@ public class PetXpTracker {
         return base;
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (client.getConnection() == null)
             return;
 

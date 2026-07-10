@@ -10,6 +10,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.reflect.Type;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
@@ -30,7 +31,7 @@ public final class ProfitPersistence {
     public void saveLifetime(Map<String, Long> lifetimeCounts) {
         try (FileWriter writer = new FileWriter(LIFETIME_FILE)) {
             GSON.toJson(lifetimeCounts, writer);
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -65,7 +66,7 @@ public final class ProfitPersistence {
             data.addProperty("sprayQuantity", sprayQuantity);
             data.addProperty("resetDate", resetDate);
             GSON.toJson(data, writer);
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

@@ -169,7 +169,7 @@ public class SShapeSugarCaneMacro extends AbstractMacro {
         int currentTick = mc.player.tickCount;
         if (intervalTicks > 0 && currentTick - lastDebugTick < intervalTicks) return;
         lastDebugTick = currentTick;
-        ClientUtils.sendDebugMessage(mc, "SugarCane: " + message);
+        ClientUtils.sendDebugMessage("SugarCane: " + message);
     }
 
     private static float snapYawRight(float yaw) {

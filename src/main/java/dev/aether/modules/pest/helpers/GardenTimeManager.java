@@ -22,7 +22,7 @@ public final class GardenTimeManager {
 
     public static boolean switchToDaytime(Minecraft client) {
         if (isDaytime(client)) {
-            ClientUtils.sendDebugMessage(client, "GardenTimeManager: daytime already active, skipping.");
+            ClientUtils.sendDebugMessage("GardenTimeManager: daytime already active, skipping.");
             return true;
         }
         return switchGardenTime(client, DAYTIME_SLOT, "daytime");
@@ -30,7 +30,7 @@ public final class GardenTimeManager {
 
     public static boolean switchToNightTime(Minecraft client) {
         if (isNightTime(client)) {
-            ClientUtils.sendDebugMessage(client, "GardenTimeManager: night time already active, skipping.");
+            ClientUtils.sendDebugMessage("GardenTimeManager: night time already active, skipping.");
             return true;
         }
         return switchGardenTime(client, NIGHTTIME_SLOT, "night time");
@@ -49,7 +49,7 @@ public final class GardenTimeManager {
             return false;
         }
 
-        for (String line : ClientUtils.getSidebarLines(client)) {
+        for (String line : ClientUtils.getSidebarLines()) {
             if (line.indexOf(marker) >= 0) {
                 return true;
             }
@@ -62,15 +62,15 @@ public final class GardenTimeManager {
             return false;
         }
 
-        ClientUtils.sendDebugMessage(client, "GardenTimeManager: switching garden time to " + label);
-        ClientUtils.sendCommand(client, "/desk");
+        ClientUtils.sendDebugMessage("GardenTimeManager: switching garden time to " + label);
+        ClientUtils.sendCommand("/desk");
 
         if (!MacroWorkerThread.sleep(MENU_DELAY_MS)) {
             return false;
         }
 
         if (!clickSlot(client, TIME_MENU_SLOT)) {
-            ClientUtils.sendDebugMessage(client, "GardenTimeManager: failed to click desk slot " + TIME_MENU_SLOT);
+            ClientUtils.sendDebugMessage("GardenTimeManager: failed to click desk slot " + TIME_MENU_SLOT);
             return false;
         }
 
@@ -79,7 +79,7 @@ public final class GardenTimeManager {
         }
 
         if (!clickSlot(client, timeSlot)) {
-            ClientUtils.sendDebugMessage(client, "GardenTimeManager: failed to click time slot " + timeSlot);
+            ClientUtils.sendDebugMessage("GardenTimeManager: failed to click time slot " + timeSlot);
             return false;
         }
 
@@ -123,7 +123,7 @@ public final class GardenTimeManager {
         if (client.screen instanceof AbstractContainerScreen<?> screen
                 && slotId >= 0
                 && slotId < screen.getMenu().slots.size()) {
-            ClientUtils.performSlotClick(client, screen, slotId, 0, ContainerInput.PICKUP);
+            ClientUtils.performSlotClick(screen, slotId, 0, ContainerInput.PICKUP);
             return true;
         }
         return false;

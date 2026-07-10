@@ -48,7 +48,7 @@ public class GearManager {
             return;
         if (AutoPestExchangeManager.shouldBlockFarmingResume()) {
             pendingFinalResumeRetries = 0;
-            ClientUtils.sendDebugMessage(client, "Final resume deferred because pest exchange has priority.");
+            ClientUtils.sendDebugMessage("Final resume deferred because pest exchange has priority.");
             return;
         }
 
@@ -59,19 +59,18 @@ public class GearManager {
                     return;
                 dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.FARMING);
                 GearManager.swapToFarmingTool(client);
-                ClientUtils.sendDebugMessage(client, "Finalizing gear swap. Restarting farming macro...");
+                ClientUtils.sendDebugMessage("Finalizing gear swap. Restarting farming macro...");
                 dev.aether.macro.FarmingMacroManager.enable(client,
                         dev.aether.macro.FarmingMacroManager.createMacroFromConfig());
             });
             return;
         }
 
-        ClientUtils.waitForGearAndGui(client);
+        ClientUtils.waitForGearAndGui();
         swapToFarmingToolSync(client);
 
         if (!waitForContainerCloseSync(client, 3500)) {
-            ClientUtils.sendDebugMessage(client,
-                    "§cFinalizing gear swap aborted: container did not close in time. Not restarting script yet.");
+            ClientUtils.sendDebugMessage("§cFinalizing gear swap aborted: container did not close in time. Not restarting script yet.");
             scheduleFinalResumeRetry(client);
             return;
         }
@@ -86,7 +85,7 @@ public class GearManager {
                 return;
             dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.FARMING);
             GearManager.swapToFarmingTool(client);
-            ClientUtils.sendDebugMessage(client, "Finalizing gear swap. Restarting farming macro...");
+            ClientUtils.sendDebugMessage("Finalizing gear swap. Restarting farming macro...");
             dev.aether.macro.FarmingMacroManager.enable(client, dev.aether.macro.FarmingMacroManager.createMacroFromConfig());
         });
     }
@@ -98,15 +97,13 @@ public class GearManager {
 
     private static void scheduleFinalResumeRetry(Minecraft client) {
         if (pendingFinalResumeRetries >= MAX_FINAL_RESUME_RETRIES) {
-            ClientUtils.sendDebugMessage(client,
-                    "§cFinalizing gear swap retry limit reached. Manual restart may be required.");
+            ClientUtils.sendDebugMessage("§cFinalizing gear swap retry limit reached. Manual restart may be required.");
             return;
         }
 
         pendingFinalResumeRetries++;
         int attempt = pendingFinalResumeRetries;
-        ClientUtils.sendDebugMessage(client,
-                "§eRetrying final resume (" + attempt + "/" + MAX_FINAL_RESUME_RETRIES + ")...");
+        ClientUtils.sendDebugMessage("§eRetrying final resume (" + attempt + "/" + MAX_FINAL_RESUME_RETRIES + ")...");
 
         MacroWorkerThread.getInstance().submit("GearManager-FinalResumeRetry-" + attempt, () -> {
             MacroWorkerThread.sleep(FINAL_RESUME_RETRY_DELAY_MS);
@@ -286,16 +283,16 @@ public class GearManager {
         if (slot != -1) {
             String name = client.player.getInventory().getItem(slot).getHoverName().getString();
             FailsafeManager.selectHotbarSlot(client, slot);
-            ClientUtils.sendMessage(client, "Equipped farming tool: " + name, true);
+            ClientUtils.sendMessage("Equipped farming tool: " + name, true);
         } else {
-            ClientUtils.sendDebugMessage(client, "\u00A7c[GearManager] No farming tool found in hotbar!");
+            ClientUtils.sendDebugMessage("\u00A7c[GearManager] No farming tool found in hotbar!");
         }
     }
 
     public static boolean swapToFarmingToolSync(Minecraft client) {
         int slot = findFarmingToolSlot(client);
         if (slot == -1) {
-            ClientUtils.sendDebugMessage(client, "\u00A7c[GearManager] Sync swap failed: No farming tool found in hotbar!");
+            ClientUtils.sendDebugMessage("\u00A7c[GearManager] Sync swap failed: No farming tool found in hotbar!");
             return false;
         }
 
@@ -322,8 +319,7 @@ public class GearManager {
     public static boolean swapToNamedHotbarItemSync(Minecraft client, String nameFragment) {
         int slot = findHotbarItemSlot(client, nameFragment);
         if (slot == -1) {
-            ClientUtils.sendDebugMessage(client,
-                    "\u00A7c[GearManager] Sync swap failed: No hotbar item found matching '" + nameFragment + "'!");
+            ClientUtils.sendDebugMessage("\u00A7c[GearManager] Sync swap failed: No hotbar item found matching '" + nameFragment + "'!");
             return false;
         }
 
@@ -342,7 +338,8 @@ public class GearManager {
         return true;
     }
 
-    public static void cleanupTick(Minecraft client) {
+    public static void cleanupTick() {
+        Minecraft client = Minecraft.getInstance();
         if (LoadoutManager.loadoutCleanupTicks > 0) {
             LoadoutManager.loadoutCleanupTicks--;
             if (client.player != null) {

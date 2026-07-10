@@ -21,9 +21,12 @@ import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.rotation.RotationManager;
+import dev.aether.util.AetherLang;
 import dev.aether.util.ClientUtils;
+import dev.aether.util.CommandUtils;
 import dev.aether.util.RotationUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -32,6 +35,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.ResolvableProfile;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.SkullBlockEntity;
 
 public class GreenhouseManager {
     private static final int SKULL_SCAN_RADIUS = 25;
@@ -50,6 +55,10 @@ public class GreenhouseManager {
     private static final long PLOT_HANDOFF_MIN_MS = 3000L;
     private static final int TARGET_SETTLE_DELAY_MS = 100;
     private static final int ROTATION_ACK_TIMEOUT_MS = 1000;
+
+    private static Minecraft client() {
+        return Minecraft.getInstance();
+    }
 
     public static boolean isRunning() {
         return running;
@@ -86,18 +95,19 @@ public class GreenhouseManager {
         return getAutoGreenhouseElapsedMs() >= intervalMs;
     }
 
-    public static void runAutoGreenhouseIfDue(Minecraft mc, Runnable onComplete) {
+    public static void runAutoGreenhouseIfDue(Runnable onComplete) {
         if (!shouldRunAutoGreenhouse()) {
             runCompletion(onComplete);
             return;
         }
         autoSequence = true;
         completionCallback = onComplete;
-        harvest(mc);
+        harvest();
     }
 
-    public static void harvest(Minecraft mc) {
-        if (mc.player == null || mc.level == null) {
+    public static void harvest() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.player == null || mc.level == null) {
             runCompletion(completionCallback);
             completionCallback = null;
             autoSequence = false;
@@ -112,17 +122,17 @@ public class GreenhouseManager {
 
         List<String> plots = AetherConfig.GREENHOUSE_PLOTS.get().stream().map(String::trim).filter(s -> !s.isEmpty()).distinct().toList();
         if (plots.isEmpty()) {
-            ClientUtils.sendMessage(mc, "\u00A7cNo greenhouse plots configured!", false);
+            ClientUtils.sendMessage("\u00A7cNo greenhouse plots configured!", false);
             return;
         }
 
         if (plots.isEmpty()) {
-            ClientUtils.sendMessage(mc, "\u00A7cNo greenhouse plots configured!", false);
+            ClientUtils.sendMessage("\u00A7cNo greenhouse plots configured!", false);
             return;
         }
 
         running = true;
-        if (!equipHarvestTool(mc)) {
+        if (!equipHarvestTool()) {
             running = false;
             configuredPlots.clear();
             Runnable callback = completionCallback;
@@ -134,7 +144,7 @@ public class GreenhouseManager {
         configuredPlots.clear();
         configuredPlots.addAll(plots);
         currentPlotIndex = -1;
-        clearSneakState(mc);
+        clearSneakState();
         long elapsedMs = currentPlotStartedAt <= 0L
                 ? PLOT_HANDOFF_MIN_MS
                 : Math.max(0L, System.currentTimeMillis() - currentPlotStartedAt);
@@ -142,23 +152,23 @@ public class GreenhouseManager {
         currentPlotStartedAt = 0L;
 
         if (remainingDelayMs <= 0L) {
-            startNextPlot(mc);
+            startNextPlot();
             return;
         }
 
         MacroWorkerThread.getInstance().submit("GreenhouseNextPlotDelay", () -> {
             MacroWorkerThread.sleep((int) remainingDelayMs);
-            mc.execute(() -> startNextPlot(mc));
+            mc.execute(GreenhouseManager::startNextPlot);
         });
     }
 
-    private static void startHarvesting(Minecraft mc) {
+    private static void startHarvesting() {
         if (currentPath.isEmpty()) {
             String plot = currentPlotIndex >= 0 && currentPlotIndex < configuredPlots.size()
                     ? configuredPlots.get(currentPlotIndex)
                     : "Unknown";
-            ClientUtils.sendDebugMessage(mc, "No targets found on plot " + plot + ", moving on.");
-            onCurrentPlotFinished(mc);
+            ClientUtils.sendDebugMessage("No targets found on plot " + plot + ", moving on.");
+            onCurrentPlotFinished();
             return;
         }
         
@@ -170,16 +180,17 @@ public class GreenhouseManager {
         }
         
         currentSkullIndex = 0;
-        ClientUtils.sendMessage(mc, "\u00A7eStarting automated greenhouse harvest...", false);
-        flyToNextSkull(mc, true);
+        ClientUtils.sendMessage("\u00A7eStarting automated greenhouse harvest...", false);
+        flyToNextSkull(true);
     }
 
-    private static void flyToNextSkull(Minecraft mc, boolean isFirst) {
-        if (mc.player == null || currentSkullIndex < 0 || currentSkullIndex >= flyToPoints.size()) {
-            releaseMovementKeys(mc);
-            ClientUtils.sendMessage(mc, "\u00A7aGreenhouse harvest complete!", false);
+    private static void flyToNextSkull(boolean isFirst) {
+        Minecraft mc = client();
+        if (mc == null || mc.player == null || currentSkullIndex < 0 || currentSkullIndex >= flyToPoints.size()) {
+            releaseMovementKeys();
+            ClientUtils.sendMessage("\u00A7aGreenhouse harvest complete!", false);
             currentSkullIndex = -1;
-            onCurrentPlotFinished(mc);
+            onCurrentPlotFinished();
             return;
         }
 
@@ -189,15 +200,15 @@ public class GreenhouseManager {
             PathfindingManager.setWalkSneakLatched(sneakLocked);
             currentSkullIndex++;
             MacroWorkerThread.getInstance().submit("GreenhouseNextTargetDelay", () -> {
-                mc.execute(() -> releaseMovementKeys(mc));
+                mc.execute(GreenhouseManager::releaseMovementKeys);
                 MacroWorkerThread.sleep(TARGET_SETTLE_DELAY_MS);
 
                 CountDownLatch rotationQueued = new CountDownLatch(1);
                 final long[] rotationMs = new long[] {0L};
                 mc.execute(() -> {
                     try {
-                        releaseMovementKeys(mc);
-                        rotationMs[0] = rotateHumanizedToNextTarget(mc, target);
+                        releaseMovementKeys();
+                        rotationMs[0] = rotateHumanizedToNextTarget(target);
                     } finally {
                         rotationQueued.countDown();
                     }
@@ -205,7 +216,7 @@ public class GreenhouseManager {
 
                 try {
                     if (!rotationQueued.await(ROTATION_ACK_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
-                        ClientUtils.sendDebugMessage(mc, "Greenhouse rotation queue timed out");
+                        ClientUtils.sendDebugMessage("Greenhouse rotation queue timed out");
                     }
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
@@ -216,63 +227,68 @@ public class GreenhouseManager {
                     MacroWorkerThread.sleep((int) rotationMs[0]);
                 }
 
-                mc.execute(() -> leftClick(mc));
+                mc.execute(GreenhouseManager::leftClick);
                 int delayMs = ThreadLocalRandom.current().nextInt(100, 501);
                 MacroWorkerThread.sleep(delayMs);
-                mc.execute(() -> flyToNextSkull(mc, false));
+                mc.execute(() -> flyToNextSkull(false));
             });
         }, isFirst);
     }
 
-    private static void startNextPlot(Minecraft mc) {
+    private static void startNextPlot() {
+        Minecraft mc = client();
+        if (mc == null || mc.player == null) {
+            finishSequence();
+            return;
+        }
         currentPlotIndex++;
         if (currentPlotIndex >= configuredPlots.size()) {
-            finishSequence(mc);
+            finishSequence();
             return;
         }
 
         String targetPlot = configuredPlots.get(currentPlotIndex);
         currentPlotStartedAt = System.currentTimeMillis();
-        clearSneakState(mc);
+        clearSneakState();
 
-        String currentPlot = dev.aether.util.ClientUtils.getCurrentPlot(mc);
+        String currentPlot = ClientUtils.getCurrentPlot();
         if (targetPlot.equalsIgnoreCase(currentPlot)) {
-            ClientUtils.sendDebugMessage(mc, "Already on plot " + targetPlot + ". Scanning...");
-            detectSkulls(mc);
-            startHarvesting(mc);
+            ClientUtils.sendDebugMessage("Already on plot " + targetPlot + ". Scanning...");
+            detectSkulls();
+            startHarvesting();
             return;
         }
 
-        ClientUtils.sendDebugMessage(mc, "Teleporting to plot " + targetPlot + "...");
+        ClientUtils.sendDebugMessage("Teleporting to plot " + targetPlot + "...");
         float yaw = mc.player.getYRot();
         float pitch = mc.player.getXRot();
         MacroWorkerThread.getInstance().submit("GreenhouseHarvest-Plot-" + targetPlot, () -> {
-            boolean success = dev.aether.util.CommandUtils.plotTp(mc, targetPlot);
+            boolean success = CommandUtils.plotTp(targetPlot);
             if (success) {
                 try { Thread.sleep(500); } catch (InterruptedException ignored) {}
                 mc.execute(() -> {
-                    clearSneakState(mc);
-                    detectSkulls(mc, yaw, pitch);
-                    startHarvesting(mc);
+                    clearSneakState();
+                    detectSkulls(yaw, pitch);
+                    startHarvesting();
                 });
             } else {
-                ClientUtils.sendDebugMessage(mc, "Failed to confirm teleport to plot " + targetPlot);
-                mc.execute(() -> startNextPlot(mc));
+                ClientUtils.sendDebugMessage("Failed to confirm teleport to plot " + targetPlot);
+                mc.execute(GreenhouseManager::startNextPlot);
             }
         });
     }
 
-    private static void onCurrentPlotFinished(Minecraft mc) {
+    private static void onCurrentPlotFinished() {
         String plot = currentPlotIndex >= 0 && currentPlotIndex < configuredPlots.size()
                 ? configuredPlots.get(currentPlotIndex)
                 : "Unknown";
-        ClientUtils.sendMessage(mc, "\u00A7aFinished plot " + plot + ".", false);
-        startNextPlot(mc);
+        ClientUtils.sendMessage("\u00A7aFinished plot " + plot + ".", false);
+        startNextPlot();
     }
 
-    private static void finishSequence(Minecraft mc) {
-        clearSneakState(mc);
-        releaseMovementKeys(mc);
+    private static void finishSequence() {
+        clearSneakState();
+        releaseMovementKeys();
         configuredPlots.clear();
         currentPlotIndex = -1;
         currentSkullIndex = -1;
@@ -285,7 +301,7 @@ public class GreenhouseManager {
         Runnable callback = completionCallback;
         completionCallback = null;
         runCompletion(callback);
-        ClientUtils.sendMessage(mc, "\u00A7aGreenhouse harvest complete!", false);
+        ClientUtils.sendMessage("\u00A7aGreenhouse harvest complete!", false);
     }
 
     private static void runCompletion(Runnable callback) {
@@ -294,31 +310,33 @@ public class GreenhouseManager {
         }
     }
 
-    private static boolean equipHarvestTool(Minecraft mc) {
+    private static boolean equipHarvestTool() {
+        Minecraft mc = client();
         if (AetherConfig.EQUIP_GREENHOUSE_CUSTOM_ITEM.get()) {
             String customItem = AetherConfig.GREENHOUSE_CUSTOM_ITEM.get().trim();
             if (customItem.isEmpty()) {
-                ClientUtils.sendDebugMessage(mc, "\u00A7cGreenhouse: custom item name is blank.");
+                ClientUtils.sendDebugMessage("\u00A7cGreenhouse: custom item name is blank.");
                 return false;
             }
 
             boolean swapped = GearManager.swapToNamedHotbarItemSync(mc, customItem);
             if (!swapped) {
-                ClientUtils.sendDebugMessage(mc, "\u00A7cGreenhouse: custom item not found in hotbar: " + customItem);
+                ClientUtils.sendDebugMessage("\u00A7cGreenhouse: custom item not found in hotbar: " + customItem);
             }
             return swapped;
         }
 
         int slot = GearManager.findFarmingToolSlot(mc);
         if (slot == -1) {
-            ClientUtils.sendDebugMessage(mc, "\u00A7cGreenhouse: no farming tool found in hotbar.");
+            ClientUtils.sendDebugMessage("\u00A7cGreenhouse: no farming tool found in hotbar.");
             return false;
         }
         GearManager.swapToFarmingToolSync(mc);
         return true;
     }
 
-    private static void clearSneakState(Minecraft mc) {
+    private static void clearSneakState() {
+        Minecraft mc = client();
         sneakLocked = false;
         PathfindingManager.setWalkSneakLatched(false);
         if (mc != null && mc.options != null) {
@@ -326,19 +344,20 @@ public class GreenhouseManager {
         }
     }
 
-    private static long rotateHumanizedToNextTarget(Minecraft mc, Vec3 nextTarget) {
+    private static long rotateHumanizedToNextTarget(Vec3 nextTarget) {
+        Minecraft mc = client();
         if (mc == null || mc.player == null) return 0L;
 
         Vec3 lookTarget = toAimTarget(nextTarget);
         RotationUtils.Rotation base = RotationUtils.calculateLookAt(mc.player.getEyePosition(), lookTarget);
 
         long rotationMs = ThreadLocalRandom.current().nextLong(300L, 601L);
-        ClientUtils.sendDebugMessage(mc, String.format(Locale.US,
+        ClientUtils.sendDebugMessage(String.format(Locale.US,
                 "Greenhouse aim target: %.3f, %.3f, %.3f",
                 lookTarget.x,
                 lookTarget.y,
                 lookTarget.z));
-        ClientUtils.sendDebugMessage(mc, String.format(Locale.US,
+        ClientUtils.sendDebugMessage(String.format(Locale.US,
                 "Greenhouse rotation needed: yaw %.2f, pitch %.2f, duration %dms",
                 base.yaw,
                 base.pitch,
@@ -351,14 +370,16 @@ public class GreenhouseManager {
         return new Vec3(target.x, Math.floor(target.y) + 0.5, target.z);
     }
 
-    private static void leftClick(Minecraft mc) {
+    private static void leftClick() {
+        Minecraft mc = client();
         if (mc == null || mc.options == null) return;
         ClientUtils.setKeyMappingState(mc.options.keyAttack, true);
         ClientUtils.clickKeyMapping(mc.options.keyAttack);
         ClientUtils.setKeyMappingState(mc.options.keyAttack, false);
     }
 
-    private static void releaseMovementKeys(Minecraft mc) {
+    private static void releaseMovementKeys() {
+        Minecraft mc = client();
         if (mc == null || mc.options == null) {
             return;
         }
@@ -372,32 +393,40 @@ public class GreenhouseManager {
         ClientUtils.setKeyMappingState(mc.options.keyShift, sneakLocked);
     }
 
-    public static void detectSkulls(Minecraft mc) {
-        detectSkulls(mc, mc.player != null ? mc.player.getYRot() : 0, mc.player != null ? mc.player.getXRot() : 0);
+    public static void detectSkulls() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null) {
+            return;
+        }
+        detectSkulls(mc.player != null ? mc.player.getYRot() : 0, mc.player != null ? mc.player.getXRot() : 0);
     }
 
-    public static void detectSkulls(Minecraft mc, float yaw, float pitch) {
+    public static void detectSkulls(float yaw, float pitch) {
+        Minecraft mc = client();
+        if (mc == null) {
+            return;
+        }
         highlightedSkulls.clear();
         if (mc.player == null || mc.level == null) return;
 
-        scanNearbySkulls(mc, entry -> processProfile(mc, entry.profile(), entry.x(), entry.y(), entry.z()));
+        scanNearbySkulls(entry -> processProfile(entry.profile(), entry.x(), entry.y(), entry.z()));
         
-        updatePath(mc, yaw, pitch);
-        ClientUtils.sendDebugMessage(mc, "Detected " + getHighlightedCount() + " matching skulls. Path generated.");
+        updatePath(yaw, pitch);
+        ClientUtils.sendDebugMessage("Detected " + getHighlightedCount() + " matching skulls. Path generated.");
     }
 
-    public static void debugScanSkulls(Minecraft mc) {
+    public static void debugScanSkulls() {
+        Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.player == null || mc.level == null) {
             return;
         }
 
         List<SkullScanEntry> entries = new ArrayList<>();
-        scanNearbySkulls(mc, entries::add);
+        scanNearbySkulls(entries::add);
 
         if (entries.isEmpty()) {
-            ClientUtils.sendMessage(mc,
-                    String.format(Locale.US,
-                            "\u00A7e" + dev.aether.util.AetherLang.localize("No skulls with owner profiles found within %d blocks."),
+            ClientUtils.sendMessage(String.format(Locale.US,
+                            "\u00A7e" + AetherLang.localize("No skulls with owner profiles found within %d blocks."),
                             SKULL_SCAN_RADIUS),
                     false);
             return;
@@ -406,27 +435,31 @@ public class GreenhouseManager {
         entries.sort(Comparator.comparingDouble(entry ->
                 mc.player.position().distanceToSqr(entry.x(), entry.y(), entry.z())));
 
-        ClientUtils.sendMessage(mc,
-                String.format(Locale.US,
-                        "\u00A7e" + dev.aether.util.AetherLang.localize("Scanned %d skulls within %d blocks."),
+        ClientUtils.sendMessage(String.format(Locale.US,
+                        "\u00A7e" + AetherLang.localize("Scanned %d skulls within %d blocks."),
                         entries.size(),
                         SKULL_SCAN_RADIUS),
                 false);
 
         for (SkullScanEntry entry : entries) {
             String line = String.format(Locale.US,
-                    dev.aether.util.AetherLang.localize("Skull %s (%s) ID: %s at %.1f, %.1f, %.1f"),
+                    AetherLang.localize("Skull %s (%s) ID: %s at %.1f, %.1f, %.1f"),
                     entry.name(),
                     entry.sourceLabel(),
                     entry.skinId(),
                     entry.x(),
                     entry.y(),
                     entry.z());
-            ClientUtils.sendMessage(mc, "\u00A77" + line, false);
+            ClientUtils.sendMessage("\u00A77" + line, false);
         }
     }
 
-    private static void updatePath(Minecraft mc, float yaw, float pitch) {
+    private static void updatePath(float yaw, float pitch) {
+        Minecraft mc = client();
+        if (mc == null) {
+            currentPath.clear();
+            return;
+        }
         currentPath.clear();
         if (highlightedSkulls.isEmpty()) return;
 
@@ -494,7 +527,8 @@ public class GreenhouseManager {
     private static final String TURTELLINI_SKIN_ID = "1d1bd06a6738d0da5053eae49a1362b89489d1ac004c222504536f7bcd07679d";
     private static final String GLASSCORN_SKIN_ID = "297de27338b9f876e570d1cc01fe1beccfc940467c5c97c467e93e79c81c25ee";
 
-    private static void scanNearbySkulls(Minecraft mc, SkullScanConsumer consumer) {
+    private static void scanNearbySkulls(SkullScanConsumer consumer) {
+        Minecraft mc = client();
         if (mc.player == null || mc.level == null) {
             return;
         }
@@ -516,17 +550,17 @@ public class GreenhouseManager {
                                 armorStand.getX(),
                                 armorStand.getY() + armorStand.getEyeHeight(),
                                 armorStand.getZ(),
-                                dev.aether.util.AetherLang.localize("armor stand")));
+                                AetherLang.localize("armor stand")));
             }
         }
 
-        net.minecraft.core.BlockPos base = mc.player.blockPosition();
+        BlockPos base = mc.player.blockPosition();
         for (int x = -SKULL_SCAN_RADIUS; x <= SKULL_SCAN_RADIUS; x++) {
             for (int y = -10; y <= 10; y++) {
                 for (int z = -SKULL_SCAN_RADIUS; z <= SKULL_SCAN_RADIUS; z++) {
-                    net.minecraft.core.BlockPos pos = base.offset(x, y, z);
-                    net.minecraft.world.level.block.entity.BlockEntity be = mc.level.getBlockEntity(pos);
-                    if (!(be instanceof net.minecraft.world.level.block.entity.SkullBlockEntity skullBlock)) {
+                    BlockPos pos = base.offset(x, y, z);
+                    BlockEntity be = mc.level.getBlockEntity(pos);
+                    if (!(be instanceof SkullBlockEntity skullBlock)) {
                         continue;
                     }
 
@@ -537,14 +571,14 @@ public class GreenhouseManager {
                                 pos.getX() + 0.5,
                                 pos.getY() + 0.25,
                                 pos.getZ() + 0.5,
-                                dev.aether.util.AetherLang.localize("skull block")));
+                                AetherLang.localize("skull block")));
                     }
                 }
             }
         }
     }
 
-    private static void processProfile(Minecraft mc, ResolvableProfile profile, double x, double y, double z) {
+    private static void processProfile(ResolvableProfile profile, double x, double y, double z) {
         String skinId = extractSkinId(profile);
 
         boolean shouldHighlight = false;
@@ -563,14 +597,12 @@ public class GreenhouseManager {
             AABB box = new AABB(x - 0.25, y - 0.25, z - 0.25, x + 0.25, y + 0.25, z + 0.25);
             highlightedSkulls.add(box);
 
-            ClientUtils.sendDebugMessage(mc,
-                    String.format("Found highlighted: %s (ID: %s) at %.1f, %.1f, %.1f",
+            ClientUtils.sendDebugMessage(String.format("Found highlighted: %s (ID: %s) at %.1f, %.1f, %.1f",
                             name, skinId, x, y, z));
         } else if (AetherConfig.SHOW_DEBUG.get()) {
             // Still show debug in chat if debug mode is on, even if not highlighted
             String name = profile.name().orElse("Skull");
-            ClientUtils.sendDebugMessage(mc,
-                    String.format("Filtered: %s (ID: %s) at %.1f, %.1f, %.1f",
+            ClientUtils.sendDebugMessage(String.format("Filtered: %s (ID: %s) at %.1f, %.1f, %.1f",
                             name, skinId, x, y, z));
         }
     }
@@ -662,5 +694,3 @@ public class GreenhouseManager {
         void accept(SkullScanEntry entry);
     }
 }
-
-

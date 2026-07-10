@@ -435,7 +435,7 @@ public class CocoaBeansMacro extends AbstractMacro {
                 break;
         }
 
-        ClientUtils.sendDebugMessage(mc, "CocoaBeans: " + message);
+        ClientUtils.sendDebugMessage("CocoaBeans: " + message);
     }
 
     private static String fmt(double value) {

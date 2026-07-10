@@ -81,7 +81,7 @@ public final class EtherwarpExecutor {
             finish(mc);
             return;
         }
-        if (state == State.FAILED || ClientUtils.isInventoryScreenOpen(mc)) {
+        if (state == State.FAILED || ClientUtils.isInventoryScreenOpen()) {
             return;
         }
 
@@ -136,7 +136,7 @@ public final class EtherwarpExecutor {
             return;
         }
 
-        ClientUtils.performUseClick(mc);
+        ClientUtils.performUseClick();
         warpAttempts++;
         warpStartPos = mc.player.position();
         state = State.WAITING_FOR_WARP;
@@ -197,7 +197,7 @@ public final class EtherwarpExecutor {
         boolean handled = onFailed != null && Boolean.TRUE.equals(onFailed.apply(reason));
         if (mc != null) {
             if (!handled) {
-                ClientUtils.sendMessage(mc, "\u00A7c" + message, false);
+                ClientUtils.sendMessage("\u00A7c" + message, false);
             }
             if (mc.options != null) {
                 ClientUtils.setKeyMappingState(mc.options.keyUse, false);

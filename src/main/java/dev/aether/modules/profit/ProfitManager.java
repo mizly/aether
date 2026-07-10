@@ -234,11 +234,13 @@ public final class ProfitManager {
         return PRICING.isPredefinedTrackedItem(itemName);
     }
 
-    public static void update(net.minecraft.client.Minecraft client) {
+    public static void update() {
+        net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
         LIVE_TRACKER.update(client, ProfitManager::addDrop);
     }
 
-    public static void printPetXpPriceDebug(net.minecraft.client.Minecraft client) {
+    public static void printPetXpPriceDebug() {
+        net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
         PRICING.printPetXpPriceDebug(client);
     }
 

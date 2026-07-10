@@ -118,8 +118,7 @@ final class PestCombatCoordinator {
 
             context.setStuckTicks(context.getStuckTicks() + 1);
             if (context.getStuckTicks() > pathfinderStuckRetryTicks) {
-                ClientUtils.sendDebugMessage(client,
-                        "[PestDestroyer] Pathfinder stuck. Retrying path to pest.");
+                ClientUtils.sendDebugMessage("[PestDestroyer] Pathfinder stuck. Retrying path to pest.");
                 context.setStuckTicks(0);
                 context.setFlyRetryAfterUnflyAt(now + STUCK_PATH_RETRY_DELAY_MS);
             }
@@ -129,7 +128,7 @@ final class PestCombatCoordinator {
         }
 
         if (System.currentTimeMillis() - context.getStateEnteredAt() > stateTimeoutMs) {
-            ClientUtils.sendDebugMessage(client, "[PestDestroyer] Fly-to-pest timed out. Checking for next pest.");
+            ClientUtils.sendDebugMessage("[PestDestroyer] Fly-to-pest timed out. Checking for next pest.");
             PathfindingManager.stop();
             context.markKilled(currentTarget);
             context.setState(PestDestroyer.State.CHECK_NEXT);
@@ -167,7 +166,7 @@ final class PestCombatCoordinator {
         }
 
         if (context.getApproachTicks() > approachTimeoutTicks) {
-            ClientUtils.sendDebugMessage(client, "[PestDestroyer] Approach timed out.");
+            ClientUtils.sendDebugMessage("[PestDestroyer] Approach timed out.");
             PathfindingManager.stop();
             context.markKilled(currentTarget);
             context.setState(PestDestroyer.State.CHECK_NEXT);
@@ -233,8 +232,7 @@ final class PestCombatCoordinator {
                     ClientUtils.setKeyMappingState(client.options.keyDown, false);
                     context.markKilled(currentTarget);
                     PestDestroyer.recordTrackedPestKill(client, currentTarget);
-                    ClientUtils.sendDebugMessage(client,
-                            "[PestDestroyer] Pest skull disappeared. Switching target immediately.");
+                    ClientUtils.sendDebugMessage("[PestDestroyer] Pest skull disappeared. Switching target immediately.");
                     if (!context.switchToNextQueuedTarget(client)) {
                         context.setState(PestDestroyer.State.CHECK_NEXT);
                     }
@@ -259,7 +257,7 @@ final class PestCombatCoordinator {
             ClientUtils.setKeyMappingState(client.options.keyUse, false);
             ClientUtils.setKeyMappingState(client.options.keyDown, false);
             ClientUtils.setKeyMappingState(client.options.keyUp, false);
-            ClientUtils.sendDebugMessage(client, "[PestDestroyer] Kill pest timed out. Moving on.");
+            ClientUtils.sendDebugMessage("[PestDestroyer] Kill pest timed out. Moving on.");
             context.markKilled(currentTarget);
             context.setTargetWithoutSkullTicks(0);
             if (!context.switchToNextQueuedTarget(client)) {
@@ -286,7 +284,7 @@ final class PestCombatCoordinator {
             context.setAotvSlot(context.findAotvHotbarSlot(client));
             if (context.getAotvSlot() == -1) {
                 clearAotvBetweenPests(client, context);
-                ClientUtils.sendDebugMessage(client, "[PestDestroyer] No AOTV found. Falling back to pathfinding.");
+                ClientUtils.sendDebugMessage("[PestDestroyer] No AOTV found. Falling back to pathfinding.");
                 context.startPathToPest(client, currentTarget);
                 context.setState(PestDestroyer.State.FLY_TO_PEST);
                 return;
@@ -306,7 +304,7 @@ final class PestCombatCoordinator {
         // to gain vision first (avoid firing AOTV blindly).
         Vec3 currentTargetPos = currentTarget.position().add(0, currentTarget.getEyeHeight(currentTarget.getPose()), 0);
         if (client.player.getY() < currentTargetPos.y && !ClientUtils.hasLineOfSight(client.player, currentTargetPos)) {
-            ClientUtils.sendDebugMessage(client, "[PestDestroyer] No LOS and below pest (" + currentTarget.getDisplayName().getString() + "), flying up for vision...");
+            ClientUtils.sendDebugMessage("[PestDestroyer] No LOS and below pest (" + currentTarget.getDisplayName().getString() + "), flying up for vision...");
             ClientUtils.setKeyMappingState(client.options.keyJump, true);
             ClientUtils.setKeyMappingState(client.options.keyUp, false);
             ClientUtils.setKeyMappingState(client.options.keySprint, false);
@@ -347,22 +345,19 @@ final class PestCombatCoordinator {
                 context.setAotvPendingUseAt(0L);
                 context.setAotvPostClickGraceUntil(0L);
                 context.setAotvUseCount(context.getAotvUseCount() + 1);
-                ClientUtils.sendDebugMessage(client,
-                        "[PestDestroyer] AOTV confirmed by movement: "
+                ClientUtils.sendDebugMessage("[PestDestroyer] AOTV confirmed by movement: "
                                 + String.format("%.2f", movedDistance) + " blocks.");
                 dist = client.player.distanceTo(currentTarget);
                 if (finishAotvIfClose(client, context, currentTarget, dist, stopDistance)) {
                     return;
                 }
             } else if (context.getAotvPostClickGraceUntil() > now) {
-                ClientUtils.sendDebugMessage(client,
-                        "[PestDestroyer] Waiting for AOTV confirm: moved "
+                ClientUtils.sendDebugMessage("[PestDestroyer] Waiting for AOTV confirm: moved "
                                 + String.format("%.2f", movedDistance)
                                 + "/" + String.format("%.2f", AOTV_CONFIRM_DISTANCE) + " blocks.");
                 return;
             } else {
-                ClientUtils.sendDebugMessage(client,
-                        "[PestDestroyer] AOTV confirm failed: moved "
+                ClientUtils.sendDebugMessage("[PestDestroyer] AOTV confirm failed: moved "
                                 + String.format("%.2f", movedDistance)
                                 + "/" + String.format("%.2f", AOTV_CONFIRM_DISTANCE) + " blocks. Retrying.");
                 context.setAotvPendingUseAt(0L);
@@ -391,18 +386,16 @@ final class PestCombatCoordinator {
             context.setAotvNextUseAt(readyAt);
         }
         if (now >= readyAt) {
-            ClientUtils.sendDebugMessage(client,
-                    "[PestDestroyer] Using AOTV (" + (context.getAotvUseCount() + 1) + "). Distance: "
+            ClientUtils.sendDebugMessage("[PestDestroyer] Using AOTV (" + (context.getAotvUseCount() + 1) + "). Distance: "
                             + String.format("%.1f", dist));
-            ClientUtils.performUseClick(client);
+            ClientUtils.performUseClick();
             context.setAotvPostClickGraceUntil(now + AOTV_POST_CLICK_GRACE_MS);
             context.setAotvLastUsePlayerX(client.player.getX());
             context.setAotvLastUsePlayerY(client.player.getY());
             context.setAotvLastUsePlayerZ(client.player.getZ());
             if (AetherConfig.PEST_AOTV_CONFIRM_BETWEEN.get()) {
                 context.setAotvPendingUseAt(now);
-                ClientUtils.sendDebugMessage(client,
-                        "[PestDestroyer] Waiting for AOTV position confirm (>= "
+                ClientUtils.sendDebugMessage("[PestDestroyer] Waiting for AOTV position confirm (>= "
                                 + String.format("%.0f", AOTV_CONFIRM_DISTANCE) + " blocks).");
             } else {
                 context.setAotvLastUseAt(now);
@@ -413,8 +406,7 @@ final class PestCombatCoordinator {
 
         if (context.getAotvUseCount() > 10) {
             clearAotvBetweenPests(client, context);
-            ClientUtils.sendDebugMessage(client,
-                    "[PestDestroyer] AOTV usage exceeded maximum. Falling back to pathfinding.");
+            ClientUtils.sendDebugMessage("[PestDestroyer] AOTV usage exceeded maximum. Falling back to pathfinding.");
             context.startPathToPest(client, currentTarget);
             context.setState(PestDestroyer.State.FLY_TO_PEST);
             return;
@@ -422,7 +414,7 @@ final class PestCombatCoordinator {
 
         if (elapsed > stateTimeoutMs) {
             clearAotvBetweenPests(client, context);
-            ClientUtils.sendDebugMessage(client, "[PestDestroyer] AOTV state timed out. Falling back to pathfinding.");
+            ClientUtils.sendDebugMessage("[PestDestroyer] AOTV state timed out. Falling back to pathfinding.");
             context.startPathToPest(client, currentTarget);
             context.setState(PestDestroyer.State.FLY_TO_PEST);
         }
@@ -442,8 +434,7 @@ final class PestCombatCoordinator {
         boolean arrivedViaAotv = context.getAotvUseCount() > 0;
         clearAotvBetweenPests(client, context);
         context.setArrivedAtCurrentTargetViaAotv(arrivedViaAotv);
-        ClientUtils.sendDebugMessage(client,
-                "[PestDestroyer] AOTV closed gap. Distance now " + String.format("%.1f", dist)
+        ClientUtils.sendDebugMessage("[PestDestroyer] AOTV closed gap. Distance now " + String.format("%.1f", dist)
                         + ". Switching to pathfinding.");
         if (dist <= context.getVacuumRange()) {
             context.setState(PestDestroyer.State.KILL_PEST);

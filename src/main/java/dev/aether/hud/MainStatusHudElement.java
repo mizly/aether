@@ -79,7 +79,7 @@ public class MainStatusHudElement extends HudElement {
     protected void renderElement(NVGRenderer nvg, boolean editMode) {
         Minecraft mc = Minecraft.getInstance();
         MacroState.State    st  = MacroStateManager.getCurrentState();
-        MacroState.Location loc = ClientUtils.getCurrentLocation(mc);
+        MacroState.Location loc = ClientUtils.getCurrentLocation();
 
         boolean macroing = st != MacroState.State.OFF;
         boolean farming  = st == MacroState.State.FARMING;

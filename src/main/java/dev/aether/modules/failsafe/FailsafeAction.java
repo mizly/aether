@@ -1,5 +1,7 @@
 package dev.aether.modules.failsafe;
 
+import java.util.Locale;
+
 public enum FailsafeAction {
     STOP,
     IGNORE,
@@ -11,7 +13,7 @@ public enum FailsafeAction {
         }
 
         try {
-            return FailsafeAction.valueOf(value.trim().toUpperCase(java.util.Locale.ROOT));
+            return FailsafeAction.valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ignored) {
             return STOP;
         }

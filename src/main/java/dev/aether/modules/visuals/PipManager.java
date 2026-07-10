@@ -24,15 +24,12 @@ public final class PipManager {
         return enabled;
     }
 
-    public static void toggle(Minecraft client) {
-        setEnabled(client, !enabled);
+    public static void toggle() {
+        setEnabled(!enabled);
     }
 
     public static void setEnabled(boolean shouldEnable) {
-        setEnabled(Minecraft.getInstance(), shouldEnable);
-    }
-
-    public static void setEnabled(Minecraft client, boolean shouldEnable) {
+        Minecraft client = Minecraft.getInstance();
         if (shouldEnable && StreamerModeManager.isEnabled()) {
             return;
         }
@@ -43,7 +40,7 @@ public final class PipManager {
             return;
         }
         if (!client.isSameThread()) {
-            client.execute(() -> setEnabled(client, shouldEnable));
+            client.execute(() -> setEnabled(shouldEnable));
             return;
         }
 
@@ -61,13 +58,14 @@ public final class PipManager {
             restoreWindowMode(client);
         }
 
-        ClientUtils.sendMessage(client, enabled ? "§aPiP mode enabled." : "§cPiP mode disabled.");
+        ClientUtils.sendMessage(enabled ? "§aPiP mode enabled." : "§cPiP mode disabled.");
     }
 
-    public static void render(Minecraft client) {
+    public static void render() {
+        Minecraft client = Minecraft.getInstance();
         if (StreamerModeManager.isEnabled()) {
             if (enabled) {
-                setEnabled(client, false);
+                setEnabled(false);
             }
             return;
         }

@@ -149,7 +149,7 @@ public final class MetalDetectorSolver {
 
         if (enabled) {
             if (!ensureMetalDetectorSelected(client)) {
-                ClientUtils.sendMessage(client, "\u00A7cNo metal detector found in hotbar.", false);
+                ClientUtils.sendMessage("\u00A7cNo metal detector found in hotbar.", false);
                 return;
             }
             resetSessionState(false);
@@ -157,7 +157,7 @@ public final class MetalDetectorSolver {
             sessionChestsOpened = 0;
             levelIdentity = getLevelIdentity(client);
             if (announce) {
-                ClientUtils.sendMessage(client, "\u00A7eScanning for metal detector anchor...", false);
+                ClientUtils.sendMessage("\u00A7eScanning for metal detector anchor...", false);
             }
 
             MetalDetectorSolver.enabled = true;
@@ -169,16 +169,14 @@ public final class MetalDetectorSolver {
                 MacroStateManager.setCurrentState(MacroState.State.METAL_DETECTING);
             }
             if (announce && scannedAnchor != null) {
-                ClientUtils.sendMessage(client,
-                        "\u00A7aMetal detector solver enabled at "
+                ClientUtils.sendMessage("\u00A7aMetal detector solver enabled at "
                                 + scannedAnchor.getX() + " "
                                 + scannedAnchor.getY() + " "
                                 + scannedAnchor.getZ()
                                 + " (\u00A7f" + absoluteChestCoords.size() + "\u00A7a spots).",
                         false);
             } else if (announce) {
-                ClientUtils.sendMessage(client,
-                        "\u00A7eMetal detector solver enabled. Waiting for nearby anchor blocks...",
+                ClientUtils.sendMessage("\u00A7eMetal detector solver enabled. Waiting for nearby anchor blocks...",
                         false);
             }
         } else {
@@ -190,7 +188,7 @@ public final class MetalDetectorSolver {
                 MacroStateManager.setCurrentState(MacroState.State.OFF);
             }
             if (announce) {
-                ClientUtils.sendMessage(client, "\u00A7eMetal detector solver disabled.", false);
+                ClientUtils.sendMessage("\u00A7eMetal detector solver disabled.", false);
             }
         }
     }
@@ -218,7 +216,8 @@ public final class MetalDetectorSolver {
         MetalDetectorBackpackManager.handleContainerMenu(client, screen);
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (!enabled) {
             return;
         }
@@ -238,7 +237,7 @@ public final class MetalDetectorSolver {
             if (automationState != AutomationState.IDLE || PathfindingManager.isNavigating()) {
                 stopAutomation(client, true);
             }
-            MetalDetectorBackpackManager.update(client);
+            MetalDetectorBackpackManager.update();
             return;
         }
 
@@ -282,17 +281,16 @@ public final class MetalDetectorSolver {
         }
 
         ensureCoordinatesLoaded(client);
-        ClientUtils.sendMessage(client, "\u00A7eScanning for metal detector anchor...", false);
+        ClientUtils.sendMessage("\u00A7eScanning for metal detector anchor...", false);
         BlockPos scannedAnchor = scanForNearbyAnchor(client);
 
         if (scannedAnchor == null) {
-            ClientUtils.sendMessage(client, "\u00A7cNo metal detector anchor found nearby.", false);
+            ClientUtils.sendMessage("\u00A7cNo metal detector anchor found nearby.", false);
             return;
         }
 
         applyAnchor(client, scannedAnchor, true);
-        ClientUtils.sendMessage(client,
-                "\u00A7aMetal detector anchor found at "
+        ClientUtils.sendMessage("\u00A7aMetal detector anchor found at "
                         + scannedAnchor.getX() + " "
                         + scannedAnchor.getY() + " "
                         + scannedAnchor.getZ()
@@ -442,7 +440,7 @@ public final class MetalDetectorSolver {
         }
 
         faceTarget(client, automationTarget);
-        if (ClientUtils.isInventoryScreenOpen(client)) {
+        if (ClientUtils.isInventoryScreenOpen()) {
             return;
         }
 
@@ -570,8 +568,7 @@ public final class MetalDetectorSolver {
         phaseStartedAt = System.currentTimeMillis();
         pathCallbackTriggered = false;
 
-        ClientUtils.sendDebugMessage(client,
-                "MetalDetector: walking to "
+        ClientUtils.sendDebugMessage("MetalDetector: walking to "
                         + automationTarget.getX() + " "
                         + automationTarget.getY() + " "
                         + automationTarget.getZ());
@@ -600,7 +597,7 @@ public final class MetalDetectorSolver {
         if (automationTarget != null) {
             markTargetAttempted(automationTarget, retryDelayMs);
         }
-        ClientUtils.sendDebugMessage(client, debugReason);
+        ClientUtils.sendDebugMessage(debugReason);
         stopAutomation(client, true);
     }
 
@@ -652,7 +649,7 @@ public final class MetalDetectorSolver {
         automationState = AutomationState.OPENING;
         openAttemptTriggered = true;
         phaseStartedAt = System.currentTimeMillis();
-        ClientUtils.performAttackClick(client);
+        ClientUtils.performAttackClick();
     }
 
     private static boolean isWithinAttackRange(Minecraft client, BlockPos target) {
@@ -707,8 +704,7 @@ public final class MetalDetectorSolver {
         }
 
         predictedChestLocations.add(chest.immutable());
-        ClientUtils.sendDebugMessage(client,
-                "MetalDetector: predicted chest at "
+        ClientUtils.sendDebugMessage("MetalDetector: predicted chest at "
                         + chest.getX() + " " + chest.getY() + " " + chest.getZ());
     }
 
@@ -735,8 +731,7 @@ public final class MetalDetectorSolver {
         lobbyInitialized = true;
         computeAbsoluteFromAnchor();
         if (announce) {
-            ClientUtils.sendDebugMessage(client,
-                    "MetalDetector: anchor at "
+            ClientUtils.sendDebugMessage("MetalDetector: anchor at "
                             + anchor.getX() + " " + anchor.getY() + " " + anchor.getZ());
         }
     }
@@ -850,8 +845,7 @@ public final class MetalDetectorSolver {
         coordsLoaded = true;
         relativeChestCoords.clear();
         relativeChestCoords.addAll(DEFAULT_RELATIVE_CHESTS);
-        ClientUtils.sendDebugMessage(client,
-                "MetalDetector: using local chest coordinates");
+        ClientUtils.sendDebugMessage("MetalDetector: using local chest coordinates");
     }
 
     private static void resetSessionState(boolean keepPredictions) {

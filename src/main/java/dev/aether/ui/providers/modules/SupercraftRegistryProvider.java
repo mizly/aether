@@ -35,7 +35,7 @@ public final class SupercraftRegistryProvider extends AbstractModulesRegistryPro
                             AetherConfig.save();
                         }))
                 .add(new ActionSetting("Run Now",
-                        () -> SupercraftManager.manualTrigger(Minecraft.getInstance())));
+                        SupercraftManager::manualTrigger));
 
         return MainGUIRegistry.toggleSubTab(
                 "Auto Supercraft",

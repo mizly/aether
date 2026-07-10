@@ -51,7 +51,8 @@ public class JunkManager {
                 AutoSellManager.isPreparingToSell;
     }
 
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (!AetherConfig.AUTO_DROP_JUNK.get() || client.player == null)
             return;
 
@@ -62,7 +63,7 @@ public class JunkManager {
             if (isPriorityEventActive(client)) {
                 isPreparingToDrop = false;
                 lastDropTime = System.currentTimeMillis();
-                dev.aether.util.ClientUtils.sendMessage(client, "\u00A7cAborting Junk Drop prep due to priority event.", false);
+                ClientUtils.sendMessage("\u00A7cAborting Junk Drop prep due to priority event.", false);
             }
             return;
         }
@@ -74,7 +75,7 @@ public class JunkManager {
                 if (MacroStateManager.getCurrentState() == MacroState.State.DROPPING_JUNK) {
                     MacroStateManager.setCurrentState(MacroState.State.FARMING);
                 }
-                dev.aether.util.ClientUtils.sendMessage(client, "\u00A7cAborting Junk Drop due to priority event.", false);
+                ClientUtils.sendMessage("\u00A7cAborting Junk Drop due to priority event.", false);
                 lastDropTime = System.currentTimeMillis();
                 return;
             }
@@ -156,8 +157,8 @@ public class JunkManager {
     }
 
     private static void triggerAutomaticDrop(Minecraft client, int count) {
-        dev.aether.util.ClientUtils.sendMessage(client, "\u00A7eJunk detected (" + count + " items), preparing to drop...", false);
-        ClientUtils.forceReleaseKeys(client);
+        ClientUtils.sendMessage("\u00A7eJunk detected (" + count + " items), preparing to drop...", false);
+        ClientUtils.forceReleaseKeys();
         isPreparingToDrop = true;
         isDropping = false;
 
@@ -168,15 +169,15 @@ public class JunkManager {
                 if (!isPreparingToDrop)
                     return;
 
-                ClientUtils.sendDebugMessage(client, "Disabling farming macro: Preparing to drop junk");
+                ClientUtils.sendDebugMessage("Disabling farming macro: Preparing to drop junk");
                 client.execute(() -> dev.aether.macro.FarmingMacroManager.disable(client));
                 MacroWorkerThread.sleep(400); // Small safety delay after stop
 
                 // /setspawn before warping
-                dev.aether.util.CommandUtils.setSpawn(client);
+                dev.aether.util.CommandUtils.setSpawn();
 
                 // /plottp
-                dev.aether.util.CommandUtils.plotTp(client, AetherConfig.DROP_JUNK_PLOT_TP.get());
+                dev.aether.util.CommandUtils.plotTp(AetherConfig.DROP_JUNK_PLOT_TP.get());
                 MacroWorkerThread.sleep(250);
 
                 if (!isPreparingToDrop)
@@ -230,7 +231,7 @@ public class JunkManager {
         }
 
         if (junkSlot != -1) {
-            ClientUtils.performSlotClick(client, screen, junkSlot, 1, ContainerInput.THROW);
+            ClientUtils.performSlotClick(screen, junkSlot, 1, ContainerInput.THROW);
             interactionTime = now;
             noJunkStartTime = 0;
         } else {
@@ -253,18 +254,18 @@ public class JunkManager {
         if (MacroStateManager.getCurrentState() == MacroState.State.DROPPING_JUNK) {
             MacroStateManager.setCurrentState(MacroState.State.FARMING);
         }
-        dev.aether.util.ClientUtils.sendMessage(client, "\u00A7aJunk drop finished. Resuming script...", true);
+        ClientUtils.sendMessage("\u00A7aJunk drop finished. Resuming script...", true);
 
         MacroWorkerThread.getInstance().submit("JunkDrop-Finish", () -> {
             try {
-                dev.aether.util.CommandUtils.warpGarden(client);
+                dev.aether.util.CommandUtils.warpGarden();
                 MacroWorkerThread.sleep(250);
 
-                ClientUtils.waitForGearAndGui(client);
+                ClientUtils.waitForGearAndGui();
                 if (MacroStateManager.getCurrentState() == MacroState.State.FARMING) {
                     client.execute(() -> {
                         GearManager.swapToFarmingTool(client);
-                        ClientUtils.sendDebugMessage(client, "Restarting farming macro after junk drop");
+                        ClientUtils.sendDebugMessage("Restarting farming macro after junk drop");
                         dev.aether.macro.FarmingMacroManager.enable(client, dev.aether.macro.FarmingMacroManager.createMacroFromConfig());
                     });
                 }

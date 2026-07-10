@@ -11,9 +11,8 @@ import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.TextSetting;
 import dev.aether.util.AetherLang;
-import net.minecraft.client.Minecraft;
-
 import java.util.List;
+import net.minecraft.client.Minecraft;
 
 public final class ComposterRegistryProvider extends AbstractModulesRegistryProvider {
     public ComposterRegistryProvider() {
@@ -109,7 +108,7 @@ public final class ComposterRegistryProvider extends AbstractModulesRegistryProv
                         .withDecimals(0)
                         .visibleWhen(ComposterManager::isBazaarMode))
                 .add(new ActionSetting("Run Now",
-                        () -> ComposterManager.manualTrigger(Minecraft.getInstance())));
+                        ComposterManager::manualTrigger));
 
         return MainGUIRegistry.toggleSubTab(
                 "Auto Composter",

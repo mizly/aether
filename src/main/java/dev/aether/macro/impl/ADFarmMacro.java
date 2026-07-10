@@ -215,7 +215,7 @@ public class ADFarmMacro extends AbstractMacro {
         int currentTick = mc.player.tickCount;
         if (intervalTicks > 0 && currentTick - lastDebugTick < intervalTicks) return;
         lastDebugTick = currentTick;
-        ClientUtils.sendDebugMessage(mc, "ADFarm: " + message);
+        ClientUtils.sendDebugMessage("ADFarm: " + message);
     }
 
     private void transitionLaneState(Minecraft mc, State nextState, String reason) {
@@ -224,8 +224,7 @@ public class ADFarmMacro extends AbstractMacro {
         if ((fromState == State.LEFT || fromState == State.RIGHT || fromState == State.NONE)
                 && (nextState == State.LEFT || nextState == State.RIGHT)
                 && fromState != nextState) {
-            ClientUtils.sendDebugMessage(mc,
-                    "ADFarm: lane change " + fromState + " -> " + nextState + " (" + reason + ")");
+            ClientUtils.sendDebugMessage("ADFarm: lane change " + fromState + " -> " + nextState + " (" + reason + ")");
         }
     }
 

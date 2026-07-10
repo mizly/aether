@@ -473,8 +473,8 @@ public class PestDestroyer {
         }
         runtime.navigation.currentPlotIdx = 0;
 
-        ClientUtils.sendDebugMessage(client, "[PestDestroyer] Started in-client pest killer. Plots: " + runtime.navigation.plotQueue);
-        dev.aether.util.ClientUtils.sendMessage(client, "\u00A7ePest destroyer active. Hunting pests...", false);
+        ClientUtils.sendDebugMessage("[PestDestroyer] Started in-client pest killer. Plots: " + runtime.navigation.plotQueue);
+        ClientUtils.sendMessage("\u00A7ePest destroyer active. Hunting pests...", false);
 
         // Check if we need to TP to an infested plot
         if (!runtime.navigation.plotQueue.isEmpty()) {
@@ -482,8 +482,7 @@ public class PestDestroyer {
             String firstPlot = runtime.navigation.plotQueue.get(0);
             if (PestDiscoDestinationManager.matchesPlot(firstPlot)) {
                 if (CommandUtils.isFreshKnownPlotChat(firstPlot, 15_000L) || plotsEqual(firstPlot, currentPlot)) {
-                    ClientUtils.sendDebugMessage(client,
-                            "[PestDestroyer] Disco destination confirmed on plot " + firstPlot
+                    ClientUtils.sendDebugMessage("[PestDestroyer] Disco destination confirmed on plot " + firstPlot
                                     + ". Skipping initial plot TP.");
                     runtime.navigation.trustedPlot = firstPlot;
                     runtime.navigation.trustedPlotExpiresAt = System.currentTimeMillis() + 120_000;
@@ -492,8 +491,7 @@ public class PestDestroyer {
                     return;
                 }
 
-                ClientUtils.sendDebugMessage(client,
-                        "[PestDestroyer] Disco destination active on plot " + firstPlot + ". Forcing initial plot TP.");
+                ClientUtils.sendDebugMessage("[PestDestroyer] Disco destination active on plot " + firstPlot + ". Forcing initial plot TP.");
                 runtime.state = State.TELEPORT_TO_PLOT;
                 return;
             }
@@ -511,8 +509,7 @@ public class PestDestroyer {
             } else {
                 // Already on the selected first plot - check if we need to AOTV to roof.
                 if (PestAotvManager.shouldDoAotvOnCurrentPlot(client, currentPlot, true)) {
-                    ClientUtils.sendDebugMessage(client,
-                            "[PestDestroyer] Already on plot " + currentPlot + ", but AOTV to roof needed.");
+                    ClientUtils.sendDebugMessage("[PestDestroyer] Already on plot " + currentPlot + ", but AOTV to roof needed.");
                     runtime.state = State.AOTV_TO_ROOF;
                     PestAotvManager.isSneakingForAotv = true; // Set flag early to prevent tick handler skip
                     MacroWorkerThread.getInstance().submit("PestAotv-Roof-Start-" + currentPlot, () -> {
@@ -562,7 +559,7 @@ public class PestDestroyer {
             ClientUtils.setKeyMappingState(client.options.keyAttack, false);
             ClientUtils.setKeyMappingState(client.options.keyShift, false);
         }
-        ClientUtils.sendDebugMessage(client, "[PestDestroyer] Stopped.");
+        ClientUtils.sendDebugMessage("[PestDestroyer] Stopped.");
     }
 
     public static void reset() {
@@ -617,7 +614,8 @@ public class PestDestroyer {
     /**
      * Called every client tick from the main update loop.
      */
-    public static void update(Minecraft client) {
+    public static void update() {
+        Minecraft client = Minecraft.getInstance();
         if (!runtime.active || client.player == null || client.level == null)
             return;
 
@@ -625,8 +623,8 @@ public class PestDestroyer {
             RotationManager.cancelRotation();
         }
 
-        if (ClientUtils.isInventoryScreenOpen(client)) {
-            ClientUtils.forceReleaseMovementKeys(client);
+        if (ClientUtils.isInventoryScreenOpen()) {
+            ClientUtils.forceReleaseMovementKeys();
             return;
         }
 
@@ -653,7 +651,7 @@ public class PestDestroyer {
                 }
 
                 if (allAir) {
-                    ClientUtils.sendDebugMessage(client, "[PestDestroyer] AOTV Success: 20 blocks of air detected above.");
+                    ClientUtils.sendDebugMessage("[PestDestroyer] AOTV Success: 20 blocks of air detected above.");
                     runtime.aotvStartY = Double.NaN;
                     PestAotvManager.isSneakingForAotv = false;
                     ClientUtils.setKeyMappingState(client.options.keyShift, false);
@@ -664,16 +662,16 @@ public class PestDestroyer {
 
                 // Increased timeout (2.0s) to allow for multiple rapid teleports if the roof is thick/far
                 if (System.currentTimeMillis() - runtime.stateEnteredAt > 2000) {
-                    ClientUtils.sendDebugMessage(client, "[PestDestroyer] AOTV timed out after 2.0s. Issuing /plottp to recover.");
+                    ClientUtils.sendDebugMessage("[PestDestroyer] AOTV timed out after 2.0s. Issuing /plottp to recover.");
                     runtime.aotvStartY = Double.NaN;
                     PestAotvManager.isSneakingForAotv = false;
                     ClientUtils.setKeyMappingState(client.options.keyShift, false);
                     ClientUtils.setKeyMappingState(client.options.keyUse, false);
                     // Always issue /plottp to the current plot, even if already there
-                    String currentPlot = ClientUtils.getCurrentPlot(client);
+                    String currentPlot = ClientUtils.getCurrentPlot();
                     if (currentPlot != null && !currentPlot.isEmpty()) {
                         runtime.navigation.plotTpWindow = CommandUtils.beginChatWindow();
-                        CommandUtils.initiatePlotTp(client, currentPlot);
+                        CommandUtils.initiatePlotTp(currentPlot);
                         runtime.navigation.lastTargetPlot = currentPlot;
                         runtime.navigation.plotTpSent = true;
                         runtime.stateEnteredAt = System.currentTimeMillis();
@@ -718,15 +716,13 @@ public class PestDestroyer {
             if (runtime.zeroPestTabTicks >= ZERO_PEST_TAB_CONFIRM_TICKS) {
                 ClientUtils.setKeyMappingState(client.options.keyUse, false);
                 ClientUtils.setKeyMappingState(client.options.keyDown, false);
-                ClientUtils.sendDebugMessage(client,
-                        "PestDestroyer: tablist reports " + getAliveFinishReason(aliveNow) + ". Finishing.");
+                ClientUtils.sendDebugMessage("PestDestroyer: tablist reports " + getAliveFinishReason(aliveNow) + ". Finishing.");
                 finish(client);
                 return;
             }
         } else {
             if (aliveNow >= 0 && shouldFinishForAliveCount(client, aliveNow) && inStartupGrace && runtime.zeroPestTabTicks == 0) {
-                ClientUtils.sendDebugMessage(client,
-                        "PestDestroyer: ignoring finish-level tab reading during startup grace.");
+                ClientUtils.sendDebugMessage("PestDestroyer: ignoring finish-level tab reading during startup grace.");
             }
             runtime.zeroPestTabTicks = 0;
         }
@@ -750,7 +746,7 @@ public class PestDestroyer {
                     if (runtime.state == State.CHECK_NEXT
                             || runtime.state == State.GET_LOCATION
                             || runtime.state == State.FLY_TO_WAYPOINT) {
-                        ClientUtils.sendDebugMessage(client, "[PestDestroyer] Plot " + currentPlot
+                        ClientUtils.sendDebugMessage("[PestDestroyer] Plot " + currentPlot
                                 + " no longer first in tab. Leaving immediately for " + firstPlot);
                         runtime.navigation.plotQueue.clear();
                         runtime.navigation.plotQueue.addAll(infested);
@@ -761,8 +757,7 @@ public class PestDestroyer {
                     }
                 }
             } else if (!rawInfested.isEmpty() && shouldFinishForAliveCount(client, aliveNow)) {
-                ClientUtils.sendDebugMessage(client,
-                        "PestDestroyer: only skipped leave-one plots remain. Finishing.");
+                ClientUtils.sendDebugMessage("PestDestroyer: only skipped leave-one plots remain. Finishing.");
                 finish(client);
                 return;
             }
@@ -770,7 +765,7 @@ public class PestDestroyer {
 
         // Global stuck timeout
         if (System.currentTimeMillis() - runtime.activatedAt > STUCK_TIMEOUT_MS) {
-            dev.aether.util.ClientUtils.sendMessage(client, "\u00A7cPest destroyer timed out after 5 minutes. Returning to farm.", false);
+            ClientUtils.sendMessage("\u00A7cPest destroyer timed out after 5 minutes. Returning to farm.", false);
             finish(client);
             return;
         }
@@ -894,8 +889,7 @@ public class PestDestroyer {
         ClientUtils.setKeyMappingState(client.options.keyAttack, false);
         ClientUtils.setKeyMappingState(client.options.keyUp, false);
         ClientUtils.setKeyMappingState(client.options.keyDown, false);
-        ClientUtils.sendDebugMessage(client,
-                "PestDestroyer: roof detected during cleaning. Pausing navigation for roof AOTV.");
+        ClientUtils.sendDebugMessage("PestDestroyer: roof detected during cleaning. Pausing navigation for roof AOTV.");
         startRoofAotv(client, currentPlot, returnState, "PestAotv-Roof-Periodic-" + currentPlot);
         return true;
     }
@@ -961,15 +955,14 @@ public class PestDestroyer {
     private static void handleEquipVacuum(Minecraft client) {
         int slot = findVacuumHotbarSlot(client);
         if (slot == -1) {
-            dev.aether.util.ClientUtils.sendMessage(client, "\u00A7cNo vacuum found in hotbar. Aborting pest destroyer.", false);
+            ClientUtils.sendMessage("\u00A7cNo vacuum found in hotbar. Aborting pest destroyer.", false);
             finish(client);
             return;
         }
         runtime.vacuumSlot = slot;
         detectVacuumRange(client, slot);
         client.execute(() -> FailsafeManager.selectHotbarSlot(client, runtime.vacuumSlot));
-        ClientUtils.sendDebugMessage(client,
-                "[PestDestroyer] Equipped vacuum (slot " + runtime.vacuumSlot + ", range " + runtime.vacuumRange + ")");
+        ClientUtils.sendDebugMessage("[PestDestroyer] Equipped vacuum (slot " + runtime.vacuumSlot + ", range " + runtime.vacuumRange + ")");
 
         if (isOnDiscoDestinationPlot(client)) {
             runtime.navigation.discoTargetReached = true;
@@ -983,7 +976,7 @@ public class PestDestroyer {
         } else if (client.player.getAbilities().flying) {
             setState(State.CHECK_NEXT);
         } else {
-            dev.aether.util.ClientUtils.sendMessage(client, "\u00A7cCannot fly. Aborting pest destroyer.", false);
+            ClientUtils.sendMessage("\u00A7cCannot fly. Aborting pest destroyer.", false);
             finish(client);
         }
     }
@@ -1076,19 +1069,17 @@ public class PestDestroyer {
             Set<String> rawInfested = PestManager.getInfestedPlotsFromTab(client);
             if (rawInfested.isEmpty()) {
                 if (System.currentTimeMillis() - runtime.activatedAt < STARTUP_FINISH_GRACE_MS) {
-                    ClientUtils.sendDebugMessage(client,
-                            "[PestDestroyer] Empty infested-plot tab data during startup grace. Retrying location scan.");
+                    ClientUtils.sendDebugMessage("[PestDestroyer] Empty infested-plot tab data during startup grace. Retrying location scan.");
                     setState(State.GET_LOCATION);
                     return;
                 }
-                ClientUtils.sendDebugMessage(client, "[PestDestroyer] No infested plots in tab. Finshing.");
+                ClientUtils.sendDebugMessage("[PestDestroyer] No infested plots in tab. Finshing.");
                 finish(client);
                 return;
             }
             Set<String> infested = filterSkippedInfestedPlots(PestDiscoDestinationManager.prioritizePlots(rawInfested));
             if (infested.isEmpty()) {
-                ClientUtils.sendDebugMessage(client,
-                        "PestDestroyer: all remaining infested plots are skipped leave-one plots. Finishing.");
+                ClientUtils.sendDebugMessage("PestDestroyer: all remaining infested plots are skipped leave-one plots. Finishing.");
                 finish(client);
                 return;
             }
@@ -1106,7 +1097,7 @@ public class PestDestroyer {
                 runtime.navigation.plotTpSent = false;
                 runtime.navigation.getLocationAttempts = 0;
                 runtime.navigation.waypointCycleCount = 0;
-                ClientUtils.sendDebugMessage(client, "[PestDestroyer] Not on first infested plot (current="
+                ClientUtils.sendDebugMessage("[PestDestroyer] Not on first infested plot (current="
                         + currentPlot + ", target=" + firstPlot + "). Teleporting to Plot " + firstPlot);
                 setState(State.TELEPORT_TO_PLOT);
                 return;
@@ -1114,8 +1105,7 @@ public class PestDestroyer {
 
             // Already on the first infested plot but no pests visible - use firework
             // tracker
-            ClientUtils.sendDebugMessage(client,
-                    "[PestDestroyer] No visible pests on Plot " + firstPlot + ". Using firework tracker...");
+            ClientUtils.sendDebugMessage("[PestDestroyer] No visible pests on Plot " + firstPlot + ". Using firework tracker...");
             setState(State.GET_LOCATION);
         }
     }
@@ -1163,7 +1153,7 @@ public class PestDestroyer {
             runtime.vacuumSlot = findVacuumHotbarSlot(client);
         }
         if (runtime.vacuumSlot == -1) {
-            ClientUtils.sendMessage(client, "\u00A7cNo vacuum found in hotbar. Aborting pest destroyer.", false);
+            ClientUtils.sendMessage("\u00A7cNo vacuum found in hotbar. Aborting pest destroyer.", false);
             finish(client);
             return;
         }
@@ -1217,8 +1207,7 @@ public class PestDestroyer {
 
     private static void handleDiscoPlotWithoutVisiblePests(Minecraft client) {
         if (shouldResolveDiscoPlotImmediately(client)) {
-            ClientUtils.sendDebugMessage(client,
-                    "PestDestroyer: disco plot locally cleared. Finishing immediately.");
+            ClientUtils.sendDebugMessage("PestDestroyer: disco plot locally cleared. Finishing immediately.");
             finish(client);
             return;
         }
@@ -1335,8 +1324,7 @@ public class PestDestroyer {
         runtime.navigation.discoWalkStarted = false;
         runtime.navigation.discoTargetReached = true;
         runtime.navigation.discoWalkStartedAt = 0L;
-        ClientUtils.sendDebugMessage(client,
-                "PestDestroyer: disco destination suppressed movement state " + runtime.state + ".");
+        ClientUtils.sendDebugMessage("PestDestroyer: disco destination suppressed movement state " + runtime.state + ".");
         setState(State.DISCO_SPIN);
         return true;
     }
@@ -1399,7 +1387,7 @@ public class PestDestroyer {
         runtime.navigation.isCapturingFirework = false;
         runtime.navigation.fireworkCaptureStartedAt = 0L;
         int killed = runtime.killedEntities.size();
-        dev.aether.util.ClientUtils.sendMessage(client, "\u00A7aPest destroyer finished. Tracked " + killed + " pest(s).", false);
+        ClientUtils.sendMessage("\u00A7aPest destroyer finished. Tracked " + killed + " pest(s).", false);
         runtime.active = false;
         runtime.state = State.IDLE;
         runtime.currentTarget = null;
@@ -1490,8 +1478,7 @@ public class PestDestroyer {
         }
 
         runtime.navigation.leaveOneSkippedPlots.add(normalizedPlot);
-        ClientUtils.sendDebugMessage(client,
-                "PestDestroyer: leaving one pest alive on whitelisted plot " + currentPlot + ".");
+        ClientUtils.sendDebugMessage("PestDestroyer: leaving one pest alive on whitelisted plot " + currentPlot + ".");
         moveToNextActivePlotOrFinish(client);
         return true;
     }
@@ -1525,8 +1512,7 @@ public class PestDestroyer {
         String nextPlot = runtime.navigation.plotQueue.get(0);
         String currentPlot = getEffectivePlot(client);
         if (!plotsEqual(nextPlot, currentPlot)) {
-            ClientUtils.sendDebugMessage(client,
-                    "PestDestroyer: moving from skipped plot " + currentPlot + " to plot " + nextPlot + ".");
+            ClientUtils.sendDebugMessage("PestDestroyer: moving from skipped plot " + currentPlot + " to plot " + nextPlot + ".");
             setState(State.TELEPORT_TO_PLOT);
             return;
         }
@@ -1657,7 +1643,7 @@ public class PestDestroyer {
         runtime.killVacuumHoldStartedAt = 0L;
         runtime.killVacuumRetryPressAt = now + KILL_USE_RETRY_RELEASE_MS;
         runtime.killVacuumReleaseUntil = runtime.killVacuumRetryPressAt + KILL_USE_RETRY_CLICK_HOLD_MS;
-        ClientUtils.sendDebugMessage(client, "PestDestroyer: retrying vacuum use");
+        ClientUtils.sendDebugMessage("PestDestroyer: retrying vacuum use");
         return true;
     }
 
@@ -1709,8 +1695,7 @@ public class PestDestroyer {
         runtime.navigation.getLocationAttempts = 0;
         resetRotationForTargetHandoff();
         double dist = client.player.distanceTo(pest);
-        ClientUtils.sendDebugMessage(client,
-                "[PestDestroyer] Found pest at " + formatPos(pest.position())
+        ClientUtils.sendDebugMessage("[PestDestroyer] Found pest at " + formatPos(pest.position())
                         + " (dist: " + String.format("%.1f", dist) + ")");
 
         if (isLockedOnDiscoDestinationPlot(client)) {
@@ -1731,8 +1716,7 @@ public class PestDestroyer {
         } else if (dist > AOTV_RANGE * AOTV_GAP_MULTIPLIER && runtime.aotvSlot != -1 && AetherConfig.PEST_AOTV_BETWEEN.get()) {
             // Distance is too large for pathfinding - use AOTV to close gap
             runtime.aotvUseCount = 0;
-            ClientUtils.sendDebugMessage(client,
-                    "[PestDestroyer] Distance too large (" + String.format("%.1f", dist)
+            ClientUtils.sendDebugMessage("[PestDestroyer] Distance too large (" + String.format("%.1f", dist)
                             + "). Using AOTV to close gap.");
             setState(State.AOTV_BETWEEN_PESTS);
         } else {
@@ -1874,8 +1858,7 @@ public class PestDestroyer {
             return false;
         }
         if (isLockedOnDiscoDestinationPlot(client)) {
-            ClientUtils.sendDebugMessage(client,
-                    "PestDestroyer: disco pest death detected. Finishing immediately.");
+            ClientUtils.sendDebugMessage("PestDestroyer: disco pest death detected. Finishing immediately.");
             finish(client);
             return true;
         }
