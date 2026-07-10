@@ -217,7 +217,7 @@ public final class AetherAutomationTickHandler {
                 AetherConfig.PICK_UP_STASH_DELAY_MIN.get(),
                 AetherConfig.PICK_UP_STASH_DELAY_MAX.get())) {
             lastStashPickupTime = now;
-            ClientUtils.sendCommand(client, "/pickupstash");
+            ClientUtils.sendCommand("/pickupstash");
         }
     }
 

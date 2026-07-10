@@ -2,8 +2,6 @@ package dev.aether.config;
 
 import dev.aether.bootstrap.AetherBootstrapHooks;
 import dev.aether.util.ClientUtils;
-import net.minecraft.client.Minecraft;
-
 import java.util.concurrent.ThreadLocalRandom;
 
 public final class ConfigHelpers {
@@ -22,17 +20,17 @@ public final class ConfigHelpers {
         return ThreadLocalRandom.current().nextInt(lower, upper + 1);
     }
 
-    public static void executePlotTpRewarp(Minecraft client) {
+    public static void executePlotTpRewarp() {
         if (AetherConfig.ENABLE_PLOT_TP_REWARP.get()) {
-            executePlotTpRewarp(client, AetherConfig.PLOT_TP_NUMBER.get());
+            executePlotTpRewarp(AetherConfig.PLOT_TP_NUMBER.get());
         }
     }
 
-    public static void executePlotTpRewarp(Minecraft client, String plotNumber) {
-        executeRewarpCommand(client, RewarpMode.PLOT_TP, plotNumber);
+    public static void executePlotTpRewarp(String plotNumber) {
+        executeRewarpCommand(RewarpMode.PLOT_TP, plotNumber);
     }
 
-    public static void executeRewarpCommand(Minecraft client, RewarpMode mode, String plotNumber) {
+    public static void executeRewarpCommand(RewarpMode mode, String plotNumber) {
         RewarpMode resolvedMode = mode == null ? RewarpMode.FLY : mode;
         if (!resolvedMode.usesCommand()) {
             return;
@@ -41,9 +39,9 @@ public final class ConfigHelpers {
         String sanitizedPlotNumber = plotNumber == null || plotNumber.isBlank() ? "0" : plotNumber.trim();
         AetherBootstrapHooks.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
         if (resolvedMode == RewarpMode.WARP_GARDEN) {
-            ClientUtils.sendCommand(client, "/warp garden");
+            ClientUtils.sendCommand("/warp garden");
         } else {
-            ClientUtils.sendCommand(client, "/plottp " + sanitizedPlotNumber);
+            ClientUtils.sendCommand("/plottp " + sanitizedPlotNumber);
         }
     }
 

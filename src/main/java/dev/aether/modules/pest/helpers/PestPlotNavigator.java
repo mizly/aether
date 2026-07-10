@@ -102,7 +102,7 @@ final class PestPlotNavigator {
             return navigationState.trustedPlot;
         }
 
-        String score = ClientUtils.getCurrentPlot(client);
+        String score = ClientUtils.getCurrentPlot();
         if (score != null && !score.equals("Unknown")) {
             return score;
         }

@@ -77,10 +77,7 @@ public class ClientUtils {
     }
 
     public static void sendMessage(String message, boolean overlay) {
-        sendMessage(Minecraft.getInstance(), message, overlay);
-    }
-
-    public static void sendMessage(Minecraft client, String message, boolean overlay) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
         }
@@ -101,10 +98,7 @@ public class ClientUtils {
     }
 
     public static void sendDebugMessage(String message) {
-        sendDebugMessage(Minecraft.getInstance(), message);
-    }
-
-    public static void sendDebugMessage(Minecraft client, String message) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
         }
@@ -151,8 +145,8 @@ public class ClientUtils {
                 .trim();
     }
 
-
-    public static void sendCommand(Minecraft client, String cmd) {
+    public static void sendCommand(String cmd) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || cmd == null || cmd.isBlank()) {
             return;
         }
@@ -178,7 +172,8 @@ public class ClientUtils {
         }), delayMs, TimeUnit.MILLISECONDS);
     }
 
-    public static void disconnectWithScreen(Minecraft client, Screen screen, Component reason) {
+    public static void disconnectWithScreen(Screen screen, Component reason) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
         }
@@ -193,7 +188,8 @@ public class ClientUtils {
         });
     }
 
-    public static void forceReleaseKeys(Minecraft client) {
+    public static void forceReleaseKeys() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) {
             return;
         }
@@ -217,11 +213,13 @@ public class ClientUtils {
         }
     }
 
-    public static boolean isInventoryScreenOpen(Minecraft client) {
+    public static boolean isInventoryScreenOpen() {
+        Minecraft client = Minecraft.getInstance();
         return client != null && client.screen instanceof AbstractContainerScreen<?>;
     }
 
-    public static void forceReleaseMovementKeys(Minecraft client) {
+    public static void forceReleaseMovementKeys() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null) {
             return;
         }
@@ -235,7 +233,12 @@ public class ClientUtils {
         releaseKeyMapping(client.options.keySprint);
     }
 
-    public static MacroState.Location getCurrentLocation(Minecraft client) {
+    public static MacroState.Location getCurrentLocation() {
+        Minecraft client = Minecraft.getInstance();
+        return getCurrentLocation(client);
+    }
+
+    private static MacroState.Location getCurrentLocation(Minecraft client) {
         if (client.level == null || client.player == null)
             return MacroState.Location.UNKNOWN;
 
@@ -287,7 +290,8 @@ public class ClientUtils {
         return MacroState.Location.HUB;
     }
 
-    public static boolean isSupportedHudArea(Minecraft client) {
+    public static boolean isSupportedHudArea() {
+        Minecraft client = Minecraft.getInstance();
         return isSupportedHudArea(getCurrentLocation(client));
     }
 
@@ -306,7 +310,8 @@ public class ClientUtils {
         return Duration.between(utcTime, contestEnd).toMillis();
     }
 
-    public static long getPurse(Minecraft client) {
+    public static long getPurse() {
+        Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.player == null)
             return 0;
 
@@ -341,7 +346,8 @@ public class ClientUtils {
         return -1;
     }
 
-    public static String getCurrentPlot(Minecraft client) {
+    public static String getCurrentPlot() {
+        Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.player == null)
             return "Unknown";
 
@@ -378,7 +384,7 @@ public class ClientUtils {
         // If we reached here, we couldn't find the "Plot:" line.
         // Let's print all lines to debug if showDebug is on.
         if (AetherConfig.SHOW_DEBUG.get()) {
-            sendDebugMessage(client, "Failed to find Plot in Scoreboard. Lines found:");
+            sendDebugMessage("Failed to find Plot in Scoreboard. Lines found:");
             for (PlayerScoreEntry entry : scores) {
                 String entryName = entry.owner();
                 PlayerTeam team = scoreboard.getPlayersTeam(entryName);
@@ -386,21 +392,22 @@ public class ClientUtils {
                 if (team != null) {
                     fullText = team.getPlayerPrefix().getString() + entryName + team.getPlayerSuffix().getString();
                 }
-                sendDebugMessage(client, " - " + fullText.replaceAll("(?i)\u00A7[0-9A-FK-ORZ]", ""));
+                sendDebugMessage(" - " + fullText.replaceAll("(?i)\u00A7[0-9A-FK-ORZ]", ""));
             }
         }
 
         return "Unknown";
     }
 
-    public static List<String> getSidebarLines(Minecraft client) {
+    public static List<String> getSidebarLines() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.level == null || client.player == null) {
             return List.of();
         }
 
         if (!client.isSameThread()) {
             CompletableFuture<List<String>> future = new CompletableFuture<>();
-            client.execute(() -> future.complete(getSidebarLines(client)));
+            client.execute(() -> future.complete(getSidebarLines()));
             try {
                 return future.get(1, TimeUnit.SECONDS);
             } catch (Exception e) {
@@ -472,7 +479,8 @@ public class ClientUtils {
         Thread.sleep(sleepTime);
     }
 
-    public static void waitForGearAndGui(Minecraft client) {
+    public static void waitForGearAndGui() {
+        Minecraft client = Minecraft.getInstance();
         try {
             long loadoutStart = System.currentTimeMillis();
             while (LoadoutManager.isSwappingLoadout
@@ -480,7 +488,7 @@ public class ClientUtils {
                 Thread.sleep(50);
             }
             if (LoadoutManager.isSwappingLoadout) {
-                sendDebugMessage(client,
+                sendDebugMessage(
                         "\u00A7eWARNING: Loadout swap detection timeout. Force-completing and resuming sequence...");
                 LoadoutManager.forceLoadoutCompletionFailsafe(client);
             }
@@ -496,7 +504,8 @@ public class ClientUtils {
         }
     }
 
-    public static void waitForWardrobeGui(Minecraft client) {
+    public static void waitForWardrobeGui() {
+        Minecraft client = Minecraft.getInstance();
         try {
             long start = System.currentTimeMillis();
             long lastRetry = start;
@@ -509,10 +518,10 @@ public class ClientUtils {
                 long now = System.currentTimeMillis();
                 if (now - lastRetry >= 500) {
                     retryCount++;
-                    sendDebugMessage(client,
+                    sendDebugMessage(
                             "Loadout GUI not detected after " + (now - start)
                                     + "ms. Retrying /loadout (" + retryCount + ")");
-                    client.execute(() -> sendCommand(client, "/loadout"));
+                    client.execute(() -> sendCommand("/loadout"));
                     lastRetry = now;
                 }
                 Thread.sleep(50);
@@ -521,7 +530,8 @@ public class ClientUtils {
         }
     }
 
-    public static boolean waitForYChange(Minecraft client, double startY, long timeoutMs) {
+    public static boolean waitForYChange(double startY, long timeoutMs) {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null)
             return false;
 
@@ -529,7 +539,7 @@ public class ClientUtils {
         while (System.currentTimeMillis() - startTime < timeoutMs) {
             double currentY = client.player.getY();
             if (Math.abs(currentY - startY) > 0.1) {
-                sendDebugMessage(client, "AOTV Y-change detected: " + String.format("%.2f", startY) + " -> " + String.format("%.2f", currentY) + " (+" + (System.currentTimeMillis() - startTime) + "ms)");
+                sendDebugMessage("AOTV Y-change detected: " + String.format("%.2f", startY) + " -> " + String.format("%.2f", currentY) + " (+" + (System.currentTimeMillis() - startTime) + "ms)");
                 return true;
             }
             try {
@@ -538,11 +548,12 @@ public class ClientUtils {
                 break;
             }
         }
-        sendDebugMessage(client, "AOTV Y-change timeout after " + timeoutMs + "ms. startY=" + String.format("%.2f", startY) + " currentY=" + String.format("%.2f", client.player.getY()));
+        sendDebugMessage("AOTV Y-change timeout after " + timeoutMs + "ms. startY=" + String.format("%.2f", startY) + " currentY=" + String.format("%.2f", client.player.getY()));
         return false;
     }
 
-    public static int findAspectOfTheVoidSlot(Minecraft client) {
+    public static int findAspectOfTheVoidSlot() {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null)
             return -1;
 
@@ -559,7 +570,8 @@ public class ClientUtils {
         return -1;
     }
 
-    public static void performShiftRightClick(Minecraft client) {
+    public static void performShiftRightClick() {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.options == null)
             return;
 
@@ -579,7 +591,8 @@ public class ClientUtils {
      * Holds shift, fires one swing packet, and returns - shift is NOT released.
      * The caller must call releaseShiftKey() when done (e.g. after the GUI opens).
      */
-    public static void performShiftLeftClick(Minecraft client) {
+    public static void performShiftLeftClick() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null)
             return;
 
@@ -599,7 +612,8 @@ public class ClientUtils {
         });
     }
 
-    public static void releaseShiftKey(Minecraft client) {
+    public static void releaseShiftKey() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null) return;
         client.execute(() -> {
             setKeyMappingState(client.options.keyShift, false);
@@ -607,11 +621,12 @@ public class ClientUtils {
         });
     }
 
-    public static void performUseClick(Minecraft client) {
-        performUseClick(client, null);
+    public static void performUseClick() {
+        performUseClick(null);
     }
 
-    public static void performUseClick(Minecraft client, Runnable beforePress) {
+    public static void performUseClick(Runnable beforePress) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null) {
             return;
         }
@@ -627,7 +642,8 @@ public class ClientUtils {
                 INPUT_CLICK_HOLD_MS);
     }
 
-    public static void performAttackClickDirect(Minecraft client) {
+    public static void performAttackClickDirect() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null) return;
         client.execute(() -> {
             if (client.player == null) return;
@@ -636,7 +652,8 @@ public class ClientUtils {
         });
     }
 
-    public static void performAttackClick(Minecraft client) {
+    public static void performAttackClick() {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null) {
             return;
         }
@@ -663,7 +680,8 @@ public class ClientUtils {
      * Routes through the screen's slotClicked handler rather than calling
      * gameMode.handleInventoryMouseClick directly.
      */
-    public static void performSlotClick(Minecraft client, AbstractContainerScreen<?> screen, int slotIndex, int mouseButton, ContainerInput type) {
+    public static void performSlotClick(AbstractContainerScreen<?> screen, int slotIndex, int mouseButton, ContainerInput type) {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null || screen.getMenu() == null) return;
         List<Slot> slots = screen.getMenu().slots;
         if (slotIndex < 0 || slotIndex >= slots.size()) return;
@@ -681,7 +699,8 @@ public class ClientUtils {
                         AetherConfig.GUI_CLICK_DELAY_MAX.get());
     }
 
-    public static void performHotbarSlotClick(Minecraft client, int slot) {
+    public static void performHotbarSlotClick(int slot) {
+        Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null || slot < 0 || slot >= client.options.keyHotbarSlots.length) {
             return;
         }
@@ -772,7 +791,8 @@ public class ClientUtils {
         return ((AccessorKeyMapping) mapping).getKey();
     }
 
-    public static void waitForRotationToComplete(Minecraft client, float targetPitch, int rotationTime) {
+    public static void waitForRotationToComplete(float targetPitch, int rotationTime) {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null)
             return;
 

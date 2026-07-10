@@ -72,7 +72,7 @@ public class MacroHudElement extends HudElement {
     @Override public float   getHeight()      { return computeHeight(); }
     @Override public boolean isVisible()      {
         net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-        boolean inSupportedArea = ClientUtils.isSupportedHudArea(mc);
+        boolean inSupportedArea = ClientUtils.isSupportedHudArea();
         return AetherConfig.SHOW_HUD.get() && (inSupportedArea || AetherConfig.SHOW_HUD_OUTSIDE_GARDEN.get());
     }
     @Override public String  getName()        { return "Macro HUD"; }

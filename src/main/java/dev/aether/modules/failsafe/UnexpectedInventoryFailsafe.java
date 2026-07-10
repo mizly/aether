@@ -58,7 +58,7 @@ final class UnexpectedInventoryFailsafe {
             return;
         }
 
-        if (!ClientUtils.isInventoryScreenOpen(client)) {
+        if (!ClientUtils.isInventoryScreenOpen()) {
             inventoryOpenSince = 0L;
             inventoryOpenRandomDelayMs = 0L;
             return;
@@ -97,7 +97,7 @@ final class UnexpectedInventoryFailsafe {
 
         MacroState.State state = MacroStateManager.getCurrentState();
         if ((state != MacroState.State.FARMING && state != MacroState.State.CLEANING)
-                || !ClientUtils.isInventoryScreenOpen(client)
+                || !ClientUtils.isInventoryScreenOpen()
                 || isExpectedInventoryGuiOpen()) {
             return State.IDLE;
         }

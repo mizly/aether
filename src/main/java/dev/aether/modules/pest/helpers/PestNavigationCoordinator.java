@@ -49,7 +49,7 @@ final class PestNavigationCoordinator {
                 return;
             }
 
-            String currentPlot = ClientUtils.getCurrentPlot(client);
+            String currentPlot = ClientUtils.getCurrentPlot();
             boolean forceCurrentPlotTeleport = AetherConfig.PEST_PLOT_TP_FOR_CURRENT_PLOT.get()
                     || PestDiscoDestinationManager.shouldForcePlotTeleport(targetPlot);
             if (targetPlot.equals(currentPlot) && !forceCurrentPlotTeleport) {
@@ -75,7 +75,7 @@ final class PestNavigationCoordinator {
 
             ClientUtils.sendDebugMessage("[PestDestroyer] Teleporting to plot " + targetPlot);
             navigationState.plotTpWindow = CommandUtils.beginChatWindow();
-            CommandUtils.initiatePlotTp(client, targetPlot);
+            CommandUtils.initiatePlotTp(targetPlot);
             navigationState.lastTargetPlot = targetPlot;
             navigationState.plotTpSent = true;
             context.setStateEnteredAt(System.currentTimeMillis());
@@ -334,7 +334,7 @@ final class PestNavigationCoordinator {
 
         if (context.countVisiblePestSkulls(client) == 0
                 && ((AccessorInventory) client.player.getInventory()).getSelected() == context.getVacuumSlot()) {
-            ClientUtils.performUseClick(client);
+            ClientUtils.performUseClick();
             ClientUtils.sendDebugMessage("[PestDestroyer] No skulls visible. Probing vacuum.");
         }
 

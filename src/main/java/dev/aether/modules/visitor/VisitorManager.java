@@ -89,7 +89,7 @@ public class VisitorManager {
                 if (MacroWorkerThread.shouldAbortTask(client))
                     return;
                 ClientUtils.sendDebugMessage("Warping to garden...");
-                CommandUtils.warpGarden(client);
+                CommandUtils.warpGarden();
                 VisitorsMacro.reenableCompactorsIfPending(client);
                 PestReturnManager.isReturningFromPestVisitor = true;
                 if (MacroWorkerThread.shouldAbortTask(client))
@@ -134,7 +134,7 @@ public class VisitorManager {
             GearManager.ensureLoadoutSlot(client, AetherConfig.LOADOUT_SLOT_FARMING.get());
             if (LoadoutManager.isSwappingLoadout) {
                 ClientUtils.sendDebugMessage("finalizeReturnToFarm: Waiting for loadout GUI...");
-                ClientUtils.waitForWardrobeGui(client);
+                ClientUtils.waitForWardrobeGui();
                 ClientUtils.sendDebugMessage("finalizeReturnToFarm: Loadout GUI detected, waiting for swap to complete...");
                 while (LoadoutManager.isSwappingLoadout)
                     MacroWorkerThread.sleep(50);
@@ -146,9 +146,9 @@ public class VisitorManager {
         }
 
 
-        ClientUtils.waitForGearAndGui(client);
+        ClientUtils.waitForGearAndGui();
 
-        ClientUtils.waitForGearAndGui(client);
+        ClientUtils.waitForGearAndGui();
         PestReturnManager.isReturningFromPestVisitor = false;
         PestReturnManager.isReturnToLocationActive = false;
         restartFarmingAfterVisitors(client);

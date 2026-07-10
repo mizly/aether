@@ -210,7 +210,7 @@ public final class PathExecutor {
     public void tick(Minecraft mc) {
         if (mc.player == null) return;
         if (state != State.WALKING && state != State.REPLANNING) return;
-        if (ClientUtils.isInventoryScreenOpen(mc)) {
+        if (ClientUtils.isInventoryScreenOpen()) {
             releaseAll(mc);
             return;
         }

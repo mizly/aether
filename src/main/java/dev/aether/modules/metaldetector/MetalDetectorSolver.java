@@ -440,7 +440,7 @@ public final class MetalDetectorSolver {
         }
 
         faceTarget(client, automationTarget);
-        if (ClientUtils.isInventoryScreenOpen(client)) {
+        if (ClientUtils.isInventoryScreenOpen()) {
             return;
         }
 
@@ -649,7 +649,7 @@ public final class MetalDetectorSolver {
         automationState = AutomationState.OPENING;
         openAttemptTriggered = true;
         phaseStartedAt = System.currentTimeMillis();
-        ClientUtils.performAttackClick(client);
+        ClientUtils.performAttackClick();
     }
 
     private static boolean isWithinAttackRange(Minecraft client, BlockPos target) {

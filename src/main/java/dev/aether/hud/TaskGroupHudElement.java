@@ -128,7 +128,7 @@ public class TaskGroupHudElement extends HudElement {
     @Override
     public boolean isVisible() {
         Minecraft mc = Minecraft.getInstance();
-        boolean inSupportedArea = ClientUtils.isSupportedHudArea(mc);
+        boolean inSupportedArea = ClientUtils.isSupportedHudArea();
         boolean allowedArea = inSupportedArea || AetherConfig.SHOW_HUD_OUTSIDE_GARDEN.get();
         if (!allowedArea) {
             return false;

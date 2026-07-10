@@ -325,7 +325,7 @@ public class PestManager {
             currentInfestedPlots = PestDiscoDestinationManager.prioritizePlots(data.infestedPlots);
             String targetPlot = PestDiscoDestinationManager.selectPrimaryPlot(data.infestedPlots, "0");
             ClientUtils.sendDebugMessage("[PestManager] Tab threshold met. infestedPlots=" + data.infestedPlots
-                            + " targetPlot=" + targetPlot + " currentPlot=" + ClientUtils.getCurrentPlot(client));
+                            + " targetPlot=" + targetPlot + " currentPlot=" + ClientUtils.getCurrentPlot());
             if (startCleaningSequence(client, targetPlot)) {
                 consumeRewarpTrigger();
             }
@@ -457,7 +457,7 @@ public class PestManager {
             predictedAliveCount--;
             lastLocalKillUpdateMs = System.currentTimeMillis();
             ClientUtils.sendDebugMessage("Pest kill detected! Predicted alive: " + predictedAliveCount
-                            + ", currentPlot=" + ClientUtils.getCurrentPlot(client)
+                            + ", currentPlot=" + ClientUtils.getCurrentPlot()
                             + ", whitelistedPlots=" + AetherConfig.LEAVE_ONE_PEST_PLOTS.get());
 
             if (PestDestroyer.isActive() && PestDestroyer.shouldFinishForAliveCount(client, predictedAliveCount)) {

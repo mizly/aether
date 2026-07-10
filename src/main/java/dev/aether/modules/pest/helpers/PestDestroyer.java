@@ -623,8 +623,8 @@ public class PestDestroyer {
             RotationManager.cancelRotation();
         }
 
-        if (ClientUtils.isInventoryScreenOpen(client)) {
-            ClientUtils.forceReleaseMovementKeys(client);
+        if (ClientUtils.isInventoryScreenOpen()) {
+            ClientUtils.forceReleaseMovementKeys();
             return;
         }
 
@@ -668,10 +668,10 @@ public class PestDestroyer {
                     ClientUtils.setKeyMappingState(client.options.keyShift, false);
                     ClientUtils.setKeyMappingState(client.options.keyUse, false);
                     // Always issue /plottp to the current plot, even if already there
-                    String currentPlot = ClientUtils.getCurrentPlot(client);
+                    String currentPlot = ClientUtils.getCurrentPlot();
                     if (currentPlot != null && !currentPlot.isEmpty()) {
                         runtime.navigation.plotTpWindow = CommandUtils.beginChatWindow();
-                        CommandUtils.initiatePlotTp(client, currentPlot);
+                        CommandUtils.initiatePlotTp(currentPlot);
                         runtime.navigation.lastTargetPlot = currentPlot;
                         runtime.navigation.plotTpSent = true;
                         runtime.stateEnteredAt = System.currentTimeMillis();

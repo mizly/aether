@@ -237,7 +237,7 @@ public class PestTrapManager {
                         int releaseSlot = findReleasePestsSlot(finalScreen);
                         if (releaseSlot != -1) {
                             ClientUtils.sendDebugMessage("Clicking 'Release All Pests' button at slot " + releaseSlot);
-                            ClientUtils.performSlotClick(client, finalScreen, releaseSlot, 0, ContainerInput.PICKUP);
+                            ClientUtils.performSlotClick(finalScreen, releaseSlot, 0, ContainerInput.PICKUP);
                         } else {
                             ClientUtils.sendDebugMessage("Could not find 'Release All Pests' button.");
                         }
@@ -368,11 +368,11 @@ public class PestTrapManager {
                         ClientUtils.sendDebugMessage("Refilling trap with " + baitMaterial + " from slot " + inventoryBaitSlot
                                         + " to bait slot " + trapBaitSlot);
 
-                        client.execute(() -> ClientUtils.performSlotClick(client, finalScreen, inventoryBaitSlot, 0,
+                        client.execute(() -> ClientUtils.performSlotClick(finalScreen, inventoryBaitSlot, 0,
                                 ContainerInput.PICKUP));
             MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false));
 
-                        client.execute(() -> ClientUtils.performSlotClick(client, finalScreen, trapBaitSlot, 0,
+                        client.execute(() -> ClientUtils.performSlotClick(finalScreen, trapBaitSlot, 0,
                                 ContainerInput.PICKUP));
             MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false));
 
@@ -428,7 +428,7 @@ public class PestTrapManager {
     }
 
     private static void teleportToTrapPlotIfNeeded(Minecraft client, String plot) throws InterruptedException {
-        String currentPlot = ClientUtils.getCurrentPlot(client);
+        String currentPlot = ClientUtils.getCurrentPlot();
         String freshChatPlot = CommandUtils.getFreshKnownPlotChat();
         boolean scoreboardMatch = plot != null && plot.equalsIgnoreCase(currentPlot);
         boolean chatMatch = plot != null && plot.equalsIgnoreCase(freshChatPlot);
@@ -439,7 +439,7 @@ public class PestTrapManager {
             return;
         }
 
-        CommandUtils.initiatePlotTp(client, plot);
+        CommandUtils.initiatePlotTp(plot);
         MacroWorkerThread.sleep(2000);
     }
 

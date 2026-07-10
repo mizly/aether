@@ -124,7 +124,7 @@ public class PestPrepSwapManager {
         }
 
         ClientUtils.sendDebugMessage("Prep-swap: Waiting for loadout GUI...");
-        ClientUtils.waitForWardrobeGui(client);
+        ClientUtils.waitForWardrobeGui();
         if (!LoadoutManager.loadoutGuiDetected) {
             ClientUtils.sendDebugMessage("\u00A7cPrep-swap: Loadout GUI not detected! Retrying in 1 second...");
             MacroWorkerThread.sleep(1000);
@@ -135,7 +135,7 @@ public class PestPrepSwapManager {
             GearManager.ensureLoadoutSlot(client, AetherConfig.LOADOUT_SLOT_PEST.get());
             if (LoadoutManager.isSwappingLoadout) {
                 ClientUtils.sendDebugMessage("Prep-swap: Retry - Waiting for loadout GUI...");
-                ClientUtils.waitForWardrobeGui(client);
+                ClientUtils.waitForWardrobeGui();
                 if (!LoadoutManager.loadoutGuiDetected) {
                     ClientUtils.sendDebugMessage("\u00A7cPrep-swap: Loadout GUI still not detected after retry! Aborting prep-swap.");
                     prepSwappedForCurrentPestCycle = false;

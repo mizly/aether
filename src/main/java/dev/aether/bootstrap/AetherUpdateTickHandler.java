@@ -21,7 +21,7 @@ public final class AetherUpdateTickHandler {
             }
 
             checkedForCurrentJoin = true;
-            UpdateChecker.checkAndNotify(client);
+            UpdateChecker.checkAndNotify();
         });
     }
 }

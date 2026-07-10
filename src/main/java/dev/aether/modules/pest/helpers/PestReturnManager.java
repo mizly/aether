@@ -100,7 +100,7 @@ public class PestReturnManager {
             ClientUtils.sendDebugMessage("Triggering failsafe: Returning to farming...");
             MacroStateManager.setCurrentState(MacroState.State.FARMING);
             ClientUtils.sendDebugMessage("Failsafe: Warping to garden...");
-            CommandUtils.warpGarden(client);
+            CommandUtils.warpGarden();
             MacroWorkerThread.sleep(250);
             SqueakyMousematManager.armReapplyAttempt();
             client.execute(() -> FarmingMacroManager.enable(client,
@@ -252,7 +252,7 @@ public class PestReturnManager {
 
                 setFinishingStage("warp garden");
                 ClientUtils.sendDebugMessage("Finisher: Warping to garden (Return to Farm)...");
-                dev.aether.util.CommandUtils.warpGarden(client);
+                dev.aether.util.CommandUtils.warpGarden();
                 MacroWorkerThread.sleep(250);
                 if (abortFinisherIfNeeded(client, "post-return warp")) {
                     return;

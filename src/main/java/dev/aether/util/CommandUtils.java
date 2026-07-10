@@ -84,7 +84,7 @@ public class CommandUtils {
      * @param messageSubstring The substring to search for in chat messages
      * @return true if the message was found, false if timeout occurred
      */
-    public static boolean waitForChatMessage(Minecraft client, String messageSubstring) {
+    public static boolean waitForChatMessage(String messageSubstring) {
         return waitForChatMessage(null, messageSubstring, MESSAGE_TIMEOUT_MS);
     }
 
@@ -201,13 +201,13 @@ public class CommandUtils {
      * @param client The Minecraft instance
      * @return true if spawn was set successfully, false if timeout occurred
      */
-    public static boolean setSpawn(Minecraft client) {
+    public static boolean setSpawn() {
         if (shouldSkipSetSpawn()) {
             return true;
         }
 
         ChatWindow window = beginChatWindow();
-        ClientUtils.sendCommand(client, "/setspawn");
+        ClientUtils.sendCommand("/setspawn");
 
         boolean success = waitForChatMessage(window, "Your spawn location has been set!", MESSAGE_TIMEOUT_MS);
 
@@ -224,12 +224,12 @@ public class CommandUtils {
      *
      * @param client The Minecraft instance
      */
-    public static void initiateSetSpawn(Minecraft client) {
+    public static void initiateSetSpawn() {
         if (shouldSkipSetSpawn()) {
             return;
         }
 
-        ClientUtils.sendCommand(client, "/setspawn");
+        ClientUtils.sendCommand("/setspawn");
     }
 
     /**
@@ -272,14 +272,15 @@ public class CommandUtils {
      * @param client The Minecraft instance
      * @return true if warp was successful, false if timeout occurred
      */
-    public static boolean warpGarden(Minecraft client) {
+    public static boolean warpGarden() {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null)
             return false;
 
         net.minecraft.world.phys.Vec3 startPos = client.player.position();
         ChatWindow window = beginChatWindow();
         FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
-        ClientUtils.sendCommand(client, "/warp garden");
+        ClientUtils.sendCommand("/warp garden");
 
         long startTime = System.currentTimeMillis();
         while (System.currentTimeMillis() - startTime < MESSAGE_TIMEOUT_MS) {
@@ -293,7 +294,7 @@ public class CommandUtils {
             if (client.player != null) {
                 double dist = client.player.position().distanceTo(startPos);
                 if (dist > 10) {
-                    MacroState.Location loc = ClientUtils.getCurrentLocation(client);
+                    MacroState.Location loc = ClientUtils.getCurrentLocation();
                     if (loc == MacroState.Location.GARDEN) {
                         ClientUtils.sendDebugMessage("/warp garden success (pos fallback, dist: " + String.format("%.1f", dist) + ")");
                         return true;
@@ -318,9 +319,9 @@ public class CommandUtils {
      *
      * @param client The Minecraft instance
      */
-    public static void initiateWarpGarden(Minecraft client) {
+    public static void initiateWarpGarden() {
         FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
-        ClientUtils.sendCommand(client, "/warp garden");
+        ClientUtils.sendCommand("/warp garden");
     }
 
     /**
@@ -345,7 +346,8 @@ public class CommandUtils {
      * @param plotNumber The plot number to warp to
      * @return true if warp was successful, false if timeout occurred
      */
-    public static boolean plotTp(Minecraft client, String plotNumber) {
+    public static boolean plotTp(String plotNumber) {
+        Minecraft client = Minecraft.getInstance();
         if (client.player == null)
             return false;
 
@@ -353,7 +355,7 @@ public class CommandUtils {
         ChatWindow window = beginChatWindow();
         if (System.currentTimeMillis() - lastPlotTpTime > 5000) {
             FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
-            ClientUtils.sendCommand(client, "/plottp " + plotNumber);
+            ClientUtils.sendCommand("/plottp " + plotNumber);
             lastPlotTpTime = System.currentTimeMillis();
         } else {
             ClientUtils.sendDebugMessage("Skipping plottp (cooldown)");
@@ -394,10 +396,10 @@ public class CommandUtils {
      * @param client     The Minecraft instance
      * @param plotNumber The plot number to warp to
      */
-    public static void initiatePlotTp(Minecraft client, String plotNumber) {
+    public static void initiatePlotTp(String plotNumber) {
         if (System.currentTimeMillis() - lastPlotTpTime > 1000) {
             FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
-            ClientUtils.sendCommand(client, "/plottp " + plotNumber);
+            ClientUtils.sendCommand("/plottp " + plotNumber);
             lastPlotTpTime = System.currentTimeMillis();
         } else {
             ClientUtils.sendDebugMessage("Skipping initiatePlotTp (cooldown)");

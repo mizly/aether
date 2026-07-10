@@ -148,7 +148,7 @@ public final class FailsafeTestManager {
             return;
         }
 
-        ClientUtils.performHotbarSlotClick(client, zeroBasedSlot);
+        ClientUtils.performHotbarSlotClick(zeroBasedSlot);
         ClientUtils.sendMessage("\u00A7eSwitched hotbar to slot " + (zeroBasedSlot + 1) + ".", false);
     }
 

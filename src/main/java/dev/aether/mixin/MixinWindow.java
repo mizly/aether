@@ -14,6 +14,6 @@ public abstract class MixinWindow {
             at = @At("RETURN")
     )
     private void aether$syncPipWindowMode(boolean tick, CallbackInfo ci) {
-        PipManager.render(Minecraft.getInstance());
+        PipManager.render();
     }
 }

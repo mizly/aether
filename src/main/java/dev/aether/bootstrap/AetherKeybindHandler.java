@@ -56,11 +56,11 @@ public final class AetherKeybindHandler {
             // FreecamManager (like Freelook), so they are not consumed here.
 
             while (AetherKeybindRegistry.getPipKey().consumeClick()) {
-                PipManager.toggle(client);
+                PipManager.toggle();
             }
 
             while (AetherKeybindRegistry.getUngrabMouseKey().consumeClick()) {
-                UngrabMouseManager.toggle(client);
+                UngrabMouseManager.toggle();
             }
         });
     }
@@ -99,7 +99,7 @@ public final class AetherKeybindHandler {
         if (!AetherConfig.PERSIST_SESSION_TIMER.get()) {
             DynamicRestManager.reset();
         }
-        MacroStateManager.stopMacro(client);
+        MacroStateManager.stopMacro();
     }
 
     public static void startFarmingMacro(Minecraft client) {

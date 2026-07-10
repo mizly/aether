@@ -58,7 +58,7 @@ public class BoosterCookieManager {
             }
 
             if (foundSlotIdx != -1) {
-                dev.aether.util.ClientUtils.performSlotClick(client, screen, foundSlotIdx, 0, ContainerInput.QUICK_MOVE);
+                dev.aether.util.ClientUtils.performSlotClick(screen, foundSlotIdx, 0, ContainerInput.QUICK_MOVE);
                 interactionTime = now;
             }
         }

@@ -422,7 +422,7 @@ final class TaskHudStatusProvider {
             return TaskStatusRow.disabled("GUI Opened", "failsafe disabled");
         }
 
-        String guiDetail = ClientUtils.isInventoryScreenOpen(client)
+        String guiDetail = ClientUtils.isInventoryScreenOpen()
                 ? "Unexpected inventory GUI is currently open"
                 : "No unexpected inventory GUI detected";
 

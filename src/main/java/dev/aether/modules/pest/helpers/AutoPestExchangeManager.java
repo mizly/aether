@@ -164,7 +164,7 @@ public final class AutoPestExchangeManager {
                 return;
 
             if (!AetherConfig.AUTO_PEST_USE_ABIPHONE.get()) {
-                if (!CommandUtils.setSpawn(client)) {
+                if (!CommandUtils.setSpawn()) {
                     msg(client, "\u00A7c/setspawn failed before pest exchange. Returning to farm.");
                     return;
                 }
@@ -179,7 +179,7 @@ public final class AutoPestExchangeManager {
                 return;
 
             if (!AetherConfig.AUTO_PEST_USE_ABIPHONE.get()) {
-                if (!CommandUtils.warpGarden(client)) {
+                if (!CommandUtils.warpGarden()) {
                     msg(client, "\u00A7c/warp garden failed after pest exchange.");
                     canResumeFarming = false;
                     return;

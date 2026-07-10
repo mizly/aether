@@ -158,7 +158,7 @@ public class JunkManager {
 
     private static void triggerAutomaticDrop(Minecraft client, int count) {
         ClientUtils.sendMessage("\u00A7eJunk detected (" + count + " items), preparing to drop...", false);
-        ClientUtils.forceReleaseKeys(client);
+        ClientUtils.forceReleaseKeys();
         isPreparingToDrop = true;
         isDropping = false;
 
@@ -174,10 +174,10 @@ public class JunkManager {
                 MacroWorkerThread.sleep(400); // Small safety delay after stop
 
                 // /setspawn before warping
-                dev.aether.util.CommandUtils.setSpawn(client);
+                dev.aether.util.CommandUtils.setSpawn();
 
                 // /plottp
-                dev.aether.util.CommandUtils.plotTp(client, AetherConfig.DROP_JUNK_PLOT_TP.get());
+                dev.aether.util.CommandUtils.plotTp(AetherConfig.DROP_JUNK_PLOT_TP.get());
                 MacroWorkerThread.sleep(250);
 
                 if (!isPreparingToDrop)
@@ -231,7 +231,7 @@ public class JunkManager {
         }
 
         if (junkSlot != -1) {
-            ClientUtils.performSlotClick(client, screen, junkSlot, 1, ContainerInput.THROW);
+            ClientUtils.performSlotClick(screen, junkSlot, 1, ContainerInput.THROW);
             interactionTime = now;
             noJunkStartTime = 0;
         } else {
@@ -258,10 +258,10 @@ public class JunkManager {
 
         MacroWorkerThread.getInstance().submit("JunkDrop-Finish", () -> {
             try {
-                dev.aether.util.CommandUtils.warpGarden(client);
+                dev.aether.util.CommandUtils.warpGarden();
                 MacroWorkerThread.sleep(250);
 
-                ClientUtils.waitForGearAndGui(client);
+                ClientUtils.waitForGearAndGui();
                 if (MacroStateManager.getCurrentState() == MacroState.State.FARMING) {
                     client.execute(() -> {
                         GearManager.swapToFarmingTool(client);

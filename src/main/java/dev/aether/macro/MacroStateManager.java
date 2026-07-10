@@ -179,6 +179,10 @@ public class MacroStateManager {
         stopMacro(client, "Macro stopped by user");
     }
 
+    public static void stopMacro() {
+        stopMacro(Minecraft.getInstance());
+    }
+
     public static void stopMacro(Minecraft client, String debugReason) {
         stopMacro(client, debugReason, true);
     }
@@ -200,7 +204,7 @@ public class MacroStateManager {
             });
         }
         setCurrentState(MacroState.State.OFF);
-        ClientUtils.forceReleaseKeys(client);
+        ClientUtils.forceReleaseKeys();
         ClientUtils.sendDebugMessage(debugReason);
         PestManager.reset();
         PestExchangeManager.stop();

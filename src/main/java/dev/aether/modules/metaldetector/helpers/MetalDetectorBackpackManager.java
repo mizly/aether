@@ -156,7 +156,7 @@ public final class MetalDetectorBackpackManager {
         }
 
         ClientUtils.sendDebugMessage("MetalDetectorBackpack: opening storage");
-        ClientUtils.sendCommand(client, "/st");
+        ClientUtils.sendCommand("/st");
         markActionPerformed();
         phase = Phase.WAITING_STORAGE_MENU;
         phaseStartedAt = System.currentTimeMillis();
@@ -219,7 +219,7 @@ public final class MetalDetectorBackpackManager {
         }
 
         ClientUtils.sendDebugMessage("MetalDetectorBackpack: opening backpack " + current.backpackNumber);
-        ClientUtils.sendCommand(client, "/bp " + current.backpackNumber);
+        ClientUtils.sendCommand("/bp " + current.backpackNumber);
         markActionPerformed();
         phase = Phase.WAITING_BACKPACK_MENU;
         phaseStartedAt = System.currentTimeMillis();
@@ -278,7 +278,7 @@ public final class MetalDetectorBackpackManager {
             return;
         }
 
-        ClientUtils.performSlotClick(client, screen, scavengedSlot, 0, ContainerInput.QUICK_MOVE);
+        ClientUtils.performSlotClick(screen, scavengedSlot, 0, ContainerInput.QUICK_MOVE);
         markActionPerformed();
     }
 

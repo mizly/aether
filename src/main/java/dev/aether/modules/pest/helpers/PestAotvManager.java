@@ -74,7 +74,7 @@ public class PestAotvManager {
         if (AetherConfig.BREAK_BLOCKS_BEFORE_AOTV.get()) {
             Vec3 breakTarget = Vec3.atCenterOf(client.player.blockPosition().above(2));
             client.execute(() -> ClientUtils.lookAt(client.player, breakTarget));
-            ClientUtils.performAttackClick(client);
+            ClientUtils.performAttackClick();
             Thread.sleep(100);
         }
 
@@ -95,7 +95,7 @@ public class PestAotvManager {
         int rotTime = (int) (AetherConfig.ROTATION_TIME.get() * (0.92 + Math.random() * 0.16));
 
         RotationManager.initiateRotation(client, targetPos, rotTime);
-        ClientUtils.waitForRotationToComplete(client, targetMcPitch, rotTime);
+        ClientUtils.waitForRotationToComplete(targetMcPitch, rotTime);
 
         int aotvSlot = GearManager.findAspectOfTheVoidSlot(client);
         if (aotvSlot != -1 && aotvSlot < 9) {
@@ -103,7 +103,7 @@ public class PestAotvManager {
 
             // Capture Y on the main thread (via execute) so visibility is guaranteed,
             // then fire the normal use key path immediately after.
-            ClientUtils.performUseClick(client, () -> {
+            ClientUtils.performUseClick(() -> {
                 PestDestroyer.setAotvStartY(client.player.getY());
                 ClientUtils.sendDebugMessage("[PestAotv] Firing AOTV (slot=" + aotvSlot + ", startY=" + String.format("%.2f", PestDestroyer.getAotvStartY()) + ")");
             });

@@ -241,7 +241,7 @@ public class AutoSellManager {
                 long now = System.currentTimeMillis();
                 long elapsed = now - interactionTime;
                 if (elapsed > 2500 && elapsed < 2700) {
-                    ClientUtils.sendCommand(client, "/boostercookie");
+                    ClientUtils.sendCommand("/boostercookie");
                 } else if (elapsed > 5000) {
                     ClientUtils.sendDebugMessage("AutoSell GUI failed to open after 5s. Finishing...");
                     finishSelling(client);
@@ -279,7 +279,7 @@ public class AutoSellManager {
         wasTriggeredManually = isManual;
         ClientUtils.sendMessage("\u00A7eAuto-selling inventory contents...", false);
 
-        ClientUtils.forceReleaseKeys(client);
+        ClientUtils.forceReleaseKeys();
 
         isPreparingToSell = true;
         isSelling = false;
@@ -316,7 +316,7 @@ public class AutoSellManager {
                     }
                 });
                 MacroWorkerThread.sleep(200);
-                ClientUtils.sendCommand(client, "/boostercookie");
+                ClientUtils.sendCommand("/boostercookie");
 
                 while (isSelling && !shouldAbort()) {
                     MacroWorkerThread.sleep(100);
@@ -367,7 +367,7 @@ public class AutoSellManager {
         wasTriggeredManually = isManual;
         ClientUtils.sendMessage("\u00A7eAuto-selling inventory contents...", false);
 
-        ClientUtils.forceReleaseKeys(client);
+        ClientUtils.forceReleaseKeys();
 
         isPreparingToSell = true;
         isSelling = false;
@@ -466,7 +466,7 @@ public class AutoSellManager {
         if (foundSlotIdx != -1) {
             interactionTime = now;
             awaitingFirstGuiClick = false;
-            ClientUtils.performSlotClick(client, screen, foundSlotIdx, 0, ContainerInput.QUICK_MOVE);
+            ClientUtils.performSlotClick(screen, foundSlotIdx, 0, ContainerInput.QUICK_MOVE);
         } else {
             finishSelling(client);
         }
