@@ -1027,6 +1027,7 @@ public final class AetherConfig {
 
         // -- EXPERIMENTS -----------------------------------------------------------
         public static final BooleanEntry AUTO_EXPERIMENTS_DEBUG = Config.bool("autoExperimentsDebug", false);
+        public static final BooleanEntry AUTO_EXPERIMENTS_STEP = Config.bool("autoExperimentsStep", false);
 
         // -- DEBUG -----------------------------------------------------------------
         public static final BooleanEntry SHOW_DEBUG = Config.bool("showDebug", false);

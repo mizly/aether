@@ -68,6 +68,7 @@ public final class ExperimentsManager {
     private static volatile BlockPos tablePos = null;
     private static volatile Experiment activeExperiment = null;
     private static volatile ExperimentSolver solver = null;
+    private static volatile PendingClick pendingClick = null;
     private static final Set<Experiment> completed = EnumSet.noneOf(Experiment.class);
     private static String lastDebugLine = null;
     private static String lastLoggedTitle = null;
@@ -90,6 +91,10 @@ public final class ExperimentsManager {
     public static void toggleDebug() {
         boolean enabled = !AetherConfig.AUTO_EXPERIMENTS_DEBUG.get();
         AetherConfig.AUTO_EXPERIMENTS_DEBUG.set(enabled);
+        if (enabled && AetherConfig.AUTO_EXPERIMENTS_STEP.get()) {
+            AetherConfig.AUTO_EXPERIMENTS_STEP.set(false);
+            ClientUtils.sendMessage("§7(step mode turned off - debug mode never clicks)", false);
+        }
         AetherConfig.save();
         if (enabled) {
             ClientUtils.sendMessage("§eExperiments debug mode §aON§7 - the mod will only observe and log. "
@@ -97,6 +102,65 @@ public final class ExperimentsManager {
         } else {
             ClientUtils.sendMessage("§eExperiments debug mode §cOFF§7 - clicks will be performed normally.", false);
         }
+    }
+
+    public static void toggleStep() {
+        boolean enabled = !AetherConfig.AUTO_EXPERIMENTS_STEP.get();
+        AetherConfig.AUTO_EXPERIMENTS_STEP.set(enabled);
+        if (enabled && AetherConfig.AUTO_EXPERIMENTS_DEBUG.get()) {
+            AetherConfig.AUTO_EXPERIMENTS_DEBUG.set(false);
+            ClientUtils.sendMessage("§7(debug mode turned off - step mode sends real clicks)", false);
+        }
+        AetherConfig.save();
+        if (enabled) {
+            ClientUtils.sendMessage("§eExperiments step mode §aON§7 - the macro pauses before every click. "
+                    + "Run §f/aether experiments click§7 to send each one, so you control the pacing.", false);
+        } else {
+            ClientUtils.sendMessage("§eExperiments step mode §cOFF§7 - clicks are sent automatically.", false);
+        }
+    }
+
+    public static void confirmPendingClick(Minecraft client) {
+        PendingClick pending = pendingClick;
+        if (pending == null) {
+            ClientUtils.sendMessage("§eNo click is pending.", false);
+            return;
+        }
+        if (!(client.screen instanceof AbstractContainerScreen<?> screen)
+                || pending.slot() >= screen.getMenu().slots.size()) {
+            pendingClick = null;
+            ClientUtils.sendMessage("§cThe menu changed; pending click discarded.", false);
+            return;
+        }
+
+        pendingClick = null;
+        markProgress();
+        nextActionAtMs = System.currentTimeMillis() + ClientUtils.getGuiClickDelayMs(false);
+        ClientUtils.performSlotClick(screen, pending.slot(), 0, ContainerInput.PICKUP);
+        ClientUtils.sendMessage("§aStep: clicked slot " + pending.slot() + " §7(" + pending.reason() + ")", false);
+        if (pending.onSent() != null) {
+            pending.onSent().run();
+        }
+    }
+
+    public static void testClick(Minecraft client, int slot) {
+        if (client == null || client.player == null) {
+            return;
+        }
+        if (!(client.screen instanceof AbstractContainerScreen<?> screen)) {
+            ClientUtils.sendMessage("§cOpen a container menu first, then run testclick.", false);
+            return;
+        }
+        if (slot < 0 || slot >= screen.getMenu().slots.size()) {
+            ClientUtils.sendMessage("§cSlot " + slot + " is out of range - this menu has "
+                    + screen.getMenu().slots.size() + " slots.", false);
+            return;
+        }
+
+        String name = ExperimentSolver.slotName(screen, slot);
+        ClientUtils.performSlotClick(screen, slot, 0, ContainerInput.PICKUP);
+        ClientUtils.sendMessage("§aTest click sent on slot " + slot
+                + (name.isEmpty() ? "" : " §7(" + name + ")"), false);
     }
 
     public static synchronized void start(Minecraft client) {
@@ -189,6 +253,7 @@ public final class ExperimentsManager {
         }
 
         if (client.screen == null) {
+            pendingClick = null;
             if (playing) {
                 onExperimentFinished();
             }
@@ -201,7 +266,8 @@ public final class ExperimentsManager {
             }
         }
 
-        if (!isDebug() && System.currentTimeMillis() - lastProgressAtMs > STALL_TIMEOUT_MS) {
+        if (!isDebug() && pendingClick == null
+                && System.currentTimeMillis() - lastProgressAtMs > STALL_TIMEOUT_MS) {
             stop("§cAuto Experiments stalled for too long. Stopping.");
         }
     }
@@ -332,8 +398,12 @@ public final class ExperimentsManager {
         if (slot < 0 || slot >= screen.getMenu().slots.size()) {
             return;
         }
-        performClick(screen, slot, experiment.menuName + " slot " + slot);
-        activeSolver.onClickPerformed(slot);
+        performClick(screen, slot, experiment.menuName + " slot " + slot, () -> {
+            ExperimentSolver current = solver;
+            if (current != null) {
+                current.onClickPerformed(slot);
+            }
+        });
     }
 
     private static void onExperimentFinished() {
@@ -402,13 +472,35 @@ public final class ExperimentsManager {
     }
 
     private static void performClick(AbstractContainerScreen<?> screen, int slot, String reason) {
+        performClick(screen, slot, reason, null);
+    }
+
+    private static void performClick(AbstractContainerScreen<?> screen, int slot, String reason, Runnable onSent) {
         markProgress();
-        nextActionAtMs = System.currentTimeMillis() + ClientUtils.getGuiClickDelayMs(false);
         if (isDebug()) {
+            nextActionAtMs = System.currentTimeMillis() + ClientUtils.getGuiClickDelayMs(false);
             debugLog("Would click slot " + slot + " §8(" + reason + ")");
+            if (onSent != null) {
+                onSent.run();
+            }
             return;
         }
+
+        if (isStep()) {
+            PendingClick current = pendingClick;
+            if (current == null || current.slot() != slot || !current.reason().equals(reason)) {
+                pendingClick = new PendingClick(slot, reason, onSent);
+                ClientUtils.sendMessage("§eStep: pending click on slot " + slot + " §7(" + reason
+                        + ")§e. Run §f/aether experiments click§e to send it.", false);
+            }
+            return;
+        }
+
+        nextActionAtMs = System.currentTimeMillis() + ClientUtils.getGuiClickDelayMs(false);
         ClientUtils.performSlotClick(screen, slot, 0, ContainerInput.PICKUP);
+        if (onSent != null) {
+            onSent.run();
+        }
     }
 
     private static List<TierOption> parseTiers(Minecraft client, AbstractContainerScreen<?> screen) {
@@ -584,6 +676,10 @@ public final class ExperimentsManager {
         return AetherConfig.AUTO_EXPERIMENTS_DEBUG.get();
     }
 
+    private static boolean isStep() {
+        return AetherConfig.AUTO_EXPERIMENTS_STEP.get();
+    }
+
     private static void logTitleOnce(String title) {
         if (!title.equals(lastLoggedTitle)) {
             lastLoggedTitle = title;
@@ -618,11 +714,15 @@ public final class ExperimentsManager {
         tablePos = null;
         activeExperiment = null;
         solver = null;
+        pendingClick = null;
         completed.clear();
         lastDebugLine = null;
         lastLoggedTitle = null;
     }
 
     private record TierOption(int slot, String name, int rank, int requiredLevels, boolean onCooldown) {
+    }
+
+    private record PendingClick(int slot, String reason, Runnable onSent) {
     }
 }

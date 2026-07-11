@@ -364,7 +364,24 @@ public final class AetherCommandRegistrar {
                                             .executes(ctx -> {
                                                 ExperimentsManager.toggleDebug();
                                                 return 1;
-                                            })))
+                                            }))
+                                    .then(ClientCommands.literal("step")
+                                            .executes(ctx -> {
+                                                ExperimentsManager.toggleStep();
+                                                return 1;
+                                            }))
+                                    .then(ClientCommands.literal("click")
+                                            .executes(ctx -> {
+                                                ExperimentsManager.confirmPendingClick(Minecraft.getInstance());
+                                                return 1;
+                                            }))
+                                    .then(ClientCommands.literal("testclick")
+                                            .then(ClientCommands.argument("slot", IntegerArgumentType.integer(0))
+                                                    .executes(ctx -> {
+                                                        int slot = IntegerArgumentType.getInteger(ctx, "slot");
+                                                        ExperimentsManager.testClick(Minecraft.getInstance(), slot);
+                                                        return 1;
+                                                    }))))
                             .then(ClientCommands.literal("refilltraps")
                                     .executes(ctx -> {
                                         PestTrapManager.startRefill(Minecraft.getInstance());
