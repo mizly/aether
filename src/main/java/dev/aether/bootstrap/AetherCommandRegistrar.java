@@ -13,6 +13,7 @@ import dev.aether.modules.ComposterManager;
 import dev.aether.modules.GreenhouseManager;
 import dev.aether.modules.SupercraftManager;
 import dev.aether.modules.discord.DiscordStatusManager;
+import dev.aether.modules.experiments.ExperimentsManager;
 import dev.aether.modules.forge.ForgeManager;
 import dev.aether.modules.failsafe.FailsafeTestManager;
 import dev.aether.modules.interaction.EntityInteractManager;
@@ -354,6 +355,16 @@ public final class AetherCommandRegistrar {
                                         SupercraftManager.manualTrigger();
                                         return 1;
                                     }))
+                            .then(ClientCommands.literal("experiments")
+                                    .executes(ctx -> {
+                                        ExperimentsManager.toggle(Minecraft.getInstance());
+                                        return 1;
+                                    })
+                                    .then(ClientCommands.literal("debug")
+                                            .executes(ctx -> {
+                                                ExperimentsManager.toggleDebug();
+                                                return 1;
+                                            })))
                             .then(ClientCommands.literal("refilltraps")
                                     .executes(ctx -> {
                                         PestTrapManager.startRefill(Minecraft.getInstance());

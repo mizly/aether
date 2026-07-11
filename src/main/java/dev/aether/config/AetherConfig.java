@@ -1025,6 +1025,9 @@ public final class AetherConfig {
                         DEFAULT_SUPERCRAFT_ITEMS,
                         String.class);
 
+        // -- EXPERIMENTS -----------------------------------------------------------
+        public static final BooleanEntry AUTO_EXPERIMENTS_DEBUG = Config.bool("autoExperimentsDebug", false);
+
         // -- DEBUG -----------------------------------------------------------------
         public static final BooleanEntry SHOW_DEBUG = Config.bool("showDebug", false);
 }
