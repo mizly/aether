@@ -145,7 +145,7 @@ public class HudRegistry {
     // -- Edit-mode helper ------------------------------------------------------
 
     /**
-     * Renders all elements in edit mode.
+     * Renders all enabled elements in edit mode.
      * Must be called <em>within</em> an already-open NVG frame.
      */
     public static void renderEditMode(NVGRenderer nvg) {
@@ -154,6 +154,7 @@ public class HudRegistry {
         }
 
         for (HudElement e : ELEMENTS) {
+            if (!e.isEnabled()) continue;
             e.render(nvg, true);
         }
     }

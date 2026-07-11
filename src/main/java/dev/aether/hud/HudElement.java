@@ -36,6 +36,11 @@ public abstract class HudElement {
     public abstract float   getWidth();
     public abstract float   getHeight();
     public abstract boolean isVisible();
+    /**
+     * Whether the element is enabled in config, ignoring situational conditions
+     * (area, open screen, macro state). Controls presence in the HUD editor.
+     */
+    public boolean isEnabled() { return isVisible(); }
     /** Short display name shown in the HUD editor. */
     public abstract String  getName();
     /** Persist position / scale changes (typically calls {@code AetherConfig.save()}). */
@@ -73,10 +78,10 @@ public abstract class HudElement {
 
     /**
      * Applies position + scale transform, then delegates to {@link #renderElement}.
-     * In edit mode all elements render regardless of {@link #isVisible()}.
+     * In edit mode {@link #isEnabled()} elements render regardless of {@link #isVisible()}.
      */
     public void render(NVGRenderer nvg, boolean editMode) {
-        if (!isVisible() && !editMode) return;
+        if (editMode ? !isEnabled() : !isVisible()) return;
         nvg.save();
         nvg.translate(getX(), getY());
         nvg.scale(getScale(), getScale());

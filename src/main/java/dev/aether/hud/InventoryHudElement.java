@@ -46,8 +46,9 @@ public class InventoryHudElement extends HudElement {
     @Override public void setScale(float s) { }
     @Override public float getWidth() { return computeLayoutWidth(); }
     @Override public float getHeight() { return H; }
+    @Override public boolean isEnabled() { return AetherConfig.SHOW_INVENTORY_HUD.get(); }
     @Override public boolean isVisible() {
-        if (!AetherConfig.SHOW_INVENTORY_HUD.get()) return false;
+        if (!isEnabled()) return false;
         net.minecraft.client.gui.screens.Screen screen = Minecraft.getInstance().screen;
         return screen == null || screen instanceof HudEditScreen;
     }
