@@ -71,7 +71,12 @@ public final class GardenTimeManager {
         try {
             ClientUtils.sendCommand("/desk");
 
-            if (!MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false))) {
+            if (!waitForScreenTitle(client, "desk", 5000L)) {
+                ClientUtils.sendDebugMessage("GardenTimeManager: desk GUI did not open in time.");
+                return false;
+            }
+
+            if (!MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(true))) {
                 return false;
             }
 
@@ -80,7 +85,12 @@ public final class GardenTimeManager {
                 return false;
             }
 
-            if (!MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false))) {
+            if (!waitForScreenTitle(client, "garden time", 5000L)) {
+                ClientUtils.sendDebugMessage("GardenTimeManager: garden time GUI did not open in time.");
+                return false;
+            }
+
+            if (!MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(true))) {
                 return false;
             }
 
@@ -103,6 +113,26 @@ public final class GardenTimeManager {
         } finally {
             switchingGardenTime = false;
         }
+    }
+
+    private static boolean waitForScreenTitle(Minecraft client, String expectedFragment, long timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        String expected = expectedFragment.toLowerCase();
+
+        while (System.currentTimeMillis() < deadline) {
+            if (client.screen instanceof AbstractContainerScreen<?> screen) {
+                String title = screen.getTitle().getString().toLowerCase();
+                if (title.contains(expected)) {
+                    return true;
+                }
+            }
+
+            if (!MacroWorkerThread.sleep(50)) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     private static boolean clickSlot(Minecraft client, int slotId) {
