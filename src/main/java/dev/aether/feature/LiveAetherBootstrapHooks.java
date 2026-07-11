@@ -31,6 +31,7 @@ import dev.aether.ui.MainGUI;
 import dev.aether.util.BpsTracker;
 import dev.aether.util.DelayedBlockBreakTracker;
 import dev.aether.util.NickHiderUtils;
+import dev.aether.util.PingTracker;
 import dev.aether.util.ProgrammaticMovementTracker;
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.KeyMapping;
@@ -324,5 +325,10 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
         if (packet.getParticle().getType() == ParticleTypes.ANGRY_VILLAGER) {
             PestDestroyer.onFireworkParticle(packet.getX(), packet.getY(), packet.getZ());
         }
+    }
+
+    @Override
+    public void onStatsPacketReceived() {
+        PingTracker.onStatsReceived();
     }
 }

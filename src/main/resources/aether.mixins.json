@@ -30,6 +30,7 @@
         "MixinKeyboardHandler",
         "MixinKeyboardInput",
         "MixinClientPacketListener",
+        "MixinClientPacketListenerPing",
         "MixinClientSuggestionProvider",
         "MixinConnectionChannelInitializer",
         "MixinMultiPlayerGameMode",
