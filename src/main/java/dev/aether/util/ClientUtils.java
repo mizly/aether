@@ -721,6 +721,34 @@ public class ClientUtils {
         mapping.setDown(down);
     }
 
+    /**
+     * Re-presses keys the macro is holding programmatically. Vanilla {@code grabMouse()}
+     * calls {@code KeyMapping.setAll()}, which resets bindings to the physical key state
+     * and would drop macro-held keys until the macro's next tick.
+     */
+    public static void reapplyProgrammaticKeyStates(Minecraft client) {
+        if (client == null || client.options == null) {
+            return;
+        }
+
+        reapplyProgrammaticKey(client.options.keyLeft);
+        reapplyProgrammaticKey(client.options.keyRight);
+        reapplyProgrammaticKey(client.options.keyUp);
+        reapplyProgrammaticKey(client.options.keyDown);
+        reapplyProgrammaticKey(client.options.keyShift);
+        reapplyProgrammaticKey(client.options.keySprint);
+        reapplyProgrammaticKey(client.options.keyJump);
+        if (ProgrammaticAttackTracker.isHeld()) {
+            setKeyMappingState(client.options.keyAttack, true);
+        }
+    }
+
+    private static void reapplyProgrammaticKey(KeyMapping mapping) {
+        if (ProgrammaticMovementTracker.isDown(mapping)) {
+            setKeyMappingState(mapping, true);
+        }
+    }
+
     private static void releaseKeyMapping(KeyMapping mapping) {
         setKeyMappingState(mapping, false);
         ProgrammaticMovementTracker.clear(mapping);
