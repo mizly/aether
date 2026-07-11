@@ -2,6 +2,7 @@ package dev.aether.modules.experiments;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.macro.MacroWorkerThread;
+import dev.aether.mixin.AccessorAbstractContainerScreen;
 import dev.aether.mixin.MixinMinecraft;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
@@ -148,7 +149,8 @@ public final class ExperimentsManager {
             return;
         }
         if (!(client.screen instanceof AbstractContainerScreen<?> screen)) {
-            ClientUtils.sendMessage("§cOpen a container menu first, then run testclick.", false);
+            ClientUtils.sendMessage("§cNo container menu is open. Tip: you can't type commands inside a GUI - "
+                    + "hover a slot and press the Experiment Click keybind instead.", false);
             return;
         }
         if (slot < 0 || slot >= screen.getMenu().slots.size()) {
@@ -160,6 +162,31 @@ public final class ExperimentsManager {
         String name = ExperimentSolver.slotName(screen, slot);
         ClientUtils.performSlotClick(screen, slot, 0, ContainerInput.PICKUP);
         ClientUtils.sendMessage("§aTest click sent on slot " + slot
+                + (name.isEmpty() ? "" : " §7(" + name + ")"), false);
+    }
+
+    /** Fired from the GUI keybind: confirms a pending step click, otherwise test-clicks the hovered slot. */
+    public static void onGuiKeybind(Minecraft client, AbstractContainerScreen<?> screen) {
+        if (client == null || client.player == null) {
+            return;
+        }
+
+        if (pendingClick != null) {
+            confirmPendingClick(client);
+            return;
+        }
+
+        Slot hovered = ((AccessorAbstractContainerScreen) screen).getHoveredSlot();
+        if (hovered == null) {
+            ClientUtils.sendMessage("§eHover over a slot, then press the key to test-click it.", false);
+            return;
+        }
+
+        int listIndex = screen.getMenu().slots.indexOf(hovered);
+        String name = listIndex >= 0 ? ExperimentSolver.slotName(screen, listIndex) : "";
+        ((AccessorAbstractContainerScreen) screen).invokeSlotClicked(
+                hovered, hovered.index, 0, ContainerInput.PICKUP);
+        ClientUtils.sendMessage("§aTest click sent on slot " + listIndex
                 + (name.isEmpty() ? "" : " §7(" + name + ")"), false);
     }
 
@@ -491,7 +518,7 @@ public final class ExperimentsManager {
             if (current == null || current.slot() != slot || !current.reason().equals(reason)) {
                 pendingClick = new PendingClick(slot, reason, onSent);
                 ClientUtils.sendMessage("§eStep: pending click on slot " + slot + " §7(" + reason
-                        + ")§e. Run §f/aether experiments click§e to send it.", false);
+                        + ")§e. Press the Experiment Click key to send it.", false);
             }
             return;
         }
