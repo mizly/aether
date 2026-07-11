@@ -178,6 +178,9 @@ public final class AetherBootstrapHooks {
 
         default void onParticlePacket(Minecraft minecraft, ClientboundLevelParticlesPacket packet) {
         }
+
+        default void onStatsPacketReceived() {
+        }
     }
 
     private static final ThreadLocal<Integer> DISPLAY_TRANSFORM_SUSPEND_DEPTH = ThreadLocal.withInitial(() -> 0);
@@ -419,5 +422,9 @@ public final class AetherBootstrapHooks {
 
     public static void onParticlePacket(Minecraft minecraft, ClientboundLevelParticlesPacket packet) {
         hooks.onParticlePacket(minecraft, packet);
+    }
+
+    public static void onStatsPacketReceived() {
+        hooks.onStatsPacketReceived();
     }
 }
