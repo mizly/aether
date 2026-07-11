@@ -106,3 +106,5 @@ that services file** — it is not auto-discovered otherwise. `/aether` opens th
 **Code**
 
 Do not use comments that are over two lines long. There isn't a huge need to add comments to literally every singular thing
+
+Also always kill the gradlew processes once youre done compiling

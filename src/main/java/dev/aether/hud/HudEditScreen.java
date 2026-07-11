@@ -113,6 +113,7 @@ public class HudEditScreen extends Screen {
     /** Draws a small pill label above each element for easy identification. */
     private void renderElementLabels(NVGRenderer nvg) {
         for (HudElement e : HudRegistry.ELEMENTS) {
+            if (!e.isEnabled()) continue;
             float s   = e.getScale();
             float ex  = e.getX();
             float ey  = e.getY();
@@ -187,6 +188,7 @@ public class HudEditScreen extends Screen {
 
             boolean ctrl = (click.modifiers() & GLFW.GLFW_MOD_CONTROL) != 0;
             for (HudElement e : HudRegistry.ELEMENTS) {
+                if (!e.isEnabled()) continue;
                 if (e.isHovered(mx, my)) {
                     activeElement = e;
                     e.startDrag(mx, my, ctrl);
