@@ -126,18 +126,18 @@ public class TaskGroupHudElement extends HudElement {
     }
 
     @Override
-    public boolean isVisible() {
-        Minecraft mc = Minecraft.getInstance();
-        boolean inSupportedArea = ClientUtils.isSupportedHudArea();
-        boolean allowedArea = inSupportedArea || AetherConfig.SHOW_HUD_OUTSIDE_GARDEN.get();
-        if (!allowedArea) {
-            return false;
-        }
+    public boolean isEnabled() {
         return switch (group) {
             case INTERMEDIARIES -> AetherConfig.SHOW_INTERMEDIARIES_HUD.get();
             case MID_FARMING_TASKS -> AetherConfig.SHOW_MID_FARMING_HUD.get();
             case FAILSAFES -> AetherConfig.SHOW_FAILSAFES_HUD.get();
         };
+    }
+
+    @Override
+    public boolean isVisible() {
+        boolean allowedArea = ClientUtils.isSupportedHudArea() || AetherConfig.SHOW_HUD_OUTSIDE_GARDEN.get();
+        return allowedArea && isEnabled();
     }
 
     @Override

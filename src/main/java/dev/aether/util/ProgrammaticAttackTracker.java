@@ -13,6 +13,10 @@ public final class ProgrammaticAttackTracker {
         attackHeld = held && mapping != null;
     }
 
+    public static boolean isHeld() {
+        return attackHeld;
+    }
+
     public static boolean shouldTreatMouseAsGrabbed(Minecraft client) {
         return attackHeld
                 && client != null

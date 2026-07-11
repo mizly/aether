@@ -1,5 +1,6 @@
 package dev.aether.modules.farming;
 
+import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 
 /**
@@ -112,6 +113,7 @@ public final class UngrabMouse {
         mc.execute(() -> {
             if (!mc.mouseHandler.isMouseGrabbed() && mc.screen == null) {
                 mc.mouseHandler.grabMouse();
+                ClientUtils.reapplyProgrammaticKeyStates(mc);
             }
         });
     }
@@ -155,6 +157,7 @@ public final class UngrabMouse {
 
             if (!mc.mouseHandler.isMouseGrabbed() && mc.screen == null) {
                 mc.mouseHandler.grabMouse();
+                ClientUtils.reapplyProgrammaticKeyStates(mc);
             }
         });
     }
