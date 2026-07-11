@@ -8,6 +8,7 @@ import dev.aether.modules.SupercraftManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.inventorymanager.BookCombineManager;
 import dev.aether.modules.inventorymanager.GeorgeManager;
+import dev.aether.modules.pest.helpers.GardenTimeManager;
 import dev.aether.modules.pest.helpers.PestExchangeManager;
 import dev.aether.modules.pest.helpers.PestTrapManager;
 import dev.aether.modules.visitor.VisitorsMacro;
@@ -143,6 +144,7 @@ final class UnexpectedInventoryFailsafe {
                 || SupercraftManager.isRunning()
                 || BookCombineManager.isPreparingToCombine
                 || BookCombineManager.isCombining
+                || GardenTimeManager.isSwitchingGardenTime()
                 || isPestTrapGuiOpen()
                 || VisitorsMacro.isRunning
                 || GeorgeManager.isPreparingToSell

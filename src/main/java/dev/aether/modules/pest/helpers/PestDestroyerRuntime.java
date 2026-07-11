@@ -44,6 +44,7 @@ final class PestDestroyerRuntime {
     long activatedAt = 0L;
     long lastRoofRescanAt = 0L;
     PestDestroyer.State roofAotvReturnState = null;
+    boolean sunsetPestsRestoreNight = false;
 
     int zeroPestTabTicks = 0;
     int targetWithoutSkullTicks = 0;

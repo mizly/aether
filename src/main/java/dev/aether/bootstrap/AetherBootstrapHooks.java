@@ -53,6 +53,12 @@ public final class AetherBootstrapHooks {
         default void onGameRenderEnd() {
         }
 
+        default void renderFailsafeColourFlash() {
+        }
+
+        default void onUserInput() {
+        }
+
         default boolean shouldSuppressVanillaHud(Screen screen) {
             return false;
         }
@@ -172,6 +178,9 @@ public final class AetherBootstrapHooks {
 
         default void onParticlePacket(Minecraft minecraft, ClientboundLevelParticlesPacket packet) {
         }
+
+        default void onStatsPacketReceived() {
+        }
     }
 
     private static final ThreadLocal<Integer> DISPLAY_TRANSFORM_SUSPEND_DEPTH = ThreadLocal.withInitial(() -> 0);
@@ -229,6 +238,14 @@ public final class AetherBootstrapHooks {
 
     public static void onGameRenderEnd() {
         hooks.onGameRenderEnd();
+    }
+
+    public static void renderFailsafeColourFlash() {
+        hooks.renderFailsafeColourFlash();
+    }
+
+    public static void onUserInput() {
+        hooks.onUserInput();
     }
 
     public static boolean shouldSuppressVanillaHud(Screen screen) {
@@ -405,5 +422,9 @@ public final class AetherBootstrapHooks {
 
     public static void onParticlePacket(Minecraft minecraft, ClientboundLevelParticlesPacket packet) {
         hooks.onParticlePacket(minecraft, packet);
+    }
+
+    public static void onStatsPacketReceived() {
+        hooks.onStatsPacketReceived();
     }
 }
