@@ -148,7 +148,7 @@ final class GhostBlockFailsafe {
                 client,
                 action,
                 FailsafeCustomReplayManager.FailsafeReplayType.GHOST_BLOCK,
-                "Farming EXP text disappeared during farming.",
+                "Farming EXP text disappeared during farming. Disable SBA Custom Skill Display if you think this is an error.",
                 "GhostBlockFailsafe: farming EXP text disappeared during farming");
         reset();
     }
