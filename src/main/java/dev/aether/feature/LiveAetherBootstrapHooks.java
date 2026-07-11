@@ -7,6 +7,7 @@ import dev.aether.hud.HudRegistry;
 import dev.aether.bootstrap.AetherBootstrapHooks;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.ReconnectScheduler;
+import dev.aether.modules.failsafe.FailsafeColourFlashManager;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.farming.UngrabMouse;
 import dev.aether.modules.pathfinding.rotation.RotationExecutor;
@@ -30,6 +31,7 @@ import dev.aether.ui.MainGUI;
 import dev.aether.util.BpsTracker;
 import dev.aether.util.DelayedBlockBreakTracker;
 import dev.aether.util.NickHiderUtils;
+import dev.aether.util.PingTracker;
 import dev.aether.util.ProgrammaticMovementTracker;
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.KeyMapping;
@@ -113,6 +115,16 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
     @Override
     public void onGameRenderEnd() {
         HudRegistry.onGuiGraphicsClosed();
+    }
+
+    @Override
+    public void renderFailsafeColourFlash() {
+        FailsafeColourFlashManager.render();
+    }
+
+    @Override
+    public void onUserInput() {
+        FailsafeColourFlashManager.dismiss();
     }
 
     @Override
@@ -313,5 +325,10 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
         if (packet.getParticle().getType() == ParticleTypes.ANGRY_VILLAGER) {
             PestDestroyer.onFireworkParticle(packet.getX(), packet.getY(), packet.getZ());
         }
+    }
+
+    @Override
+    public void onStatsPacketReceived() {
+        PingTracker.onStatsReceived();
     }
 }

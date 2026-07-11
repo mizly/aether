@@ -16,6 +16,7 @@ import dev.aether.modules.pathfinding.pathing.heuristic.IHeuristicStrategy;
 import dev.aether.modules.pathfinding.pathing.heuristic.LinearHeuristicStrategy;
 import dev.aether.modules.pathfinding.pathing.NeighborStrategies;
 import dev.aether.modules.pathfinding.pathing.configuration.PathfinderConfiguration;
+import dev.aether.modules.pathfinding.pathing.processing.impl.FlyPathProcessor;
 import dev.aether.modules.pathfinding.pathing.processing.impl.MinecraftPathProcessor;
 import dev.aether.modules.pathfinding.pathing.result.PathState;
 import dev.aether.modules.pathfinding.pathing.result.PathfinderResult;
@@ -188,6 +189,8 @@ public final class PathfindingManager {
                 activeMode = NavigationMode.NONE;
                 clearTransientDebugRenderingIfActive();
             }
+        } else if (activeMode == NavigationMode.FLY && currentPathfinder != null) {
+            return;
         } else {
             NavigationMode modeBeforeTick = activeMode;
             executor.tick(mc);
@@ -587,10 +590,13 @@ public final class PathfindingManager {
         currentEtherwarpPathfinder = null;
 
         // Create checker once; reused for solid-check, pathfinding, and smoothing.
-        final WalkabilityChecker sharedChecker = (!fly && mc.level != null)
-                ? new WalkabilityChecker(mc.level) : null;
+        final WalkabilityChecker sharedChecker = mc.level != null ? new WalkabilityChecker(mc.level) : null;
         final int finalY;
-        if (sharedChecker != null && sharedChecker.isSolid(x, y, z)) {
+        FlyPathProcessor flyProcessor = fly && sharedChecker != null ? new FlyPathProcessor(sharedChecker) : null;
+        if (flyProcessor != null && !flyProcessor.hasFlightClearance(x, y, z)
+                && flyProcessor.hasFlightClearance(x, y + 1, z)) {
+            finalY = y + 1;
+        } else if (!fly && sharedChecker != null && sharedChecker.isSolid(x, y, z)) {
             finalY = y + 1;
         } else {
             finalY = y;
@@ -613,29 +619,27 @@ public final class PathfindingManager {
         PathPosition target = new PathPosition(x, finalY, z);
 
         if (fly) {
-            // Fly: no A* needed. Build a straight-line candidate path (1-block steps),
-            // then compress with LOS smoothing to get the minimal set of waypoints.
-            List<Node> rawNodes = buildLinearFlyPath(start, target);
-            List<Node> smoothed = smoothFlyPath(mc, rawNodes);
-
-            if (smoothed.isEmpty()) {
+            if (sharedChecker == null || flyProcessor == null) {
                 navigating = false;
                 activeMode = NavigationMode.NONE;
                 clearTransientDebugRenderingIfActive();
                 if (mc.player != null) {
-                    ClientUtils.sendMessage("\u00A7cFly path build failed!", false);
+                    ClientUtils.sendMessage("\u00A7cCannot fly pathfind without a loaded world.", false);
                 }
                 return;
             }
 
-            PathVisualizer.setPath(smoothed, 0);
+            PathfinderConfiguration config = createFlyPathfinderConfiguration(sharedChecker, flyProcessor, true);
 
-            if (mc.player != null) {
-                ClientUtils.sendMessage("\u00A7aFly path: "
-                                + smoothed.size() + " waypoints (direct LOS). Flying...", false);
-            }
+            AStarPathfinder pathfinder = new AStarPathfinder(config);
+            currentPathfinder = pathfinder;
+            long startMs = System.currentTimeMillis();
 
-            flyExecutor.start(smoothed, x, finalY, z);
+            pathfinder.findPath(start, target)
+                    .thenAccept(result -> mc.execute(() -> {
+                        if (abortFlag.get()) return;
+                        handleFlyResult(mc, result, config, x, finalY, z, startMs, pathfinder);
+                    }));
         } else {
             // Walk pathfinding - async via CompletableFuture work-stealing pool
             // sharedChecker is reused for pathfinding and smoothing (no redundant allocation)
@@ -663,6 +667,20 @@ public final class PathfindingManager {
                         AetherConfig.PATHFINDER_MAX_JUMP_HEIGHT.get()))
                 .maxIterations(300000)
                 .maxLength(25000)
+                .async(async)
+                .fallback(true)
+                .build();
+    }
+
+    private static PathfinderConfiguration createFlyPathfinderConfiguration(WalkabilityChecker checker,
+                                                                            FlyPathProcessor flyProcessor,
+                                                                            boolean async) {
+        return PathfinderConfiguration.builder()
+                .provider(new MinecraftNavigationProvider(checker))
+                .processors(List.of(flyProcessor))
+                .neighborStrategy(NeighborStrategies.HORIZONTAL_DIAGONAL_AND_VERTICAL)
+                .maxIterations(300000)
+                .maxLength(50000)
                 .async(async)
                 .fallback(true)
                 .build();
@@ -1150,33 +1168,73 @@ public final class PathfindingManager {
         PathVisualizer.updateExecution(executor.getWaypointIndex(), executor.getCamTargetIdx());
     }
 
-    /**
-     * Builds a simple straight-line candidate path between start and target,
-     * stepping 1 block at a time along each axis. Used as input for smoothFlyPath -
-     * the LOS compression then collapses this to the minimal real waypoints.
-     */
-    private static List<Node> buildLinearFlyPath(PathPosition start, PathPosition target) {
-        List<Node> nodes = new ArrayList<>();
-        int x0 = start.flooredX(), y0 = start.flooredY(), z0 = start.flooredZ();
-        int x1 = target.flooredX(), y1 = target.flooredY(), z1 = target.flooredZ();
+    private static void handleFlyResult(Minecraft mc, PathfinderResult result,
+                                        PathfinderConfiguration config,
+                                        int x, int y, int z,
+                                        long startMs, AStarPathfinder pathfinder) {
+        currentPathfinder = null;
+        long exploredCount = pathfinder.getExploredCount();
+        recordExploredNodes(pathfinder);
+        Collection<PathPosition> positions = result.getPath().collect();
+        boolean hasPath = result.successful() || result.hasFallenBack();
 
-        // Use Bresenham-style 3D line interpolation
-        int dx = Math.abs(x1 - x0), dy = Math.abs(y1 - y0), dz = Math.abs(z1 - z0);
-        int steps = Math.max(Math.max(dx, dy), dz);
-
-        if (steps == 0) {
-            nodes.add(makeNode(x0, y0, z0));
-            return nodes;
+        if (result.getPathState() == PathState.ABORTED) {
+            navigating = false;
+            activeMode = NavigationMode.NONE;
+            clearTransientDebugRenderingIfActive();
+            return;
         }
 
-        for (int i = 0; i <= steps; i++) {
-            double t = (double) i / steps;
-            int nx = (int) Math.round(x0 + t * (x1 - x0));
-            int ny = (int) Math.round(y0 + t * (y1 - y0));
-            int nz = (int) Math.round(z0 + t * (z1 - z0));
-            nodes.add(makeNode(nx, ny, nz));
+        if (!hasPath || positions.isEmpty()) {
+            navigating = false;
+            activeMode = NavigationMode.NONE;
+            clearTransientDebugRenderingIfActive();
+            if (mc.player != null) {
+                ClientUtils.sendMessage("\u00A7cNo fly path found!", false);
+            }
+            return;
         }
-        return nodes;
+
+        List<Node> nodes = toNodeList(positions, config);
+        for (Node node : nodes) {
+            node.moveType = Node.MoveType.FLY;
+        }
+        List<Node> smoothed = smoothFlyPath(mc, nodes);
+        for (Node node : smoothed) {
+            node.moveType = Node.MoveType.FLY;
+            node.isKeynode = true;
+        }
+
+        if (smoothed.isEmpty()) {
+            navigating = false;
+            activeMode = NavigationMode.NONE;
+            clearTransientDebugRenderingIfActive();
+            if (mc.player != null) {
+                ClientUtils.sendMessage("\u00A7cFly path build failed!", false);
+            }
+            return;
+        }
+
+        PathVisualizer.setPath(smoothed, 0);
+        PathVisualizer.setCameraPath(Collections.emptyList());
+
+        String resultTypeStr = result.successful() ? "\u00A7aFull" : "\u00A7ePartial";
+        long elapsedMs = System.currentTimeMillis() - startMs;
+        double pathBlocks = computePathLength(nodes);
+
+        if (mc.player != null) {
+            ClientUtils.sendMessage("\u00A7eFly path result: " + resultTypeStr
+                            + "\u00A7e | explored: " + exploredCount
+                            + " | waypoints: " + smoothed.size()
+                            + String.format(" | dist: %.1f blk", pathBlocks)
+                            + " | time: " + elapsedMs + "ms",
+                    false);
+            ClientUtils.sendMessage("\u00A7aFly path found (" + smoothed.size()
+                            + " waypoints). Flying...",
+                    false);
+        }
+
+        flyExecutor.start(smoothed, x, y, z);
     }
 
     private static List<Node> buildLinearWalkPath(PathPosition start, PathPosition target) {
@@ -1215,16 +1273,6 @@ public final class PathfindingManager {
 
     private static final IHeuristicStrategy ZERO_HEURISTIC =
             new LinearHeuristicStrategy();
-
-    private static Node makeNode(int x, int y, int z) {
-        PathPosition pos  = new PathPosition(x, y, z);
-        Node         node = new Node(pos, pos, pos,
-                new HeuristicWeights(0, 0, 0, 0),
-                ZERO_HEURISTIC,
-                0);
-        node.moveType = Node.MoveType.FLY;
-        return node;
-    }
 
     private static Node makeWalkNode(int x, int y, int z) {
         PathPosition pos  = new PathPosition(x, y, z);

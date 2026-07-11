@@ -4,12 +4,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import dev.aether.config.AetherConfig;
-import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.pathfinding.Node;
+import dev.aether.modules.pathfinding.rotation.AngleUtils;
+import dev.aether.modules.pathfinding.rotation.EasingType;
+import dev.aether.modules.pathfinding.rotation.Rotation;
 import dev.aether.modules.pathfinding.rotation.RotationExecutor;
-import dev.aether.modules.rotation.RotationManager;
+import dev.aether.modules.pathfinding.rotation.strategy.TimedEaseStrategy;
 import dev.aether.util.ClientUtils;
-import dev.aether.util.RotationUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.HitResult;
@@ -44,14 +45,14 @@ public final class FlyExecutor {
     private static final long STUCK_ABORT_MS = 3000;
     // How far ahead to raycast for block detection (blocks)
     private static final double RAY_DIST = 2.5;
+    private static final long ROTATION_DURATION_MS = 550L;
+    private static final float YAW_ROTATION_THRESHOLD = 1.5f;
+    private static final float PITCH_ROTATION_THRESHOLD = 2.5f;
 
     private State state = State.IDLE;
     private List<Node> path;
     private int wpIndex;
     private int goalX, goalY, goalZ;
-
-    /** Smoothed yaw - lerped toward target each tick to prevent snapping. */
-    private float smoothedYaw = Float.MAX_VALUE;
 
     /** Rolling stuck detection */
     private Vec3 lastPosCheck = Vec3.ZERO;
@@ -84,7 +85,6 @@ public final class FlyExecutor {
         this.lastProgressTime = System.currentTimeMillis();
         this.lastPosCheck = Vec3.ZERO;
         this.ticksSinceLastMove = 0;
-        this.smoothedYaw = Float.MAX_VALUE; // reset - will be seeded from player on first tick
         this.onFinished = onFinished;
         this.usePitchControl = false;
         this.useLookTargetRotation = false;
@@ -206,11 +206,9 @@ public final class FlyExecutor {
         if (useLookTargetRotation && lookTarget != null) {
             rotateTowardLookTarget(mc, lookTarget);
         } else if (distToGoal > 3.0) {
-            setHorizontalRotation(mc, dx, dz);
-        }
-        if (usePitchControl) {
-            mc.player.setXRot(targetPitch);
-            FailsafeManager.expectRotation(mc.player.getYRot(), targetPitch);
+            setHorizontalRotation(mc, dx, dz, usePitchControl ? targetPitch : mc.player.getXRot());
+        } else if (usePitchControl) {
+            rotateSmoothly(mc, new Rotation(mc.player.getYRot(), targetPitch));
         }
 
         // -- Forward movement -----------------------------------------------
@@ -300,10 +298,10 @@ public final class FlyExecutor {
 
     /**
      * Sets only the player's yaw to face (dx, dz). Does not touch pitch.
-     * Yaw is smoothly lerped (25% per tick) toward the target to prevent snapping.
+     * Yaw is smoothed through the shared pathfinding RotationExecutor.
      * Guard: skip update when the horizontal distance is too small.
      */
-    private void setHorizontalRotation(Minecraft mc, double dx, double dz) {
+    private void setHorizontalRotation(Minecraft mc, double dx, double dz, float pitch) {
         if (mc.player == null)
             return;
         double horizDist = Math.sqrt(dx * dx + dz * dz);
@@ -311,19 +309,7 @@ public final class FlyExecutor {
             return; // rotation lock range - don't update yaw to avoid spinning near targets
 
         float targetYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
-
-        // Seed smoothed yaw from current player yaw on first call
-        if (smoothedYaw == Float.MAX_VALUE) {
-            smoothedYaw = mc.player.getYRot();
-        }
-
-        // Lerp by 25% each tick - fast enough to track direction, slow enough to not
-        // snap
-        float diff = net.minecraft.util.Mth.wrapDegrees(targetYaw - smoothedYaw);
-        smoothedYaw += diff * 0.25f;
-
-        mc.player.setYRot(smoothedYaw);
-        FailsafeManager.expectRotation(smoothedYaw, mc.player.getXRot());
+        rotateSmoothly(mc, new Rotation(targetYaw, pitch));
     }
 
     private void rotateTowardLookTarget(Minecraft mc, Vec3 target) {
@@ -331,9 +317,26 @@ public final class FlyExecutor {
             return;
         }
 
-        if (!RotationUtils.isLookingAt(mc.player.getYRot(), mc.player.getXRot(),
-                mc.player.getEyePosition(), target, 4.0f)) {
-            RotationManager.initiateRotation(mc, target, 50L);
+        rotateSmoothly(mc, AngleUtils.getRotation(target));
+    }
+
+    private void rotateSmoothly(Minecraft mc, Rotation desiredRot) {
+        if (mc.player == null) {
+            return;
+        }
+
+        float sourceYaw = RotationExecutor.isRotating()
+                ? RotationExecutor.getTargetYaw()
+                : mc.player.getYRot();
+        float sourcePitch = RotationExecutor.isRotating()
+                ? RotationExecutor.getTargetPitch()
+                : mc.player.getXRot();
+        float yawDrift = Math.abs(AngleUtils.getRotationDelta(sourceYaw, desiredRot.yaw));
+        float pitchDrift = Math.abs(AngleUtils.getRotationDelta(sourcePitch, desiredRot.pitch));
+
+        if (yawDrift > YAW_ROTATION_THRESHOLD || pitchDrift > PITCH_ROTATION_THRESHOLD) {
+            RotationExecutor.rotateTo(desiredRot,
+                    new TimedEaseStrategy(EasingType.EASE_OUT_CUBIC, ROTATION_DURATION_MS));
         }
     }
 

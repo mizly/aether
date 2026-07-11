@@ -14,6 +14,7 @@ public final class AetherTickHandlers {
         AetherUpdateTickHandler.register();
         AetherWorldChangeTickHandler.register();
         AetherAutomationTickHandler.register();
+        AetherPingTickHandler.register();
         MovementPlaybackManager.register();
         FreecamManager.register();
         FreelookManager.register();

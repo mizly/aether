@@ -11,8 +11,8 @@ import dev.aether.renderer.NVGRenderer;
 import dev.aether.ui.theme.Theme;
 import dev.aether.ui.util.Fonts;
 import dev.aether.util.BpsTracker;
+import dev.aether.util.PingTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.PlayerInfo;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -362,7 +362,6 @@ public class WatermarkHudElement extends HudElement {
 
     private static String getPing(Minecraft mc) {
         if (mc.player == null || mc.getConnection() == null) return "---";
-        PlayerInfo info = mc.getConnection().getPlayerInfo(mc.player.getUUID());
-        return info != null ? info.getLatency() + "ms" : "---";
+        return PingTracker.getFormattedPing();
     }
 }
