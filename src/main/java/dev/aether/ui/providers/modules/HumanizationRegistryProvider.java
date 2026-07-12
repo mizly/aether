@@ -42,6 +42,7 @@ public final class HumanizationRegistryProvider extends AbstractModulesRegistryP
                 .add(FarmingSettingsFactory.pickUpStashDelaySetting())
                 .add(FarmingSettingsFactory.junkDropDelaySetting())
                 .add(FarmingSettingsFactory.georgePostSellDelaySetting())
+                .add(FarmingSettingsFactory.visitorDelaySetting())
                 .add(FarmingSettingsFactory.bazaarGuiDelaySetting()));
 
         groups.add(SettingGroup.alwaysOn(

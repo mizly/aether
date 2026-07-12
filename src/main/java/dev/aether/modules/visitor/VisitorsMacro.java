@@ -1,6 +1,7 @@
 package dev.aether.modules.visitor;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.config.ConfigHelpers;
 import dev.aether.macro.FarmingMacroManager;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
@@ -253,7 +254,9 @@ public class VisitorsMacro {
                     ClientUtils.sendDebugMessage("[VisitorsMacro] Failed to process visitor: " + visitorName);
                     skippedVisitorsThisRun.add(normalizedName);
                 }
-                MacroWorkerThread.sleep(500);
+                MacroWorkerThread.sleep(ConfigHelpers.getRandomizedDelay(
+                        AetherConfig.VISITOR_DELAY_MIN.get(),
+                        AetherConfig.VISITOR_DELAY_MAX.get()));
             }
 
             if (servedThisRound == 0) {
@@ -386,9 +389,7 @@ public class VisitorsMacro {
             }
         }
 
-        MacroWorkerThread.sleep(300);
         closeScreen(client);
-        MacroWorkerThread.sleep(300);
 
         // Track cost for profit manager
         VisitorManager.onOfferAccepted(visitorName);

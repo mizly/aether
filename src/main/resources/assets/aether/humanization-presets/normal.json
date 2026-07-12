@@ -22,6 +22,8 @@
   "georgePostSellDelayMinMs": 2000,
   "georgePostSellDelayMaxMs": 5000,
   "farmWhileCallingGeorge": false,
+  "visitorDelayMin": 300,
+  "visitorDelayMax": 500,
   "bazaarDelayMin": 250,
   "bazaarDelayMax": 500,
   "rotationTime": 100,

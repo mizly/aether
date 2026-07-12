@@ -146,6 +146,8 @@ public final class HumanizationPresetManager {
         addEntry(entries, AetherConfig.GEORGE_POST_SELL_DELAY_MIN_MS);
         addEntry(entries, AetherConfig.GEORGE_POST_SELL_DELAY_MAX_MS);
         addEntry(entries, AetherConfig.FARM_WHILE_CALLING_GEORGE);
+        addEntry(entries, AetherConfig.VISITOR_DELAY_MIN);
+        addEntry(entries, AetherConfig.VISITOR_DELAY_MAX);
         addEntry(entries, AetherConfig.BAZAAR_DELAY_MIN);
         addEntry(entries, AetherConfig.BAZAAR_DELAY_MAX);
         addEntry(entries, AetherConfig.ROTATION_TIME);

@@ -499,6 +499,8 @@ public final class AetherConfig {
         public static final BooleanEntry DISABLE_COMPACTORS_DURING_VISITORS = Config.bool("disableCompactorsDuringVisitors", false);
         public static final FloatEntry VISITOR_FOV_RANGE = Config.floatVal("visitorFovRange", 12.0f)
                         .range(0.0f, 30.0f);
+        public static final IntEntry VISITOR_DELAY_MIN = Config.integer("visitorDelayMin", 300).range(0, 1000);
+        public static final IntEntry VISITOR_DELAY_MAX = Config.integer("visitorDelayMax", 500).range(0, 1000);
 
         // -- AUTO SPRAYONATOR -----------------------------------------------------
 

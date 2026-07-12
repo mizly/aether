@@ -77,6 +77,7 @@ public final class VisitorRegistryProvider extends AbstractModulesRegistryProvid
                     AetherConfig.save();
                 }));
         group.add(FarmingSettingsFactory.visitorFovRangeSetting());
+        group.add(FarmingSettingsFactory.visitorDelaySetting());
         return MainGUIRegistry.toggleSubTab(
                 "Auto Visitor",
                 "Automatically interacts with visitors and fulfills their requests",
