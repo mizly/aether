@@ -258,6 +258,13 @@ public class PestReturnManager {
                 if (abortFinisherIfNeeded(client, "post-return warp")) {
                     return;
                 }
+
+                setFinishingStage("restore sunset pests night");
+                PestDestroyer.restorePendingSunsetPestsNight(client);
+                if (abortFinisherIfNeeded(client, "restore sunset pests night")) {
+                    return;
+                }
+
                 isReturningFromPestVisitor = true;
                 setFinishingStage("finalize return");
                 ClientUtils.sendDebugMessage("Finisher: Calling finalizeReturnToFarm...");

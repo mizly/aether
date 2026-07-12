@@ -1433,33 +1433,30 @@ public class PestDestroyer {
         runtime.roofAotvReturnState = null;
         PathfindingManager.stop();
 
-        restoreSunsetPestsNightThen(client, () -> PestManager.handlePestCleaningFinished(client));
+        PestManager.handlePestCleaningFinished(client);
     }
 
     // -- Helpers --------------------------------------------------------------
 
-    private static void restoreSunsetPestsNightAsync(Minecraft client) {
-        restoreSunsetPestsNightThen(client, null);
+    public static boolean restorePendingSunsetPestsNight(Minecraft client) {
+        return restoreSunsetPestsNight(client);
     }
 
-    private static void restoreSunsetPestsNightThen(Minecraft client, Runnable afterRestore) {
+    private static void restoreSunsetPestsNightAsync(Minecraft client) {
+        MacroWorkerThread.getInstance().submit("PestDestroyer-SunsetPests-Night", () -> restoreSunsetPestsNight(client));
+    }
+
+    private static boolean restoreSunsetPestsNight(Minecraft client) {
         if (!runtime.sunsetPestsRestoreNight) {
-            if (afterRestore != null) {
-                afterRestore.run();
-            }
-            return;
+            return true;
         }
 
         runtime.sunsetPestsRestoreNight = false;
-        MacroWorkerThread.getInstance().submit("PestDestroyer-SunsetPests-Night", () -> {
-            boolean switched = GardenTimeManager.switchToNightTime(client);
-            if (!switched) {
-                ClientUtils.sendDebugMessage("[PestDestroyer] Sunset Pests: failed to switch garden time to night.");
-            }
-            if (afterRestore != null) {
-                client.execute(afterRestore);
-            }
-        });
+        boolean switched = GardenTimeManager.switchToNightTime(client);
+        if (!switched) {
+            ClientUtils.sendDebugMessage("[PestDestroyer] Sunset Pests: failed to switch garden time to night.");
+        }
+        return switched;
     }
 
     public static boolean shouldFinishForAliveCount(Minecraft client, int aliveCount) {
