@@ -1,6 +1,7 @@
 package dev.aether.mixin;
 
 import dev.aether.bootstrap.AetherBootstrapHooks;
+import dev.aether.util.ProgrammaticAttackTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
@@ -89,9 +90,14 @@ public class MixinFreecamInteractionBlocker {
         ((MixinMinecraft) self).aether$pickBlockOrEntity();
     }
 
-    /** {@code true} when freecam is on and the attack key is physically (manually) held. */
+    /**
+     * {@code true} when freecam is on and the attack key is physically (manually) held. While
+     * the macro is actively holding attack we never block - otherwise a stray manual click gets
+     * treated as manual and flips {@code continueAttack} to false, interrupting the block break.
+     */
     private static boolean aether$blockManualAttack(Minecraft self) {
         return AetherBootstrapHooks.isFreecamEnabled()
-                && !AetherBootstrapHooks.isFreecamProgrammaticKeyDown(self, self.options.keyAttack);
+                && !AetherBootstrapHooks.isFreecamProgrammaticKeyDown(self, self.options.keyAttack)
+                && !ProgrammaticAttackTracker.isHeld();
     }
 }
