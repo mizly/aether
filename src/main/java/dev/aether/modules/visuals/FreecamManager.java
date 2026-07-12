@@ -4,7 +4,6 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.aether.bootstrap.AetherKeybindRegistry;
 import dev.aether.config.AetherConfig;
-import dev.aether.macro.MacroStateManager;
 import dev.aether.mixin.AccessorKeyMapping;
 import dev.aether.mixin.AccessorWindow;
 import dev.aether.modules.farming.UngrabMouse;
@@ -303,11 +302,6 @@ public final class FreecamManager {
     }
 
     private static void clearLatchedInputState(Minecraft client, LocalPlayer player) {
-        // A running macro owns every input key (the freecam mixins keep driving it from the
-        // macro's programmatic state); tearing it down here just fights the macro on each toggle.
-        if (MacroStateManager.isMacroRunning()) {
-            return;
-        }
         if (client.options != null) {
             ClientUtils.setKeyMappingState(client.options.keyUp, false);
             ClientUtils.setKeyMappingState(client.options.keyDown, false);
