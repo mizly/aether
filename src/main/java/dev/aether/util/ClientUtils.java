@@ -17,7 +17,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
@@ -607,7 +606,6 @@ public class ClientUtils {
 
         client.execute(() -> {
             if (client.player == null) return;
-            client.player.swing(InteractionHand.MAIN_HAND);
             ((MixinMinecraft) client).aether$startAttack();
         });
     }
@@ -647,7 +645,6 @@ public class ClientUtils {
         if (client == null) return;
         client.execute(() -> {
             if (client.player == null) return;
-            client.player.swing(InteractionHand.MAIN_HAND);
             ((MixinMinecraft) client).aether$startAttack();
         });
     }
@@ -663,7 +660,6 @@ public class ClientUtils {
                 if (client.player == null) {
                     return;
                 }
-                client.player.swing(InteractionHand.MAIN_HAND);
                 ((MixinMinecraft) client).aether$startAttack();
             });
             return;
