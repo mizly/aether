@@ -6,6 +6,7 @@ import dev.aether.bootstrap.AetherKeybindRegistry;
 import dev.aether.config.AetherConfig;
 import dev.aether.mixin.AccessorKeyMapping;
 import dev.aether.mixin.AccessorWindow;
+import dev.aether.mixin.MixinMinecraft;
 import dev.aether.modules.farming.UngrabMouse;
 import dev.aether.util.ClientUtils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -168,6 +169,7 @@ public final class FreecamManager {
         clearLatchedInputState(client, player);
         // Immediately re-press macro-held keys so the toggle never opens a released-key gap.
         ClientUtils.reapplyProgrammaticKeyStates(client);
+        clearMissTime(client);
         ClientUtils.sendDebugMessage("[FC] enabled: attackDown=" + client.options.keyAttack.isDown()
                 + " tracker=" + dev.aether.util.ProgrammaticAttackTracker.isHeld());
         ClientUtils.sendMessage("Freecam enabled!", false);
@@ -197,6 +199,7 @@ public final class FreecamManager {
 
         restoreCameraType(client);
         UngrabMouse.resumeAfterFreecam();
+        clearMissTime(client);
         cameraEntity = null;
         observedRenderPos = null;
         observedRenderPrevPos = null;
@@ -209,6 +212,15 @@ public final class FreecamManager {
 
     private static void startMacroMovementGrace() {
         macroMovementGraceUntilMs = System.currentTimeMillis() + MACRO_MOVEMENT_GRACE_MS;
+    }
+
+    // grabMouse() slams Minecraft.missTime to 10000; the macro's held attack (leftClick=true)
+    // never resets it, killing block-breaking. Queued so it runs after any pending grab task.
+    private static void clearMissTime(Minecraft client) {
+        if (client == null) {
+            return;
+        }
+        client.execute(() -> ((MixinMinecraft) client).aether$setMissTime(0));
     }
 
     /**
