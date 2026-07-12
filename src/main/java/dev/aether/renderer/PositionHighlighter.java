@@ -23,6 +23,15 @@ import org.joml.Matrix4f;
 public final class PositionHighlighter {
     private PositionHighlighter() {}
 
+    // Hide the destination highlight while its pathfinder is on - the macro walks there itself.
+    private static boolean showDeskHighlight() {
+        return AetherConfig.PEST_HIGHLIGHT_DESK.get() && !AetherConfig.PEST_EXCHANGE_PATHFIND.get();
+    }
+
+    private static boolean showTrapsHighlight() {
+        return AetherConfig.PEST_TRAPS_HIGHLIGHT.get() && !AetherConfig.PEST_TRAPS_PATHFIND.get();
+    }
+
     public static boolean hasVisibleHighlights() {
         if (StreamerModeManager.isEnabled()) {
             return false;
@@ -38,7 +47,10 @@ public final class PositionHighlighter {
         if (mc.level == null || mc.player == null || ClientUtils.getCurrentLocation() != MacroState.Location.GARDEN) {
             return false;
         }
-        if (AetherConfig.PEST_HIGHLIGHT_DESK.get()) {
+        if (showDeskHighlight()) {
+            return true;
+        }
+        if (showTrapsHighlight()) {
             return true;
         }
         if (AetherConfig.AUTO_COMPOSTER_HIGHLIGHT.get()) {
@@ -81,7 +93,7 @@ public final class PositionHighlighter {
                     : null;
 
             // Desk Position (Block highlight)
-            if (AetherConfig.PEST_HIGHLIGHT_DESK.get()) {
+            if (showDeskHighlight()) {
                 int x = AetherConfig.PEST_EXCHANGE_DESK_X.get();
                 int y = AetherConfig.PEST_EXCHANGE_DESK_Y.get();
                 int z = AetherConfig.PEST_EXCHANGE_DESK_Z.get();
@@ -91,6 +103,19 @@ public final class PositionHighlighter {
                         "Pest Desk",
                         ARGB.color(200, 255, 210, 0),
                         ARGB.color(40, 255, 210, 0),
+                        2.0f);
+            }
+
+            if (showTrapsHighlight()) {
+                int x = AetherConfig.PEST_TRAPS_X.get();
+                int y = AetherConfig.PEST_TRAPS_Y.get();
+                int z = AetherConfig.PEST_TRAPS_Z.get();
+
+                renderBlockHighlight(ctx, mc, textBuffer,
+                        new AABB(x, y, z, x + 1, y + 1, z + 1),
+                        "Pest Traps",
+                        ARGB.color(200, 90, 220, 90),
+                        ARGB.color(40, 90, 220, 90),
                         2.0f);
             }
 

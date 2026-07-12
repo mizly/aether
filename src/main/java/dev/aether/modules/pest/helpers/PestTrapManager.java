@@ -150,6 +150,11 @@ public class PestTrapManager {
             return;
         }
 
+        walkToTrapsIfConfigured(client);
+        if (shouldAbort()) {
+            return;
+        }
+
         client.execute(() -> {
             int slot = findVacuumHotbarSlot(client);
             if (slot != -1) {
@@ -288,6 +293,10 @@ public class PestTrapManager {
         }
 
         teleportToTrapPlotIfNeeded(client, plot);
+        if (shouldAbort()) {
+            return;
+        }
+        walkToTrapsIfConfigured(client);
 
         while (isRunning && !shouldAbort()) {
             if (abortForPestExchange(client, "refill")) {
@@ -427,6 +436,41 @@ public class PestTrapManager {
         return trapIds;
     }
 
+    private static void walkToTrapsIfConfigured(Minecraft client) throws InterruptedException {
+        if (!AetherConfig.PEST_TRAPS_PATHFIND.get()) {
+            return;
+        }
+
+        int x = AetherConfig.PEST_TRAPS_X.get();
+        int y = AetherConfig.PEST_TRAPS_Y.get();
+        int z = AetherConfig.PEST_TRAPS_Z.get();
+        if (y == 0) {
+            ClientUtils.sendDebugMessage("PestTrapManager: trap position not set, skipping pathfind.");
+            return;
+        }
+        if (client.player != null
+                && client.player.position().distanceToSqr(x + 0.5, y + 0.5, z + 0.5) <= 9.0) {
+            ClientUtils.sendDebugMessage("PestTrapManager: already near the trap position.");
+            return;
+        }
+
+        ClientUtils.sendDebugMessage("PestTrapManager: walking to traps at " + x + ", " + y + ", " + z);
+        client.execute(() -> PathfindingManager.startPathfind(client, x, y, z, false));
+
+        MacroWorkerThread.sleep(1000);
+        long deadline = System.currentTimeMillis() + 30_000L;
+        while (PathfindingManager.isNavigating() && System.currentTimeMillis() < deadline
+                && isRunning && !shouldAbort()) {
+            MacroWorkerThread.sleep(200);
+        }
+
+        if (PathfindingManager.isNavigating()) {
+            PathfindingManager.stop();
+            ClientUtils.sendDebugMessage("PestTrapManager: pathfind to traps timed out, continuing anyway.");
+        }
+        MacroWorkerThread.sleep(300);
+    }
+
     private static void teleportToTrapPlotIfNeeded(Minecraft client, String plot) throws InterruptedException {
         String currentPlot = ClientUtils.getCurrentPlot();
         String freshChatPlot = CommandUtils.getFreshKnownPlotChat();
@@ -439,8 +483,19 @@ public class PestTrapManager {
             return;
         }
 
+        Vec3 posBefore = client.player != null ? client.player.position() : null;
         CommandUtils.initiatePlotTp(plot);
-        MacroWorkerThread.sleep(2000);
+        MacroWorkerThread.sleep(600);
+
+        long tpDeadline = System.currentTimeMillis() + 5000;
+        while (System.currentTimeMillis() < tpDeadline && isRunning && !shouldAbort()) {
+            if (posBefore == null
+                    || (client.player != null && client.player.position().distanceTo(posBefore) > 5)) {
+                break;
+            }
+            MacroWorkerThread.sleep(200);
+        }
+        MacroWorkerThread.sleep(400);
     }
 
     public static boolean isBlockedByPestExchange() {

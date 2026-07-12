@@ -8,7 +8,8 @@ public final class ConfigHelpers {
     private ConfigHelpers() {}
 
     public static int getRandomizedDelay(int baseDelay) {
-        return Math.max(0, baseDelay);
+        int jitter = Math.round(Math.abs(baseDelay) * 0.15f);
+        return getRandomizedDelay(baseDelay - jitter, baseDelay + jitter);
     }
 
     public static int getRandomizedDelay(int minDelay, int maxDelay) {

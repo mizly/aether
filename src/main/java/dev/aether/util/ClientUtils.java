@@ -17,7 +17,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
@@ -41,6 +40,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
@@ -67,7 +67,12 @@ public class ClientUtils {
     });
     private static long nextCommandTime = 0;
     private static final long COMMAND_COOLDOWN_MS = 250;
-    private static final long INPUT_CLICK_HOLD_MS = 100L;
+    private static final long INPUT_CLICK_HOLD_MIN_MS = 80L;
+    private static final long INPUT_CLICK_HOLD_JITTER_MS = 60L;
+
+    private static long randomizedClickHoldMs() {
+        return INPUT_CLICK_HOLD_MIN_MS + ThreadLocalRandom.current().nextLong(INPUT_CLICK_HOLD_JITTER_MS + 1);
+    }
     private static final String USER_MESSAGE_PREFIX = "\u00A7c\u00A7lAether >> \u00A77";
     private static final AtomicLong USE_CLICK_SEQUENCE = new AtomicLong();
     private static final AtomicLong ATTACK_CLICK_SEQUENCE = new AtomicLong();
@@ -584,7 +589,7 @@ public class ClientUtils {
                     setKeyMappingState(client.options.keyUse, false);
                     setKeyMappingState(client.options.keyShift, false);
                 },
-                INPUT_CLICK_HOLD_MS);
+                randomizedClickHoldMs());
     }
 
     /**thismake
@@ -607,7 +612,6 @@ public class ClientUtils {
 
         client.execute(() -> {
             if (client.player == null) return;
-            client.player.swing(InteractionHand.MAIN_HAND);
             ((MixinMinecraft) client).aether$startAttack();
         });
     }
@@ -639,7 +643,7 @@ public class ClientUtils {
                     setKeyMappingState(client.options.keyUse, true);
                 },
                 () -> setKeyMappingState(client.options.keyUse, false),
-                INPUT_CLICK_HOLD_MS);
+                randomizedClickHoldMs());
     }
 
     public static void performAttackClickDirect() {
@@ -647,7 +651,6 @@ public class ClientUtils {
         if (client == null) return;
         client.execute(() -> {
             if (client.player == null) return;
-            client.player.swing(InteractionHand.MAIN_HAND);
             ((MixinMinecraft) client).aether$startAttack();
         });
     }
@@ -663,7 +666,6 @@ public class ClientUtils {
                 if (client.player == null) {
                     return;
                 }
-                client.player.swing(InteractionHand.MAIN_HAND);
                 ((MixinMinecraft) client).aether$startAttack();
             });
             return;
@@ -672,7 +674,7 @@ public class ClientUtils {
         pressAndReleaseInput(client, ATTACK_CLICK_SEQUENCE,
                 () -> setKeyMappingState(client.options.keyAttack, true),
                 () -> setKeyMappingState(client.options.keyAttack, false),
-                INPUT_CLICK_HOLD_MS);
+                randomizedClickHoldMs());
     }
 
     /**

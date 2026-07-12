@@ -444,6 +444,11 @@ public final class AetherConfig {
         public static final StringEntry PEST_TRAPS_BAIT_MATERIAL = Config.string("pestTrapsBaitMaterial", "Tasty Cheese");
         public static final IntEntry PEST_TRAPS_BAIT_AMOUNT = Config.integer("pestTrapsBaitAmount", 64).range(1, 64);
         public static final BooleanEntry AUTO_MOSQUITO_FOR_PEST_TRAPS = Config.bool("autoMosquitoForPestTraps", false);
+        public static final BooleanEntry PEST_TRAPS_PATHFIND = Config.bool("pestTrapsPathfind", false);
+        public static final IntEntry PEST_TRAPS_X = Config.integer("pestTrapsX", 0);
+        public static final IntEntry PEST_TRAPS_Y = Config.integer("pestTrapsY", 0);
+        public static final IntEntry PEST_TRAPS_Z = Config.integer("pestTrapsZ", 0);
+        public static final BooleanEntry PEST_TRAPS_HIGHLIGHT = Config.bool("pestTrapsHighlight", false);
         public static final BooleanEntry AUTO_PET_AFTER_TRAP_OPEN = Config.bool("autoPetAfterTrapOpen", false);
         public static final StringEntry AUTO_PET_AFTER_TRAP_OPEN_PET = Config.string("autoPetAfterTrapOpenPet", "");
         public static final BooleanEntry LEAVE_ONE_PEST_ALIVE = Config.bool("leaveOnePestAlive", false);
@@ -474,6 +479,7 @@ public final class AetherConfig {
         public static final IntEntry PEST_EXCHANGE_DESK_Y = Config.integer("pestExchangeDeskY", 71);
         public static final IntEntry PEST_EXCHANGE_DESK_Z = Config.integer("pestExchangeDeskZ", -14);
         public static final BooleanEntry PEST_HIGHLIGHT_DESK = Config.bool("pestHighlightDesk", true);
+        public static final BooleanEntry PEST_EXCHANGE_PATHFIND = Config.bool("pestExchangePathfind", true);
         public static final FloatEntry PEST_EXCHANGE_FOV_RANGE = Config.floatVal("pestExchangeFovRange", 4.0f)
                         .range(0.0f, 15.0f);
 

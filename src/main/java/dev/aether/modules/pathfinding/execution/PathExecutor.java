@@ -20,6 +20,7 @@ import net.minecraft.world.entity.Entity;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * State machine that walks a player along a pre-computed path using keyboard injection.
@@ -416,7 +417,9 @@ public final class PathExecutor {
                     RotationExecutor.getTargetPitch(), desiredRot.pitch));
 
             if (yawDrift > 1.5f || pitchDrift > 2.5f) {
-                long durationMs = 550;
+                float turnMagnitude = Math.max(yawDrift, pitchDrift);
+                long durationMs = Math.round(Math.min(900f, 420f + turnMagnitude * 3f))
+                        + ThreadLocalRandom.current().nextLong(80L);
                 EasingType easing;
                 if (USE_CAMERA_RAIL && !cameraPath.isEmpty()) {
                     easing = EasingType.EASE_OUT_CUBIC;
