@@ -303,6 +303,11 @@ public final class FreecamManager {
     }
 
     private static void clearLatchedInputState(Minecraft client, LocalPlayer player) {
+        // A running macro owns every input key (the freecam mixins keep driving it from the
+        // macro's programmatic state); tearing it down here just fights the macro on each toggle.
+        if (MacroStateManager.isMacroRunning()) {
+            return;
+        }
         if (client.options != null) {
             ClientUtils.setKeyMappingState(client.options.keyUp, false);
             ClientUtils.setKeyMappingState(client.options.keyDown, false);
@@ -311,14 +316,8 @@ public final class FreecamManager {
             ClientUtils.setKeyMappingState(client.options.keyJump, false);
             ClientUtils.setKeyMappingState(client.options.keyShift, false);
             ClientUtils.setKeyMappingState(client.options.keySprint, false);
-            // Leave attack/use to the macro while it is running. Releasing them here drops
-            // the programmatic key-down the farming loop holds, which interrupts the block
-            // break (stopDestroyBlock) and forces a fresh startAttack on re-press - resetting
-            // the attack cooldown and risking a missTime penalty that tanks BPS.
-            if (!MacroStateManager.isMacroRunning()) {
-                ClientUtils.setKeyMappingState(client.options.keyAttack, false);
-                ClientUtils.setKeyMappingState(client.options.keyUse, false);
-            }
+            ClientUtils.setKeyMappingState(client.options.keyAttack, false);
+            ClientUtils.setKeyMappingState(client.options.keyUse, false);
         }
         // Do NOT force horizontal velocity to zero. The real player keeps ticking while
         // the camera is detached, so once the movement keys are released above, friction
