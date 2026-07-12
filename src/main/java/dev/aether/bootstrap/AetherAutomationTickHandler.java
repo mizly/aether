@@ -8,7 +8,6 @@ import dev.aether.macro.MacroStateManager;
 import dev.aether.bootstrap.AetherBootstrapHooks;
 import dev.aether.modules.CropFeverManager;
 import dev.aether.modules.discord.DiscordStatusManager;
-import dev.aether.modules.experiments.ExperimentsManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.inventorymanager.AutoSellManager;
 import dev.aether.modules.inventorymanager.BookCombineManager;
@@ -112,9 +111,6 @@ public final class AetherAutomationTickHandler {
         if (client.screen == currentScreen) {
             SupercraftManager.handleRecipeGui(currentScreen);
         }
-        if (client.screen == currentScreen) {
-            ExperimentsManager.handleMenu(client, currentScreen);
-        }
     }
 
     private static void tickManagers(Minecraft client) {
@@ -125,7 +121,6 @@ public final class AetherAutomationTickHandler {
 
         DynamicRestManager.update();
         SupercraftManager.update();
-        ExperimentsManager.update();
         PestBonusManager.updateFromTab();
         AutoPestExchangeManager.update();
         PestManager.update();

@@ -15,9 +15,6 @@ public interface AccessorAbstractContainerScreen {
     @Accessor("topPos")
     int getTopPos();
 
-    @Accessor("hoveredSlot")
-    Slot getHoveredSlot();
-
     @Invoker("slotClicked")
     void invokeSlotClicked(Slot slot, int slotId, int mouseButton, ContainerInput type);
 }

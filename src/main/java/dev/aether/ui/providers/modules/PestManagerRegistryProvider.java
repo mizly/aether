@@ -1,13 +1,17 @@
 package dev.aether.ui;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.notification.NotificationManager;
 import dev.aether.ui.settings.DropdownSetting;
 import dev.aether.ui.settings.ListSetting;
 import dev.aether.ui.settings.ModulesTab;
+import dev.aether.ui.settings.PositionSetting;
 import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.TextSetting;
 import dev.aether.ui.settings.ToggleSetting;
+import dev.aether.util.AetherLang;
+import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -206,7 +210,53 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.save();
                         })
                         .visibleWhen(() -> AetherConfig.AUTO_CLEAR_PEST_TRAPS.get()
-                                || AetherConfig.AUTO_REFILL_PEST_TRAPS.get())));
+                                || AetherConfig.AUTO_REFILL_PEST_TRAPS.get()))
+                .add(new ToggleSetting("Pathfind to Traps",
+                        () -> AetherConfig.PEST_TRAPS_PATHFIND.get(),
+                        v -> {
+                            AetherConfig.PEST_TRAPS_PATHFIND.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(() -> AetherConfig.AUTO_CLEAR_PEST_TRAPS.get()
+                                || AetherConfig.AUTO_REFILL_PEST_TRAPS.get()))
+                .add(new PositionSetting("Traps Position",
+                        () -> (double) AetherConfig.PEST_TRAPS_X.get(),
+                        v -> {
+                            AetherConfig.PEST_TRAPS_X.set((int) Math.round(v));
+                            AetherConfig.save();
+                        },
+                        () -> (double) AetherConfig.PEST_TRAPS_Y.get(),
+                        v -> {
+                            AetherConfig.PEST_TRAPS_Y.set((int) Math.round(v));
+                            AetherConfig.save();
+                        },
+                        () -> (double) AetherConfig.PEST_TRAPS_Z.get(),
+                        v -> {
+                            AetherConfig.PEST_TRAPS_Z.set((int) Math.round(v));
+                            AetherConfig.save();
+                        },
+                        () -> AetherConfig.PEST_TRAPS_HIGHLIGHT.get(),
+                        v -> {
+                            AetherConfig.PEST_TRAPS_HIGHLIGHT.set(v);
+                            AetherConfig.save();
+                        },
+                        () -> {
+                            var player = Minecraft.getInstance().player;
+                            if (player != null) {
+                                AetherConfig.PEST_TRAPS_X.set(player.getBlockX());
+                                AetherConfig.PEST_TRAPS_Y.set(player.getBlockY());
+                                AetherConfig.PEST_TRAPS_Z.set(player.getBlockZ());
+                                AetherConfig.save();
+                                NotificationManager.success(AetherLang.localize("Pest Traps Position Set"),
+                                        String.format("X: %d, Y: %d, Z: %d",
+                                                AetherConfig.PEST_TRAPS_X.get(),
+                                                AetherConfig.PEST_TRAPS_Y.get(),
+                                                AetherConfig.PEST_TRAPS_Z.get()));
+                            }
+                        })
+                        .visibleWhen(() -> AetherConfig.PEST_TRAPS_PATHFIND.get()
+                                && (AetherConfig.AUTO_CLEAR_PEST_TRAPS.get()
+                                        || AetherConfig.AUTO_REFILL_PEST_TRAPS.get()))));
 
         return MainGUIRegistry.toggleSubTab(
                 "Pest Manager",

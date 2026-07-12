@@ -444,6 +444,11 @@ public final class AetherConfig {
         public static final StringEntry PEST_TRAPS_BAIT_MATERIAL = Config.string("pestTrapsBaitMaterial", "Tasty Cheese");
         public static final IntEntry PEST_TRAPS_BAIT_AMOUNT = Config.integer("pestTrapsBaitAmount", 64).range(1, 64);
         public static final BooleanEntry AUTO_MOSQUITO_FOR_PEST_TRAPS = Config.bool("autoMosquitoForPestTraps", false);
+        public static final BooleanEntry PEST_TRAPS_PATHFIND = Config.bool("pestTrapsPathfind", false);
+        public static final IntEntry PEST_TRAPS_X = Config.integer("pestTrapsX", 0);
+        public static final IntEntry PEST_TRAPS_Y = Config.integer("pestTrapsY", 0);
+        public static final IntEntry PEST_TRAPS_Z = Config.integer("pestTrapsZ", 0);
+        public static final BooleanEntry PEST_TRAPS_HIGHLIGHT = Config.bool("pestTrapsHighlight", false);
         public static final BooleanEntry AUTO_PET_AFTER_TRAP_OPEN = Config.bool("autoPetAfterTrapOpen", false);
         public static final StringEntry AUTO_PET_AFTER_TRAP_OPEN_PET = Config.string("autoPetAfterTrapOpenPet", "");
         public static final BooleanEntry LEAVE_ONE_PEST_ALIVE = Config.bool("leaveOnePestAlive", false);
@@ -1024,10 +1029,6 @@ public final class AetherConfig {
         public static final ListEntry<String> AUTO_SUPERCRAFT_ITEMS = Config.list("autoSupercraftItems",
                         DEFAULT_SUPERCRAFT_ITEMS,
                         String.class);
-
-        // -- EXPERIMENTS -----------------------------------------------------------
-        public static final BooleanEntry AUTO_EXPERIMENTS_DEBUG = Config.bool("autoExperimentsDebug", false);
-        public static final BooleanEntry AUTO_EXPERIMENTS_STEP = Config.bool("autoExperimentsStep", false);
 
         // -- DEBUG -----------------------------------------------------------------
         public static final BooleanEntry SHOW_DEBUG = Config.bool("showDebug", false);

@@ -2,10 +2,8 @@ package dev.aether.bootstrap;
 
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
-import dev.aether.modules.experiments.ExperimentsManager;
 import dev.aether.modules.visitor.VisitorManager;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
-import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.Slot;
@@ -21,13 +19,6 @@ public final class AetherScreenHooks {
             if (!(screen instanceof AbstractContainerScreen)) {
                 return;
             }
-
-            ScreenKeyboardEvents.afterKeyPress(screen).register((keyedScreen, keyEvent) -> {
-                if (keyedScreen instanceof AbstractContainerScreen<?> containerScreen
-                        && AetherKeybindRegistry.getExperimentClickKey().matches(keyEvent)) {
-                    ExperimentsManager.onGuiKeybind(client, containerScreen);
-                }
-            });
 
             ScreenEvents.afterExtract(screen).register((renderedScreen, graphics, mouseX, mouseY, tickDelta) -> {
                 if (!(renderedScreen instanceof AbstractContainerScreen containerScreen)) {
