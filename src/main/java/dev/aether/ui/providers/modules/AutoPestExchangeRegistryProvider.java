@@ -20,6 +20,13 @@ public final class AutoPestExchangeRegistryProvider extends AbstractModulesRegis
         SettingGroup group = SettingGroup.alwaysOn(
                         "Pest Exchange",
                         "Configure Auto Pest Exchange behavior")
+                .add(new dev.aether.ui.settings.ToggleSetting("Pathfind to Phillip",
+                        () -> AetherConfig.PEST_EXCHANGE_PATHFIND.get(),
+                        v -> {
+                            AetherConfig.PEST_EXCHANGE_PATHFIND.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(() -> AetherConfig.AUTO_PEST_EXCHANGE.get()))
                 .add(new PositionSetting("Exchange Desk",
                         () -> (double) AetherConfig.PEST_EXCHANGE_DESK_X.get(),
                         v -> {
@@ -54,17 +61,12 @@ public final class AutoPestExchangeRegistryProvider extends AbstractModulesRegis
                                         AetherConfig.PEST_EXCHANGE_DESK_Y.get(),
                                                 AetherConfig.PEST_EXCHANGE_DESK_Z.get()));
                             }
-                        }))
+                        })
+                        .visibleWhen(() -> AetherConfig.AUTO_PEST_EXCHANGE.get()
+                                && AetherConfig.PEST_EXCHANGE_PATHFIND.get()))
                 .add(FarmingSettingsFactory.pestExchangeFovRangeSetting()
-                        .visibleWhen(() -> AetherConfig.AUTO_PEST_EXCHANGE.get()));
-
-        group.add(new dev.aether.ui.settings.ToggleSetting("Pathfind to Phillip",
-                () -> AetherConfig.PEST_EXCHANGE_PATHFIND.get(),
-                v -> {
-                    AetherConfig.PEST_EXCHANGE_PATHFIND.set(v);
-                    AetherConfig.save();
-                })
-                .visibleWhen(() -> AetherConfig.AUTO_PEST_EXCHANGE.get()));
+                        .visibleWhen(() -> AetherConfig.AUTO_PEST_EXCHANGE.get()
+                                && AetherConfig.PEST_EXCHANGE_PATHFIND.get()));
 
         group.add(new dev.aether.ui.settings.ToggleSetting("Use Abiphone",
                 () -> AetherConfig.AUTO_PEST_USE_ABIPHONE.get(),
