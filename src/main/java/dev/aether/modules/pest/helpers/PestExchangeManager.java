@@ -122,39 +122,41 @@ public class PestExchangeManager {
         if (!isExchanging) return false;
         MacroWorkerThread.sleep(500);
 
-        // Step 3: Pathfind walk to desk position
-        int deskX = AetherConfig.PEST_EXCHANGE_DESK_X.get();
-        int deskY = AetherConfig.PEST_EXCHANGE_DESK_Y.get();
-        int deskZ = AetherConfig.PEST_EXCHANGE_DESK_Z.get();
+        // Step 3: Pathfind walk to desk position (optional)
+        if (AetherConfig.PEST_EXCHANGE_PATHFIND.get()) {
+            int deskX = AetherConfig.PEST_EXCHANGE_DESK_X.get();
+            int deskY = AetherConfig.PEST_EXCHANGE_DESK_Y.get();
+            int deskZ = AetherConfig.PEST_EXCHANGE_DESK_Z.get();
 
-        ClientUtils.sendDebugMessage("[PestExchange] Walking to desk at " + deskX + ", " + deskY + ", " + deskZ);
-        client.execute(() -> {
-                if (client.player != null)
-                    ClientUtils.sendMessage("§eWalking to Phillip's desk...", false);
-        });
-
-        client.execute(() -> PathfindingManager.startPathfind(client, deskX, deskY, deskZ, false));
-
-        // Wait for pathfinding to complete (up to 30 seconds)
-        MacroWorkerThread.sleep(1000); // Give pathfinder time to start
-        long pathDeadline = System.currentTimeMillis() + 30000;
-        while (PathfindingManager.isNavigating() && System.currentTimeMillis() < pathDeadline && isExchanging) {
-            MacroWorkerThread.sleep(200);
-        }
-
-        if (!isExchanging) return false;
-
-        if (PathfindingManager.isNavigating()) {
-            PathfindingManager.stop();
+            ClientUtils.sendDebugMessage("[PestExchange] Walking to desk at " + deskX + ", " + deskY + ", " + deskZ);
             client.execute(() -> {
-                if (client.player != null)
-                    ClientUtils.sendMessage("§cPathfinding timed out. Stopping pest exchange.", false);
+                    if (client.player != null)
+                        ClientUtils.sendMessage("§eWalking to Phillip's desk...", false);
             });
-            isExchanging = false;
-            return false;
-        }
 
-        MacroWorkerThread.sleep(300);
+            client.execute(() -> PathfindingManager.startPathfind(client, deskX, deskY, deskZ, false));
+
+            // Wait for pathfinding to complete (up to 30 seconds)
+            MacroWorkerThread.sleep(1000); // Give pathfinder time to start
+            long pathDeadline = System.currentTimeMillis() + 30000;
+            while (PathfindingManager.isNavigating() && System.currentTimeMillis() < pathDeadline && isExchanging) {
+                MacroWorkerThread.sleep(200);
+            }
+
+            if (!isExchanging) return false;
+
+            if (PathfindingManager.isNavigating()) {
+                PathfindingManager.stop();
+                client.execute(() -> {
+                    if (client.player != null)
+                        ClientUtils.sendMessage("§cPathfinding timed out. Stopping pest exchange.", false);
+                });
+                isExchanging = false;
+                return false;
+            }
+
+            MacroWorkerThread.sleep(300);
+        }
 
         // Step 4: Find and interact with Phillip
         ClientUtils.sendDebugMessage("[PestExchange] Looking for Phillip...");

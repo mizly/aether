@@ -58,6 +58,14 @@ public final class AutoPestExchangeRegistryProvider extends AbstractModulesRegis
                 .add(FarmingSettingsFactory.pestExchangeFovRangeSetting()
                         .visibleWhen(() -> AetherConfig.AUTO_PEST_EXCHANGE.get()));
 
+        group.add(new dev.aether.ui.settings.ToggleSetting("Pathfind to Phillip",
+                () -> AetherConfig.PEST_EXCHANGE_PATHFIND.get(),
+                v -> {
+                    AetherConfig.PEST_EXCHANGE_PATHFIND.set(v);
+                    AetherConfig.save();
+                })
+                .visibleWhen(() -> AetherConfig.AUTO_PEST_EXCHANGE.get()));
+
         group.add(new dev.aether.ui.settings.ToggleSetting("Use Abiphone",
                 () -> AetherConfig.AUTO_PEST_USE_ABIPHONE.get(),
                 v -> {

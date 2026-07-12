@@ -479,6 +479,7 @@ public final class AetherConfig {
         public static final IntEntry PEST_EXCHANGE_DESK_Y = Config.integer("pestExchangeDeskY", 71);
         public static final IntEntry PEST_EXCHANGE_DESK_Z = Config.integer("pestExchangeDeskZ", -14);
         public static final BooleanEntry PEST_HIGHLIGHT_DESK = Config.bool("pestHighlightDesk", true);
+        public static final BooleanEntry PEST_EXCHANGE_PATHFIND = Config.bool("pestExchangePathfind", true);
         public static final FloatEntry PEST_EXCHANGE_FOV_RANGE = Config.floatVal("pestExchangeFovRange", 4.0f)
                         .range(0.0f, 15.0f);
 

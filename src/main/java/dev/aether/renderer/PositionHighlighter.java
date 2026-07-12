@@ -23,6 +23,15 @@ import org.joml.Matrix4f;
 public final class PositionHighlighter {
     private PositionHighlighter() {}
 
+    // Hide the destination highlight while its pathfinder is on - the macro walks there itself.
+    private static boolean showDeskHighlight() {
+        return AetherConfig.PEST_HIGHLIGHT_DESK.get() && !AetherConfig.PEST_EXCHANGE_PATHFIND.get();
+    }
+
+    private static boolean showTrapsHighlight() {
+        return AetherConfig.PEST_TRAPS_HIGHLIGHT.get() && !AetherConfig.PEST_TRAPS_PATHFIND.get();
+    }
+
     public static boolean hasVisibleHighlights() {
         if (StreamerModeManager.isEnabled()) {
             return false;
@@ -38,10 +47,10 @@ public final class PositionHighlighter {
         if (mc.level == null || mc.player == null || ClientUtils.getCurrentLocation() != MacroState.Location.GARDEN) {
             return false;
         }
-        if (AetherConfig.PEST_HIGHLIGHT_DESK.get()) {
+        if (showDeskHighlight()) {
             return true;
         }
-        if (AetherConfig.PEST_TRAPS_HIGHLIGHT.get()) {
+        if (showTrapsHighlight()) {
             return true;
         }
         if (AetherConfig.AUTO_COMPOSTER_HIGHLIGHT.get()) {
@@ -84,7 +93,7 @@ public final class PositionHighlighter {
                     : null;
 
             // Desk Position (Block highlight)
-            if (AetherConfig.PEST_HIGHLIGHT_DESK.get()) {
+            if (showDeskHighlight()) {
                 int x = AetherConfig.PEST_EXCHANGE_DESK_X.get();
                 int y = AetherConfig.PEST_EXCHANGE_DESK_Y.get();
                 int z = AetherConfig.PEST_EXCHANGE_DESK_Z.get();
@@ -97,7 +106,7 @@ public final class PositionHighlighter {
                         2.0f);
             }
 
-            if (AetherConfig.PEST_TRAPS_HIGHLIGHT.get()) {
+            if (showTrapsHighlight()) {
                 int x = AetherConfig.PEST_TRAPS_X.get();
                 int y = AetherConfig.PEST_TRAPS_Y.get();
                 int z = AetherConfig.PEST_TRAPS_Z.get();
