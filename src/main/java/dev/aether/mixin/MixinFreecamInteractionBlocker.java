@@ -15,12 +15,12 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  * packets say otherwise, tripping the server's rotation / reach checks ("rotationBreak" /
  * "farbreak") and getting the user kicked.
  *
- * <p>We only want to suppress the <em>human's</em> physical input, not the macro. The
- * macro drives interactions by holding the key programmatically (logically down but not
- * physically pressed - see {@code FreecamManager#isProgrammaticKeyDown}) or through the
- * {@code @Invoker} calls, both of which bypass these {@code handleKeybinds} call sites or
- * are recognised as programmatic below. So the farming loop keeps working in freecam while
- * manual clicks are swallowed.
+ * <p>We only want to suppress the <em>human's</em> physical input, not the macro. Physical
+ * mouse buttons are swallowed at the source by {@code MixinMouseHandler#onMouseClick} while
+ * freecam is active, so during freecam the attack/use mappings can only be down
+ * programmatically (macro). The checks below therefore consult only the mapping state -
+ * never raw GLFW button state, which the human's mouse still flips even with events
+ * swallowed. So the farming loop keeps working in freecam while manual clicks do nothing.
  */
 @Mixin(Minecraft.class)
 public class MixinFreecamInteractionBlocker {
@@ -71,8 +71,7 @@ public class MixinFreecamInteractionBlocker {
         at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;startUseItem()V")
     )
     private void aether$freecamStartUseItem(Minecraft self) {
-        if (AetherBootstrapHooks.isFreecamEnabled()
-                && !AetherBootstrapHooks.isFreecamProgrammaticKeyDown(self, self.options.keyUse)) {
+        if (AetherBootstrapHooks.isFreecamEnabled() && !self.options.keyUse.isDown()) {
             return;
         }
         ((MixinMinecraft) self).aether$startUseItem();
@@ -89,9 +88,8 @@ public class MixinFreecamInteractionBlocker {
         ((MixinMinecraft) self).aether$pickBlockOrEntity();
     }
 
-    /** {@code true} when freecam is on and the attack key is physically (manually) held. */
+    /** {@code true} when freecam is on and the attack mapping is not macro-held. */
     private static boolean aether$blockManualAttack(Minecraft self) {
-        return AetherBootstrapHooks.isFreecamEnabled()
-                && !AetherBootstrapHooks.isFreecamProgrammaticKeyDown(self, self.options.keyAttack);
+        return AetherBootstrapHooks.isFreecamEnabled() && !self.options.keyAttack.isDown();
     }
 }
