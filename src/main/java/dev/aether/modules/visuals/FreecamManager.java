@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.aether.bootstrap.AetherKeybindRegistry;
 import dev.aether.config.AetherConfig;
+import dev.aether.macro.MacroStateManager;
 import dev.aether.mixin.AccessorKeyMapping;
 import dev.aether.mixin.AccessorWindow;
 import dev.aether.modules.farming.UngrabMouse;
@@ -302,16 +303,25 @@ public final class FreecamManager {
     }
 
     private static void clearLatchedInputState(Minecraft client, LocalPlayer player) {
+        // Leave movement to the macro while it is running - releasing it here stutters the
+        // walk for a tick on each toggle, which directly drops mining CPS. Attack/use are
+        // still released so the reapply path restores them cleanly (guarding them broke LC).
+        boolean macroRunning = MacroStateManager.isMacroRunning();
         if (client.options != null) {
-            ClientUtils.setKeyMappingState(client.options.keyUp, false);
-            ClientUtils.setKeyMappingState(client.options.keyDown, false);
-            ClientUtils.setKeyMappingState(client.options.keyLeft, false);
-            ClientUtils.setKeyMappingState(client.options.keyRight, false);
-            ClientUtils.setKeyMappingState(client.options.keyJump, false);
-            ClientUtils.setKeyMappingState(client.options.keyShift, false);
-            ClientUtils.setKeyMappingState(client.options.keySprint, false);
+            if (!macroRunning) {
+                ClientUtils.setKeyMappingState(client.options.keyUp, false);
+                ClientUtils.setKeyMappingState(client.options.keyDown, false);
+                ClientUtils.setKeyMappingState(client.options.keyLeft, false);
+                ClientUtils.setKeyMappingState(client.options.keyRight, false);
+                ClientUtils.setKeyMappingState(client.options.keyJump, false);
+                ClientUtils.setKeyMappingState(client.options.keyShift, false);
+                ClientUtils.setKeyMappingState(client.options.keySprint, false);
+            }
             ClientUtils.setKeyMappingState(client.options.keyAttack, false);
             ClientUtils.setKeyMappingState(client.options.keyUse, false);
+        }
+        if (macroRunning) {
+            return;
         }
         // Do NOT force horizontal velocity to zero. The real player keeps ticking while
         // the camera is detached, so once the movement keys are released above, friction
