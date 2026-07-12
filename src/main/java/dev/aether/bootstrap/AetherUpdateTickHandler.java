@@ -1,5 +1,7 @@
 package dev.aether.bootstrap;
 
+import dev.aether.config.AetherConfig;
+import dev.aether.update.AutoUpdateInstaller;
 import dev.aether.update.UpdateChecker;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
@@ -21,7 +23,11 @@ public final class AetherUpdateTickHandler {
             }
 
             checkedForCurrentJoin = true;
-            UpdateChecker.checkAndNotify();
+            if (AetherConfig.AUTO_UPDATE.get()) {
+                AutoUpdateInstaller.checkAndInstallLatest();
+            } else {
+                UpdateChecker.checkAndNotify();
+            }
         });
     }
 }

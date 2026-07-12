@@ -1,3 +1,4 @@
+dev.aether.ui.AutoUpdateRegistryProvider
 dev.aether.ui.FarmingMacroRegistryProvider
 dev.aether.ui.RewarpRegistryProvider
 dev.aether.ui.PestManagerRegistryProvider

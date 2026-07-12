@@ -136,15 +136,10 @@ public final class AetherConfig {
         }
 
         public static boolean loadFrom(File file) {
-                String currentBootstrapLicenseKey = BOOTSTRAP_LICENSE_KEY.get();
                 boolean loaded = Config.loadFrom(file.toPath());
                 if (loaded) {
                         migrateLegacyDelayRanges(file);
                         migrateLegacyLoadoutKeys(file);
-                        if (BOOTSTRAP_LICENSE_KEY.get().isBlank() && currentBootstrapLicenseKey != null
-                                        && !currentBootstrapLicenseKey.isBlank()) {
-                                BOOTSTRAP_LICENSE_KEY.set(currentBootstrapLicenseKey);
-                        }
                         resetRuntimeOnlyEntries();
                         sanitizeLifetimeAccumulated();
                         ensureAutoSellDefaults();
@@ -160,14 +155,13 @@ public final class AetherConfig {
 
         /**
          * Returns the live config as a shareable JSON string, with sensitive/account-specific
-         * fields blanked (license key, webhook, co-op names, usernames). Mirrors the profile
+         * fields blanked (webhook, co-op names, usernames). Mirrors the profile
          * export sanitization so exported strings are safe to paste publicly.
          */
         public static String exportSanitizedJson() {
                 String json = toJsonString();
                 try {
                         com.google.gson.JsonObject obj = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
-                        obj.addProperty("bootstrapLicenseKey", "");
                         obj.addProperty("discordWebhookUrl", "");
                         obj.addProperty("remoteControlBotToken", "");
                         obj.add("coopNames", new com.google.gson.JsonArray());
@@ -180,21 +174,16 @@ public final class AetherConfig {
         }
 
         /**
-         * Applies a JSON config string to the live config and persists it. Keeps the local
-         * license key when the imported string does not carry one, then runs the same
-         * post-load fixups as {@link #loadFrom(File)}. Returns {@code false} on invalid JSON.
+         * Applies a JSON config string to the live config and persists it, then runs the
+         * same post-load fixups as {@link #loadFrom(File)}. Returns {@code false} on
+         * invalid JSON.
          */
         public static boolean importFromJson(String json) {
-                String currentBootstrapLicenseKey = BOOTSTRAP_LICENSE_KEY.get();
                 boolean loaded = Config.loadFromJson(json);
                 if (loaded) {
                         try {
                                 migrateLegacyLoadoutKeys(JsonParser.parseString(json).getAsJsonObject());
                         } catch (Exception ignored) {
-                        }
-                        if (BOOTSTRAP_LICENSE_KEY.get().isBlank() && currentBootstrapLicenseKey != null
-                                        && !currentBootstrapLicenseKey.isBlank()) {
-                                BOOTSTRAP_LICENSE_KEY.set(currentBootstrapLicenseKey);
                         }
                         resetRuntimeOnlyEntries();
                         sanitizeLifetimeAccumulated();
@@ -207,9 +196,7 @@ public final class AetherConfig {
 
         // -- AUTHENTICATION --------------------------------------------------------
 
-        public static final StringEntry BOOTSTRAP_LICENSE_KEY = Config.string("bootstrapLicenseKey", "");
-        public static final BooleanEntry AUTO_LOAD_LATEST = Config.bool("autoLoadLatest", true);
-        public static final BooleanEntry CHECK_AUTO_UPDATE_PRE_LAUNCH = Config.bool("checkAutoUpdatePreLaunch", true);
+        public static final BooleanEntry AUTO_UPDATE = Config.bool("autoUpdate", false);
         public static final StringEntry LANGUAGE_CODE = Config.string("languageCode", "en_us");
 
         // -- PEST ------------------------------------------------------------------
@@ -962,7 +949,7 @@ public final class AetherConfig {
         public static final BooleanEntry NICK_HIDER_MASTER_ENABLED = Config.bool("nickHiderMasterEnabled", true);
         public static final BooleanEntry NICK_HIDER_ENABLED = Config.bool("nickHiderEnabled", false);
         public static final BooleanEntry HIDE_SERVER_ID = Config.bool("hideServerId", false);
-        public static final StringEntry CUSTOM_SERVER_ID = Config.string("customServerId", "aether.rip");
+        public static final StringEntry CUSTOM_SERVER_ID = Config.string("customServerId", ".gg/aethersb");
         public static final BooleanEntry COOP_HIDER_ENABLED = Config.bool("coopHiderEnabled", false);
         public static final ListEntry<String> COOP_NAMES = Config.list("coopNames", 
                         Arrays.asList("Coop1", "Coop2", "Coop3"), String.class);

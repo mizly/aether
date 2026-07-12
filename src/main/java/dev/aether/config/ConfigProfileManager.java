@@ -115,7 +115,6 @@ public final class ConfigProfileManager {
         try {
             com.google.gson.JsonObject obj = com.google.gson.JsonParser.parseString(json).getAsJsonObject();
             // Always blank sensitive fields
-            obj.addProperty("bootstrapLicenseKey", "");
             obj.addProperty("discordWebhookUrl", "");
             obj.addProperty("remoteControlBotToken", "");
             obj.add("coopNames", new com.google.gson.JsonArray());
