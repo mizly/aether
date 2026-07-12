@@ -1,9 +1,12 @@
 package dev.aether.mixin;
 
 import dev.aether.bootstrap.AetherBootstrapHooks;
+import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
@@ -24,6 +27,8 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  */
 @Mixin(Minecraft.class)
 public class MixinFreecamInteractionBlocker {
+    @Shadow private int missTime;
+    @Unique private static String aether$lastAttackDebug = "";
 
     /**
      * {@link net.minecraft.client.Minecraft#pick} computes {@code hitResult} by
@@ -49,9 +54,16 @@ public class MixinFreecamInteractionBlocker {
     )
     private boolean aether$freecamStartAttack(Minecraft self) {
         if (aether$blockManualAttack(self)) {
+            if (AetherBootstrapHooks.isFreecamEnabled()) {
+                ClientUtils.sendDebugMessage("[FC] startAttack BLOCKED missTime=" + missTime);
+            }
             return false;
         }
-        return ((MixinMinecraft) self).aether$startAttack();
+        boolean result = ((MixinMinecraft) self).aether$startAttack();
+        if (AetherBootstrapHooks.isFreecamEnabled()) {
+            ClientUtils.sendDebugMessage("[FC] startAttack ran result=" + result + " missTime=" + missTime);
+        }
+        return result;
     }
 
     @Redirect(
@@ -59,11 +71,16 @@ public class MixinFreecamInteractionBlocker {
         at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;continueAttack(Z)V")
     )
     private void aether$freecamContinueAttack(Minecraft self, boolean attacking) {
-        if (aether$blockManualAttack(self)) {
-            ((MixinMinecraft) self).aether$continueAttack(false);
-            return;
+        boolean blocked = aether$blockManualAttack(self);
+        if (AetherBootstrapHooks.isFreecamEnabled()) {
+            String state = "blocked=" + blocked + " arg=" + attacking
+                    + " isDown=" + self.options.keyAttack.isDown() + " missTime=" + missTime;
+            if (!state.equals(aether$lastAttackDebug)) {
+                aether$lastAttackDebug = state;
+                ClientUtils.sendDebugMessage("[FC] continueAttack " + state);
+            }
         }
-        ((MixinMinecraft) self).aether$continueAttack(attacking);
+        ((MixinMinecraft) self).aether$continueAttack(!blocked && attacking);
     }
 
     @Redirect(

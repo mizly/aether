@@ -168,6 +168,8 @@ public final class FreecamManager {
         clearLatchedInputState(client, player);
         // Immediately re-press macro-held keys so the toggle never opens a released-key gap.
         ClientUtils.reapplyProgrammaticKeyStates(client);
+        ClientUtils.sendDebugMessage("[FC] enabled: attackDown=" + client.options.keyAttack.isDown()
+                + " tracker=" + dev.aether.util.ProgrammaticAttackTracker.isHeld());
         ClientUtils.sendMessage("Freecam enabled!", false);
     }
 
@@ -181,6 +183,8 @@ public final class FreecamManager {
             startMacroMovementGrace();
             clearLatchedInputState(client, client.player);
             ClientUtils.reapplyProgrammaticKeyStates(client);
+            ClientUtils.sendDebugMessage("[FC] disabled: attackDown=" + client.options.keyAttack.isDown()
+                    + " tracker=" + dev.aether.util.ProgrammaticAttackTracker.isHeld());
             Entity restore = previousCameraEntity;
             if (restore == null || restore.isRemoved()) {
                 restore = client.player;
