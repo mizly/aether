@@ -209,6 +209,7 @@ public final class AetherConfig {
 
         public static final StringEntry BOOTSTRAP_LICENSE_KEY = Config.string("bootstrapLicenseKey", "");
         public static final BooleanEntry AUTO_LOAD_LATEST = Config.bool("autoLoadLatest", true);
+        public static final BooleanEntry AUTO_UPDATE = Config.bool("autoUpdate", false);
         public static final BooleanEntry CHECK_AUTO_UPDATE_PRE_LAUNCH = Config.bool("checkAutoUpdatePreLaunch", true);
         public static final StringEntry LANGUAGE_CODE = Config.string("languageCode", "en_us");
 
