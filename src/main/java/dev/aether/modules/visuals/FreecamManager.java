@@ -4,6 +4,7 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.aether.bootstrap.AetherKeybindRegistry;
 import dev.aether.config.AetherConfig;
+import dev.aether.macro.MacroStateManager;
 import dev.aether.mixin.AccessorKeyMapping;
 import dev.aether.mixin.AccessorWindow;
 import dev.aether.modules.farming.UngrabMouse;
@@ -310,8 +311,14 @@ public final class FreecamManager {
             ClientUtils.setKeyMappingState(client.options.keyJump, false);
             ClientUtils.setKeyMappingState(client.options.keyShift, false);
             ClientUtils.setKeyMappingState(client.options.keySprint, false);
-            ClientUtils.setKeyMappingState(client.options.keyAttack, false);
-            ClientUtils.setKeyMappingState(client.options.keyUse, false);
+            // Leave attack/use to the macro while it is running. Releasing them here drops
+            // the programmatic key-down the farming loop holds, which interrupts the block
+            // break (stopDestroyBlock) and forces a fresh startAttack on re-press - resetting
+            // the attack cooldown and risking a missTime penalty that tanks BPS.
+            if (!MacroStateManager.isMacroRunning()) {
+                ClientUtils.setKeyMappingState(client.options.keyAttack, false);
+                ClientUtils.setKeyMappingState(client.options.keyUse, false);
+            }
         }
         // Do NOT force horizontal velocity to zero. The real player keeps ticking while
         // the camera is detached, so once the movement keys are released above, friction
