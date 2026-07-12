@@ -562,7 +562,6 @@ public final class AutoCarnivalManager {
             if (client.player == null) {
                 return;
             }
-            client.player.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
             ((MixinMinecraft) client).aether$startAttack();
         });
         MacroWorkerThread.sleep(100L);

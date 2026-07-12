@@ -23,7 +23,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.inventory.ContainerInput;
@@ -779,7 +778,6 @@ public class VisitorsMacro {
             if (client.player == null) {
                 return;
             }
-            client.player.swing(InteractionHand.MAIN_HAND);
             ((MixinMinecraft) client).aether$startAttack();
         });
         MacroWorkerThread.sleep(100);

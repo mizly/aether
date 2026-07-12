@@ -19,7 +19,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
@@ -326,7 +325,6 @@ public final class ComposterManager {
             if (client.player == null) {
                 return;
             }
-            client.player.swing(InteractionHand.MAIN_HAND);
             ((MixinMinecraft) client).aether$startAttack();
             ((MixinMinecraft) client).aether$continueAttack(false);
         });
