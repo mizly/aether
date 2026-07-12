@@ -77,7 +77,7 @@ public final class AutoUpdateInstaller {
                 client.execute(() -> NotificationManager.success(
                         "Aether Updated",
                         "The mod has been updated from version " + currentVersion + " to version "
-                                + release.tagName() + ". Restart Minecraft to finish.",
+                                + release.tagName() + "!",
                         10000));
             } catch (Exception e) {
                 installStarted = false;
@@ -410,7 +410,7 @@ public final class AutoUpdateInstaller {
 
     private static String popupMessage(String fromVersion, String toVersion) {
         return "Aether has been updated from version " + fromVersion + " to version " + toVersion
-                + ".\nStart Minecraft again.";
+                + "!";
     }
 
     private static boolean isWindows() {
