@@ -2,6 +2,7 @@ package dev.aether.modules.failsafe;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.macro.MacroStateManager;
+import dev.aether.modules.discord.DiscordRemoteControlManager;
 import dev.aether.modules.discord.DiscordStatusManager;
 import dev.aether.util.AetherLang;
 import dev.aether.util.ClientUtils;
@@ -332,6 +333,7 @@ public final class FailsafeManager {
                     shouldStopMacroOnTrigger(action));
         }
         DiscordStatusManager.sendFailsafeAlert(details, actionDone);
+        DiscordRemoteControlManager.sendFailsafeAlert(details, actionDone);
 
         if (shouldStopMacroOnTrigger(action)) {
             ClientUtils.sendMessage("\u00A7cFailsafe triggered: " + details + " Macro stopped.", false);

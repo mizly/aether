@@ -1,6 +1,7 @@
 package dev.aether.modules.discord;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.blaze3d.platform.NativeImage;
@@ -39,6 +40,16 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
     private static final Object LOCK = new Object();
     private static DiscordRemoteControlManager active;
 
+    private static final String[][] WARPS = {
+            {"Hub", "/warp hub"},
+            {"Garden", "/warp garden"},
+            {"Desk", "/warp desk"},
+            {"Island", "/warp island"},
+            {"Forge", "/warpforge"},
+            {"Skyblock", "/play skyblock"},
+            {"Lobby", "/lobby"}
+    };
+
     private final RemoteControlConfig config;
     private final HttpClient http = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(15))
@@ -55,6 +66,8 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
     private ScheduledFuture<?> heartbeat;
     private int sequence = -1;
     private volatile boolean stopping;
+    private volatile String applicationId = "";
+    private volatile boolean slashRegistered;
 
     private DiscordRemoteControlManager(RemoteControlConfig config) {
         this.config = config;
@@ -83,6 +96,16 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
                 active.stop();
                 active = null;
             }
+        }
+    }
+
+    public static void sendFailsafeAlert(String reason, String actionDone) {
+        DiscordRemoteControlManager current;
+        synchronized (LOCK) {
+            current = active;
+        }
+        if (current != null && !current.config.channelId().isBlank()) {
+            current.scheduler.execute(() -> current.postFailsafeAlert(reason, actionDone));
         }
     }
 
@@ -176,8 +199,13 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
                         TimeUnit.MILLISECONDS);
             }
             case 0 -> {
-                if (Objects.equals(string(root, "t"), "MESSAGE_CREATE")) {
-                    handleMessage(root.getAsJsonObject("d"));
+                JsonObject d = root.has("d") && root.get("d").isJsonObject() ? root.getAsJsonObject("d") : null;
+                switch (string(root, "t")) {
+                    case "READY" -> onReady(d);
+                    case "MESSAGE_CREATE" -> handleMessage(d);
+                    case "INTERACTION_CREATE" -> handleInteraction(d);
+                    default -> {
+                    }
                 }
             }
             case 1 -> send("{\"op\":1,\"d\":" + (sequence < 0 ? "null" : sequence) + "}");
@@ -242,6 +270,10 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
         String command = args.substring(0, firstSpaceOrEnd(args)).toLowerCase(Locale.ROOT);
         String rest = args.length() > command.length() ? args.substring(command.length()).trim() : "";
         String reply = switch (command) {
+            case "panel" -> {
+                postPanel();
+                yield null;
+            }
             case "start" -> sendMinecraftCommand("/aether farming", "Started Aether.");
             case "stop" -> sendMinecraftCommand("/aether stop", "Stopped Aether.");
             case "status" -> {
@@ -251,9 +283,15 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
             case "connect" -> connectToHypixel();
             case "disconnect" -> disconnect();
             case "panic" -> panic();
-            case "chat" -> rest.isBlank() ? "Usage: `" + config.prefix() + " chat <message>`" : sendChat(rest);
+            case "chat" -> {
+                if (rest.isBlank()) {
+                    postChatButton();
+                    yield null;
+                }
+                yield sendChat(rest);
+            }
             case "warp" -> rest.isBlank() ? "Usage: `" + config.prefix() + " warp <place>`" : sendMinecraftCommand("/warp " + rest, "Warp command sent.");
-            default -> "Commands: `" + config.prefix() + " start`, `stop`, `status`, `connect`, `disconnect`, `panic`, `chat <text>`, `warp <place>`";
+            default -> "Commands: `" + config.prefix() + " panel`, `start`, `stop`, `status`, `connect`, `disconnect`, `panic`, `chat <text>`, `warp <place>`";
         };
 
         if (reply != null && !reply.isBlank()) {
@@ -360,7 +398,7 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
 
         sendAsync(request("/channels/" + channelId + "/messages")
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                .POST(multipart(boundary, payload.toString(), image)));
+                .POST(multipartImage(boundary, payload.toString(), image, "status.png")));
     }
 
     private byte[] screenshot() throws IOException {
@@ -425,14 +463,14 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
         }, 5, TimeUnit.SECONDS);
     }
 
-    private HttpRequest.BodyPublisher multipart(String boundary, String payload, byte[] image) {
+    private HttpRequest.BodyPublisher multipartImage(String boundary, String payload, byte[] image, String filename) {
         String newline = "\r\n";
         byte[] start = ("--" + boundary + newline
                 + "Content-Disposition: form-data; name=\"payload_json\"" + newline
                 + newline
                 + payload + newline
                 + "--" + boundary + newline
-                + "Content-Disposition: form-data; name=\"files[0]\"; filename=\"status.png\"" + newline
+                + "Content-Disposition: form-data; name=\"files[0]\"; filename=\"" + filename + "\"" + newline
                 + "Content-Type: image/png" + newline
                 + newline).getBytes(StandardCharsets.UTF_8);
         byte[] end = (newline + "--" + boundary + "--" + newline).getBytes(StandardCharsets.UTF_8);
@@ -469,6 +507,549 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private void onReady(JsonObject data) {
+        if (data == null) {
+            return;
+        }
+        String id = "";
+        if (data.has("application") && data.get("application").isJsonObject()) {
+            id = string(data.getAsJsonObject("application"), "id");
+        }
+        if (id.isBlank() && data.has("user") && data.get("user").isJsonObject()) {
+            id = string(data.getAsJsonObject("user"), "id");
+        }
+        applicationId = id;
+        registerSlashCommands();
+    }
+
+    private void registerSlashCommands() {
+        if (slashRegistered || applicationId.isBlank() || config.guildId().isBlank()) {
+            return;
+        }
+        slashRegistered = true;
+
+        JsonArray commands = new JsonArray();
+        commands.add(buildSlashCommand());
+        sendAsync(request("/applications/" + applicationId + "/guilds/" + config.guildId() + "/commands")
+                .header("Content-Type", "application/json")
+                .PUT(HttpRequest.BodyPublishers.ofString(commands.toString(), StandardCharsets.UTF_8)));
+    }
+
+    private JsonObject buildSlashCommand() {
+        JsonObject command = new JsonObject();
+        command.addProperty("name", "aether");
+        command.addProperty("description", "Remote control your Aether client");
+
+        JsonArray options = new JsonArray();
+        options.add(subcommand("panel", "Open the control panel"));
+        options.add(subcommand("start", "Start farming"));
+        options.add(subcommand("stop", "Stop the macro"));
+        options.add(subcommand("status", "Post a status screenshot"));
+        options.add(subcommand("connect", "Connect to Hypixel"));
+        options.add(subcommand("disconnect", "Disconnect to the title screen"));
+        options.add(subcommand("panic", "Force-close the game"));
+
+        options.add(subcommand("chat", "Open a box to send a chat message or command"));
+
+        JsonObject warp = subcommand("warp", "Warp somewhere");
+        warp.add("options", singleOption(option(3, "place", "Destination", true)));
+        options.add(warp);
+
+        JsonObject setping = subcommand("setping", "Set who gets @'d on failsafe in this channel");
+        setping.add("options", singleOption(option(6, "user", "Who to @ on failsafe", true)));
+        options.add(setping);
+
+        options.add(subcommand("clearping", "Reset failsafe pings to @everyone"));
+
+        command.add("options", options);
+        return command;
+    }
+
+    private static JsonObject subcommand(String name, String description) {
+        JsonObject sub = new JsonObject();
+        sub.addProperty("type", 1);
+        sub.addProperty("name", name);
+        sub.addProperty("description", description);
+        return sub;
+    }
+
+    private static JsonObject option(int type, String name, String description, boolean required) {
+        JsonObject option = new JsonObject();
+        option.addProperty("type", type);
+        option.addProperty("name", name);
+        option.addProperty("description", description);
+        option.addProperty("required", required);
+        return option;
+    }
+
+    private static JsonArray singleOption(JsonObject option) {
+        JsonArray array = new JsonArray();
+        array.add(option);
+        return array;
+    }
+
+    private void handleInteraction(JsonObject interaction) {
+        if (interaction == null) {
+            return;
+        }
+        if (!Objects.equals(string(interaction, "guild_id"), config.guildId())) {
+            return;
+        }
+
+        int type = interaction.has("type") ? interaction.get("type").getAsInt() : -1;
+        String id = string(interaction, "id");
+        String token = string(interaction, "token");
+        String channelId = string(interaction, "channel_id");
+        if (id.isBlank() || token.isBlank()) {
+            return;
+        }
+        if (!Objects.equals(channelId, config.channelId())) {
+            return;
+        }
+
+        JsonObject data = interaction.has("data") && interaction.get("data").isJsonObject()
+                ? interaction.getAsJsonObject("data")
+                : null;
+
+        switch (type) {
+            case 2 -> scheduler.execute(() -> handleSlashCommand(id, token, channelId, data));
+            case 5 -> scheduler.execute(() -> handleChatModal(id, token, data));
+            case 3 -> {
+                if (data != null) {
+                    JsonObject message = interaction.has("message") && interaction.get("message").isJsonObject()
+                            ? interaction.getAsJsonObject("message")
+                            : null;
+                    String messageId = message != null ? string(message, "id") : "";
+                    scheduler.execute(() -> handleComponent(id, token, channelId, messageId, string(data, "custom_id"), data));
+                }
+            }
+            default -> {
+            }
+        }
+    }
+
+    private void handleSlashCommand(String id, String token, String channelId, JsonObject data) {
+        JsonObject sub = firstSubcommand(data);
+        String task = sub == null ? "panel" : string(sub, "name");
+        if ("panel".equals(task)) {
+            respondMessage(id, token, buildPanelEmbed("Choose an action."), buildPanelButtons(), false);
+            return;
+        }
+        if ("status".equals(task)) {
+            respondMessage(id, token, buildPanelEmbed("Status requested."), null, true);
+            runStatus();
+            return;
+        }
+        if ("chat".equals(task)) {
+            openChatModal(id, token);
+            return;
+        }
+
+        String reply = switch (task) {
+            case "setping" -> {
+                String userId = optionValue(sub, "user");
+                if (userId.isBlank()) {
+                    yield "Pick a `user` to receive failsafe pings in this channel.";
+                }
+                setPingTarget(channelId, userId);
+                yield "Saved. Failsafe alerts in this channel will now ping that user.";
+            }
+            case "clearping" -> {
+                setPingTarget(channelId, "");
+                yield "Cleared. Failsafe alerts in this channel will ping @everyone.";
+            }
+            case "start" -> sendMinecraftCommand("/aether farming", "Started Aether.");
+            case "stop" -> sendMinecraftCommand("/aether stop", "Stopped Aether.");
+            case "connect" -> connectToHypixel();
+            case "disconnect" -> disconnect();
+            case "panic" -> panic();
+            case "warp" -> {
+                String place = optionValue(sub, "place");
+                yield place.isBlank() ? "Provide a `place` for the warp task." : sendMinecraftCommand("/warp " + place, "Warp command sent.");
+            }
+            default -> "Unknown task.";
+        };
+        respondMessage(id, token, buildPanelEmbed(reply), null, true);
+    }
+
+    private static JsonObject firstSubcommand(JsonObject data) {
+        if (data == null || !data.has("options") || !data.get("options").isJsonArray()) {
+            return null;
+        }
+        JsonArray options = data.getAsJsonArray("options");
+        if (options.size() == 0 || !options.get(0).isJsonObject()) {
+            return null;
+        }
+        return options.get(0).getAsJsonObject();
+    }
+
+    private void handleComponent(String id, String token, String channelId, String messageId, String customId, JsonObject data) {
+        switch (customId) {
+            case "aether:start" -> updatePanel(id, token, sendMinecraftCommand("/aether farming", "Started Aether."));
+            case "aether:stop" -> updatePanel(id, token, sendMinecraftCommand("/aether stop", "Stopped Aether."));
+            case "aether:panic" -> updatePanel(id, token, panic());
+            case "aether:warps" -> updatePanelComponents(id, token, "Choose a warp.", buildWarpComponents());
+            case "aether:back" -> updatePanelComponents(id, token, "Choose an action.", buildPanelButtons());
+            case "aether:chat" -> openChatModal(id, token);
+            case "aether:status" -> {
+                deferUpdate(id, token);
+                editPanelWithScreenshot(channelId, messageId, "Status update.");
+            }
+            case "aether:connect" -> {
+                String reply = connectToHypixel();
+                deferUpdate(id, token);
+                scheduler.schedule(() -> editPanelWithScreenshot(channelId, messageId, reply), 7L, TimeUnit.SECONDS);
+            }
+            case "aether:disconnect" -> {
+                String reply = disconnect();
+                deferUpdate(id, token);
+                scheduler.schedule(() -> editPanelWithScreenshot(channelId, messageId, reply), 2L, TimeUnit.SECONDS);
+            }
+            case "aether:warp" -> {
+                String place = firstSelected(data);
+                String reply = place.isBlank() ? "No warp selected." : sendMinecraftCommand(place, "Warp command sent.");
+                deferUpdate(id, token);
+                scheduler.schedule(() -> editPanelWithScreenshot(channelId, messageId, reply), 7L, TimeUnit.SECONDS);
+            }
+            default -> {
+            }
+        }
+    }
+
+    private void handleChatModal(String id, String token, JsonObject data) {
+        String message = modalValue(data, "aether:chat-message").trim();
+        String reply = message.isBlank() ? "Chat message cannot be blank." : sendChat(message);
+        respondMessage(id, token, buildPanelEmbed(reply), null, true);
+    }
+
+    private void postChatButton() {
+        JsonArray buttons = new JsonArray();
+        buttons.add(button("Chat", "aether:chat", 1));
+        JsonArray rows = new JsonArray();
+        rows.add(actionRow(buttons));
+
+        JsonObject payload = new JsonObject();
+        JsonArray embeds = new JsonArray();
+        embeds.add(buildPanelEmbed("Press the button to type a message."));
+        payload.add("embeds", embeds);
+        payload.add("components", rows);
+        sendAsync(request("/channels/" + config.channelId() + "/messages")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8)));
+    }
+
+    private void postPanel() {
+        JsonObject payload = new JsonObject();
+        JsonArray embeds = new JsonArray();
+        embeds.add(buildPanelEmbed("Choose an action."));
+        payload.add("embeds", embeds);
+        payload.add("components", buildPanelButtons());
+        sendAsync(request("/channels/" + config.channelId() + "/messages")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8)));
+    }
+
+    private JsonObject buildPanelEmbed(String statusLine) {
+        JsonObject embed = new JsonObject();
+        embed.addProperty("title", "Aether Remote Control");
+        embed.addProperty("description", statusLine == null || statusLine.isBlank() ? "Choose an action." : statusLine);
+        embed.addProperty("color", 5814783);
+        return embed;
+    }
+
+    private JsonArray buildPanelButtons() {
+        JsonArray topRow = new JsonArray();
+        topRow.add(button("Start", "aether:start", 3));
+        topRow.add(button("Stop", "aether:stop", 4));
+        topRow.add(button("Status", "aether:status", 1));
+        topRow.add(button("Warps", "aether:warps", 2));
+        topRow.add(button("Chat", "aether:chat", 2));
+
+        JsonArray bottomRow = new JsonArray();
+        bottomRow.add(button("Connect", "aether:connect", 2));
+        bottomRow.add(button("Disconnect", "aether:disconnect", 2));
+        bottomRow.add(button("Panic", "aether:panic", 4));
+
+        JsonArray rows = new JsonArray();
+        rows.add(actionRow(topRow));
+        rows.add(actionRow(bottomRow));
+        return rows;
+    }
+
+    private JsonArray buildWarpComponents() {
+        JsonObject select = new JsonObject();
+        select.addProperty("type", 3);
+        select.addProperty("custom_id", "aether:warp");
+        select.addProperty("placeholder", "Choose a warp");
+        select.addProperty("min_values", 1);
+        select.addProperty("max_values", 1);
+        JsonArray options = new JsonArray();
+        for (String[] warp : WARPS) {
+            JsonObject option = new JsonObject();
+            option.addProperty("label", warp[0]);
+            option.addProperty("value", warp[1]);
+            options.add(option);
+        }
+        select.add("options", options);
+
+        JsonArray selectComponents = new JsonArray();
+        selectComponents.add(select);
+
+        JsonArray backComponents = new JsonArray();
+        backComponents.add(button("Back", "aether:back", 2));
+
+        JsonArray rows = new JsonArray();
+        rows.add(actionRow(selectComponents));
+        rows.add(actionRow(backComponents));
+        return rows;
+    }
+
+    private void openChatModal(String id, String token) {
+        JsonObject input = new JsonObject();
+        input.addProperty("type", 4);
+        input.addProperty("custom_id", "aether:chat-message");
+        input.addProperty("label", "Message");
+        input.addProperty("style", 1);
+        input.addProperty("min_length", 1);
+        input.addProperty("max_length", 256);
+        input.addProperty("required", true);
+
+        JsonArray inputRow = new JsonArray();
+        inputRow.add(input);
+        JsonArray rows = new JsonArray();
+        rows.add(actionRow(inputRow));
+
+        JsonObject modal = new JsonObject();
+        modal.addProperty("custom_id", "aether:chat-modal");
+        modal.addProperty("title", "Send chat / command");
+        modal.add("components", rows);
+
+        JsonObject body = new JsonObject();
+        body.addProperty("type", 9);
+        body.add("data", modal);
+        postCallback(id, token, body);
+    }
+
+    private void respondMessage(String id, String token, JsonObject embed, JsonArray components, boolean ephemeral) {
+        JsonObject data = new JsonObject();
+        JsonArray embeds = new JsonArray();
+        embeds.add(embed);
+        data.add("embeds", embeds);
+        if (components != null) {
+            data.add("components", components);
+        }
+        if (ephemeral) {
+            data.addProperty("flags", 64);
+        }
+
+        JsonObject body = new JsonObject();
+        body.addProperty("type", 4);
+        body.add("data", data);
+        postCallback(id, token, body);
+    }
+
+    private void updatePanel(String id, String token, String statusLine) {
+        updatePanelComponents(id, token, statusLine, buildPanelButtons());
+    }
+
+    private void updatePanelComponents(String id, String token, String statusLine, JsonArray components) {
+        JsonObject data = new JsonObject();
+        JsonArray embeds = new JsonArray();
+        embeds.add(buildPanelEmbed(statusLine));
+        data.add("embeds", embeds);
+        data.add("components", components);
+
+        JsonObject body = new JsonObject();
+        body.addProperty("type", 7);
+        body.add("data", data);
+        postCallback(id, token, body);
+    }
+
+    private void deferUpdate(String id, String token) {
+        JsonObject body = new JsonObject();
+        body.addProperty("type", 6);
+        postCallback(id, token, body);
+    }
+
+    private void postCallback(String id, String token, JsonObject body) {
+        sendAsync(HttpRequest.newBuilder(URI.create("https://discord.com/api/v10/interactions/" + id + "/" + token + "/callback"))
+                .timeout(Duration.ofSeconds(10))
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8)));
+    }
+
+    private void editPanelWithScreenshot(String channelId, String messageId, String statusLine) {
+        if (channelId.isBlank() || messageId.isBlank()) {
+            return;
+        }
+
+        JsonObject payload = new JsonObject();
+        JsonArray embeds = new JsonArray();
+        JsonObject embed = buildPanelEmbed(statusLine);
+        JsonArray components = buildPanelButtons();
+
+        byte[] image;
+        try {
+            image = screenshot();
+        } catch (IOException e) {
+            embeds.add(embed);
+            payload.add("embeds", embeds);
+            payload.add("components", components);
+            sendAsync(request("/channels/" + channelId + "/messages/" + messageId)
+                    .header("Content-Type", "application/json")
+                    .method("PATCH", HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8)));
+            return;
+        }
+
+        JsonObject img = new JsonObject();
+        img.addProperty("url", "attachment://control.png");
+        embed.add("image", img);
+        embeds.add(embed);
+        payload.add("embeds", embeds);
+        payload.add("components", components);
+
+        String boundary = "Aether" + System.currentTimeMillis();
+        sendAsync(request("/channels/" + channelId + "/messages/" + messageId)
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .method("PATCH", multipartImage(boundary, payload.toString(), image, "control.png")));
+    }
+
+    private void postFailsafeAlert(String reason, String actionDone) {
+        String description = "Aether detected a failsafe.\n**Reason:** " + reason
+                + (actionDone == null || actionDone.isBlank() ? "" : "\n**Action:** " + actionDone);
+
+        String target = pingTargetFor(config.channelId());
+        JsonObject payload = new JsonObject();
+        JsonObject allowedMentions = new JsonObject();
+        if (target.isBlank()) {
+            payload.addProperty("content", "@everyone\n-# *Tip: run /aether setping and pick a user to send failsafe pings to just that person.*");
+            JsonArray parse = new JsonArray();
+            parse.add("everyone");
+            allowedMentions.add("parse", parse);
+        } else {
+            payload.addProperty("content", "<@" + target + ">");
+            JsonArray users = new JsonArray();
+            users.add(target);
+            allowedMentions.add("users", users);
+        }
+        payload.add("allowed_mentions", allowedMentions);
+
+        JsonObject embed = new JsonObject();
+        embed.addProperty("title", "Failsafe Alert");
+        embed.addProperty("description", description);
+        embed.addProperty("color", 15158332);
+
+        byte[] image;
+        try {
+            image = screenshot();
+        } catch (IOException e) {
+            JsonArray embeds = new JsonArray();
+            embeds.add(embed);
+            payload.add("embeds", embeds);
+            sendAsync(request("/channels/" + config.channelId() + "/messages")
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8)));
+            return;
+        }
+
+        JsonObject img = new JsonObject();
+        img.addProperty("url", "attachment://failsafe.png");
+        embed.add("image", img);
+        JsonArray embeds = new JsonArray();
+        embeds.add(embed);
+        payload.add("embeds", embeds);
+
+        String boundary = "Aether" + System.currentTimeMillis();
+        sendAsync(request("/channels/" + config.channelId() + "/messages")
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(multipartImage(boundary, payload.toString(), image, "failsafe.png")));
+    }
+
+    private String pingTargetFor(String channelId) {
+        if (channelId == null || channelId.isBlank()) {
+            return "";
+        }
+        JsonObject targets = loadPingTargets();
+        return targets.has(channelId) && !targets.get(channelId).isJsonNull()
+                ? targets.get(channelId).getAsString()
+                : "";
+    }
+
+    private void setPingTarget(String channelId, String userId) {
+        if (channelId == null || channelId.isBlank()) {
+            return;
+        }
+        JsonObject targets = loadPingTargets();
+        if (userId == null || userId.isBlank()) {
+            targets.remove(channelId);
+        } else {
+            targets.addProperty(channelId, userId);
+        }
+        AetherConfig.REMOTE_CONTROL_PING_TARGETS.set(targets.toString());
+        AetherConfig.save();
+    }
+
+    private static JsonObject loadPingTargets() {
+        JsonObject parsed = parseObject(AetherConfig.REMOTE_CONTROL_PING_TARGETS.get());
+        return parsed == null ? new JsonObject() : parsed;
+    }
+
+    private static JsonObject actionRow(JsonArray components) {
+        JsonObject row = new JsonObject();
+        row.addProperty("type", 1);
+        row.add("components", components);
+        return row;
+    }
+
+    private static JsonObject button(String label, String customId, int style) {
+        JsonObject button = new JsonObject();
+        button.addProperty("type", 2);
+        button.addProperty("label", label);
+        button.addProperty("style", style);
+        button.addProperty("custom_id", customId);
+        return button;
+    }
+
+    private static String optionValue(JsonObject data, String name) {
+        if (data == null || !data.has("options") || !data.get("options").isJsonArray()) {
+            return "";
+        }
+        for (JsonElement element : data.getAsJsonArray("options")) {
+            JsonObject option = element.getAsJsonObject();
+            if (name.equals(string(option, "name")) && option.has("value")) {
+                return option.get("value").getAsString();
+            }
+        }
+        return "";
+    }
+
+    private static String firstSelected(JsonObject data) {
+        if (data == null || !data.has("values") || !data.get("values").isJsonArray()) {
+            return "";
+        }
+        JsonArray values = data.getAsJsonArray("values");
+        return values.size() == 0 ? "" : values.get(0).getAsString();
+    }
+
+    private static String modalValue(JsonObject data, String customId) {
+        if (data == null || !data.has("components") || !data.get("components").isJsonArray()) {
+            return "";
+        }
+        for (JsonElement rowElement : data.getAsJsonArray("components")) {
+            JsonObject row = rowElement.getAsJsonObject();
+            if (!row.has("components") || !row.get("components").isJsonArray()) {
+                continue;
+            }
+            for (JsonElement componentElement : row.getAsJsonArray("components")) {
+                JsonObject component = componentElement.getAsJsonObject();
+                if (customId.equals(string(component, "custom_id"))) {
+                    return string(component, "value");
+                }
+            }
+        }
+        return "";
     }
 
     private record RemoteControlConfig(

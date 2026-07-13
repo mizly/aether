@@ -675,6 +675,8 @@ public final class AetherConfig {
         public static final StringEntry REMOTE_CONTROL_GUILD_ID = Config.string("remoteControlGuildId", "");
         public static final StringEntry REMOTE_CONTROL_CHANNEL_ID = Config.string("remoteControlChannelId", "");
         public static final StringEntry REMOTE_CONTROL_COMMAND_PREFIX = Config.string("remoteControlCommandPrefix", "!aether");
+        /** JSON object mapping Discord channel id to the user id pinged on failsafe. */
+        public static final StringEntry REMOTE_CONTROL_PING_TARGETS = Config.string("remoteControlPingTargets", "{}");
 
         // -- PROFIT / HUD ----------------------------------------------------------
 
