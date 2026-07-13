@@ -233,7 +233,6 @@ public class ProfitHudElement extends HudElement {
             ry += 10f;
 
             boolean maxed = dev.aether.modules.profit.helpers.FarmingXpTracker.isMaxed();
-            boolean paused = dev.aether.modules.profit.helpers.FarmingXpTracker.isPaused();
             int level = dev.aether.modules.profit.helpers.FarmingXpTracker.getLevel();
             float prog = dev.aether.modules.profit.helpers.FarmingXpTracker.getProgressToMax();
 
@@ -244,7 +243,7 @@ public class ProfitHudElement extends HudElement {
 
             if (AetherConfig.FARMING_HUD_XP_RATE.get()) {
                 long perHour = dev.aether.modules.profit.helpers.FarmingXpTracker.getXpPerHour();
-                String rateStr = maxed ? "MAX" : (fmt(perHour) + (paused ? " (paused)" : ""));
+                String rateStr = maxed ? "MAX" : fmt(perHour);
                 row(nvg, ry, "Farming XP/hr", rateStr, 0xFF55FF55);
                 ry += ROW_H;
             }
@@ -336,12 +335,14 @@ public class ProfitHudElement extends HudElement {
     private static String fmt(long amount) { return String.format("%,d", amount); }
 
     private static String formatEta(long ms) {
-        long totalMin = ms / 60_000L;
-        long days = totalMin / (60 * 24);
-        long hours = (totalMin % (60 * 24)) / 60;
-        long mins = totalMin % 60;
+        long totalSec = ms / 1_000L;
+        long days = totalSec / 86_400L;
+        long hours = (totalSec % 86_400L) / 3600L;
+        long mins = (totalSec % 3600L) / 60L;
+        long secs = totalSec % 60L;
         if (days > 0) return String.format("%dd %dh", days, hours);
         if (hours > 0) return String.format("%dh %dm", hours, mins);
-        return String.format("%dm", mins);
+        if (mins > 0) return String.format("%dm %ds", mins, secs);
+        return String.format("%ds", secs);
     }
 }

@@ -64,15 +64,21 @@ public final class FarmingXpTracker {
 
     // -- Rolling-window config -------------------------------------------------
 
-    private static final int WINDOW_SECONDS = 30;
-    private static final long PAUSE_TIMEOUT_MS = 5_000L;
+    private static final int RATE_WINDOW = 60;         // seconds of history averaged (SkyHanni uses 30; 60
+                                                       // smooths the spikes from Hypixel's coarse XP batches)
+    private static final int RATE_GRACE_SECONDS = 5;   // keep the rate alive through short farming pauses
+    private static final long RATE_TICK_MS = 1_000L;   // recompute once a second
 
     private static final Object LOCK = new Object();
 
-    private static final Deque<Double> gainQueue = new ArrayDeque<>(); // newest first
-    private static double currentBucketGain = 0.0;
-    private static long lastBucketMs = 0L;
-    private static long lastGainMs = 0L;
+    // Per-second absolute-XP deltas (newest first), capped at RATE_WINDOW. XP/hour is the window
+    // average (sum * 3600 / size) -- the SkyHanni approach: steady on the coarse XP staircase. A
+    // grace timer pads short pauses with zero-seconds instead of clearing the window (which dropped
+    // the rate) or decaying between server updates (which sawtoothed it).
+    private static final Deque<Double> xpGainQueue = new ArrayDeque<>();
+    private static long lastRateMs = 0L;
+    private static long lastTotalXp = -1L;
+    private static int graceTimer = 0;
 
     // Cross-thread readable scalars for the HUD.
     private static volatile double sessionXpGained = 0.0;
@@ -108,16 +114,10 @@ public final class FarmingXpTracker {
             return;
         }
 
-        long now = System.currentTimeMillis();
         synchronized (LOCK) {
-            // Resuming after a pause: realign the bucket clock so we don't flush a
-            // burst of stale empty seconds into the window.
-            if (lastGainMs == 0L || now - lastGainMs > PAUSE_TIMEOUT_MS) {
-                lastBucketMs = now;
-            }
-            currentBucketGain += gained;
             sessionXpGained += gained;
-            lastGainMs = now;
+            // Keep the absolute anchor fresh between (cur/max) reads; the fraction below
+            // and the tab list re-anchor it to server-truth whenever they appear.
             if (absoluteXp >= 0) {
                 absoluteXp += (long) gained;
             }
@@ -177,44 +177,58 @@ public final class FarmingXpTracker {
         }
     }
 
-    /** Advances the rolling per-second window. Call once per game tick. */
+    /** Advances the per-second rolling average. Call once per game tick; recomputes once a second. */
     public static void tick() {
         if (!ProfitManager.isProfitTrackingActive()) {
             return;
         }
         long now = System.currentTimeMillis();
         synchronized (LOCK) {
-            boolean paused = lastGainMs == 0L || now - lastGainMs > PAUSE_TIMEOUT_MS;
-            if (paused) {
-                active = false;
+            if (absoluteXp < 0) {
+                return; // no absolute anchor yet
+            }
+            if (lastRateMs == 0L) {
+                lastRateMs = now;        // seed the per-second baseline
+                lastTotalXp = absoluteXp;
                 return;
             }
-            if (lastBucketMs == 0L) {
-                lastBucketMs = now;
+            if (now - lastRateMs < RATE_TICK_MS) {
+                return; // one bucket per second
             }
-            while (now - lastBucketMs >= 1000L) {
-                lastBucketMs += 1000L;
-                gainQueue.addFirst(currentBucketGain);
-                currentBucketGain = 0.0;
-                while (gainQueue.size() > WINDOW_SECONDS) {
-                    gainQueue.removeLast();
-                }
+            lastRateMs = now;
+            long delta = absoluteXp - lastTotalXp;
+            lastTotalXp = absoluteXp;
+
+            if (delta > 0L) {
+                graceTimer = RATE_GRACE_SECONDS; // real gain: keep the window alive
+                xpGainQueue.addFirst((double) delta);
+                active = true;
+            } else if (graceTimer > 0) {
+                graceTimer--;                    // short pause: pad a zero-second, don't clear
+                xpGainQueue.addFirst(0.0);
+                active = true;
+            } else {
+                active = false;                  // idle past grace: freeze the last rate, keep the queue
+                return;
+            }
+
+            while (xpGainQueue.size() > RATE_WINDOW) {
+                xpGainQueue.removeLast();
             }
             double sum = 0.0;
-            for (double g : gainQueue) {
+            for (double g : xpGainQueue) {
                 sum += g;
             }
-            xpPerHour = gainQueue.isEmpty() ? 0.0 : sum * 3600.0 / gainQueue.size();
-            active = true;
+            xpPerHour = xpGainQueue.isEmpty() ? 0.0 : sum * 3600.0 / xpGainQueue.size();
         }
     }
 
     public static void reset() {
         synchronized (LOCK) {
-            gainQueue.clear();
-            currentBucketGain = 0.0;
-            lastBucketMs = 0L;
-            lastGainMs = 0L;
+            xpGainQueue.clear();
+            lastRateMs = 0L;
+            lastTotalXp = -1L;
+            graceTimer = 0;
             sessionXpGained = 0.0;
             xpPerHour = 0.0;
             active = false;
