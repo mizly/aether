@@ -496,6 +496,27 @@ public class NVGRenderer {
         rect(x, y, w, h, 0x0CFFFFFF);
     }
 
+    /**
+     * Rounded-corner variant of {@link #blur(float, float, float, float, float)}.
+     * Everything (base, vignette, frost) is clipped to the rounded shape, so no
+     * scissor is needed and nothing bleeds past the corners.
+     */
+    public void blur(float x, float y, float w, float h, float radius, float blurRadius) {
+        float clampedBlur = Math.min(blurRadius, 30f);
+        // Dark semi-transparent base
+        roundedRect(x, y, w, h, radius, 0x40000000);
+        // Vignette for depth, filled inside the rounded shape only
+        color(0x28000000, c1);
+        color(0x00000000, c2);
+        nvgBoxGradient(vg, x, y + clampedBlur * 0.5f, w, h, radius + clampedBlur * 0.5f, clampedBlur, c1, c2, paint);
+        nvgBeginPath(vg);
+        nvgRoundedRect(vg, x, y, w, h, radius);
+        nvgFillPaint(vg, paint);
+        nvgFill(vg);
+        // Frost tint
+        roundedRect(x, y, w, h, radius, 0x0CFFFFFF);
+    }
+
 
     /**
      * Renders a frosted-glass blur approximation over a circular region.
