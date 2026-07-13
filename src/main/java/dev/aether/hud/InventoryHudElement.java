@@ -79,9 +79,7 @@ public class InventoryHudElement extends HudElement {
         float width = cursorX + PAD;
         int border = isDragging() ? BORDER_DRAG : isResizing() ? BORDER_RESIZE : Theme.HUD_BORDER;
 
-        nvg.scissor(0, 0, width, H);
-        nvg.blur(0, 0, width, H, 20f);
-        nvg.resetScissor();
+        nvg.blur(0, 0, width, H, CORNER, 20f);
         nvg.rectOutline(0, 0, width, H, CORNER, 1f, border);
 
         if (showArmor) {
