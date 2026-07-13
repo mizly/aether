@@ -282,6 +282,7 @@ public class PestReturnManager {
             return;
         }
 
+        boolean releaseFinishingOnExit = true;
         try {
             setFinishingStage("finalize");
             ClientUtils.sendDebugMessage("Finalize: Starting return sequence.");
@@ -302,6 +303,17 @@ public class PestReturnManager {
 
             setFinishingStage("swap farming tool");
             if (!restoreFarmingLoadout(client)) {
+                return;
+            }
+            setFinishingStage("wait for menu close");
+            ClientUtils.sendDebugMessage("Finalize: Waiting for menus to close before farming resume...");
+            if (!FarmingMacroManager.waitForFarmingResumeReady(client, 10_000L)) {
+                ClientUtils.sendDebugMessage("Finalize: Farming resume delayed because a GUI/container is still open. Retrying...");
+                releaseFinishingOnExit = false;
+                MacroWorkerThread.getInstance().submit("PestFinalize-RetryAfterMenuClose", () -> {
+                    MacroWorkerThread.sleep(500);
+                    finalizeReturnToFarm(client);
+                });
                 return;
             }
             ClientUtils.sendDebugMessage("Finalize: Swapping to farming tool...");
@@ -335,7 +347,9 @@ public class PestReturnManager {
             recoverToFarming(client, "finalizeReturnToFarm", e);
             return;
         } finally {
-            releaseFinishingSequence();
+            if (releaseFinishingOnExit) {
+                releaseFinishingSequence();
+            }
         }
     }
 

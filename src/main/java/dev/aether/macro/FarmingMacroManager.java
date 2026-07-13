@@ -10,10 +10,14 @@ import dev.aether.macro.impl.WSCropMacro;
 import dev.aether.macro.impl.WSFarmMacro;
 import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.gear.GearManager;
+import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.helpers.AutoPestExchangeManager;
 import dev.aether.modules.session.RestartManager;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Manages the lifecycle of the currently active {@link AbstractMacro}.
@@ -29,6 +33,7 @@ public final class FarmingMacroManager {
 
     private static final long START_GUI_CLOSE_TIMEOUT_MS = 3500L;
     private static final long START_GUI_CLOSE_POLL_MS = 50L;
+    private static final long START_IN_WORLD_STABLE_MS = 300L;
     private static AbstractMacro activeMacro = null;
     private static volatile boolean deferredStartPending = false;
 
@@ -159,26 +164,57 @@ public final class FarmingMacroManager {
         deferredStartPending = true;
         ClientUtils.sendDebugMessage("Farming start deferred until open GUI/container closes.");
         MacroWorkerThread.getInstance().submit("FarmingStart-WaitForGuiClose", () -> {
-            long deadline = System.currentTimeMillis() + START_GUI_CLOSE_TIMEOUT_MS;
-            while (System.currentTimeMillis() < deadline && !MacroWorkerThread.shouldAbortTask(mc)) {
-                if (!hasBlockingScreenOrContainer(mc)) {
-                    deferredStartPending = false;
-                    mc.execute(() -> startMacroNow(mc, macro));
-                    return;
-                }
-                MacroWorkerThread.sleep(START_GUI_CLOSE_POLL_MS);
-            }
-
-            deferredStartPending = false;
-            if (!MacroWorkerThread.shouldAbortTask(mc)) {
-                ClientUtils.sendDebugMessage("Farming start aborted: GUI/container did not close before resume timeout.");
+            if (waitForFarmingResumeReady(mc, START_GUI_CLOSE_TIMEOUT_MS)) {
+                deferredStartPending = false;
+                mc.execute(() -> startMacroNow(mc, macro));
+            } else if (!MacroWorkerThread.shouldAbortTask(mc)) {
+                deferredStartPending = false;
+                ClientUtils.sendDebugMessage("Farming start aborted: GUI/container did not fully close before resume timeout.");
+            } else {
+                deferredStartPending = false;
             }
         });
+    }
+
+    public static boolean waitForFarmingResumeReady(Minecraft mc, long timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        long readySince = -1L;
+
+        while (System.currentTimeMillis() < deadline && !MacroWorkerThread.shouldAbortTask(mc)) {
+            if (isReadyForFarmingInput(mc)) {
+                if (readySince < 0L) {
+                    readySince = System.currentTimeMillis();
+                }
+                if (System.currentTimeMillis() - readySince >= START_IN_WORLD_STABLE_MS) {
+                    return true;
+                }
+            } else {
+                readySince = -1L;
+            }
+
+            MacroWorkerThread.sleep(START_GUI_CLOSE_POLL_MS);
+        }
+
+        return false;
+    }
+
+    private static boolean isReadyForFarmingInput(Minecraft mc) {
+        return !hasBlockingScreenOrContainer(mc) && LoadoutManager.loadoutCleanupTicks <= 0;
     }
 
     private static boolean hasBlockingScreenOrContainer(Minecraft mc) {
         if (mc == null || mc.player == null) {
             return true;
+        }
+
+        if (!mc.isSameThread()) {
+            CompletableFuture<Boolean> future = new CompletableFuture<>();
+            mc.execute(() -> future.complete(hasBlockingScreenOrContainer(mc)));
+            try {
+                return future.get(750, TimeUnit.MILLISECONDS);
+            } catch (Exception ignored) {
+                return true;
+            }
         }
 
         if (mc.screen != null) {
