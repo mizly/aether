@@ -10,6 +10,7 @@ import dev.aether.util.TablistUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.Slot;
 
 import java.util.List;
 import java.util.Locale;
@@ -180,8 +181,10 @@ public final class SupercraftManager {
 
         switch (craftingStage) {
             case 0 -> {
-                ClientUtils.sendDebugMessage("Supercraft: opening supercraft for " + currentItem);
-                ClientUtils.performSlotClick(screen, SLOT_OPEN_SUPERCRAFT, 0, ContainerInput.PICKUP);
+                int supercraftSlot = findExactRecipeSlot(screen, currentItem);
+                ClientUtils.sendDebugMessage("Supercraft: opening supercraft for " + currentItem
+                        + " using slot " + supercraftSlot);
+                ClientUtils.performSlotClick(screen, supercraftSlot, 0, ContainerInput.PICKUP);
                 markProgress(now);
                 nextActionAtMs = now + ACTION_DELAY_MS;
                 craftingStage = 1;
@@ -330,6 +333,34 @@ public final class SupercraftManager {
                 .filter(s -> !s.isEmpty())
                 .distinct()
                 .toList();
+    }
+
+    private static int findExactRecipeSlot(AbstractContainerScreen<?> screen, String itemName) {
+        String targetName = normalizeItemName(itemName);
+        int containerSize = screen.getMenu().slots.size() > 36
+                ? screen.getMenu().slots.size() - 36
+                : screen.getMenu().slots.size();
+
+        for (int i = 0; i < containerSize; i++) {
+            Slot slot = screen.getMenu().slots.get(i);
+            if (!slot.hasItem()) {
+                continue;
+            }
+
+            String slotName = normalizeItemName(slot.getItem().getHoverName().getString());
+            if (slotName.equals(targetName)) {
+                return i;
+            }
+        }
+
+        return SLOT_OPEN_SUPERCRAFT;
+    }
+
+    private static String normalizeItemName(String itemName) {
+        return TablistUtils.stripColors(itemName)
+                .replace('\u00A0', ' ')
+                .trim()
+                .toLowerCase(Locale.ROOT);
     }
 
     private static boolean shouldAbort() {

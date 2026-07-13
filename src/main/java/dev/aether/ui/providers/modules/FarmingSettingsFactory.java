@@ -160,6 +160,16 @@ final class FarmingSettingsFactory {
                 });
     }
 
+    static RangeSliderSetting visitorDelaySetting() {
+        return intDelayRangeSetting("Visitor Delay", 0f, 1000f,
+                () -> AetherConfig.VISITOR_DELAY_MIN.get(),
+                () -> AetherConfig.VISITOR_DELAY_MAX.get(),
+                (min, max) -> {
+                    AetherConfig.VISITOR_DELAY_MIN.set(min);
+                    AetherConfig.VISITOR_DELAY_MAX.set(max);
+                });
+    }
+
     static SliderSetting farmingPitchRangeSetting() {
         return new SliderSetting("Farming Pitch Range", 0, 10,
                 () -> AetherConfig.MACRO_CUSTOM_PITCH_HUMANIZATION.get(),

@@ -9,13 +9,14 @@ import dev.aether.ui.settings.TextSetting;
 
 import java.util.List;
 
-public final class DiscordVisualsRegistryProvider extends AbstractVisualsRegistryProvider {
-    public DiscordVisualsRegistryProvider() {
-        super(1);
+public final class DiscordVisualsRegistryProvider implements MainGUIRegistryProvider {
+    @Override
+    public void register(MainGUIRegistry.Registrar registrar) {
+        // id/name/order mirror the shared "Other" module section
+        registrar.registerModuleSection("other", "Other", 150, 20, createSubTab());
     }
 
-    @Override
-    protected ModulesTab.SubTab createSubTab() {
+    private ModulesTab.SubTab createSubTab() {
         SettingGroup webhook = SettingGroup.of(
                 "Discord Webhook",
                 "Sends macro status updates to a Discord webhook",

@@ -14,14 +14,14 @@ import java.util.Optional;
 /**
  * Mushroom SDS macro.
  *
- * <p>This pattern cycles {@code A -> S -> D -> A}. Row-end detection only
+ * <p>This pattern cycles {@code A -> S -> S+D -> A}. Row-end detection only
  * tracks the world-axis component used by the A/D strafe, while the S
  * transition tracks the perpendicular component.
  */
 public class SDSMushroomMacro extends AbstractMacro {
     private static final double PROGRESS_EPSILON = 0.005;
     private static final int STALL_THRESHOLD = 2;
-    private static final float CARDINAL_LEFT_OFFSET_DEGREES = 16f;
+    private static final float CARDINAL_OFFSET_DEGREES = 16f;
 
     private int graceTicks = 0;
     private int stallTicks = 0;
@@ -49,7 +49,7 @@ public class SDSMushroomMacro extends AbstractMacro {
             setPitchDefault();
         }
         if (!isYawSet() && mc.player != null) {
-            yaw = Optional.of(nearestCardinal(mc.player.getYRot()));
+            yaw = Optional.of(nearestCardinal(mc.player.getYRot(), isReverseLaneEnabled()));
         }
 
         if (mc.player != null && (yaw.isPresent() || pitch.isPresent())) {
@@ -68,7 +68,7 @@ public class SDSMushroomMacro extends AbstractMacro {
         if (currentState == State.NONE) {
             State startState = previousState == State.LEFT || previousState == State.RIGHT || previousState == State.BACKWARD
                     ? previousState
-                    : State.LEFT;
+                    : defaultStartState();
             changeState(startState);
             resetMovementTracking(mc, 10);
             FarmingMacroManager.saveDirection(currentState);
@@ -139,10 +139,10 @@ public class SDSMushroomMacro extends AbstractMacro {
 
         switch (currentState) {
             case LEFT:
-                holdKeys(mc, true, false, false, false, true, false, false);
+                holdKeys(mc, true, false, false, isReverseLaneEnabled(), true, false, false);
                 break;
             case RIGHT:
-                holdKeys(mc, false, true, false, false, true, false, false);
+                holdKeys(mc, false, true, false, !isReverseLaneEnabled(), true, false, false);
                 break;
             case BACKWARD:
                 holdKeys(mc, false, false, false, true, true, false, false);
@@ -169,13 +169,30 @@ public class SDSMushroomMacro extends AbstractMacro {
         previousTrackedCoord = trackedCoord(mc, currentState);
     }
 
-    private static State nextState(State state) {
+    private State nextState(State state) {
+        if (isReverseLaneEnabled()) {
+            return switch (state) {
+                case RIGHT -> State.BACKWARD;
+                case BACKWARD -> State.LEFT;
+                case LEFT -> State.RIGHT;
+                default -> State.RIGHT;
+            };
+        }
+
         return switch (state) {
             case LEFT -> State.BACKWARD;
             case BACKWARD -> State.RIGHT;
             case RIGHT -> State.LEFT;
             default -> State.LEFT;
         };
+    }
+
+    private State defaultStartState() {
+        return isReverseLaneEnabled() ? State.RIGHT : State.LEFT;
+    }
+
+    private static boolean isReverseLaneEnabled() {
+        return AetherConfig.MACRO_SDS_MUSHROOM_REVERSE_LANE.get();
     }
 
     private double trackedCoord(Minecraft mc, State state) {
@@ -194,10 +211,11 @@ public class SDSMushroomMacro extends AbstractMacro {
         return Math.abs(strafeLeftX) >= Math.abs(strafeLeftZ) ? mc.player.getX() : mc.player.getZ();
     }
 
-    private static float nearestCardinal(float yaw) {
+    private static float nearestCardinal(float yaw, boolean reverseLane) {
         float wrapped = Mth.wrapDegrees(yaw);
         float nearest = Math.round(wrapped / 90f) * 90f;
-        return Mth.wrapDegrees(nearest - CARDINAL_LEFT_OFFSET_DEGREES);
+        float offset = reverseLane ? CARDINAL_OFFSET_DEGREES : -CARDINAL_OFFSET_DEGREES;
+        return Mth.wrapDegrees(nearest + offset);
     }
 
     protected void setPitchDefault() {

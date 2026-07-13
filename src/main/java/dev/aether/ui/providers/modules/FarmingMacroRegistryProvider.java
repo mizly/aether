@@ -53,16 +53,28 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
                         },
                         i -> {
                             if (i >= 0 && i < FarmType.values().length) {
-                                AetherConfig.FARM_TYPE.set(FarmType.values()[i].name());
+                                FarmType selectedFarmType = FarmType.values()[i];
+                                AetherConfig.FARM_TYPE.set(selectedFarmType.name());
+                                if (selectedFarmType != FarmType.S_SHAPE) {
+                                    AetherConfig.MACRO_HOLD_W_WHILE_FARMING.set(false);
+                                }
                                 AetherConfig.save();
                             }
                         }))
                 .add(new ToggleSetting("Hold W While Farming",
                         () -> AetherConfig.MACRO_HOLD_W_WHILE_FARMING.get(),
                         v -> {
-                            AetherConfig.MACRO_HOLD_W_WHILE_FARMING.set(v);
+                            AetherConfig.MACRO_HOLD_W_WHILE_FARMING.set(isBaseSShapeFarmType() && v);
                             AetherConfig.save();
-                        }))
+                        })
+                        .visibleWhen(FarmingMacroRegistryProvider::isBaseSShapeFarmType))
+                .add(new ToggleSetting("D/S+A?",
+                        () -> AetherConfig.MACRO_SDS_MUSHROOM_REVERSE_LANE.get(),
+                        v -> {
+                            AetherConfig.MACRO_SDS_MUSHROOM_REVERSE_LANE.set(isSdsMushroomFarmType() && v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(FarmingMacroRegistryProvider::isSdsMushroomFarmType))
                 .add(new ToggleSetting(AetherLang.localize("Disable /setspawn"),
                         () -> AetherConfig.MACRO_DISABLE_SETSPAWN.get(),
                         v -> {
@@ -172,6 +184,22 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
             return Integer.parseInt(value.trim());
         } catch (NumberFormatException ignored) {
             return null;
+        }
+    }
+
+    private static boolean isBaseSShapeFarmType() {
+        try {
+            return FarmType.valueOf(AetherConfig.FARM_TYPE.get()) == FarmType.S_SHAPE;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static boolean isSdsMushroomFarmType() {
+        try {
+            return FarmType.valueOf(AetherConfig.FARM_TYPE.get()) == FarmType.SDS_MUSHROOM;
+        } catch (Exception ignored) {
+            return false;
         }
     }
 }

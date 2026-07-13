@@ -305,11 +305,10 @@ public class VisitorManager {
 
     public static void onOfferAccepted(String visitorName) {
         if (pendingOffer != null) {
-            String cleanPending = TablistUtils.stripColors(pendingOffer.visitorName).trim();
-            String cleanAccepted = TablistUtils.stripColors(visitorName).trim();
+            String cleanPending = normalizeVisitorName(pendingOffer.visitorName);
+            String cleanAccepted = normalizeVisitorName(visitorName);
 
-            // Lenient matching: "Moby" should match "Moby (RARE)"
-            if (cleanAccepted.startsWith(cleanPending) || cleanPending.startsWith(cleanAccepted)) {
+            if (cleanAccepted.equals(cleanPending)) {
                 ProfitManager.addVisitorCost(pendingOffer.totalCost);
                 pendingOffer = null;
             }
@@ -331,6 +330,13 @@ public class VisitorManager {
 
     public static void clearPendingOffer() {
         pendingOffer = null;
+    }
+
+    private static String normalizeVisitorName(String name) {
+        String normalized = TablistUtils.stripColors(name).trim();
+        normalized = normalized.replaceAll(
+                "\\s*\\((COMMON|UNCOMMON|RARE|EPIC|LEGENDARY|MYTHIC|DIVINE|SPECIAL|VERY SPECIAL)\\)\\s*$", "");
+        return normalized.trim().toLowerCase();
     }
 
     public static void startVisitorReentryCooldown(Minecraft client) {
