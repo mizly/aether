@@ -584,7 +584,9 @@ public class VisitorsMacro {
                 }
 
                 if (foundVisitorsHeader) {
-                    if (clean.isEmpty() || clean.contains("Next Visitor") || names.size() >= 5) {
+                    // Visitor name lines never contain a colon; any ':' line (e.g. "Next Visitor:"
+                    // or the following tab section) ends the block so we don't grab non-visitor NPCs.
+                    if (clean.isEmpty() || clean.contains(":") || names.size() >= 5) {
                         break;
                     }
                     String name = clean.replace("NEW!", "").trim();
