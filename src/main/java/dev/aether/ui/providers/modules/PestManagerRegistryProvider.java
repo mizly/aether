@@ -112,6 +112,21 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         })));
 
         groups.add(SettingGroup.of(
+                        "Discoless Destination",
+                        "Plot TP to your farming plot, etherwarp once, then hold and vacuum",
+                        () -> AetherConfig.PEST_DISCOLESS_MODE.get(),
+                        v -> {
+                            AetherConfig.PEST_DISCOLESS_MODE.set(v);
+                            AetherConfig.save();
+                        })
+                .add(new TextSetting("Discoless Plot", "Plot number (e.g. 2)",
+                        () -> AetherConfig.PEST_DISCOLESS_PLOT.get(),
+                        v -> {
+                            AetherConfig.PEST_DISCOLESS_PLOT.set(v);
+                            AetherConfig.save();
+                        })));
+
+        groups.add(SettingGroup.of(
                         "AOTV to Roof",
                         "Teleports to the roof before cleaning pests on selected plots",
                         () -> AetherConfig.AOTV_TO_ROOF.get(),

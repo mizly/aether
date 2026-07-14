@@ -444,6 +444,8 @@ public final class AetherConfig {
         public static final BooleanEntry SUNSET_PESTS = Config.bool("sunsetPests", false);
         public static final BooleanEntry PEST_DISCO_DESTINATION_MODE = Config.bool("pestDiscoDestinationMode", false);
         public static final StringEntry PEST_DISCO_DESTINATION_PLOT = Config.string("pestDiscoDestinationPlot", "0");
+        public static final BooleanEntry PEST_DISCOLESS_MODE = Config.bool("pestDiscolessMode", false);
+        public static final StringEntry PEST_DISCOLESS_PLOT = Config.string("pestDiscolessPlot", "0");
         public static final BooleanEntry PEST_AOTV_BETWEEN = Config.bool("pestAotvBetween", false);
         public static final BooleanEntry PEST_AOTV_CONFIRM_BETWEEN = Config.bool("pestAotvConfirmBetween", false);
         public static final IntEntry PEST_AOTV_DELAY_MIN = Config.integer("pestAotvDelayMin", 150).range(100, 250);

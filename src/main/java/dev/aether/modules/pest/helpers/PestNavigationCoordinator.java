@@ -31,6 +31,9 @@ final class PestNavigationCoordinator {
         boolean tryNextPlot(Minecraft client);
         boolean tryLeaveOneOnCurrentWhitelistedPlot(Minecraft client);
         void startRoofAotv(Minecraft client, String plot);
+        boolean requiresEtherwarpEntry();
+        boolean isHoldDestinationAbandoned();
+        void startEtherwarpEntry(Minecraft client);
     }
 
     private PestNavigationCoordinator() {
@@ -49,16 +52,19 @@ final class PestNavigationCoordinator {
                 return;
             }
 
+            boolean holdPlot = !context.isHoldDestinationAbandoned()
+                    && PestDiscoDestinationManager.matchesPlot(targetPlot);
+
             String currentPlot = ClientUtils.getCurrentPlot();
-            boolean forceCurrentPlotTeleport = AetherConfig.PEST_PLOT_TP_FOR_CURRENT_PLOT.get()
-                    || PestDiscoDestinationManager.shouldForcePlotTeleport(targetPlot);
+            boolean forceCurrentPlotTeleport = AetherConfig.PEST_PLOT_TP_FOR_CURRENT_PLOT.get() || holdPlot;
             if (targetPlot.equals(currentPlot) && !forceCurrentPlotTeleport) {
                 ClientUtils.sendDebugMessage("[PestDestroyer] Already on plot " + targetPlot + ", skipping TP.");
                 finalizePlotArrival(client, navigationState, context, targetPlot);
                 return;
             }
 
-            if (PestDiscoDestinationManager.matchesPlot(targetPlot)) {
+            // Discoless arrives with the AOTV in hand instead; the entry state selects it.
+            if (holdPlot && !context.requiresEtherwarpEntry()) {
                 if (context.getVacuumSlot() == -1) {
                     context.setVacuumSlot(context.findVacuumHotbarSlot(client));
                 }
@@ -103,8 +109,9 @@ final class PestNavigationCoordinator {
                 return;
             }
 
-            if (targetPlot != null && PestDiscoDestinationManager.matchesPlot(targetPlot)) {
-                ClientUtils.sendDebugMessage("[PestDestroyer] Waiting for disco plot " + targetPlot
+            if (targetPlot != null && !context.isHoldDestinationAbandoned()
+                    && PestDiscoDestinationManager.matchesPlot(targetPlot)) {
+                ClientUtils.sendDebugMessage("[PestDestroyer] Waiting for hold plot " + targetPlot
                                 + " confirmation; not retrying plottp.");
                 context.setStateEnteredAt(System.currentTimeMillis());
                 return;
@@ -297,7 +304,11 @@ final class PestNavigationCoordinator {
         navigationState.discoTargetReached = false;
         navigationState.discoWalkStartedAt = 0L;
 
-        if (PestDiscoDestinationManager.matchesPlot(plot)) {
+        if (!context.isHoldDestinationAbandoned() && PestDiscoDestinationManager.matchesPlot(plot)) {
+            if (context.requiresEtherwarpEntry()) {
+                context.startEtherwarpEntry(client);
+                return;
+            }
             ClientUtils.sendDebugMessage("[PestDestroyer] Disco destination active on plot " + plot + ". Holding position after plot TP.");
             navigationState.discoTargetReached = true;
             context.setState(PestDestroyer.State.DISCO_SPIN);

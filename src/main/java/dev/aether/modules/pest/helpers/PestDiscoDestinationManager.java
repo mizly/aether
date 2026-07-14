@@ -5,21 +5,54 @@ import dev.aether.config.AetherConfig;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+/**
+ * Resolves the hold-destination plot: a plot the destroyer teleports to, holds
+ * position on, and finishes on after a single kill. Disco holds at the plot-TP
+ * landing spot; discoless etherwarps once off that spot first. Disco wins when
+ * both modes are enabled.
+ */
 public final class PestDiscoDestinationManager {
+
+    public enum Mode {
+        NONE,
+        DISCO,
+        DISCOLESS
+    }
+
     private PestDiscoDestinationManager() {
     }
 
+    public static Mode getMode() {
+        if (AetherConfig.PEST_DISCO_DESTINATION_MODE.get()
+                && isUsablePlot(AetherConfig.PEST_DISCO_DESTINATION_PLOT.get())) {
+            return Mode.DISCO;
+        }
+        if (AetherConfig.PEST_DISCOLESS_MODE.get()
+                && isUsablePlot(AetherConfig.PEST_DISCOLESS_PLOT.get())) {
+            return Mode.DISCOLESS;
+        }
+        return Mode.NONE;
+    }
+
     public static boolean isEnabled() {
-        return AetherConfig.PEST_DISCO_DESTINATION_MODE.get();
+        return isConfigured();
     }
 
     public static boolean isConfigured() {
-        return isEnabled()
-                && isUsablePlot(AetherConfig.PEST_DISCO_DESTINATION_PLOT.get());
+        return getMode() != Mode.NONE;
+    }
+
+    /** Discoless must fire one etherwarp off the plot-TP landing spot before holding. */
+    public static boolean requiresEtherwarpEntry() {
+        return getMode() == Mode.DISCOLESS;
     }
 
     public static String getConfiguredPlot() {
-        return normalizePlot(AetherConfig.PEST_DISCO_DESTINATION_PLOT.get());
+        return switch (getMode()) {
+            case DISCO -> normalizePlot(AetherConfig.PEST_DISCO_DESTINATION_PLOT.get());
+            case DISCOLESS -> normalizePlot(AetherConfig.PEST_DISCOLESS_PLOT.get());
+            case NONE -> "";
+        };
     }
 
     public static boolean matchesPlot(String plot) {

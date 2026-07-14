@@ -1,6 +1,7 @@
 package dev.aether.modules.pest.helpers;
 
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -46,8 +47,32 @@ final class PestDestroyerRuntime {
     PestDestroyer.State roofAotvReturnState = null;
     boolean sunsetPestsRestoreNight = false;
 
+    int etherwarpEntryAttempts = 0;
+    long etherwarpEntryClickAt = 0L;
+    long etherwarpEntryGraceUntil = 0L;
+    long etherwarpEntryRetryAt = 0L;
+    boolean etherwarpEntryClicked = false;
+    Vec3 etherwarpEntryPredicted = null;
+    double etherwarpEntryPreX = Double.NaN;
+    double etherwarpEntryPreY = Double.NaN;
+    double etherwarpEntryPreZ = Double.NaN;
+    // Set when the etherwarp entry gives up, so the hold lock stops re-engaging
+    // and the run falls back to the normal destroyer.
+    boolean holdDestinationAbandoned = false;
+
     int zeroPestTabTicks = 0;
     int targetWithoutSkullTicks = 0;
 
     final PestNavigationState navigation = new PestNavigationState();
+
+    void resetEtherwarpEntry() {
+        etherwarpEntryClickAt = 0L;
+        etherwarpEntryGraceUntil = 0L;
+        etherwarpEntryRetryAt = 0L;
+        etherwarpEntryClicked = false;
+        etherwarpEntryPredicted = null;
+        etherwarpEntryPreX = Double.NaN;
+        etherwarpEntryPreY = Double.NaN;
+        etherwarpEntryPreZ = Double.NaN;
+    }
 }

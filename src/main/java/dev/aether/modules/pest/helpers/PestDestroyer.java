@@ -115,6 +115,22 @@ public class PestDestroyer {
                 }
             });
         }
+
+        @Override
+        public boolean requiresEtherwarpEntry() {
+            return !runtime.holdDestinationAbandoned
+                    && PestDiscoDestinationManager.requiresEtherwarpEntry();
+        }
+
+        @Override
+        public boolean isHoldDestinationAbandoned() {
+            return runtime.holdDestinationAbandoned;
+        }
+
+        @Override
+        public void startEtherwarpEntry(Minecraft client) {
+            PestDestroyer.startEtherwarpEntry(client);
+        }
     };
     private static final PestCombatCoordinator.Context COMBAT_CONTEXT = new PestCombatCoordinator.Context() {
         @Override
@@ -342,6 +358,7 @@ public class PestDestroyer {
     public enum State {
         IDLE,
         TELEPORT_TO_PLOT,
+        ETHERWARP_ENTRY,
         DISCO_SPIN,
         EQUIP_VACUUM,
         FLY_UP,
@@ -429,6 +446,9 @@ public class PestDestroyer {
         runtime.killVacuumRetryPressAt = 0L;
         runtime.lastRoofRescanAt = 0L;
         runtime.roofAotvReturnState = null;
+        runtime.etherwarpEntryAttempts = 0;
+        runtime.holdDestinationAbandoned = false;
+        runtime.resetEtherwarpEntry();
         runtime.navigation.fireworkFirstPos = null;
         runtime.navigation.fireworkLastPos = null;
         runtime.navigation.fireworkParticleCount = 0;
@@ -503,16 +523,22 @@ public class PestDestroyer {
             String firstPlot = runtime.navigation.plotQueue.get(0);
             if (PestDiscoDestinationManager.matchesPlot(firstPlot)) {
                 if (CommandUtils.isFreshKnownPlotChat(firstPlot, 15_000L) || plotsEqual(firstPlot, currentPlot)) {
-                    ClientUtils.sendDebugMessage("[PestDestroyer] Disco destination confirmed on plot " + firstPlot
-                                    + ". Skipping initial plot TP.");
                     runtime.navigation.trustedPlot = firstPlot;
                     runtime.navigation.trustedPlotExpiresAt = System.currentTimeMillis() + 120_000;
+
+                    if (PestDiscoDestinationManager.requiresEtherwarpEntry()) {
+                        startEtherwarpEntry(client);
+                        return;
+                    }
+
+                    ClientUtils.sendDebugMessage("[PestDestroyer] Disco destination confirmed on plot " + firstPlot
+                                    + ". Skipping initial plot TP.");
                     runtime.navigation.discoTargetReached = true;
                     runtime.state = State.DISCO_SPIN;
                     return;
                 }
 
-                ClientUtils.sendDebugMessage("[PestDestroyer] Disco destination active on plot " + firstPlot + ". Forcing initial plot TP.");
+                ClientUtils.sendDebugMessage("[PestDestroyer] Hold destination active on plot " + firstPlot + ". Forcing initial plot TP.");
                 runtime.state = State.TELEPORT_TO_PLOT;
                 return;
             }
@@ -575,6 +601,9 @@ public class PestDestroyer {
         runtime.arrivedAtCurrentTargetViaAotv = false;
         runtime.lastRoofRescanAt = 0L;
         runtime.roofAotvReturnState = null;
+        runtime.etherwarpEntryAttempts = 0;
+        runtime.holdDestinationAbandoned = false;
+        runtime.resetEtherwarpEntry();
         restoreSunsetPestsNightAsync(client);
         if (client != null && client.options != null) {
             ClientUtils.setKeyMappingState(client.options.keyUse, false);
@@ -607,6 +636,9 @@ public class PestDestroyer {
         runtime.killVacuumRetryPressAt = 0L;
         runtime.lastRoofRescanAt = 0L;
         runtime.roofAotvReturnState = null;
+        runtime.etherwarpEntryAttempts = 0;
+        runtime.holdDestinationAbandoned = false;
+        runtime.resetEtherwarpEntry();
         runtime.navigation.fireworkFirstPos = null;
         runtime.navigation.fireworkLastPos = null;
         runtime.navigation.fireworkParticleCount = 0;
@@ -710,6 +742,12 @@ public class PestDestroyer {
                 // Worker finished (or failed) but aotvStartY was never set
                 completeRoofAotv();
             }
+            return;
+        }
+
+        // Discoless entry holds sneak itself, so it must run before the sneak guard below.
+        if (runtime.state == State.ETHERWARP_ENTRY) {
+            PestEtherwarpEntryManager.update(client, runtime);
             return;
         }
 
@@ -884,6 +922,8 @@ public class PestDestroyer {
             case AOTV_BETWEEN_PESTS -> handleAotvBetweenPests(client);
             case AOTV_TO_ROOF -> {
             } // Handled by worker thread
+            case ETHERWARP_ENTRY -> {
+            } // Handled early in update()
             case FINISH -> finish(client);
             default -> {
             }
@@ -930,6 +970,12 @@ public class PestDestroyer {
                 || state == State.FLY_TO_WAYPOINT
                 || state == State.FLY_TO_PEST
                 || state == State.APPROACH_PEST;
+    }
+
+    private static void startEtherwarpEntry(Minecraft client) {
+        ClientUtils.sendDebugMessage("[Discoless] Arrived on hold plot. Firing entry etherwarp.");
+        setState(State.ETHERWARP_ENTRY);
+        PestEtherwarpEntryManager.begin(runtime);
     }
 
     private static void startRoofAotv(Minecraft client, String plot, State returnState, String taskName) {
@@ -988,6 +1034,11 @@ public class PestDestroyer {
         ClientUtils.sendDebugMessage("[PestDestroyer] Equipped vacuum (slot " + runtime.vacuumSlot + ", range " + runtime.vacuumRange + ")");
 
         if (isOnDiscoDestinationPlot(client)) {
+            if (PestDiscoDestinationManager.requiresEtherwarpEntry()
+                    && !runtime.navigation.discoTargetReached) {
+                startEtherwarpEntry(client);
+                return;
+            }
             runtime.navigation.discoTargetReached = true;
             setState(State.DISCO_SPIN);
             return;
@@ -1311,7 +1362,7 @@ public class PestDestroyer {
     }
 
     private static boolean isLockedOnDiscoDestinationPlot(Minecraft client) {
-        if (!runtime.navigation.discoTargetReached) {
+        if (runtime.holdDestinationAbandoned || !runtime.navigation.discoTargetReached) {
             return false;
         }
         return PestDiscoDestinationManager.matchesPlot(runtime.navigation.trustedPlot)
@@ -1323,7 +1374,8 @@ public class PestDestroyer {
     }
 
     private static boolean isOnDiscoDestinationPlot(Minecraft client) {
-        return PestDiscoDestinationManager.matchesPlot(getEffectivePlot(client));
+        return !runtime.holdDestinationAbandoned
+                && PestDiscoDestinationManager.matchesPlot(getEffectivePlot(client));
     }
 
     private static void trustConfirmedDiscoDestination() {
@@ -1335,10 +1387,18 @@ public class PestDestroyer {
     private static boolean lockDiscoDestinationIfCurrentPlot(Minecraft client) {
         if (!isOnDiscoDestinationPlot(client)
                 || runtime.state == State.TELEPORT_TO_PLOT
+                || runtime.state == State.ETHERWARP_ENTRY
                 || runtime.state == State.DISCO_SPIN
                 || runtime.state == State.KILL_PEST
                 || runtime.state == State.IDLE
                 || runtime.state == State.FINISH) {
+            return false;
+        }
+
+        // Discoless only holds once its entry etherwarp has landed; before that the
+        // hold spot is not yet reached and freezing here would strand us.
+        if (PestDiscoDestinationManager.requiresEtherwarpEntry()
+                && !runtime.navigation.discoTargetReached) {
             return false;
         }
 
@@ -1431,6 +1491,9 @@ public class PestDestroyer {
         runtime.arrivedAtCurrentTargetViaAotv = false;
         runtime.lastRoofRescanAt = 0L;
         runtime.roofAotvReturnState = null;
+        runtime.etherwarpEntryAttempts = 0;
+        runtime.holdDestinationAbandoned = false;
+        runtime.resetEtherwarpEntry();
         PathfindingManager.stop();
 
         PestManager.handlePestCleaningFinished(client);
