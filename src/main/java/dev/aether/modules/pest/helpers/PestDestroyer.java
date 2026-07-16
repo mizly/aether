@@ -8,7 +8,7 @@ import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
-
+import dev.aether.modules.pest.helpers.PestDiscoDestinationManager.Mode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -1379,11 +1379,15 @@ public class PestDestroyer {
     }
 
     private static void trustConfirmedDiscoDestination() {
+        if (PestDiscoDestinationManager.getMode() == Mode.DISCOLESS) {
+            return;
+        }
+        
         runtime.navigation.discoTargetReached = true;
         runtime.navigation.trustedPlot = PestDiscoDestinationManager.getConfiguredPlot();
         runtime.navigation.trustedPlotExpiresAt = System.currentTimeMillis() + 120_000;
     }
-
+    
     private static boolean lockDiscoDestinationIfCurrentPlot(Minecraft client) {
         if (!isOnDiscoDestinationPlot(client)
                 || runtime.state == State.TELEPORT_TO_PLOT

@@ -7,7 +7,6 @@ import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.pathfinding.etherwarp.EtherwarpHelper;
 import dev.aether.util.ClientUtils;
-
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
@@ -26,7 +25,6 @@ import net.minecraft.world.phys.Vec3;
 final class PestEtherwarpEntryManager {
 
     static final int MAX_ATTEMPTS = 2;
-
     private static final double LANDING_TOLERANCE = 1.5;
     private static final double POSITION_CHANGE_EPSILON = 0.1;
     private static final long PLOT_TP_COOLDOWN_GUARD_MS = 1200L;
@@ -179,7 +177,7 @@ final class PestEtherwarpEntryManager {
         runtime.resetEtherwarpEntry();
         runtime.etherwarpEntryAttempts = 0;
         runtime.navigation.discoTargetReached = true;
-        runtime.navigation.trustedPlot = PestDiscoDestinationManager.getConfiguredPlot();
+        runtime.navigation.trustedPlot = ClientUtils.getCurrentPlot();
         runtime.navigation.trustedPlotExpiresAt = System.currentTimeMillis() + 120_000;
         PestDestroyer.setState(PestDestroyer.State.DISCO_SPIN);
     }

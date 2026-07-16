@@ -119,11 +119,11 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.PEST_DISCOLESS_MODE.set(v);
                             AetherConfig.save();
                         })
-                .add(new TextSetting("Discoless Plot", "Plot number (e.g. 2)",
+                .add(new ListSetting("Discoless Plot", "Add plot name",
                         () -> AetherConfig.PEST_DISCOLESS_PLOT.get(),
                         v -> {
-                            AetherConfig.PEST_DISCOLESS_PLOT.set(v);
-                            AetherConfig.save();
+                        AetherConfig.PEST_DISCOLESS_PLOT.set(v);
+                        AetherConfig.save();
                         })));
 
         groups.add(SettingGroup.of(
