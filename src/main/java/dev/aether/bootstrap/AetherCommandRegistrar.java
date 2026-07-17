@@ -15,6 +15,7 @@ import dev.aether.modules.SupercraftManager;
 import dev.aether.modules.discord.DiscordStatusManager;
 import dev.aether.modules.forge.ForgeManager;
 import dev.aether.modules.failsafe.FailsafeTestManager;
+import dev.aether.modules.farming.BedrockPlotMaker;
 import dev.aether.modules.interaction.EntityInteractManager;
 import dev.aether.modules.metaldetector.MetalDetectorSolver;
 import dev.aether.modules.inventorymanager.AutoSellManager;
@@ -92,9 +93,19 @@ public final class AetherCommandRegistrar {
                                         AetherKeybindHandler.startFarmingMacro(client);
                                         return 1;
                                     }))
+                            .then(ClientCommands.literal("bedrock")
+                                    .executes(ctx -> startBedrock(null))
+                                    .then(ClientCommands.argument("plot", IntegerArgumentType.integer(1, 24))
+                                            .executes(ctx -> startBedrock(
+                                                    IntegerArgumentType.getInteger(ctx, "plot")))))
                             .then(ClientCommands.literal("stop")
                                     .executes(ctx -> {
                                         Minecraft client = Minecraft.getInstance();
+                                        if (BedrockPlotMaker.isRunning()) {
+                                            BedrockPlotMaker.stop(client);
+                                            ClientUtils.sendMessage("\u00A7eStopped Bedrock Plot Maker.", false);
+                                            return 1;
+                                        }
                                         if (MacroStateManager.getCurrentState() == MacroState.State.OFF) {
                                             ClientUtils.sendMessage("\u00A7eNo macro is currently running.", false);
                                             return 0;
@@ -387,6 +398,15 @@ public final class AetherCommandRegistrar {
                                                     .executes(ctx -> importConfig(
                                                             StringArgumentType.getString(ctx, "config_string")))))));
         });
+    }
+
+    private static int startBedrock(Integer plot) {
+        if (plot != null) {
+            AetherConfig.BEDROCK_PLOT_MAKER_PLOT.set(Integer.toString(plot));
+            AetherConfig.save();
+        }
+        BedrockPlotMaker.start(Minecraft.getInstance());
+        return BedrockPlotMaker.isRunning() ? 1 : 0;
     }
 
     private static void startCoordinatePathfind(String command, boolean fly, String usage) {

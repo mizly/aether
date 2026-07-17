@@ -77,6 +77,9 @@ public final class PositionHighlighter {
         if (dev.aether.modules.farming.FastLaneSwitchManager.hasVisibleHighlights()) {
             return true;
         }
+        if (dev.aether.modules.farming.BedrockPlotMaker.hasVisibleHighlights()) {
+            return true;
+        }
         return false;
     }
 
@@ -181,6 +184,7 @@ public final class PositionHighlighter {
             }
 
             dev.aether.modules.farming.FastLaneSwitchManager.renderWorld();
+            dev.aether.modules.farming.BedrockPlotMaker.renderWorld();
         }
 
         dev.aether.modules.metaldetector.MetalDetectorSolver.renderWorld();

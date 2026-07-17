@@ -1,6 +1,7 @@
 package dev.aether.mixin;
 
 import dev.aether.util.ProgrammaticAttackTracker;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
 import org.spongepowered.asm.mixin.Mixin;
@@ -19,5 +20,21 @@ public class MixinMinecraftAttackInput {
     private boolean aether$useHeldAttackInput(MouseHandler mouseHandler) {
         return mouseHandler.isMouseGrabbed()
                 || ProgrammaticAttackTracker.shouldTreatMouseAsGrabbed((Minecraft) (Object) this);
+    }
+
+    @Redirect(
+            method = "handleKeybinds",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/client/KeyMapping;isDown()Z"
+            )
+    )
+    private boolean aether$useLatchedAttackKey(KeyMapping mapping) {
+        Minecraft client = (Minecraft) (Object) this;
+        return mapping.isDown()
+                || (client.screen == null
+                && client.options != null
+                && mapping == client.options.keyAttack
+                && ProgrammaticAttackTracker.isHeld(mapping));
     }
 }

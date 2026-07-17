@@ -15,29 +15,46 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class MixinKeyboardInput extends ClientInput {
     @Inject(method = "tick", at = @At("TAIL"))
     private void onTick(CallbackInfo ci) {
-        if (!AetherBootstrapHooks.isFreecamEnabled()) {
-            return;
-        }
-
         Minecraft client = Minecraft.getInstance();
         if (client.options == null) {
             return;
         }
 
-        boolean forward = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keyUp)
-            || AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keyUp);
-        boolean backward = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keyDown)
-            || AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keyDown);
-        boolean left = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keyLeft)
-            || AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keyLeft);
-        boolean right = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keyRight)
-            || AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keyRight);
-        boolean jump = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keyJump)
-            || AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keyJump);
-        boolean shift = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keyShift)
-            || AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keyShift);
-        boolean sprint = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keySprint)
-            || AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keySprint);
+        boolean freecam = AetherBootstrapHooks.isFreecamEnabled();
+        boolean macroForward = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keyUp);
+        boolean macroBackward = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keyDown);
+        boolean macroLeft = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keyLeft);
+        boolean macroRight = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keyRight);
+        boolean macroJump = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keyJump);
+        boolean macroShift = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keyShift);
+        boolean macroSprint = AetherBootstrapHooks.isProgrammaticMovementKeyDown(client.options.keySprint);
+        boolean hasMacroInput = macroForward || macroBackward || macroLeft || macroRight
+            || macroJump || macroShift || macroSprint;
+        if (!freecam && !hasMacroInput) {
+            return;
+        }
+
+        boolean forward = macroForward || (freecam
+            ? AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keyUp)
+            : this.keyPresses.forward());
+        boolean backward = macroBackward || (freecam
+            ? AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keyDown)
+            : this.keyPresses.backward());
+        boolean left = macroLeft || (freecam
+            ? AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keyLeft)
+            : this.keyPresses.left());
+        boolean right = macroRight || (freecam
+            ? AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keyRight)
+            : this.keyPresses.right());
+        boolean jump = macroJump || (freecam
+            ? AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keyJump)
+            : this.keyPresses.jump());
+        boolean shift = macroShift || (freecam
+            ? AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keyShift)
+            : this.keyPresses.shift());
+        boolean sprint = macroSprint || (freecam
+            ? AetherBootstrapHooks.isFreecamProgrammaticKeyDown(client, client.options.keySprint)
+            : this.keyPresses.sprint());
 
         this.keyPresses = new Input(
             forward,

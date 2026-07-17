@@ -838,6 +838,7 @@ public final class AetherConfig {
                         .range(-240, 240);
         public static final IntEntry MACRO_FAST_LANE_RIGHT_BOUNDARY = Config.integer("macroFastLaneRightBoundary", 48)
                         .range(-240, 240);
+        public static final StringEntry BEDROCK_PLOT_MAKER_PLOT = Config.string("bedrockPlotMakerPlot", "1");
         /** Rotate after landing from a lower farm layer. */
         public static final BooleanEntry MACRO_ROTATE_ON_DROP = Config.bool("macroRotateOnDrop", false);
         /** Yaw delta applied after landing from a lower farm layer. */

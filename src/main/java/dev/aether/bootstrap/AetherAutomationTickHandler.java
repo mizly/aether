@@ -8,6 +8,7 @@ import dev.aether.macro.MacroStateManager;
 import dev.aether.bootstrap.AetherBootstrapHooks;
 import dev.aether.modules.CropFeverManager;
 import dev.aether.modules.discord.DiscordStatusManager;
+import dev.aether.modules.farming.BedrockPlotMaker;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.inventorymanager.AutoSellManager;
 import dev.aether.modules.inventorymanager.BookCombineManager;
@@ -57,11 +58,16 @@ public final class AetherAutomationTickHandler {
                 return;
             }
 
-            if ((client.screen instanceof PauseScreen
+            boolean automationStopScreen = client.screen instanceof PauseScreen
                     || client.screen instanceof ChatScreen
-                    || AetherBootstrapHooks.isBootstrapConfigScreen(client.screen))
-                    && MacroStateManager.isMacroRunning()) {
-                MacroStateManager.stopMacro(client);
+                    || AetherBootstrapHooks.isBootstrapConfigScreen(client.screen);
+            if (automationStopScreen) {
+                if (MacroStateManager.isMacroRunning()) {
+                    MacroStateManager.stopMacro(client);
+                }
+                if (BedrockPlotMaker.isRunning()) {
+                    BedrockPlotMaker.stop(client);
+                }
             }
 
             handleContainerMenus(client);
@@ -131,6 +137,7 @@ public final class AetherAutomationTickHandler {
         GearManager.cleanupTick();
         RotationManager.update();
         RotationExecutor.update();
+        BedrockPlotMaker.update(client);
         if (MacroStateManager.getCurrentState() == MacroState.State.FARMING) {
             FarmingMacroManager.tick(client);
         }

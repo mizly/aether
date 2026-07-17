@@ -308,6 +308,23 @@ public final class PathfindingManager {
         doStartPathfind(mc, x, y, z, false);
     }
 
+    public static void startConfiguredWalk(Minecraft mc, Vec3 target,
+                                           Runnable onFinished, Runnable onFailed,
+                                           boolean allowReplan, double preciseGoalTolerance,
+                                           boolean strictGoalCompletion,
+                                           boolean requireFullPath) {
+        int x = Mth.floor(target.x);
+        int y = Mth.floor(target.y);
+        int z = Mth.floor(target.z);
+        disableTransientDebugRendering();
+        resetWalkExecutionOptions();
+        walkRequireFullPath = requireFullPath;
+        walkGoalCenterX = target.x - x;
+        walkGoalCenterZ = target.z - z;
+        configureWalkExecution(null, onFinished, onFailed, allowReplan, preciseGoalTolerance, strictGoalCompletion);
+        doStartPathfind(mc, x, y, z, false);
+    }
+
     /**
      * Runs A* without any movement - results are shown in PathVisualizer only.
      */

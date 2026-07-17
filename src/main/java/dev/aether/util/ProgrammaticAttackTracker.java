@@ -17,11 +17,14 @@ public final class ProgrammaticAttackTracker {
         return attackHeld;
     }
 
+    public static boolean isHeld(KeyMapping mapping) {
+        return attackHeld && mapping != null;
+    }
+
     public static boolean shouldTreatMouseAsGrabbed(Minecraft client) {
-        return attackHeld
+        return isHeld(client == null || client.options == null ? null : client.options.keyAttack)
                 && client != null
                 && client.options != null
-                && client.screen == null
-                && client.options.keyAttack.isDown();
+                && client.screen == null;
     }
 }
