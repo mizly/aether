@@ -12,7 +12,7 @@ public class CustomFarmMacro extends AbstractMacro {
     private static final double REACHED_HORIZONTAL_DISTANCE_SQ = 0.85 * 0.85;
     private static final double REACHED_VERTICAL_DISTANCE = 1.5;
 
-    private int targetWaypointIndex = 0;
+    private int activeWaypointIndex = 0;
 
     @Override
     public void onEnable(Minecraft mc) {
@@ -22,7 +22,7 @@ public class CustomFarmMacro extends AbstractMacro {
             AetherConfig.save();
         }
         List<FarmWaypoint> waypoints = FarmWaypoints.get();
-        targetWaypointIndex = initialTargetIndex(mc, waypoints);
+        activeWaypointIndex = initialActiveIndex(mc, waypoints);
     }
 
     @Override
@@ -39,33 +39,34 @@ public class CustomFarmMacro extends AbstractMacro {
         List<FarmWaypoint> waypoints = FarmWaypoints.get();
         if (waypoints.isEmpty()) {
             changeState(State.NONE);
-            targetWaypointIndex = 0;
+            activeWaypointIndex = 0;
             return;
         }
 
-        if (targetWaypointIndex < 0 || targetWaypointIndex >= waypoints.size()) {
-            targetWaypointIndex = 0;
+        if (activeWaypointIndex < 0 || activeWaypointIndex >= waypoints.size()) {
+            activeWaypointIndex = 0;
         }
 
-        FarmWaypoint target = waypoints.get(targetWaypointIndex);
-        if (isAtWaypoint(mc, target)) {
-            FarmWaypoints.saveLastWaypoint(targetWaypointIndex);
-            targetWaypointIndex = (targetWaypointIndex + 1) % waypoints.size();
-            target = waypoints.get(targetWaypointIndex);
+        for (int i = 0; i < waypoints.size(); i++) {
+            if (isAtWaypoint(mc, waypoints.get(i))) {
+                activeWaypointIndex = i;
+                FarmWaypoints.saveLastWaypoint(i);
+                break;
+            }
         }
 
-        changeState(displayStateFor(target));
+        changeState(displayStateFor(waypoints.get(activeWaypointIndex)));
     }
 
     @Override
     public void invokeState(Minecraft mc) {
         List<FarmWaypoint> waypoints = FarmWaypoints.get();
-        if (waypoints.isEmpty() || targetWaypointIndex < 0 || targetWaypointIndex >= waypoints.size()) {
+        if (waypoints.isEmpty() || activeWaypointIndex < 0 || activeWaypointIndex >= waypoints.size()) {
             holdKeys(mc, false, false, false, false, true, false, false);
             return;
         }
 
-        FarmWaypoint waypoint = waypoints.get(targetWaypointIndex);
+        FarmWaypoint waypoint = waypoints.get(activeWaypointIndex);
         holdKeys(mc,
                 waypoint.left(),
                 waypoint.right(),
@@ -76,7 +77,7 @@ public class CustomFarmMacro extends AbstractMacro {
                 false);
     }
 
-    private int initialTargetIndex(Minecraft mc, List<FarmWaypoint> waypoints) {
+    private int initialActiveIndex(Minecraft mc, List<FarmWaypoint> waypoints) {
         if (waypoints.isEmpty()) {
             return 0;
         }
@@ -85,14 +86,14 @@ public class CustomFarmMacro extends AbstractMacro {
             for (int i = 0; i < waypoints.size(); i++) {
                 if (isAtWaypoint(mc, waypoints.get(i))) {
                     FarmWaypoints.saveLastWaypoint(i);
-                    return (i + 1) % waypoints.size();
+                    return i;
                 }
             }
         }
 
         int lastWaypoint = FarmWaypoints.getLastWaypoint();
         if (lastWaypoint >= 0 && lastWaypoint < waypoints.size()) {
-            return (lastWaypoint + 1) % waypoints.size();
+            return lastWaypoint;
         }
         return 0;
     }
