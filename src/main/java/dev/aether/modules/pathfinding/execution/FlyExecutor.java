@@ -146,7 +146,19 @@ public final class FlyExecutor {
             double dz = (wp.position.flooredZ() + 0.5) - pos.z;
             double distSq = dx * dx + dy * dy + dz * dz;
 
-            // Advance if inside radius OR if we have passed the waypoint
+            // Advance if reaching the waypoint with high precision for critical points
+            // Check if we have reached the final waypoint that should trigger rewarp
+            if (wpIndex >= path.size() - 1) {
+                // Special handling for final waypoint (likely rewarp point)
+                if (distSq <= finalWaypointReach * finalWaypointReach * 1.5) {  // Slightly more tolerant but precise
+                    lastProgressTime = System.currentTimeMillis();
+                    ticksSinceLastMove = 0;
+                    wpIndex++;
+                    break; // Stop advancing if we get close to final waypoint
+                }
+            }
+
+            // Advance normally for intermediate waypoints
             double waypointReach = wpIndex == path.size() - 1 ? finalWaypointReach : REACH;
             boolean reached = distSq <= waypointReach * waypointReach;
             if (!reached && wpIndex > 0) {
@@ -437,5 +449,4 @@ public final class FlyExecutor {
         return predictedDist < goalStopThreshold;
     }
 }
-
 
