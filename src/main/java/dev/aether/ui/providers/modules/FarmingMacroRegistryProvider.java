@@ -233,7 +233,7 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
                 v -> FarmWaypoints.update(index, waypoint -> waypoint.withHighlighted(v)),
                 () -> captureWaypoint(index))
                 .addActionButton("+", () -> {
-                    FarmWaypoints.add(captureCurrentWaypoint());
+                    FarmWaypoints.insertAfter(index, captureCurrentWaypoint());
                     buildGroups();
                 }, () -> true)
                 .addActionButton("-", () -> {

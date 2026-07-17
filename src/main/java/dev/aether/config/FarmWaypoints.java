@@ -61,6 +61,14 @@ public final class FarmWaypoints {
         AetherConfig.save();
     }
 
+    public static void insertAfter(int index, FarmWaypoint waypoint) {
+        List<FarmWaypoint> waypoints = get();
+        int insertIndex = Math.max(0, Math.min(index + 1, waypoints.size()));
+        waypoints.add(insertIndex, waypoint);
+        set(waypoints);
+        AetherConfig.save();
+    }
+
     public static void remove(int index) {
         List<FarmWaypoint> waypoints = get();
         if (waypoints.size() <= 1 || index < 0 || index >= waypoints.size()) {
