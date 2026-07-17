@@ -1,6 +1,7 @@
 name: Build and Release
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -30,6 +31,15 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+
+      - name: Resolve Commit Message
+        id: commit
+        run: |
+          {
+            echo 'message<<EOF'
+            git log -1 --pretty=%B
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
 
       - name: Resolve Release Version
         id: vars
@@ -79,7 +89,7 @@ jobs:
           path: build/libs/*.jar
 
       - name: Create Release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.vars.outputs.release_tag }}
@@ -90,7 +100,7 @@ jobs:
             Base version: ${{ steps.vars.outputs.base_version }}
             Commit: ${{ github.sha }}
             Branch: ${{ github.ref_name }}
-            Message: ${{ github.event.head_commit.message }}
+            Message: ${{ steps.commit.outputs.message }}
           files: build/libs/*.jar
           draft: false
           prerelease: false
@@ -99,13 +109,14 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Send Discord Webhook
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          COMMIT_MESSAGE: ${{ steps.commit.outputs.message }}
         run: |
           RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${{ steps.vars.outputs.release_tag }}"
           VERSION="${{ steps.vars.outputs.release_version }}"
-          COMMIT_MSG="${{ github.event.head_commit.message }}"
+          COMMIT_MSG="$COMMIT_MESSAGE"
           JAR_FILE=$(basename "$(ls build/libs/*.jar | grep -v 'sources' | grep -v 'dev' | head -n 1)")
           JAR_URL="https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.release_tag }}/$JAR_FILE"
 
