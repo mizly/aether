@@ -1,5 +1,7 @@
 package dev.aether.ui.settings;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import dev.aether.util.AetherLang;
@@ -20,6 +22,7 @@ public class PositionSetting implements Setting {
     private final Supplier<Boolean> highlightGetter;
     private final Consumer<Boolean> highlightSetter;
     private final Runnable captureAction;
+    private final List<ActionButton> actionButtons = new ArrayList<>();
     private Supplier<Boolean> visibility = () -> true;
 
     public PositionSetting(String name,
@@ -50,6 +53,12 @@ public class PositionSetting implements Setting {
     public boolean isHighlighted() { return highlightGetter.get(); }
     public void setHighlighted(boolean v) { highlightSetter.accept(v); }
     public void capture() { captureAction.run(); }
+    public List<ActionButton> getActionButtons() { return actionButtons; }
+
+    public PositionSetting addActionButton(String label, Runnable action, Supplier<Boolean> enabled) {
+        actionButtons.add(new ActionButton(label, action, enabled));
+        return this;
+    }
 
     public PositionSetting visibleWhen(Supplier<Boolean> condition) {
         this.visibility = condition;
@@ -60,4 +69,16 @@ public class PositionSetting implements Setting {
     @Override public String getRawName() { return rawName; }
     @Override public SettingType getType() { return SettingType.POSITION; }
     @Override public boolean isVisible() { return visibility.get(); }
+
+    public record ActionButton(String label, Runnable action, Supplier<Boolean> enabled) {
+        public boolean isEnabled() {
+            return enabled == null || enabled.get();
+        }
+
+        public void execute() {
+            if (isEnabled() && action != null) {
+                action.run();
+            }
+        }
+    }
 }

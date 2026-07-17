@@ -218,14 +218,6 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
                     mask -> FarmWaypoints.update(index, waypoint -> waypoint.withMovementMask(mask))));
         }
 
-        group.add(new ActionSetting("Add Waypoint", () -> {
-            FarmWaypoints.add(captureCurrentWaypoint());
-            buildGroups();
-        }));
-        group.add(new ActionSetting("Remove Waypoint", () -> {
-            FarmWaypoints.remove(Math.max(0, FarmWaypoints.get().size() - 1));
-            buildGroups();
-        }).visibleWhen(() -> FarmWaypoints.get().size() > 1));
         return group;
     }
 
@@ -239,7 +231,15 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
                 v -> FarmWaypoints.update(index, waypoint -> waypoint.withPosition(waypoint.x(), waypoint.y(), v)),
                 () -> FarmWaypoints.get(index).highlighted(),
                 v -> FarmWaypoints.update(index, waypoint -> waypoint.withHighlighted(v)),
-                () -> captureWaypoint(index));
+                () -> captureWaypoint(index))
+                .addActionButton("+", () -> {
+                    FarmWaypoints.add(captureCurrentWaypoint());
+                    buildGroups();
+                }, () -> true)
+                .addActionButton("-", () -> {
+                    FarmWaypoints.remove(index);
+                    buildGroups();
+                }, () -> FarmWaypoints.get().size() > 1);
     }
 
     private static Integer parseBoundary(String value) {
