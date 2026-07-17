@@ -81,7 +81,7 @@ public final class FastLaneSwitchManager {
     }
 
     public static boolean shouldFastSwitch(Minecraft mc, AbstractMacro.State state) {
-        if (!AetherConfig.MACRO_FAST_LANE_SWITCH.get() || mc == null || mc.player == null || !isRowState(state)) {
+        if (!isEnabledForCurrentFarm() || mc == null || mc.player == null || !isRowState(state)) {
             return false;
         }
         if (System.currentTimeMillis() < suppressFastSwitchUntilMs) {
@@ -98,7 +98,7 @@ public final class FastLaneSwitchManager {
     public static String getDisplayText() {
         AbstractMacro macro = FarmingMacroManager.getActiveMacro();
         Minecraft mc = Minecraft.getInstance();
-        if (!AetherConfig.MACRO_FAST_LANE_SWITCH.get()
+        if (!isEnabledForCurrentFarm()
                 || macro == null
                 || mc.player == null
                 || MacroStateManager.getCurrentState() != MacroState.State.FARMING
@@ -123,7 +123,7 @@ public final class FastLaneSwitchManager {
     public static boolean hasEstimate() {
         AbstractMacro macro = FarmingMacroManager.getActiveMacro();
         Minecraft mc = Minecraft.getInstance();
-        if (!AetherConfig.MACRO_FAST_LANE_SWITCH.get() || macro == null || mc.player == null) {
+        if (!isEnabledForCurrentFarm() || macro == null || mc.player == null) {
             return false;
         }
         return getTargetBoundary(mc, macro.getCurrentState()).valid()
@@ -132,7 +132,7 @@ public final class FastLaneSwitchManager {
 
     public static boolean hasVisibleHighlights() {
         Minecraft mc = Minecraft.getInstance();
-        return AetherConfig.MACRO_FAST_LANE_SWITCH.get()
+        return isEnabledForCurrentFarm()
                 && mc.level != null
                 && mc.player != null
                 && ClientUtils.getCurrentLocation() == MacroState.Location.GARDEN
@@ -248,6 +248,11 @@ public final class FastLaneSwitchManager {
     private static boolean hasValidBoundaries() {
         return AetherConfig.MACRO_FAST_LANE_LEFT_BOUNDARY.get()
                 != AetherConfig.MACRO_FAST_LANE_RIGHT_BOUNDARY.get();
+    }
+
+    private static boolean isEnabledForCurrentFarm() {
+        return AetherConfig.MACRO_FAST_LANE_SWITCH.get()
+                && !"CUSTOM".equals(AetherConfig.FARM_TYPE.get());
     }
 
     private static boolean isRowState(AbstractMacro.State state) {

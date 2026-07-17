@@ -1,29 +1,41 @@
 package dev.aether.ui;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.config.FarmWaypoint;
 import dev.aether.config.FarmingMacroPresetManager;
 import dev.aether.config.FarmType;
+import dev.aether.config.FarmWaypoints;
 import dev.aether.ui.settings.ActionSetting;
 import dev.aether.ui.settings.DropdownSetting;
+import dev.aether.ui.settings.MultiDropdownSetting;
 import dev.aether.ui.settings.ModulesTab;
+import dev.aether.ui.settings.PositionSetting;
 import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.TextSetting;
 import dev.aether.ui.settings.ToggleSetting;
 import dev.aether.util.AetherLang;
+import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryProvider {
+    private static final List<SettingGroup> FARMING_GROUPS = new ArrayList<>();
+    private static final List<String> MOVEMENT_KEY_OPTIONS = List.of("W", "A", "S", "D");
+
     public FarmingMacroRegistryProvider() {
         super(0);
     }
 
     @Override
     protected ModulesTab.SubTab createSubTab() {
-        List<SettingGroup> groups = new ArrayList<>();
-        groups.add(SettingGroup.alwaysOn(
+        return MainGUIRegistry.subTab("Farming Macro", "Automatically farms crops", buildGroups());
+    }
+
+    private static List<SettingGroup> buildGroups() {
+        FARMING_GROUPS.clear();
+        FARMING_GROUPS.add(SettingGroup.alwaysOn(
                         "Presets",
                         "Save and load Farming Macro preset JSON files")
                 .add(new TextSetting("Preset Name", "e.g. Wheat",
@@ -35,11 +47,18 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
                 .add(new ActionSetting("Save Preset", FarmingMacroPresetManager::saveCurrentPreset))
                 .add(new DropdownSetting("Preset", FarmingMacroPresetManager.getPresetOptions(),
                         FarmingMacroPresetManager::getSelectedPresetIndex,
-                        FarmingMacroPresetManager::applyPresetByIndex)
+                        i -> {
+                            FarmingMacroPresetManager.applyPresetByIndex(i);
+                            if (isCustomFarmType()) {
+                                AetherConfig.MACRO_FAST_LANE_SWITCH.set(false);
+                                AetherConfig.save();
+                            }
+                            buildGroups();
+                        })
                         .addIconAction("/assets/aether/icons/folder.svg", FarmingMacroPresetManager::openPresetFolder)
                         .addIconAction("/assets/aether/icons/refresh.svg", FarmingMacroPresetManager::refreshPresetOptions)));
 
-        groups.add(SettingGroup.alwaysOn(
+        FARMING_GROUPS.add(SettingGroup.alwaysOn(
                         "Farm Macro Settings",
                         "Configure Farming Macro behavior")
                 .add(new DropdownSetting("Farm Type",
@@ -58,7 +77,11 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
                                 if (selectedFarmType != FarmType.S_SHAPE) {
                                     AetherConfig.MACRO_HOLD_W_WHILE_FARMING.set(false);
                                 }
+                                if (selectedFarmType == FarmType.CUSTOM) {
+                                    AetherConfig.MACRO_FAST_LANE_SWITCH.set(false);
+                                }
                                 AetherConfig.save();
+                                buildGroups();
                             }
                         }))
                 .add(new ToggleSetting("Hold W While Farming",
@@ -139,12 +162,15 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
                         .visibleWhen(() -> !AetherConfig.SQUEAKY_MOUSEMAT.get()))
                 .add(FarmingSettingsFactory.bpsAverageWindowSetting()));
 
-        groups.add(SettingGroup.of(
+        if (isCustomFarmType()) {
+            FARMING_GROUPS.add(buildFarmWaypointsGroup());
+        } else {
+            FARMING_GROUPS.add(SettingGroup.of(
                         "Fast Lane Switch (Experimental)",
                         "Switches farming direction at configured plot lane boundaries",
-                        () -> AetherConfig.MACRO_FAST_LANE_SWITCH.get(),
+                        () -> !isCustomFarmType() && AetherConfig.MACRO_FAST_LANE_SWITCH.get(),
                         v -> {
-                            AetherConfig.MACRO_FAST_LANE_SWITCH.set(v);
+                            AetherConfig.MACRO_FAST_LANE_SWITCH.set(!isCustomFarmType() && v);
                             AetherConfig.save();
                         })
                 .add(new DropdownSetting("Boundary Axis",
@@ -172,8 +198,48 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
                                 AetherConfig.save();
                             }
                         })));
+        }
 
-        return MainGUIRegistry.subTab("Farming Macro", "Automatically farms crops", groups);
+        return FARMING_GROUPS;
+    }
+
+    private static SettingGroup buildFarmWaypointsGroup() {
+        SettingGroup group = SettingGroup.alwaysOn(
+                "Farm Waypoints",
+                "Configure custom farm waypoint positions and movement keys");
+
+        int count = Math.max(1, FarmWaypoints.get().size());
+        for (int i = 0; i < count; i++) {
+            final int index = i;
+            group.add(buildFarmWaypointSetting(index));
+            group.add(new MultiDropdownSetting("Movement Keys #" + (index + 1),
+                    MOVEMENT_KEY_OPTIONS,
+                    () -> FarmWaypoints.get(index).movementMask(),
+                    mask -> FarmWaypoints.update(index, waypoint -> waypoint.withMovementMask(mask))));
+        }
+
+        group.add(new ActionSetting("Add Waypoint", () -> {
+            FarmWaypoints.add(captureCurrentWaypoint());
+            buildGroups();
+        }));
+        group.add(new ActionSetting("Remove Waypoint", () -> {
+            FarmWaypoints.remove(Math.max(0, FarmWaypoints.get().size() - 1));
+            buildGroups();
+        }).visibleWhen(() -> FarmWaypoints.get().size() > 1));
+        return group;
+    }
+
+    private static PositionSetting buildFarmWaypointSetting(int index) {
+        return new PositionSetting("Farm Waypoint #" + (index + 1),
+                () -> FarmWaypoints.get(index).x(),
+                v -> FarmWaypoints.update(index, waypoint -> waypoint.withPosition(v, waypoint.y(), waypoint.z())),
+                () -> FarmWaypoints.get(index).y(),
+                v -> FarmWaypoints.update(index, waypoint -> waypoint.withPosition(waypoint.x(), v, waypoint.z())),
+                () -> FarmWaypoints.get(index).z(),
+                v -> FarmWaypoints.update(index, waypoint -> waypoint.withPosition(waypoint.x(), waypoint.y(), v)),
+                () -> FarmWaypoints.get(index).highlighted(),
+                v -> FarmWaypoints.update(index, waypoint -> waypoint.withHighlighted(v)),
+                () -> captureWaypoint(index));
     }
 
     private static Integer parseBoundary(String value) {
@@ -201,5 +267,29 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
         } catch (Exception ignored) {
             return false;
         }
+    }
+
+    private static boolean isCustomFarmType() {
+        try {
+            return FarmType.valueOf(AetherConfig.FARM_TYPE.get()) == FarmType.CUSTOM;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    private static FarmWaypoint captureCurrentWaypoint() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) {
+            return FarmWaypoint.emptyAt(0.0, 0.0, 0.0);
+        }
+        return FarmWaypoint.emptyAt(mc.player.getX(), mc.player.getY(), mc.player.getZ());
+    }
+
+    private static void captureWaypoint(int index) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) {
+            return;
+        }
+        FarmWaypoints.update(index, waypoint -> waypoint.withPosition(mc.player.getX(), mc.player.getY(), mc.player.getZ()));
     }
 }

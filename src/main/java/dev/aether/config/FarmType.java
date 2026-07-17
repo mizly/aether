@@ -7,7 +7,8 @@ public enum FarmType {
     COCOA_BEANS("Cocoa Beans"),
     A_D_FARM("A/D"),
     W_S_FARM("W/S (Flower)"),
-    W_S_CROP("W/S (Crop)");
+    W_S_CROP("W/S (Crop)"),
+    CUSTOM("Custom");
 
     private final String label;
 

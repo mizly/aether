@@ -3,6 +3,7 @@ package dev.aether.macro;
 import dev.aether.config.AetherConfig;
 import dev.aether.macro.impl.ADFarmMacro;
 import dev.aether.macro.impl.CocoaBeansMacro;
+import dev.aether.macro.impl.CustomFarmMacro;
 import dev.aether.macro.impl.SDSMushroomMacro;
 import dev.aether.macro.impl.SShapeCropMacro;
 import dev.aether.macro.impl.SShapeSugarCaneMacro;
@@ -92,6 +93,7 @@ public final class FarmingMacroManager {
             case "SDS_MUSHROOM" -> new SDSMushroomMacro();
             case "W_S_FARM" -> new WSFarmMacro();
             case "W_S_CROP" -> new WSCropMacro();
+            case "CUSTOM" -> new CustomFarmMacro();
             case "S_SHAPE" -> new SShapeCropMacro();
             case "S_SHAPE_SUGAR_CANE" -> new SShapeSugarCaneMacro();
             default -> new SShapeCropMacro();

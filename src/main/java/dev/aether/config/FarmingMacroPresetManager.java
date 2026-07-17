@@ -202,6 +202,7 @@ public final class FarmingMacroPresetManager {
         addEntry(entries, AetherConfig.MACRO_FAST_LANE_BOUNDARY_AXIS);
         addEntry(entries, AetherConfig.MACRO_FAST_LANE_LEFT_BOUNDARY);
         addEntry(entries, AetherConfig.MACRO_FAST_LANE_RIGHT_BOUNDARY);
+        addEntry(entries, AetherConfig.MACRO_FARM_WAYPOINTS);
         addEntry(entries, AetherConfig.MACRO_ROTATE_ON_DROP);
         addEntry(entries, AetherConfig.MACRO_DROP_ROTATION_DEGREES);
         addEntry(entries, AetherConfig.SQUEAKY_MOUSEMAT);

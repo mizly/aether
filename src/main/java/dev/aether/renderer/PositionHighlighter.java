@@ -1,6 +1,8 @@
 package dev.aether.renderer;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.config.FarmWaypoint;
+import dev.aether.config.FarmWaypoints;
 import dev.aether.config.RewarpPointPair;
 import dev.aether.config.RewarpPointPairs;
 import dev.aether.macro.MacroState;
@@ -77,8 +79,23 @@ public final class PositionHighlighter {
         if (dev.aether.modules.farming.FastLaneSwitchManager.hasVisibleHighlights()) {
             return true;
         }
+        if (hasVisibleFarmWaypoints()) {
+            return true;
+        }
         if (dev.aether.modules.farming.BedrockPlotMaker.hasVisibleHighlights()) {
             return true;
+        }
+        return false;
+    }
+
+    private static boolean hasVisibleFarmWaypoints() {
+        if (!"CUSTOM".equals(AetherConfig.FARM_TYPE.get())) {
+            return false;
+        }
+        for (FarmWaypoint waypoint : FarmWaypoints.get()) {
+            if (waypoint.highlighted()) {
+                return true;
+            }
         }
         return false;
     }
@@ -184,6 +201,7 @@ public final class PositionHighlighter {
             }
 
             dev.aether.modules.farming.FastLaneSwitchManager.renderWorld();
+            renderFarmWaypoints(ctx, mc, textBuffer);
             dev.aether.modules.farming.BedrockPlotMaker.renderWorld();
         }
 
@@ -204,6 +222,30 @@ public final class PositionHighlighter {
                     pair.displayName() + " End",
                     ARGB.color(200, 255, 50, 50),
                     ARGB.color(40, 255, 50, 50));
+        }
+    }
+
+    private static void renderFarmWaypoints(LevelRenderContext ctx, Minecraft mc,
+                                            MultiBufferSource.BufferSource textBuffer) {
+        if (!hasVisibleFarmWaypoints()) {
+            return;
+        }
+
+        List<FarmWaypoint> waypoints = FarmWaypoints.get();
+        for (int i = 0; i < waypoints.size(); i++) {
+            FarmWaypoint waypoint = waypoints.get(i);
+            if (!waypoint.highlighted()) {
+                continue;
+            }
+            int x = (int) Math.floor(waypoint.x());
+            int y = (int) Math.floor(waypoint.y());
+            int z = (int) Math.floor(waypoint.z());
+            renderBlockHighlight(ctx, mc, textBuffer,
+                    new AABB(x, y, z, x + 1, y + 1, z + 1),
+                    "Farm Waypoint #" + (i + 1) + " - " + waypoint.movementLabel(),
+                    ARGB.color(210, 80, 220, 255),
+                    ARGB.color(45, 80, 220, 255),
+                    2.0f);
         }
     }
 
