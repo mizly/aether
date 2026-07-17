@@ -502,7 +502,11 @@ final class MainGUISettingRowRenderer {
         float boxH = 32f;
         float boxY = y + (cardH - boxH) / 2f;
         float captureW = 56f;
-        float captureX = x + w - captureW;
+        float actionGap = MainGUI.LIST_ITEM_GAP;
+        float actionW = MainGUI.LIST_ACTION_W;
+        List<PositionSetting.ActionButton> actions = setting.getActionButtons();
+        float actionStripW = actions.isEmpty() ? 0f : actions.size() * actionW + actions.size() * actionGap;
+        float captureX = x + w - actionStripW - captureW;
 
         float pillW = 36f;
         float pillH = MainGUI.PILL_H;
@@ -562,6 +566,13 @@ final class MainGUISettingRowRenderer {
         nvg.roundedRect(captureX, boxY, captureW, boxH, 7f, buttonBg);
         nvg.rectOutline(captureX, boxY, captureW, boxH, 7f, 1f, buttonBorder);
         nvg.textCentered(Fonts.REGULAR, AetherLang.localize("Capture"), captureX, boxY, captureW, boxH, 11.5f, buttonText);
+
+        float actionX = captureX + captureW + actionGap;
+        for (PositionSetting.ActionButton action : actions) {
+            boolean actionHovered = mx >= actionX && mx <= actionX + actionW && my >= boxY && my <= boxY + boxH;
+            owner.renderListActionButtonControl(nvg, actionX, boxY, actionW, action.label(), actionHovered, action.isEnabled());
+            actionX += actionW + actionGap;
+        }
     }
 
     private void renderMultiDropdown(NVGRenderer nvg, MultiDropdownSetting setting, float x, float w, float y, float cardH,

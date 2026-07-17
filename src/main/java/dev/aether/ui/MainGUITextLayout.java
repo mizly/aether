@@ -6,6 +6,7 @@ import dev.aether.ui.settings.DropdownListSetting;
 import dev.aether.ui.settings.InfoSetting;
 import dev.aether.ui.settings.MultiDropdownSetting;
 import dev.aether.ui.settings.ListSetting;
+import dev.aether.ui.settings.PositionSetting;
 import dev.aether.ui.settings.Setting;
 import dev.aether.ui.settings.SettingType;
 import dev.aether.ui.settings.TextSetting;
@@ -84,7 +85,7 @@ final class MainGUITextLayout {
             case DROPDOWN -> Math.max(80f, innerWidth - (MainGUI.DROPDOWN_FIELD_W + dropdownActionStripWidth((DropdownSetting) setting) + 12f));
             case MULTI_DROPDOWN -> Math.max(80f, innerWidth - ((MultiDropdownSetting) setting).estimateTotalWidth() - 12f);
             case COLOR -> Math.max(80f, innerWidth - 96f);
-            case POSITION -> Math.max(80f, innerWidth - 320f);
+            case POSITION -> Math.max(80f, innerWidth - (320f + positionActionStripWidth((PositionSetting) setting)));
             case KEYBIND -> Math.max(80f, innerWidth - 220f);
             default -> Math.max(80f, innerWidth - 16f);
         };
@@ -100,6 +101,14 @@ final class MainGUITextLayout {
 
     float dropdownActionStartX(DropdownSetting dropdown, float fieldX) {
         return fieldX - dropdownActionStripWidth(dropdown);
+    }
+
+    private float positionActionStripWidth(PositionSetting setting) {
+        int count = setting.getActionButtons().size();
+        if (count == 0) {
+            return 0f;
+        }
+        return count * MainGUI.LIST_ACTION_W + count * MainGUI.LIST_ITEM_GAP;
     }
 
     int dropdownActionIndexAt(DropdownSetting dropdown, float fieldX, float fieldY, float fieldH, float mx, float my) {

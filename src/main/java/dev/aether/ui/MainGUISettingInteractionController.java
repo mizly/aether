@@ -524,7 +524,11 @@ final class MainGUISettingInteractionController {
         float buttonH = 32f;
         float buttonY = y + (cardH - buttonH) / 2f;
         float captureW = 56f;
-        float captureX = ix + iw - captureW;
+        float actionGap = MainGUI.LIST_ITEM_GAP;
+        float actionW = MainGUI.LIST_ACTION_W;
+        List<PositionSetting.ActionButton> actions = setting.getActionButtons();
+        float actionStripW = actions.isEmpty() ? 0f : actions.size() * actionW + actions.size() * actionGap;
+        float captureX = ix + iw - actionStripW - captureW;
 
         float valueGap = 6f;
         float valueW = 46f;
@@ -543,6 +547,15 @@ final class MainGUISettingInteractionController {
         if (mx >= captureX && mx <= captureX + captureW && my >= buttonY && my <= buttonY + buttonH) {
             setting.capture();
             return;
+        }
+
+        float actionX = captureX + captureW + actionGap;
+        for (PositionSetting.ActionButton action : actions) {
+            if (mx >= actionX && mx <= actionX + actionW && my >= buttonY && my <= buttonY + buttonH) {
+                action.execute();
+                return;
+            }
+            actionX += actionW + actionGap;
         }
 
         float[] boxX = {xX, yX, zX};
