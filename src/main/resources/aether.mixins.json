@@ -20,6 +20,7 @@
         "MixinPlayerTeam",
         "MixinStringDecomposer",
         "MixinMinecraft",
+        "MixinMinecraftFallbackPack",
         "MixinMinecraftAttackInput",
         "MixinFreecamInteractionBlocker",
         "MixinClientLevel",
@@ -50,7 +51,8 @@
         "MixinOptions",
         "MixinContainerEventHandler",
         "MenuFPSUncap",
-        "MixinKeepFocus"
+        "MixinKeepFocus",
+        "MixinTransferableSelectionListPackEntry"
     ],
     "injectors": {
         "defaultRequire": 1
