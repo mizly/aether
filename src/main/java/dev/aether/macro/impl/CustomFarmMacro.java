@@ -9,7 +9,7 @@ import net.minecraft.client.Minecraft;
 import java.util.List;
 
 public class CustomFarmMacro extends AbstractMacro {
-    private static final double REACHED_HORIZONTAL_DISTANCE_SQ = 0.85 * 0.85;
+    private static final double REACHED_HORIZONTAL_DISTANCE_SQ = 0.2 * 0.2;
     private static final double REACHED_VERTICAL_DISTANCE = 1.5;
 
     private int activeWaypointIndex = 0;
