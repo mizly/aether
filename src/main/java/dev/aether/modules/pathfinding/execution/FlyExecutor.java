@@ -32,7 +32,7 @@ import net.minecraft.world.phys.Vec3;
 public final class FlyExecutor {
 
     public enum State {
-        IDLE, FLYING, DECELERATING, FINISHED
+        IDLE, FLYING, DECELERATING, FINISHED, FAILED
     }
 
     // How close to a waypoint counts as "reached" (horizontal + vertical)
@@ -43,6 +43,11 @@ public final class FlyExecutor {
     // Stuck timers
     private static final long STUCK_CLIMB_MS = 1500;
     private static final long STUCK_ABORT_MS = 3000;
+    // Net-progress stall detection. The per-tick displacement check above cannot
+    // catch oscillation (a bouncing player keeps moving >0.15/tick yet never gets
+    // closer to the goal), so we also track how close to the goal we have ever got.
+    private static final double GOAL_PROGRESS_EPSILON = 0.2;
+    private static final long NO_PROGRESS_ABORT_MS = 3000;
     // How far ahead to raycast for block detection (blocks)
     private static final double RAY_DIST = 2.5;
     private static final long ROTATION_DURATION_MS = 550L;
@@ -60,6 +65,12 @@ public final class FlyExecutor {
     private long decelStartTime = 0;
     private int ticksSinceLastMove = 0;
     private static final int TICKS_FOR_STUCK = 15; // ~750ms at 20 tps
+
+    /** Net distance-to-goal progress (catches oscillation the per-tick check misses) */
+    private double bestDistToGoal = Double.MAX_VALUE;
+    private long lastGoalProgressTime;
+    /** Times we've resumed flying after braking left us short of the goal */
+    private int decelResumes = 0;
 
     private Runnable onFinished;
     private boolean usePitchControl = false;
@@ -85,6 +96,9 @@ public final class FlyExecutor {
         this.lastProgressTime = System.currentTimeMillis();
         this.lastPosCheck = Vec3.ZERO;
         this.ticksSinceLastMove = 0;
+        this.bestDistToGoal = Double.MAX_VALUE;
+        this.lastGoalProgressTime = System.currentTimeMillis();
+        this.decelResumes = 0;
         this.onFinished = onFinished;
         this.usePitchControl = false;
         this.useLookTargetRotation = false;
@@ -92,6 +106,8 @@ public final class FlyExecutor {
         this.finalWaypointReach = REACH;
         this.goalStopThreshold = STOP_THRESH;
         state = State.FLYING;
+        ClientUtils.sendDebugMessage("fly start: " + this.path.size() + " wps, goal ("
+                + goalX + ", " + goalY + ", " + goalZ + ")");
     }
 
     public void setPitchControl(float pitch) {
@@ -190,6 +206,22 @@ public final class FlyExecutor {
         Vec3 goal = new Vec3(goalX + 0.5, goalY + 0.15, goalZ + 0.5);
         double distToGoal = pos.distanceTo(goal);
 
+        // -- Net-progress stall detection -----------------------------------
+        // Fail if we haven't got meaningfully closer to the goal for a while.
+        // This is what catches oscillating "stuck between two positions": the
+        // per-tick displacement check never fires because we keep moving.
+        if (distToGoal < bestDistToGoal - GOAL_PROGRESS_EPSILON) {
+            bestDistToGoal = distToGoal;
+            lastGoalProgressTime = System.currentTimeMillis();
+        } else if (System.currentTimeMillis() - lastGoalProgressTime > NO_PROGRESS_ABORT_MS) {
+            ClientUtils.sendMessage(String.format(
+                    "§cFly not progressing, recovering. (wp %d/%d, dist %.1f, pos %.1f %.1f %.1f)",
+                    Math.min(wpIndex + 1, path.size()), path.size(), distToGoal,
+                    pos.x, pos.y, pos.z), false);
+            fail(mc);
+            return;
+        }
+
         // Check if we should stop early based on momentum
         if (shouldStopNow(mc, goal)) {
             beginDecelerate(mc);
@@ -225,7 +257,9 @@ public final class FlyExecutor {
 
         // -- Forward movement -----------------------------------------------
         applyStrafingMovement(mc, dx, dz);
-        ClientUtils.setKeyMappingState(mc.options.keySprint, distToGoal > 5.0);
+        // Generous no-sprint zone: sprint momentum near the goal is what causes
+        // multi-block overshoots.
+        ClientUtils.setKeyMappingState(mc.options.keySprint, distToGoal > 12.0);
         adjustVerticalKeysWithRaycast(mc, pos, dyWp);
 
         // -- Stuck detection ------------------------------------------------
@@ -242,9 +276,12 @@ public final class FlyExecutor {
         if (ticksSinceLastMove > TICKS_FOR_STUCK || stuckMs > STUCK_ABORT_MS) {
             if (stuckMs > STUCK_ABORT_MS) {
                 if (mc.player != null) {
-                    ClientUtils.sendMessage("\u00A7cFly stuck! Aborting navigation.", false);
+                    ClientUtils.sendMessage(String.format(
+                            "\u00A7cFly stuck! Aborting navigation. (wp %d/%d, dist %.1f, pos %.1f %.1f %.1f)",
+                            Math.min(wpIndex + 1, path.size()), path.size(), distToGoal,
+                            pos.x, pos.y, pos.z), false);
                 }
-                stop(mc);
+                fail(mc);
                 return;
             } else if (stuckMs > STUCK_CLIMB_MS) {
                 // Recovery: try climbing over the obstruction
@@ -256,8 +293,11 @@ public final class FlyExecutor {
         // Periodic debug output
         if (AetherConfig.SHOW_DEBUG.get()) {
             ClientUtils.sendDebugMessage(String.format(
-                    "fly wp=%d/%d dist=%.2f state=%s",
-                    Math.min(wpIndex + 1, path.size()), path.size(), distToGoal, state));
+                    "fly wp=%d/%d dist=%.2f best=%.2f noProg=%dms noMove=%dt state=%s",
+                    Math.min(wpIndex + 1, path.size()), path.size(), distToGoal,
+                    bestDistToGoal == Double.MAX_VALUE ? -1.0 : bestDistToGoal,
+                    System.currentTimeMillis() - lastGoalProgressTime,
+                    ticksSinceLastMove, state));
         }
     }
 
@@ -293,10 +333,30 @@ public final class FlyExecutor {
             return;
         }
         Vec3 vel = mc.player.getDeltaMovement();
-        boolean stopped = Math.abs(vel.x) < 0.05 && Math.abs(vel.z) < 0.05 && Math.abs(vel.y) < 0.05;
-        if (stopped || System.currentTimeMillis() - decelStartTime > 2000) {
-            finish(mc);
+        double horizSpeed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
+        // Actively brake instead of coasting: momentum from sprint flight can
+        // carry several blocks past the goal if we just release the keys.
+        // Airborne only - on the ground there's no glide to kill and holding S
+        // just walks us backwards off the spot.
+        boolean airborne = mc.player.getAbilities().flying && !mc.player.onGround();
+        ClientUtils.setKeyMappingState(mc.options.keyDown, airborne && horizSpeed > 0.08);
+        boolean stopped = horizSpeed < 0.05 && Math.abs(vel.y) < 0.05;
+        if (!stopped && System.currentTimeMillis() - decelStartTime <= 2000) {
+            return;
         }
+        ClientUtils.setKeyMappingState(mc.options.keyDown, false);
+
+        // If braking still left us short of (or past) the goal, resume flying
+        // to close the gap rather than finishing wherever momentum ran out.
+        Vec3 goal = new Vec3(goalX + 0.5, goalY + 0.15, goalZ + 0.5);
+        double dist = mc.player.position().distanceTo(goal);
+        if (dist > finalWaypointReach * 1.2 && decelResumes < 3 && path != null && !path.isEmpty()) {
+            decelResumes++;
+            wpIndex = path.size() - 1;
+            state = State.FLYING;
+            return;
+        }
+        finish(mc);
     }
 
     private void finish(Minecraft mc) {
@@ -306,6 +366,17 @@ public final class FlyExecutor {
         if (onFinished != null) {
             onFinished.run();
         }
+    }
+
+    /**
+     * Terminal failure. Unlike {@link #stop}, this leaves the executor in a
+     * distinct FAILED state so the manager can tell "gave up" apart from
+     * "reached goal" and hand off to recovery (unstuck + recompute).
+     */
+    private void fail(Minecraft mc) {
+        RotationExecutor.stopRotating();
+        releaseAll(mc);
+        state = State.FAILED;
     }
 
     /**
@@ -416,6 +487,15 @@ public final class FlyExecutor {
             // Something blocking at head level -> sneak down
             ClientUtils.setKeyMappingState(mc.options.keyShift, true);
             ClientUtils.setKeyMappingState(mc.options.keyJump, false);
+        } else if (blockAtFeet) {
+            // Wall taller than the player: climb over it, unless there's a
+            // ceiling right above us - then duck under instead of pinning on it.
+            HitResult upTrace = mc.level.clip(new ClipContext(headPos,
+                    headPos.add(0, RAY_DIST, 0),
+                    ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+            boolean ceilingAbove = upTrace.getType() == HitResult.Type.BLOCK;
+            ClientUtils.setKeyMappingState(mc.options.keyJump, !ceilingAbove);
+            ClientUtils.setKeyMappingState(mc.options.keyShift, ceilingAbove);
         } else {
             // No obstruction - small Y correction if needed
             ClientUtils.setKeyMappingState(mc.options.keyJump, false);

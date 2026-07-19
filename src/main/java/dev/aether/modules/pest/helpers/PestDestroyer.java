@@ -997,6 +997,19 @@ public class PestDestroyer {
         if (!runtime.active) {
             return;
         }
+
+        // The roof climb leaves the camera craned nearly straight up; level it
+        // back out before moving off so the hand-off doesn't look robotic.
+        Minecraft levelClient = Minecraft.getInstance();
+        if (levelClient != null && levelClient.player != null) {
+            RotationManager.rotateToYawPitch(
+                    levelClient,
+                    levelClient.player.getYRot(),
+                    0f,
+                    AetherConfig.ROTATION_TIME.get(),
+                    true);
+        }
+
         if (returnState == null || returnState == State.IDLE || returnState == State.FINISH
                 || returnState == State.AOTV_TO_ROOF) {
             setState(runtime.vacuumSlot < 0 ? State.EQUIP_VACUUM : State.CHECK_NEXT);
