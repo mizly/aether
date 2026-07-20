@@ -395,6 +395,7 @@ public class PestDestroyer {
     private static final double FIREWORK_EXTRAPOLATE_DISTANCE = 15.0;
     private static final long PLOT_TP_WAIT_MS = 2500;
     private static final long STARTUP_FINISH_GRACE_MS = 5000;
+    private static final long DISCO_PEST_SPAWN_GRACE_MS = 5000;
     private static final int ZERO_PEST_TAB_CONFIRM_TICKS = 10;
     private static final int SKULL_MISSING_CONFIRM_TICKS = 3;
     private static final long ROOF_RESCAN_INTERVAL_MS = 1000L;
@@ -1297,7 +1298,12 @@ public class PestDestroyer {
         }
 
         Entity currentTarget = runtime.currentTarget;
-        return !runtime.killedEntities.isEmpty() || (currentTarget != null && isDeadOrDying(currentTarget));
+        if (currentTarget != null && isDeadOrDying(currentTarget)) {
+            return true;
+        }
+
+        return !runtime.killedEntities.isEmpty()
+                && System.currentTimeMillis() - runtime.stateEnteredAt >= DISCO_PEST_SPAWN_GRACE_MS;
     }
 
     private static void handleKillPestFromDiscoDestination(Minecraft client) {

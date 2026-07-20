@@ -154,6 +154,10 @@ final class ProfitChatParser {
 
         Matcher bazaarMatcher = BAZAAR_BUY_PATTERN.matcher(plainText);
         if (bazaarMatcher.find()) {
+            if (!containsValidTrigger(plainText, "[Bazaar]")) {
+                ClientUtils.sendDebugMessage("Bazaar buy ignored (forwarded chat message)");
+                return;
+            }
             if (MacroStateManager.getCurrentState() == MacroState.State.VISITING) {
                 ClientUtils.sendDebugMessage("Bazaar buy ignored (Visiting state)");
                 return;
@@ -315,6 +319,15 @@ final class ProfitChatParser {
             return Optional.empty();
         }, Style.EMPTY);
         return builder.toString();
+    }
+
+    private static boolean containsValidTrigger(String text, String trigger) {
+        int triggerIndex = text.indexOf(trigger);
+        if (triggerIndex < 0) {
+            return false;
+        }
+
+        return text.lastIndexOf(':', triggerIndex - 1) < 0;
     }
 
     private static long parseVisitorRewardCount(String countText) {

@@ -177,7 +177,8 @@ public final class AetherChatEvents {
     }
 
     private static void handleSprayBazaarBuy(String plainText) {
-        if (!ProfitManager.isSprayPhaseActive || !plainText.contains("[Bazaar]") || !plainText.contains("Bought")) {
+        if (!ProfitManager.isSprayPhaseActive || !containsValidTrigger(plainText, "[Bazaar]")
+                || !plainText.contains("Bought")) {
             return;
         }
 
