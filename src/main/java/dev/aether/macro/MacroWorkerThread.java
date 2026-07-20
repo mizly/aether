@@ -1,6 +1,5 @@
 package dev.aether.macro;
 
-import dev.aether.config.AetherConfig;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 
@@ -185,7 +184,7 @@ public final class MacroWorkerThread {
 
     private static void debugLog(String message) {
         Minecraft mc = Minecraft.getInstance();
-        if (mc != null && AetherConfig.SHOW_DEBUG.get()) {
+        if (mc != null) {
             ClientUtils.sendDebugMessage("[Worker] " + message);
         }
     }

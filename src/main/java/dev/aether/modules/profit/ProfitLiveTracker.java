@@ -1,6 +1,5 @@
 package dev.aether.modules.profit;
 
-import dev.aether.config.AetherConfig;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.profit.helpers.FarmingXpTracker;
@@ -130,7 +129,7 @@ final class ProfitLiveTracker {
                         } else {
                             dropRecorder.accept(currentFarmedCrop, delta);
                         }
-                    } else if (delta > MAX_CULTIVATING_DELTA && AetherConfig.SHOW_DEBUG.get()) {
+                    } else if (delta > MAX_CULTIVATING_DELTA) {
                         ClientUtils.sendDebugMessage("Dismissed large cultivating change: +" + delta);
                     }
                 }
@@ -150,7 +149,7 @@ final class ProfitLiveTracker {
                     long delta = currentPurse - lastPurseBalance;
                     if (delta <= 50000L) {
                         dropRecorder.accept("Purse", delta);
-                    } else if (AetherConfig.SHOW_DEBUG.get()) {
+                    } else {
                         ClientUtils.sendDebugMessage("Dismissed large purse change: +" + delta);
                     }
                 }

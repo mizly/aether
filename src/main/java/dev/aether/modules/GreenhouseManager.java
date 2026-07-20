@@ -599,7 +599,7 @@ public class GreenhouseManager {
 
             ClientUtils.sendDebugMessage(String.format("Found highlighted: %s (ID: %s) at %.1f, %.1f, %.1f",
                             name, skinId, x, y, z));
-        } else if (AetherConfig.SHOW_DEBUG.get()) {
+        } else {
             // Still show debug in chat if debug mode is on, even if not highlighted
             String name = profile.name().orElse("Skull");
             ClientUtils.sendDebugMessage(String.format("Filtered: %s (ID: %s) at %.1f, %.1f, %.1f",

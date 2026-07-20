@@ -30,10 +30,18 @@ import net.minecraft.world.scores.Objective;
 import net.minecraft.world.scores.PlayerScoreEntry;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.Scoreboard;
+import net.fabricmc.loader.api.FabricLoader;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.LocalTime;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.Duration;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -51,6 +59,11 @@ public class ClientUtils {
     private static final int JACOBS_CONTEST_END_MINUTE_UTC = 35;
     private static final Object SIDEBAR_CACHE_LOCK = new Object();
     private static final Pattern STRIP_SCOREBOARD_FORMATTING = Pattern.compile("(?i)\u00A7[0-9A-FK-ORZ]");
+    private static final Pattern STRIP_MINECRAFT_FORMATTING = Pattern.compile("(?i)\u00A7[0-9A-FK-ORZ]");
+    private static final DateTimeFormatter DEBUG_LOG_FILE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH_mm'.txt'");
+    private static final DateTimeFormatter DEBUG_LOG_LINE_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss");
+    private static final Object DEBUG_LOG_LOCK = new Object();
+    private static final Path DEBUG_LOG_FILE = createDebugLogFile();
     private static int sidebarCacheTick = Integer.MIN_VALUE;
     private static int sidebarCacheConnectionId = 0;
     private static List<String> sidebarCacheLines = List.of();
@@ -103,21 +116,8 @@ public class ClientUtils {
     }
 
     public static void sendDebugMessage(String message) {
-        Minecraft client = Minecraft.getInstance();
-        if (client == null) {
-            return;
-        }
-        if (StreamerModeManager.isEnabled()) {
-            return;
-        }
-        if (AetherConfig.SHOW_DEBUG.get()) {
-            String formattedMessage = "\u00A77" + normalizeDebugMessage(AetherLang.localize(message));
-            client.execute(() -> {
-                if (client.player != null) {
-                    client.player.sendSystemMessage(Component.literal("\u00A79[Debug] " + formattedMessage));
-                }
-            });
-        }
+        String normalized = normalizeDebugMessage(AetherLang.localize(message));
+        writeDebugLine(normalized);
     }
 
     public static String formatElapsedMs(long startTimeMs, long nowMs) {
@@ -145,9 +145,39 @@ public class ClientUtils {
             return "";
         }
 
-        return message
+        String withoutPrefixes = message
                 .replaceFirst("^(?i)(?:\u00A7[0-9A-FK-OR])*\\[Debug\\]\\s*", "")
+                .replaceFirst("^(?i)(?:\u00A7[0-9A-FK-OR])*\\[Aether\\]\\s*", "")
+                .replaceFirst("^(?i)(?:\u00A7[0-9A-FK-OR])*Aether\\s*>>\\s*(?:\u00A7[0-9A-FK-OR])*", "")
                 .trim();
+        return STRIP_MINECRAFT_FORMATTING.matcher(withoutPrefixes).replaceAll("").trim();
+    }
+
+    private static Path createDebugLogFile() {
+        return FabricLoader.getInstance()
+                .getConfigDir()
+                .resolve("aether")
+                .resolve("logs")
+                .resolve(LocalDateTime.now().format(DEBUG_LOG_FILE_FORMAT));
+    }
+
+    private static void writeDebugLine(String message) {
+        synchronized (DEBUG_LOG_LOCK) {
+            try {
+                Path parent = DEBUG_LOG_FILE.getParent();
+                if (parent != null) {
+                    Files.createDirectories(parent);
+                }
+                Files.writeString(
+                        DEBUG_LOG_FILE,
+                        "[" + LocalTime.now().format(DEBUG_LOG_LINE_TIME_FORMAT) + "] " + message + System.lineSeparator(),
+                        StandardCharsets.UTF_8,
+                        StandardOpenOption.CREATE,
+                        StandardOpenOption.APPEND);
+            } catch (IOException e) {
+                System.err.println("[Aether] Failed to write debug log: " + e.getMessage());
+            }
+        }
     }
 
     public static void sendCommand(String cmd) {
@@ -386,19 +416,15 @@ public class ClientUtils {
             }
         }
 
-        // If we reached here, we couldn't find the "Plot:" line.
-        // Let's print all lines to debug if showDebug is on.
-        if (AetherConfig.SHOW_DEBUG.get()) {
-            sendDebugMessage("Failed to find Plot in Scoreboard. Lines found:");
-            for (PlayerScoreEntry entry : scores) {
-                String entryName = entry.owner();
-                PlayerTeam team = scoreboard.getPlayersTeam(entryName);
-                String fullText = entryName;
-                if (team != null) {
-                    fullText = team.getPlayerPrefix().getString() + entryName + team.getPlayerSuffix().getString();
-                }
-                sendDebugMessage(" - " + fullText.replaceAll("(?i)\u00A7[0-9A-FK-ORZ]", ""));
+        sendDebugMessage("Failed to find Plot in Scoreboard. Lines found:");
+        for (PlayerScoreEntry entry : scores) {
+            String entryName = entry.owner();
+            PlayerTeam team = scoreboard.getPlayersTeam(entryName);
+            String fullText = entryName;
+            if (team != null) {
+                fullText = team.getPlayerPrefix().getString() + entryName + team.getPlayerSuffix().getString();
             }
+            sendDebugMessage(" - " + fullText.replaceAll("(?i)\u00A7[0-9A-FK-ORZ]", ""));
         }
 
         return "Unknown";

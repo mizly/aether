@@ -400,33 +400,25 @@ public class PestManager {
         int effectiveAlive = getEffectiveAliveCount(data.aliveCount);
 
         if (!isThresholdMet(effectiveAlive)) {
-            if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage("Chat pest trigger ignored: effective=" + effectiveAlive
-                                + " (chat=" + predictedAliveCount + ", tab=" + data.aliveCount
-                                + ") < threshold=" + AetherConfig.PEST_THRESHOLD.get());
-            }
+            ClientUtils.sendDebugMessage("Chat pest trigger ignored: effective=" + effectiveAlive
+                            + " (chat=" + predictedAliveCount + ", tab=" + data.aliveCount
+                            + ") < threshold=" + AetherConfig.PEST_THRESHOLD.get());
             return false;
         }
 
         if (isPestReentryCooldownActive()) {
-            if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage("Chat pest trigger ignored: pest re-entry cooldown active for "
-                        + getPestReentryCooldownRemainingMs() + "ms.");
-            }
+            ClientUtils.sendDebugMessage("Chat pest trigger ignored: pest re-entry cooldown active for "
+                    + getPestReentryCooldownRemainingMs() + "ms.");
             return false;
         }
 
         if (!canTriggerAfterRewarp()) {
-            if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage("Chat pest trigger ignored: waiting for rewarp before triggering cleaner.");
-            }
+            ClientUtils.sendDebugMessage("Chat pest trigger ignored: waiting for rewarp before triggering cleaner.");
             return false;
         }
 
         if (AetherConfig.DELAY_PEST_FOR_CROP_FEVER.get() && CropFeverManager.isCropFeverActive) {
-            if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage("Chat pest trigger ignored: Crop Fever is currently active.");
-            }
+            ClientUtils.sendDebugMessage("Chat pest trigger ignored: Crop Fever is currently active.");
             return false;
         }
 
@@ -439,12 +431,10 @@ public class PestManager {
         String targetPlot = PestDiscoDestinationManager.selectPrimaryPlot(candidatePlots, requestedPlot);
 
         currentInfestedPlots = PestDiscoDestinationManager.prioritizePlots(candidatePlots);
-        if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage("Chat pest trigger selecting plot " + targetPlot
-                            + " from tab=" + data.infestedPlots
-                            + ", chat=" + normalizedRequestedPlot
-                            + ", ordered=" + currentInfestedPlots);
-        }
+        ClientUtils.sendDebugMessage("Chat pest trigger selecting plot " + targetPlot
+                        + " from tab=" + data.infestedPlots
+                        + ", chat=" + normalizedRequestedPlot
+                        + ", ordered=" + currentInfestedPlots);
         boolean started = startCleaningSequence(client, targetPlot);
         if (started) {
             consumeRewarpTrigger();

@@ -83,9 +83,7 @@ public class PestReturnManager {
 
         clearCleaningFlags();
         releaseFinishingSequence();
-        if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage("Finisher aborted at " + stage + ". Cleared cleaning flags.");
-        }
+        ClientUtils.sendDebugMessage("Finisher aborted at " + stage + ". Cleared cleaning flags.");
         return true;
     }
 

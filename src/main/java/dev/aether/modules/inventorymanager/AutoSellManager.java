@@ -120,16 +120,12 @@ public class AutoSellManager {
         visitorResumeIntent = resumeAfter;
 
         if (System.currentTimeMillis() - lastSellTime < SELL_COOLDOWN_MS) {
-            if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage("checkBeforeVisitors: Cooldown active ("
-                        + (SELL_COOLDOWN_MS - (System.currentTimeMillis() - lastSellTime)) + "ms left)");
-            }
+            ClientUtils.sendDebugMessage("checkBeforeVisitors: Cooldown active ("
+                    + (SELL_COOLDOWN_MS - (System.currentTimeMillis() - lastSellTime)) + "ms left)");
             return false;
         }
 
-        if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage("Checking inventory for AutoSell before visitors...");
-        }
+        ClientUtils.sendDebugMessage("Checking inventory for AutoSell before visitors...");
 
         if (LoadoutManager.isSwappingLoadout
                 || GeorgeManager.isSelling
@@ -149,7 +145,7 @@ public class AutoSellManager {
                 triggerSell(client, true, false);
             }
             return true;
-        } else if (AetherConfig.SHOW_DEBUG.get()) {
+        } else {
             ClientUtils.sendDebugMessage("checkBeforeVisitors: Threshold not met ("
                     + String.format("%.1f", ratio) + "% < " + AetherConfig.AUTO_SELL_THRESHOLD.get() + "%)");
         }
@@ -164,16 +160,12 @@ public class AutoSellManager {
         visitorResumeIntent = resumeAfter;
 
         if (System.currentTimeMillis() - lastSellTime < SELL_COOLDOWN_MS) {
-            if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage("checkBeforePestTraps: Cooldown active ("
-                        + (SELL_COOLDOWN_MS - (System.currentTimeMillis() - lastSellTime)) + "ms left)");
-            }
+            ClientUtils.sendDebugMessage("checkBeforePestTraps: Cooldown active ("
+                    + (SELL_COOLDOWN_MS - (System.currentTimeMillis() - lastSellTime)) + "ms left)");
             return false;
         }
 
-        if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage("Checking inventory for AutoSell before pest traps...");
-        }
+        ClientUtils.sendDebugMessage("Checking inventory for AutoSell before pest traps...");
 
         if (LoadoutManager.isSwappingLoadout
                 || GeorgeManager.isSelling
@@ -193,7 +185,7 @@ public class AutoSellManager {
                 triggerSell(client, true, false);
             }
             return true;
-        } else if (AetherConfig.SHOW_DEBUG.get()) {
+        } else {
             ClientUtils.sendDebugMessage("checkBeforePestTraps: Threshold not met ("
                     + String.format("%.1f", ratio) + "% < " + AetherConfig.AUTO_SELL_THRESHOLD.get() + "%)");
         }

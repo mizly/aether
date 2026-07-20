@@ -34,12 +34,6 @@ public final class MiscellaneousRegistryProvider extends AbstractModulesRegistry
                             AetherConfig.UNFLY_MODE.set(UnflyMode.values()[i].name());
                             AetherConfig.save();
                         }))
-                .add(new ToggleSetting("Show Debug",
-                        () -> AetherConfig.SHOW_DEBUG.get(),
-                        v -> {
-                            AetherConfig.SHOW_DEBUG.set(v);
-                            AetherConfig.save();
-                        }))
                 .add(new ToggleSetting("Persist Session Timer",
                         () -> AetherConfig.PERSIST_SESSION_TIMER.get(),
                         v -> {

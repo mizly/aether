@@ -190,15 +190,13 @@ public final class AetherChatEvents {
             int qty = Integer.parseInt(matcher.group(1));
             long coins = Long.parseLong(matcher.group(2).replace(",", ""));
             ProfitManager.addSprayCost(qty, coins);
-            if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage("Spray buy detected: " + qty + " items for " + coins + " coins");
-            }
+            ClientUtils.sendDebugMessage("Spray buy detected: " + qty + " items for " + coins + " coins");
         } catch (NumberFormatException ignored) {
         }
     }
 
     private static void handleYuckDebug(String lowerText, String plainText) {
-        if (lowerText.contains("yuck") && AetherConfig.SHOW_DEBUG.get()) {
+        if (lowerText.contains("yuck")) {
             ClientUtils.sendDebugMessage("Diagnose: Seen YUCK in chat. Text: " + plainText);
         }
     }
@@ -208,9 +206,7 @@ public final class AetherChatEvents {
             return;
         }
 
-        if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage("YUCK detected. State: " + MacroStateManager.getCurrentState());
-        }
+        ClientUtils.sendDebugMessage("YUCK detected. State: " + MacroStateManager.getCurrentState());
         if ((!lowerText.contains("spawned") && !lowerText.contains("phillip"))
                 || MacroStateManager.getCurrentState() != MacroState.State.FARMING) {
             return;
@@ -218,9 +214,7 @@ public final class AetherChatEvents {
 
         Matcher plotMatcher = PLOT_PATTERN.matcher(plainText);
         if (!plotMatcher.find()) {
-            if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage("Chat pest trigger failed regex on: " + plainText);
-            }
+            ClientUtils.sendDebugMessage("Chat pest trigger failed regex on: " + plainText);
             return;
         }
 

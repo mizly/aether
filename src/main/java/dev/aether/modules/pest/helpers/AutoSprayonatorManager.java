@@ -291,9 +291,7 @@ public final class AutoSprayonatorManager {
 
         if (configured.equalsIgnoreCase("use selected")) {
             if (currentMaterial != null) {
-                if (AetherConfig.SHOW_DEBUG.get()) {
-                    ClientUtils.sendDebugMessage("Sprayonator material (using selected): " + currentMaterial);
-                }
+                ClientUtils.sendDebugMessage("Sprayonator material (using selected): " + currentMaterial);
                 return true;
             }
             msg(client, "\u00A7cNo sprayonator material detected in hand. Please select a material.");
@@ -301,9 +299,7 @@ public final class AutoSprayonatorManager {
         }
 
         if (currentMaterial != null && currentMaterial.equalsIgnoreCase(configured)) {
-            if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage("Sprayonator material correct: " + currentMaterial);
-            }
+            ClientUtils.sendDebugMessage("Sprayonator material correct: " + currentMaterial);
             return true;
         }
 
@@ -355,16 +351,12 @@ public final class AutoSprayonatorManager {
 
         String currentMaterial = getCurrentMaterial(client);
         if (currentMaterial != null && currentMaterial.equalsIgnoreCase(target)) {
-            if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage("Sprayonator material already correct: " + currentMaterial);
-            }
+            ClientUtils.sendDebugMessage("Sprayonator material already correct: " + currentMaterial);
             return true;
         }
 
-        if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage("Sprayonator material target: " + target
-                    + ", current: " + (currentMaterial != null ? currentMaterial : "unknown"));
-        }
+        ClientUtils.sendDebugMessage("Sprayonator material target: " + target
+                + ", current: " + (currentMaterial != null ? currentMaterial : "unknown"));
         return cycleToMaterial(client, target, guiDelay);
     }
 

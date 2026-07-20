@@ -1029,7 +1029,4 @@ public final class AetherConfig {
         public static final ListEntry<String> AUTO_SUPERCRAFT_ITEMS = Config.list("autoSupercraftItems",
                         DEFAULT_SUPERCRAFT_ITEMS,
                         String.class);
-
-        // -- DEBUG -----------------------------------------------------------------
-        public static final BooleanEntry SHOW_DEBUG = Config.bool("showDebug", false);
 }

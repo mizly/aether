@@ -1,6 +1,5 @@
 package dev.aether.modules.pathfinding.execution;
 
-import dev.aether.config.AetherConfig;
 import dev.aether.modules.pathfinding.Node;
 import dev.aether.modules.pathfinding.Node.MoveType;
 import dev.aether.modules.pathfinding.rotation.AngleUtils;
@@ -279,7 +278,7 @@ public final class PathExecutor {
         }
 
         // Periodic debug
-        if (AetherConfig.SHOW_DEBUG.get() && ++debugTick % 40 == 0 && pursuitSegment < path.size()) {
+        if (++debugTick % 40 == 0 && pursuitSegment < path.size()) {
             Node wp   = path.get(pursuitSegment);
             double dx = wp.position.centeredX() - playerPos.x;
             double dz = wp.position.centeredZ() - playerPos.z;

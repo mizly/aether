@@ -93,7 +93,7 @@ public final class DynamicPestsManager {
 
         if (shouldWaitForInitialFeastFetch()) {
             long now = System.currentTimeMillis();
-            if (AetherConfig.SHOW_DEBUG.get() && now - lastInitialFetchWaitDebugMs >= 5000L) {
+            if (now - lastInitialFetchWaitDebugMs >= 5000L) {
                 lastInitialFetchWaitDebugMs = now;
                 ClientUtils.sendDebugMessage("DynamicPests: waiting for initial Feast data before applying fallback");
             }
@@ -401,9 +401,7 @@ public final class DynamicPestsManager {
         boolean vinylAlreadyCorrect = vinylName == null || VinylManager.isTargetVinylPlaying(client, vinylName);
         boolean gardenTimeAlreadyCorrect = isGardenTimeAlreadyCorrect(client, crop);
         if (!force && sprayAlreadyCorrect && vinylAlreadyCorrect && gardenTimeAlreadyCorrect) {
-            if (AetherConfig.SHOW_DEBUG.get()) {
-                ClientUtils.sendDebugMessage("DynamicPests: spray, vinyl, and garden time already match target, skipping apply");
-            }
+            ClientUtils.sendDebugMessage("DynamicPests: spray, vinyl, and garden time already match target, skipping apply");
             return true;
         }
 

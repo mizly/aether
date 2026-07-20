@@ -1,6 +1,5 @@
 package dev.aether.modules.pest.helpers;
 
-import dev.aether.config.AetherConfig;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.particles.ParticleOptions;
@@ -33,12 +32,6 @@ public final class VacuumParticleDebug {
 
     public static void onClientTick() {
         Minecraft client = Minecraft.getInstance();
-        if (!AetherConfig.SHOW_DEBUG.get()) {
-            if (capturing) {
-                reset();
-            }
-            return;
-        }
 
         if (client == null || client.player == null || client.options == null) {
             if (capturing) {
@@ -59,7 +52,7 @@ public final class VacuumParticleDebug {
     }
 
     public static void onParticlePacket(ClientboundLevelParticlesPacket packet) {
-        if (!AetherConfig.SHOW_DEBUG.get() || packet == null) {
+        if (packet == null) {
             return;
         }
 
