@@ -18,7 +18,7 @@ import net.minecraft.world.item.ItemStack;
 
 public final class AutoSprayonatorManager {
 
-    private static final Pattern NO_MATERIAL_PATTERN = Pattern.compile("(?i)^you don't have any\\s+(.+?)(?:!|\\.)?$");
+    private static final Pattern NO_MATERIAL_PATTERN = Pattern.compile("(?i)^you don't have enough\\s+(.+?)(?:!|\\.)?$");
     private static final Pattern MATERIAL_CHANGE_PATTERN = Pattern.compile("(?i)^sprayonator! your selected material is now (.+?)!?\\s*$");
 
     private static volatile boolean running = false;
