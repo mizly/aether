@@ -17,7 +17,7 @@ final class PestCombatCoordinator {
     private static final long AOTV_POST_CLICK_GRACE_MS = 250L;
     private static final double AOTV_CONFIRM_DISTANCE = 2.0;
     private static final double AOTV_CONFIRM_DISTANCE_SQ = AOTV_CONFIRM_DISTANCE * AOTV_CONFIRM_DISTANCE;
-    private static final float AOTV_AIM_TOLERANCE_DEGREES = 2.0f;
+    private static final float AOTV_AIM_TOLERANCE_DEGREES = 3.5f;
     private static final double POST_AOTV_LOOK_DOWN_HORIZONTAL_DISTANCE = 3.0;
     private static final double VACUUM_REAPPROACH_BUFFER = 6.0;
     private static final double S_BRAKE_ENTER_DISTANCE = 2.0;
@@ -320,22 +320,19 @@ final class PestCombatCoordinator {
 
         boolean facingAim = context.isLookingAt(client, aimPos, AOTV_AIM_TOLERANCE_DEGREES);
         boolean suppressRotation = FailsafeManager.shouldSuppressPestCleanerRotation(client);
+        long now = System.currentTimeMillis();
+        long elapsed = now - context.getStateEnteredAt();
         if (!suppressRotation) {
             ClientUtils.setKeyMappingState(client.options.keyUp, false);
             ClientUtils.setKeyMappingState(client.options.keySprint, false);
-        }
-        long now = System.currentTimeMillis();
-        long elapsed = now - context.getStateEnteredAt();
-        if (!facingAim) {
-            if (!suppressRotation && !RotationManager.isRotating()) {
-                RotationManager.initiateRotation(client, aimPos, AetherConfig.ROTATION_TIME.get());
-            }
-            if (!suppressRotation) {
+            // Track the live (moving) pest every tick. A one-shot initiateRotation
+            // finishes pointing where the bat used to be, so on a drifting target the
+            // aim never settles (never fires) or fires off-target and misses.
+            if (!facingAim) {
+                RotationManager.forceRotation(client, aimPos, AetherConfig.ROTATION_TIME.get());
                 return;
             }
-        }
-        if (!suppressRotation && RotationManager.isRotating()) {
-            return;
+            RotationManager.cancelRotation();
         }
 
         if (AetherConfig.PEST_AOTV_CONFIRM_BETWEEN.get() && context.getAotvPendingUseAt() != 0L) {
