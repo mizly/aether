@@ -25,7 +25,7 @@ import java.util.function.Consumer;
 
 public final class AetherFallbackPackLoader {
     private static final String DEFAULT_PACK_URL =
-            "https://resourcepacks.hypixel.net/SkyBlock/5c59e0a9-9865-4d4e-91d2-915515672cbd/84.zip";
+            "https://resourcepacks.hypixel.net/SkyBlock/b9f0ff91-1baa-48d1-b122-29ca9f810f14/84.zip";
     private static final String FALLBACK_RESOURCE = "/pack_fallback.zip";
     private static final Path PACK_DIR = FabricLoader.getInstance().getConfigDir().resolve("aether");
     private static final Path PACK_FILE = PACK_DIR.resolve("pack.zip");
