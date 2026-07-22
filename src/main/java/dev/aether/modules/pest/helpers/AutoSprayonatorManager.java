@@ -13,12 +13,15 @@ import dev.aether.util.BazaarUtils;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.TablistUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.inventory.ContainerInput;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 
 public final class AutoSprayonatorManager {
 
-    private static final Pattern NO_MATERIAL_PATTERN = Pattern.compile("(?i)^you don't have any\\s+(.+?)(?:!|\\.)?$");
+    private static final Pattern NO_MATERIAL_PATTERN = Pattern.compile("(?i)^you don't have enough\\s+(.+?)(?:!|\\.)?$");
     private static final Pattern MATERIAL_CHANGE_PATTERN = Pattern.compile("(?i)^sprayonator! your selected material is now (.+?)!?\\s*$");
 
     private static volatile boolean running = false;
@@ -305,45 +308,139 @@ public final class AutoSprayonatorManager {
 
         msg(client, "\u00A7eWrong sprayonator material ("
                 + (currentMaterial != null ? currentMaterial : "unknown")
-                + "), cycling to \u00A7a" + configured + "\u00A7e...");
+                + "), selecting \u00A7a" + configured + "\u00A7e...");
         if (cycleToMaterial(client, configured, guiDelay)) {
             msg(client, "\u00A7aSprayonator material set to " + configured + ".");
             return true;
         }
-        msg(client, "\u00A7cFailed to cycle sprayonator to " + configured + ".");
+        msg(client, "\u00A7cFailed to select sprayonator material " + configured + ".");
         return false;
     }
 
     /**
-     * Left-clicks the sprayonator repeatedly until the chat confirms the target material is selected.
-     * Max 10 attempts. Returns true if the target was reached.
+     * Opens the sprayonator GUI and clicks the target material item.
      * Safe to call from outside this class (e.g. dynamic pests) as long as the sprayonator is held.
      */
     public static boolean cycleToMaterial(Minecraft client, String target, long guiDelay) {
-        final int MAX_ATTEMPTS = 10;
-        for (int i = 0; i < MAX_ATTEMPTS; i++) {
+        if (client == null || client.player == null || target == null || target.isBlank()) {
+            return false;
+        }
+
+        pendingMaterialChange = null;
+        ClientUtils.performAttackClickDirect();
+
+        if (!waitForSprayonatorGui(client, 3000L) || shouldAbort()) {
+            closeGui(client, guiDelay);
+            return false;
+        }
+
+        MacroWorkerThread.sleep(Math.max(50L, ClientUtils.getGuiClickDelayMs(true)));
+        if (shouldAbort()) {
+            closeGui(client, guiDelay);
+            return false;
+        }
+
+        boolean clicked = clickMaterialSlot(client, target);
+        MacroWorkerThread.sleep(guiDelay);
+        closeGui(client, guiDelay);
+        return clicked && !shouldAbort();
+    }
+
+    private static boolean waitForSprayonatorGui(Minecraft client, long timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
             if (shouldAbort()) return false;
 
-            pendingMaterialChange = null;
-            ClientUtils.performAttackClickDirect();
-
-            // Wait for the click to fire and Hypixel to respond before polling
-            MacroWorkerThread.sleep(200);
-
-            long deadline = System.currentTimeMillis() + 2800L;
-            while (System.currentTimeMillis() < deadline) {
-                if (shouldAbort()) return false;
-                String changed = pendingMaterialChange;
-                if (changed != null) {
-                    if (changed.equalsIgnoreCase(target)) return true;
-                    break;
+            if (client.screen instanceof AbstractContainerScreen<?> screen) {
+                String title = TablistUtils.stripColors(screen.getTitle().getString()).toLowerCase();
+                if (title.contains("sprayonator")) {
+                    return true;
                 }
-                MacroWorkerThread.sleep(50);
             }
 
-            MacroWorkerThread.sleep(guiDelay);
+            MacroWorkerThread.sleep(50);
         }
         return false;
+    }
+
+    private static boolean clickMaterialSlot(Minecraft client, String target) {
+        if (!(client.screen instanceof AbstractContainerScreen<?> screen)) {
+            return false;
+        }
+
+        String normalizedTarget = normalizeText(target);
+        int fallbackSlot = -1;
+
+        for (int i = 0; i < screen.getMenu().slots.size(); i++) {
+            Slot slot = screen.getMenu().slots.get(i);
+            if (!slot.hasItem()) {
+                continue;
+            }
+
+            ItemStack stack = slot.getItem();
+            String itemName = normalizeText(stack.getHoverName().getString());
+            if (itemName.equals(normalizedTarget)) {
+                clickSlot(client, i);
+                return true;
+            }
+
+            if (fallbackSlot < 0 && stackTextMatches(client, stack, normalizedTarget)) {
+                fallbackSlot = i;
+            }
+        }
+
+        if (fallbackSlot >= 0) {
+            clickSlot(client, fallbackSlot);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static boolean stackTextMatches(Minecraft client, ItemStack stack, String normalizedTarget) {
+        String itemName = normalizeText(stack.getHoverName().getString());
+        if (itemName.contains(normalizedTarget)) {
+            return true;
+        }
+
+        try {
+            for (Component line : stack.getTooltipLines(
+                    net.minecraft.world.item.Item.TooltipContext.EMPTY,
+                    client.player,
+                    net.minecraft.world.item.TooltipFlag.NORMAL)) {
+                if (normalizeText(line.getString()).contains(normalizedTarget)) {
+                    return true;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
+        return false;
+    }
+
+    private static void clickSlot(Minecraft client, int slotIndex) {
+        client.execute(() -> {
+            if (client.screen instanceof AbstractContainerScreen<?> screen) {
+                ClientUtils.performSlotClick(screen, slotIndex, 0, ContainerInput.PICKUP);
+            }
+        });
+    }
+
+    private static void closeGui(Minecraft client, long guiDelay) {
+        if (client == null || client.screen == null) {
+            return;
+        }
+
+        client.execute(() -> {
+            if (client.player != null) {
+                client.player.closeContainer();
+            }
+        });
+        MacroWorkerThread.sleep(guiDelay);
+    }
+
+    private static String normalizeText(String text) {
+        return TablistUtils.stripColors(text == null ? "" : text).trim().toLowerCase();
     }
 
     public static boolean ensureMaterial(Minecraft client, String target, long guiDelay) {
@@ -458,7 +555,8 @@ public final class AutoSprayonatorManager {
     }
 
     private static String configuredMaterial() {
-        return "Use Selected";
+        String configured = AetherConfig.AUTO_SPRAYONATOR_MATERIAL.get();
+        return configured == null || configured.isBlank() ? "Use Selected" : configured.trim();
     }
 
     private static boolean shouldAbort() {
