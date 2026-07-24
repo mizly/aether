@@ -1022,6 +1022,43 @@ public final class AetherConfig {
         public static final IntEntry AUTO_COMPOSTER_FUEL_AMOUNT = Config.integer("autoComposterFuelAmount", 1)
                         .range(1, 2000000);
 
+        // -- EXPERIMENTATION TABLE -------------------------------------------------
+        public static final BooleanEntry AUTO_EXPERIMENTS = Config.bool("autoExperiments", false);
+        // Play addons to the max-XP thresholds (Chronomatron 15, Ultrasequencer 20)
+        // instead of exiting at the reward cap reduced by consumed serums.
+        public static final BooleanEntry EXPERIMENTS_MAX_CLICKS = Config.bool("experimentsMaxClicks", true);
+        public static final IntEntry EXPERIMENTS_SERUM_COUNT = Config.integer("experimentsSerumCount", 0)
+                        .range(0, 3);
+        public static final IntEntry EXPERIMENTS_RENEWALS_PER_DAY = Config.integer("experimentsRenewalsPerDay", 0)
+                        .range(0, 3);
+        // Buy + splash a Titanic Experience Bottle from Bazaar when the table
+        // refuses a game because the player's XP level is too low.
+        public static final BooleanEntry EXPERIMENTS_AUTO_BUY_XP = Config.bool("experimentsAutoBuyXp", true);
+        // Right-click tiers to play them in practice mode (free, no charges).
+        public static final BooleanEntry EXPERIMENTS_PRACTICE_MODE = Config.bool("experimentsPracticeMode", false);
+        // Stop at the highest reward threshold stated in the tier's lore
+        // ("Series of 7: +2 Clicks") instead of playing on for no extra reward.
+        public static final BooleanEntry EXPERIMENTS_STOP_AT_MAX_REWARD = Config.bool("experimentsStopAtMaxReward", true);
+        public static final IntEntry EXPERIMENTS_CLICK_DELAY_MIN = Config.integer("experimentsClickDelayMin", 160)
+                        .range(50, 1000);
+        public static final IntEntry EXPERIMENTS_CLICK_DELAY_MAX = Config.integer("experimentsClickDelayMax", 320)
+                        .range(50, 2000);
+        // Gap between individual note clicks in the timed games. Too high and a
+        // long chain won't fit inside the round's countdown.
+        public static final IntEntry EXPERIMENTS_NOTE_DELAY_MIN = Config.integer("experimentsNoteDelayMin", 250)
+                        .range(50, 1000);
+        public static final IntEntry EXPERIMENTS_NOTE_DELAY_MAX = Config.integer("experimentsNoteDelayMax", 420)
+                        .range(50, 2000);
+        // Stand position (like the composter spot) plus the captured look angles;
+        // navigation walks here, restores the view, and right-clicks the table.
+        public static final IntEntry EXPERIMENTS_TABLE_X = Config.integer("experimentsTableX", 0);
+        public static final IntEntry EXPERIMENTS_TABLE_Y = Config.integer("experimentsTableY", 0);
+        public static final IntEntry EXPERIMENTS_TABLE_Z = Config.integer("experimentsTableZ", 0);
+        public static final DoubleEntry EXPERIMENTS_TABLE_YAW = Config.doubleVal("experimentsTableYaw", 0.0);
+        public static final DoubleEntry EXPERIMENTS_TABLE_PITCH = Config.doubleVal("experimentsTablePitch", 0.0);
+        public static final BooleanEntry EXPERIMENTS_TABLE_HIGHLIGHT = Config.bool("experimentsTableHighlight", true);
+        public static final BooleanEntry EXPERIMENTS_TABLE_SET = Config.bool("experimentsTableSet", false);
+
         // -- SUPERCRAFT ------------------------------------------------------------
         public static final BooleanEntry AUTO_SUPERCRAFT = Config.bool("autoSupercraft", false);
         public static final IntEntry AUTO_SUPERCRAFT_INTERVAL_MINUTES = Config.integer("autoSupercraftIntervalMinutes", 120)

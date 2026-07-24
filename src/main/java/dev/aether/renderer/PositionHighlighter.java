@@ -58,6 +58,9 @@ public final class PositionHighlighter {
         if (AetherConfig.AUTO_COMPOSTER_HIGHLIGHT.get()) {
             return true;
         }
+        if (AetherConfig.EXPERIMENTS_TABLE_HIGHLIGHT.get() && AetherConfig.EXPERIMENTS_TABLE_SET.get()) {
+            return true;
+        }
         for (RewarpPointPair pair : RewarpPointPairs.get()) {
             if ((pair.highlightStart && pair.hasStart()) || (pair.highlightEnd && pair.hasEnd())) {
                 return true;
@@ -149,6 +152,19 @@ public final class PositionHighlighter {
                         "Composter",
                         ARGB.color(200, 90, 230, 120),
                         ARGB.color(40, 90, 230, 120),
+                        2.0f);
+            }
+
+            if (AetherConfig.EXPERIMENTS_TABLE_HIGHLIGHT.get() && AetherConfig.EXPERIMENTS_TABLE_SET.get()) {
+                int x = AetherConfig.EXPERIMENTS_TABLE_X.get();
+                int y = AetherConfig.EXPERIMENTS_TABLE_Y.get();
+                int z = AetherConfig.EXPERIMENTS_TABLE_Z.get();
+
+                renderBlockHighlight(ctx, mc, textBuffer,
+                        new AABB(x, y, z, x + 1, y + 1, z + 1),
+                        "Experiments",
+                        ARGB.color(200, 170, 90, 230),
+                        ARGB.color(40, 170, 90, 230),
                         2.0f);
             }
 

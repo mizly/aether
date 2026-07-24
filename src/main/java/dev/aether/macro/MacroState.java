@@ -15,7 +15,8 @@ public class MacroState {
         EQUIPMENT,
         GEORGE,
         DROPPING_JUNK,
-        REWARPING
+        REWARPING,
+        EXPERIMENTING
     }
 
     public enum Location {

@@ -35,6 +35,9 @@ import dev.aether.modules.session.DynamicRestManager;
 import dev.aether.modules.session.RecoveryManager;
 import dev.aether.modules.session.RestartManager;
 import dev.aether.modules.SupercraftManager;
+import dev.aether.modules.experimentation.ChronomatronSolver;
+import dev.aether.modules.experimentation.SuperpairsSolver;
+import dev.aether.modules.experimentation.UltrasequencerSolver;
 import dev.aether.ui.theme.Theme;
 import dev.aether.util.AetherResources;
 import dev.aether.util.BpsTracker;
@@ -116,6 +119,15 @@ public final class AetherAutomationTickHandler {
         }
         if (client.screen == currentScreen) {
             SupercraftManager.handleRecipeGui(currentScreen);
+        }
+        if (client.screen == currentScreen) {
+            SuperpairsSolver.handleMenu(client, currentScreen);
+        }
+        if (client.screen == currentScreen) {
+            ChronomatronSolver.handleMenu(client, currentScreen);
+        }
+        if (client.screen == currentScreen) {
+            UltrasequencerSolver.handleMenu(client, currentScreen);
         }
     }
 

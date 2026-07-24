@@ -94,6 +94,7 @@ public final class AetherChatEvents {
                 handlePestChatTrigger(lowerText, plainText);
                 handleStashState(lowerText);
                 AutoSprayonatorManager.onChatMessage(plainText);
+                dev.aether.modules.experimentation.ExperimentationManager.onChatMessage(plainText);
                 CropFeverManager.handleChatMessage(Minecraft.getInstance(), plainText);
             } finally {
                 isHandlingMessage = false;
