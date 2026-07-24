@@ -310,6 +310,28 @@ public class PestDestroyer {
         if (!runtime.active) {
             return;
         }
+
+        // The roof climb leaves the camera craned nearly straight up; level it
+        // back out before moving off so the hand-off doesn't look robotic.
+        // Strictly cosmetic and guarded: this method is the ONLY way out of
+        // AOTV_TO_ROOF and some callers swallow throwables, so nothing here may
+        // ever prevent the state transition below (a swallowed throw silently
+        // froze the destroyer in AOTV_TO_ROOF).
+        try {
+            Minecraft levelClient = Minecraft.getInstance();
+            if (levelClient != null && levelClient.player != null
+                    && levelClient.player.getXRot() < -30f) {
+                RotationManager.rotateToYawPitch(
+                        levelClient,
+                        levelClient.player.getYRot(),
+                        0f,
+                        AetherConfig.ROTATION_TIME.get(),
+                        true);
+            }
+        } catch (Throwable t) {
+            ClientUtils.sendDebugMessage("[PestDestroyer] Camera level-out failed: " + t);
+        }
+
         if (returnState == null || returnState == State.IDLE || returnState == State.FINISH
                 || returnState == State.AOTV_TO_ROOF) {
             setState(runtime.vacuumSlot < 0 ? State.EQUIP_VACUUM : State.CHECK_NEXT);
