@@ -60,8 +60,14 @@ public final class PathfindingManager {
     private static final double ETHERWARP_WALK_ASSIST_GOAL_TOLERANCE = 0.2;
     private static final int ETHERWARP_WALK_ASSIST_MAX_CANDIDATES = 12;
     private static final int ETHERWARP_REPATH_MAX_RETRIES = 3;
+    // A fly that FINISHED further than this from the goal (e.g. off a partial
+    // path) is not treated as having reached it.
+    private static final double FLY_GOAL_REACHED_DIST = 3.5;
 
     private static volatile boolean navigating = false;
+    // True only when the last fly navigation actually reached its goal. Any other
+    // ending (stall/FAILED, no path, abort) leaves this false so callers can recover.
+    private static volatile boolean flyReachedGoal = false;
     private static volatile int goalX, goalY, goalZ;
     private static volatile NavigationMode activeMode = NavigationMode.NONE;
     private static Entity rotationTarget = null;
@@ -184,7 +190,16 @@ public final class PathfindingManager {
                 mc.player.onUpdateAbilities();
             }
             flyExecutor.tick(mc);
-            if (flyExecutor.getState() == FlyExecutor.State.FINISHED) {
+            FlyExecutor.State postState = flyExecutor.getState();
+            if (postState == FlyExecutor.State.FINISHED || postState == FlyExecutor.State.FAILED) {
+                double goalDx = mc.player.getX() - (goalX + 0.5);
+                double goalDz = mc.player.getZ() - (goalZ + 0.5);
+                double horizDistToGoal = Math.sqrt(goalDx * goalDx + goalDz * goalDz);
+                flyReachedGoal = postState == FlyExecutor.State.FINISHED
+                        && horizDistToGoal <= FLY_GOAL_REACHED_DIST;
+                ClientUtils.sendDebugMessage(String.format(
+                        "fly end: %s, %.1f blocks from goal (reached=%s)",
+                        postState, horizDistToGoal, flyReachedGoal));
                 navigating = false;
                 activeMode = NavigationMode.NONE;
                 clearTransientDebugRenderingIfActive();
@@ -495,6 +510,9 @@ public final class PathfindingManager {
 
     public static boolean isNavigating() { return navigating; }
 
+    /** True when the most recent fly navigation reached its goal (vs stalled/failed/aborted). */
+    public static boolean lastFlyReachedGoal() { return flyReachedGoal; }
+
     public static boolean isWalkSneakLatched() {
         walkSneakLatched = executor.isSneakLatched();
         return walkSneakLatched;
@@ -605,6 +623,10 @@ public final class PathfindingManager {
         navigating = true;
         activeMode = fly ? NavigationMode.FLY : NavigationMode.WALK;
         currentEtherwarpPathfinder = null;
+        // Reset before any async result can land; only a true FINISHED sets this back on.
+        if (fly) {
+            flyReachedGoal = false;
+        }
 
         // Create checker once; reused for solid-check, pathfinding, and smoothing.
         final WalkabilityChecker sharedChecker = mc.level != null ? new WalkabilityChecker(mc.level) : null;
@@ -1251,6 +1273,10 @@ public final class PathfindingManager {
                     false);
         }
 
+        Node lastWp = smoothed.get(smoothed.size() - 1);
+        ClientUtils.sendDebugMessage("fly path final wp: (" + lastWp.position.flooredX()
+                + ", " + lastWp.position.flooredY() + ", " + lastWp.position.flooredZ()
+                + "), goal (" + x + ", " + y + ", " + z + ")");
         flyExecutor.start(smoothed, x, y, z);
     }
 
