@@ -344,7 +344,7 @@ public class PestManager {
             ClientUtils.sendDebugMessage("[PestManager] Tab threshold met. infestedPlots=" + data.infestedPlots
                             + " targetPlot=" + targetPlot + " currentPlot=" + ClientUtils.getCurrentPlot());
             boolean started = manualMode
-                    ? startManualPestPause(client, effectiveAlive)
+                    ? startManualPestPause(client, effectiveAlive, targetPlot)
                     : startCleaningSequence(client, targetPlot);
             if (started) {
                 consumeRewarpTrigger();
@@ -459,7 +459,7 @@ public class PestManager {
                         + ", chat=" + normalizedRequestedPlot
                         + ", ordered=" + currentInfestedPlots);
         boolean started = AetherConfig.MANUAL_PEST_MODE.get()
-                ? startManualPestPause(client, effectiveAlive)
+                ? startManualPestPause(client, effectiveAlive, targetPlot)
                 : startCleaningSequence(client, targetPlot);
         if (started) {
             consumeRewarpTrigger();
@@ -467,11 +467,11 @@ public class PestManager {
         return started;
     }
 
-    private static boolean startManualPestPause(Minecraft client, int count) {
+    private static boolean startManualPestPause(Minecraft client, int count, String plot) {
         if (!claimCleaningTrigger()) {
             return false;
         }
-        if (ManualPestManager.startFromPestDestroyerTrigger(client, count)) {
+        if (ManualPestManager.startFromPestDestroyerTrigger(client, count, plot)) {
             return true;
         }
         clearCleaningTriggerPending();
