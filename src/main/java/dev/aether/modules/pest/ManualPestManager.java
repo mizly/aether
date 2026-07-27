@@ -10,6 +10,7 @@ import dev.aether.modules.failsafe.FailsafeSoundManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.helpers.PestCompletionGuard;
+import dev.aether.modules.pest.helpers.PestDiscoDestinationManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.CommandUtils;
 import dev.aether.util.WindowFocusHelper;
@@ -44,7 +45,7 @@ public final class ManualPestManager {
         return phase != Phase.IDLE;
     }
 
-    public static boolean startFromPestDestroyerTrigger(Minecraft client, int count) {
+    public static boolean startFromPestDestroyerTrigger(Minecraft client, int count, String plot) {
         if (!AetherConfig.MANUAL_PEST_MODE.get() || phase != Phase.IDLE) {
             return false;
         }
@@ -55,7 +56,7 @@ public final class ManualPestManager {
             return false;
         }
 
-        beginPause(client, Math.max(1, count));
+        beginPause(client, Math.max(1, count), plot);
         return true;
     }
 
@@ -100,7 +101,7 @@ public final class ManualPestManager {
         }
     }
 
-    private static void beginPause(Minecraft client, int count) {
+    private static void beginPause(Minecraft client, int count, String plot) {
         int previousLoadout = LoadoutManager.trackedLoadoutSlot;
         ClientUtils.sendMessage("\u00A7eManual Pest Mode: \u00A7f" + count
                 + " pest(s) detected. \u00A7ePausing for manual kill.", false);
@@ -109,6 +110,7 @@ public final class ManualPestManager {
         pausedFromLoadout = previousLoadout;
         CommandUtils.initiateSetSpawn();
         MacroWorkerThread.getInstance().submit("ManualPest-Prep", () -> {
+            plotTpBeforeVacuum(client, plot);
             swapToPestKillLoadout(client, previousLoadout);
             client.execute(() -> {
                 if (phase == Phase.PREPARING && AetherConfig.MANUAL_PEST_MODE.get()) {
@@ -119,6 +121,20 @@ public final class ManualPestManager {
                 }
             });
         });
+    }
+
+    private static void plotTpBeforeVacuum(Minecraft client, String plot) {
+        if (!AetherConfig.MANUAL_PEST_TP_TO_PLOT.get()) {
+            return;
+        }
+        if (!PestDiscoDestinationManager.isUsablePlot(plot)) {
+            ClientUtils.sendDebugMessage("Manual pest: no usable infested plot (" + plot + "), skipping auto plottp.");
+            return;
+        }
+        ClientUtils.sendMessage("\u00A7eManual Pest Mode: \u00A7fteleporting to infested plot "
+                + plot + "\u00A7e, then equipping vacuum.", false);
+        CommandUtils.plotTp(plot);
+        MacroWorkerThread.sleep(200); // let the world load / position settle
     }
 
     private static void beginResume(Minecraft client) {
