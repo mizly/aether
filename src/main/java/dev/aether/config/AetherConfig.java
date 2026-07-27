@@ -465,6 +465,7 @@ public final class AetherConfig {
         // -- MANUAL PEST MODE ------------------------------------------------------
 
         public static final BooleanEntry MANUAL_PEST_MODE = Config.bool("manualPestMode", false);
+        public static final BooleanEntry MANUAL_PEST_TP_TO_PLOT = Config.bool("manualPestTpToPlot", false);
         public static final StringEntry MANUAL_PEST_SOUND_FILE = Config.string("manualPestSoundFile", "fnaf.mp3");
 
         // -- PEST EXCHANGE ---------------------------------------------------------
