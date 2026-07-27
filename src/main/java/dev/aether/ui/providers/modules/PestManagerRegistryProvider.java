@@ -152,7 +152,13 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.save();
                         })
                         .addIconAction("/assets/aether/icons/folder.svg", FailsafeSoundManager::openSoundFolder)
-                        .addIconAction("/assets/aether/icons/refresh.svg", () -> refreshSoundOptions(manualPestSoundOptions))));
+                        .addIconAction("/assets/aether/icons/refresh.svg", () -> refreshSoundOptions(manualPestSoundOptions)))
+                .add(new ToggleSetting("Auto Teleport to Infested Plot",
+                        () -> AetherConfig.MANUAL_PEST_TP_TO_PLOT.get(),
+                        v -> {
+                            AetherConfig.MANUAL_PEST_TP_TO_PLOT.set(v);
+                            AetherConfig.save();
+                        })));
 
         groups.add(SettingGroup.of(
                         "Disco Destination",
