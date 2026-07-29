@@ -119,16 +119,6 @@ public final class AutoPestExchangeManager {
             return false;
         }
 
-        // Re-read the tab immediately before starting. The cached flag may have
-        // been set while the bonus was inactive and become stale during the delay.
-        Boolean currentBonusInactive = PestBonusManager.refreshFromTab();
-        if (!Boolean.TRUE.equals(currentBonusInactive)) {
-            pendingTrigger = false;
-            bonusInactiveSinceMs = 0L;
-            pendingTriggerReadyAtMs = 0L;
-            return false;
-        }
-
         MacroState.State state = MacroStateManager.getCurrentState();
         boolean stateAllowsPriority = state == MacroState.State.FARMING
                 || state == MacroState.State.WARDROBE;
