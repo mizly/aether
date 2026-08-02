@@ -757,10 +757,6 @@ public final class RewarpManager {
         ClientUtils.sendDebugMessage("[Rewarp] TP fallback via " + fallbackMode.displayName());
         client.execute(() -> {
             ConfigHelpers.executeRewarpCommand(fallbackMode, pair.plotTpNumber);
-            AbstractMacro active = FarmingMacroManager.getActiveMacro();
-            if (active != null) {
-                active.suppressDropDetection(3000);
-            }
         });
         MacroWorkerThread.sleep(REWARP_FALLBACK_SETTLE_MS);
         if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {

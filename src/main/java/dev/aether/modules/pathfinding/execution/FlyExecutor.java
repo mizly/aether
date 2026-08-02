@@ -3,7 +3,6 @@ package dev.aether.modules.pathfinding.execution;
 import java.util.ArrayList;
 import java.util.List;
 
-import dev.aether.config.AetherConfig;
 import dev.aether.modules.pathfinding.Node;
 import dev.aether.modules.pathfinding.rotation.AngleUtils;
 import dev.aether.modules.pathfinding.rotation.EasingType;
@@ -291,14 +290,12 @@ public final class FlyExecutor {
         }
 
         // Periodic debug output
-        if (AetherConfig.SHOW_DEBUG.get()) {
-            ClientUtils.sendDebugMessage(String.format(
-                    "fly wp=%d/%d dist=%.2f best=%.2f noProg=%dms noMove=%dt state=%s",
-                    Math.min(wpIndex + 1, path.size()), path.size(), distToGoal,
-                    bestDistToGoal == Double.MAX_VALUE ? -1.0 : bestDistToGoal,
-                    System.currentTimeMillis() - lastGoalProgressTime,
-                    ticksSinceLastMove, state));
-        }
+        ClientUtils.sendDebugMessage(String.format(
+                "fly wp=%d/%d dist=%.2f best=%.2f noProg=%dms noMove=%dt state=%s",
+                Math.min(wpIndex + 1, path.size()), path.size(), distToGoal,
+                bestDistToGoal == Double.MAX_VALUE ? -1.0 : bestDistToGoal,
+                System.currentTimeMillis() - lastGoalProgressTime,
+                ticksSinceLastMove, state));
     }
 
     public void stop(Minecraft mc) {
@@ -529,4 +526,5 @@ public final class FlyExecutor {
         return predictedDist < goalStopThreshold;
     }
 }
+
 
