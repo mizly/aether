@@ -1,5 +1,6 @@
 package dev.aether.modules.pathfinding.execution;
 
+import dev.aether.macro.MacroInput;
 import dev.aether.modules.pathfinding.Node;
 import dev.aether.modules.pathfinding.Node.MoveType;
 import dev.aether.modules.pathfinding.rotation.AngleUtils;
@@ -40,6 +41,7 @@ public final class PathExecutor {
     private static final double STEP_UP_TRIGGER_DIST   = 1.0;
     private static final int    JUMP_COOLDOWN_TICKS = 8;
     private static final long   STALL_JUMP_PROGRESS_MS = 450;
+    private int unflyTicks = 0;
 
     // Anti-unstuck escalation
     private static final long   UNSTUCK_JUMP_MS    = 1200;  // try jumping after 1.2s
@@ -215,12 +217,15 @@ public final class PathExecutor {
             return;
         }
 
-        // -- Unfly guard: hold sneak to exit flight before walking ----------
+        // -- Unfly guard: use the configured input before walking -----------
         if (mc.player.getAbilities().flying) {
             releaseAll(mc);
-            ClientUtils.setKeyMappingState(mc.options.keyShift, true);
+            MacroInput.unfly(mc, unflyTicks++);
             return;
         }
+        MacroInput.set(mc.options.keyShift, false);
+        MacroInput.set(mc.options.keyJump, false);
+        unflyTicks = 0;
 
         jumpCooldown = Math.max(0, jumpCooldown - 1);
 

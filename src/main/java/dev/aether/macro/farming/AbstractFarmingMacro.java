@@ -3,6 +3,7 @@ package dev.aether.macro.farming;
 import dev.aether.config.AetherConfig;
 import dev.aether.config.ConfigHelpers;
 import dev.aether.macro.AbstractMacro;
+import dev.aether.macro.MacroInput;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.farming.FastLaneSwitchManager;
 import dev.aether.modules.farming.SqueakyMousematManager;
@@ -71,6 +72,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
     private boolean continueAttack = true;
     /** Tracks the macro-owned attack edge separately from Minecraft's raw key state. */
     private boolean attackHeldByMacro = false;
+    private int unflyTicks = 0;
 
     // -- Lifecycle -------------------------------------------------------------
 
@@ -115,6 +117,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         rotated = false;
         continueAttack = true;
         attackHeldByMacro = false;
+        unflyTicks = 0;
         FastLaneSwitchManager.resetRuntime();
         changeState(State.NONE);
         stateCycles.forEach(StateCycle::reset);
@@ -175,10 +178,11 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
 
         // -- Flying guard -----------------------------------------------------
         if (mc.player.getAbilities().flying) {
-            // Press sneak to descend, stop horizontal movement
-            holdKeys(mc, false, false, false, false, true, false, true);
+            stopMovementKeepAttack(mc);
+            MacroInput.unfly(mc, unflyTicks++);
             return;
         }
+        unflyTicks = 0;
 
         // -- State machine ----------------------------------------------------
         FastLaneSwitchManager.tick(mc, currentState);
