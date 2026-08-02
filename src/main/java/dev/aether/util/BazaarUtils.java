@@ -309,25 +309,26 @@ public final class BazaarUtils {
 
             // Step 4: Wait for chat detection
             ClientUtils.sendDebugMessage("[BazaarUtils] Waiting for 'Executing instant sell...' in chat...");
-            while (System.currentTimeMillis() < globalDeadline && !detectedInstantSell && !detectedNoItemsToSell) {
+            String completionTitle = currentContainerTitle(client);
+            while (System.currentTimeMillis() < globalDeadline
+                    && !isInstantSellFinished(detectedInstantSell, detectedNoItemsToSell, completionTitle)) {
                 MacroWorkerThread.sleep(100);
+                completionTitle = currentContainerTitle(client);
             }
 
             if (detectedInstantSell) {
                 ClientUtils.sendDebugMessage("[BazaarUtils] Instant sell complete.");
             } else if (detectedNoItemsToSell) {
                 ClientUtils.sendDebugMessage("[BazaarUtils] Nothing to sell detected during wait.");
+            } else if (isInstantSellFinished(false, false, completionTitle)) {
+                ClientUtils.sendDebugMessage("[BazaarUtils] Instant sell completed via Bazaar menu return.");
             } else {
                 ClientUtils.sendDebugMessage("[BazaarUtils] Timeout waiting for confirm message or process completion.");
             }
 
-            // Safety delay to allow GUI transitions to settle
-            ClientUtils.sendDebugMessage("[BazaarUtils] Concluding sequence, waiting 1s...");
-            MacroWorkerThread.sleep(2000);
-
             closeScreen(client);
             MacroWorkerThread.sleep(fastDelay);
-            return detectedInstantSell || detectedNoItemsToSell;
+            return isInstantSellFinished(detectedInstantSell, detectedNoItemsToSell, completionTitle);
         } finally {
             isSellingBazaar = false;
         }
@@ -456,6 +457,15 @@ public final class BazaarUtils {
         }
         ClientUtils.sendDebugMessage("[BazaarUtils] Timeout waiting for '" + target + "'. Last screen: '" + lastTitle + "'");
         return false;
+    }
+
+    static boolean isInstantSellFinished(boolean sold, boolean nothingToSell, String screenTitle) {
+        return sold || nothingToSell
+                || screenTitle != null && stripColors(screenTitle).toLowerCase().contains("bazaar");
+    }
+
+    private static String currentContainerTitle(Minecraft client) {
+        return client.screen instanceof AbstractContainerScreen<?> screen ? screen.getTitle().getString() : null;
     }
 
     private static boolean waitForSignScreen(Minecraft client, long timeoutMs) {

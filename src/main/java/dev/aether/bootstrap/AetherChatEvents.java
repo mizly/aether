@@ -16,6 +16,7 @@ import dev.aether.modules.pest.helpers.PestDestroyer;
 import dev.aether.modules.profit.ProfitManager;
 import dev.aether.modules.inventorymanager.AutoSellManager;
 import dev.aether.modules.session.RestartManager;
+import dev.aether.modules.session.RecoveryManager;
 import dev.aether.modules.visitor.VisitorManager;
 import dev.aether.util.AetherResources;
 import dev.aether.util.BazaarUtils;
@@ -62,6 +63,7 @@ public final class AetherChatEvents {
                 return;
             }
 
+            RecoveryManager.handleRecoveryCommandFailure(lowerPlainText);
             CommandUtils.onChatMessage(plainText);
 
             try {
@@ -162,6 +164,7 @@ public final class AetherChatEvents {
                 && MacroStateManager.getCurrentState() != MacroState.State.RECOVERING) {
             ClientUtils.sendMessage("Disconnect detected! Starting recovery sequence...");
             MacroStateManager.stopMacro(Minecraft.getInstance());
+            RecoveryManager.beginLimboRecovery();
             MacroStateManager.setCurrentState(MacroState.State.RECOVERING);
         }
         return true;

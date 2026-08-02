@@ -69,11 +69,7 @@ public final class AetherReconnectTickHandler {
             long reconnectAt = ReconnectScheduler.loadReconnectTime();
             if (reconnectAt != 0) {
                 if (ReconnectScheduler.shouldResume()) {
-                    if (ReconnectScheduler.getReconnectMode() == ReconnectScheduler.ReconnectMode.PROXY_RESTART) {
-                        RecoveryManager.beginRecovery(RecoveryManager.RecoveryMode.PROXY_RESTART);
-                    } else {
-                        RecoveryManager.beginRecovery(RecoveryManager.RecoveryMode.STANDARD);
-                    }
+                    RecoveryManager.beginRecovery();
                     ClientUtils.sendMessage("Session persistence detected! Initializing recovery...");
                     MacroStateManager.setCurrentState(MacroState.State.RECOVERING);
                 }

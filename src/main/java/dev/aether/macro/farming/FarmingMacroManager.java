@@ -236,6 +236,13 @@ public final class FarmingMacroManager {
         return activeMacro != null;
     }
 
+    /** Releases input owned by the active farm macro without disabling it. */
+    public static void releaseInputs(Minecraft mc) {
+        if (activeMacro != null && mc != null && mc.options != null) {
+            activeMacro.releaseAll(mc);
+        }
+    }
+
     /**
      * Advance the active macro by one tick.
      * Wire this to {@code ClientTickEvents.END_CLIENT_TICK}.

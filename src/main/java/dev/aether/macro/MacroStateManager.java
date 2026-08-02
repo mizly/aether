@@ -125,6 +125,10 @@ public class MacroStateManager {
         currentState = state;
         Minecraft client = Minecraft.getInstance();
 
+        if (prevState == MacroState.State.FARMING && state != MacroState.State.FARMING) {
+            runOnClientThread(client, () -> FarmingMacroManager.releaseInputs(client));
+        }
+
         if (state == MacroState.State.FARMING && prevState != MacroState.State.FARMING) {
             MacroWorkerThread.getInstance().clearPendingTasks();
             PathfindingManager.stop();
