@@ -18,8 +18,6 @@ import net.minecraft.world.phys.Vec3;
 
 public class RecoveryManager {
     public enum RecoveryMode {
-        STANDARD,
-        PROXY_RESTART,
         WORLD_CHANGE
     }
 
@@ -35,16 +33,19 @@ public class RecoveryManager {
         RESUME_DELAY
     }
 
-    private static final long LIMBO_RECOVERY_DELAY_MS = 10_000L;
+    private static final long LIMBO_TO_LOBBY_DELAY_MS = 5_000L;
+    private static final long SKYBLOCK_TO_GARDEN_DELAY_MS = 5_000L;
     private static final long WORLD_CHANGE_ALIGN_TIMEOUT_MS = 1200L;
     private static final long WORLD_CHANGE_GARDEN_RETRY_MS = 5000L;
     private static final long WORLD_CHANGE_RESUME_DELAY_MS = 1000L;
     private static int recoveryFailedAttempts = 0;
     private static long lastRecoveryActionTime = 0;
-    private static MacroState.Location lastRecoveryLocation = MacroState.Location.UNKNOWN;
-    private static long lastRecoveryLocationChangeTime = 0;
-    private static boolean limboDelayAnnounced = false;
-    private static RecoveryMode recoveryMode = RecoveryMode.STANDARD;
+    private static RecoveryMode recoveryMode = null;
+    private static long skyblockCommandTime = 0L;
+    private static long lobbyCommandTime = 0L;
+    private static boolean limboRecovery = false;
+    private static boolean gardenCommandSent = false;
+    private static boolean recoveryComplete = false;
     private static WorldChangeRecoveryPhase worldChangePhase = WorldChangeRecoveryPhase.IDLE;
     private static Vec3 worldChangeTargetPosition = null;
     private static long worldChangeWaitUntilMs = 0L;
@@ -54,10 +55,12 @@ public class RecoveryManager {
     public static void reset() {
         recoveryFailedAttempts = 0;
         lastRecoveryActionTime = 0;
-        lastRecoveryLocation = MacroState.Location.UNKNOWN;
-        lastRecoveryLocationChangeTime = 0;
-        limboDelayAnnounced = false;
-        recoveryMode = RecoveryMode.STANDARD;
+        recoveryMode = null;
+        skyblockCommandTime = 0L;
+        lobbyCommandTime = 0L;
+        limboRecovery = false;
+        gardenCommandSent = false;
+        recoveryComplete = false;
         worldChangePhase = WorldChangeRecoveryPhase.IDLE;
         worldChangeTargetPosition = null;
         worldChangeWaitUntilMs = 0L;
@@ -65,9 +68,23 @@ public class RecoveryManager {
         worldChangeAlignClicked = false;
     }
 
-    public static void beginRecovery(RecoveryMode mode) {
+    public static void beginRecovery() {
         reset();
-        recoveryMode = mode == null ? RecoveryMode.STANDARD : mode;
+        if (ClientUtils.getCurrentLocation() == MacroState.Location.LIMBO) {
+            limboRecovery = true;
+            lobbyCommandTime = System.currentTimeMillis();
+            ClientUtils.sendMessage("\u00A7eRecovery: leaving Limbo with /lobby...", false);
+            ClientUtils.sendCommand("/lobby");
+            return;
+        }
+
+        startSkyblockRecovery();
+    }
+
+    private static void startSkyblockRecovery() {
+        skyblockCommandTime = System.currentTimeMillis();
+        ClientUtils.sendMessage("\u00A7eRecovery: running /skyblock, then /warp garden in 5 seconds...", false);
+        ClientUtils.sendCommand("/skyblock");
     }
 
     public static void beginWorldChangeRecovery(Vec3 savedPosition) {
@@ -100,84 +117,54 @@ public class RecoveryManager {
         if (client.screen instanceof PauseScreen)
             return;
 
-        if (System.currentTimeMillis() - lastRecoveryActionTime < 5000)
-            return;
-
-        MacroState.Location currentLoc = ClientUtils.getCurrentLocation();
-
-        if (currentLoc != lastRecoveryLocation) {
-            recoveryFailedAttempts = 0;
-            lastRecoveryLocation = currentLoc;
-            lastRecoveryLocationChangeTime = System.currentTimeMillis();
-            limboDelayAnnounced = false;
-        }
-
-        if (recoveryFailedAttempts >= 15) {
-            ClientUtils.sendMessage("\u00A7cAuto-recovery failed after 15 attempts. Stopping farming.", false);
-            MacroStateManager.stopMacro(client);
+        if (recoveryComplete) {
             return;
         }
 
-        lastRecoveryActionTime = System.currentTimeMillis();
-        recoveryFailedAttempts++;
+        long now = System.currentTimeMillis();
+        if (limboRecovery) {
+            if (now - lobbyCommandTime < LIMBO_TO_LOBBY_DELAY_MS) {
+                return;
+            }
 
-        switch (currentLoc) {
-            case LIMBO:
-                long limboElapsed = System.currentTimeMillis() - lastRecoveryLocationChangeTime;
-                if (limboElapsed < LIMBO_RECOVERY_DELAY_MS) {
-                    if (!limboDelayAnnounced) {
-                        ClientUtils.sendMessage("\u00A7eIn Limbo. Waiting 10s before attempting recovery...", false);
-                        limboDelayAnnounced = true;
-                    }
-                    lastRecoveryActionTime = 0;
-                    recoveryFailedAttempts--;
-                    return;
-                }
-                ClientUtils.sendMessage("\u00A7eRecovery (attempt "
-                        + recoveryFailedAttempts + "): Warping to Lobby from Limbo...", false);
-                ClientUtils.sendCommand("/lobby");
-                break;
-            case LOBBY:
-                if (recoveryMode == RecoveryMode.PROXY_RESTART) {
-                    ClientUtils.sendMessage("\u00A7eRecovery (attempt "
-                            + recoveryFailedAttempts + "): Rejoining SkyBlock with /play sb...", false);
-                    ClientUtils.sendCommand("/play sb");
-                } else {
-                    ClientUtils.sendMessage("\u00A7eRecovery (attempt "
-                            + recoveryFailedAttempts + "): Warping to SkyBlock from Lobby...", false);
-                    ClientUtils.sendCommand("/skyblock");
-                }
-                break;
-            case HUB:
-            case UNKNOWN:
-                ClientUtils.sendMessage("\u00A7eRecovery (attempt " + recoveryFailedAttempts + "): Warping to Garden...", false);
-                ClientUtils.sendCommand("/warp garden");
-                break;
-            case GARDEN:
-                ClientUtils.sendMessage("\u00A7aRecovery successful. Resuming farming...", false);
-                recoveryFailedAttempts = 0;
-                recoveryMode = RecoveryMode.STANDARD;
-                DynamicRestManager.scheduleNextRest();
-                ClientUtils.sendDebugMessage("Starting farming macro after successful recovery");
-                client.execute(() -> {
-                    if (MacroStateManager.getCurrentState() != MacroState.State.RECOVERING) {
-                        return;
-                    }
-
-                    // Keep the inventory-slot failsafe suppressed until the
-                    // recovery resume path has restored the active tool/slot.
-                    FailsafeManager.syncSelectedSlotFromClient(client);
-                    GearManager.swapToFarmingTool(client);
-                    FailsafeManager.syncSelectedSlotFromClient(client);
-                    MacroStateManager.setCurrentState(MacroState.State.FARMING);
-                    SqueakyMousematManager.armReapplyAttempt();
-                    FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig());
-                    FailsafeManager.syncSelectedSlotFromClient(client);
-                });
-                break;
+            limboRecovery = false;
+            startSkyblockRecovery();
+            return;
         }
+
+        if (!gardenCommandSent) {
+            if (now - skyblockCommandTime < SKYBLOCK_TO_GARDEN_DELAY_MS) {
+                return;
+            }
+
+            gardenCommandSent = true;
+            ClientUtils.sendMessage("\u00A7eRecovery: running /warp garden...", false);
+            ClientUtils.sendCommand("/warp garden");
+        }
+
+        completeRecovery(client);
     }
 
+    private static void completeRecovery(Minecraft client) {
+        recoveryComplete = true;
+        ClientUtils.sendMessage("\u00A7aRecovery successful. Resuming farming...", false);
+        recoveryFailedAttempts = 0;
+        ClientUtils.sendDebugMessage("Starting farming macro after fixed recovery sequence");
+        DynamicRestManager.scheduleNextRest();
+        client.execute(() -> {
+            if (MacroStateManager.getCurrentState() != MacroState.State.RECOVERING) {
+                return;
+            }
+
+            FailsafeManager.syncSelectedSlotFromClient(client);
+            GearManager.swapToFarmingTool(client);
+            FailsafeManager.syncSelectedSlotFromClient(client);
+            MacroStateManager.setCurrentState(MacroState.State.FARMING);
+            SqueakyMousematManager.armReapplyAttempt();
+            FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig());
+            FailsafeManager.syncSelectedSlotFromClient(client);
+        });
+    }
     private static void updateWorldChangeRecovery(Minecraft client) {
         if (client == null || client.player == null || client.level == null) {
             return;
@@ -380,7 +367,7 @@ public class RecoveryManager {
 
     private static void completeWorldChangeRecovery(Minecraft client) {
         recoveryFailedAttempts = 0;
-        recoveryMode = RecoveryMode.STANDARD;
+        recoveryMode = null;
         worldChangePhase = WorldChangeRecoveryPhase.IDLE;
         worldChangeTargetPosition = null;
         worldChangeWaitUntilMs = 0L;
@@ -389,7 +376,7 @@ public class RecoveryManager {
         DynamicRestManager.scheduleNextRest();
         ClientUtils.sendMessage("\u00A7aWorld change recovery complete. Resuming farming...", false);
         client.execute(() -> {
-            if (recoveryMode != RecoveryMode.STANDARD) {
+            if (MacroStateManager.getCurrentState() != MacroState.State.RECOVERING) {
                 return;
             }
 
