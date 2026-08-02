@@ -173,6 +173,13 @@ public class PestReturnManager {
                 if (abortFinisherIfNeeded(client, "initial finish")) {
                     return;
                 }
+                setFinishingStage("unfly");
+                ClientUtils.sendDebugMessage("Finisher: Stopping flight before post-actions...");
+                performUnfly(client);
+                if (abortFinisherIfNeeded(client, "unfly")) {
+                    return;
+                }
+
                 if (PestTrapManager.isBlockedByPestExchange()) {
                     ClientUtils.sendDebugMessage("Finisher: skipping trap clear/refill while pest exchange is active.");
                 } else if (PestManager.arePestTrapsEnabled()
