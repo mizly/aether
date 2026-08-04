@@ -210,7 +210,7 @@ public class LoadoutManager {
 
     public static void onChatMessage(String plainText) {
         if (!isSwappingLoadout || loadoutInteractionStage != 1 || loadoutChatConfirmed
-                || plainText == null || !plainText.contains("Loadout")) {
+                || plainText == null || !plainText.contains("equipped")) {
             return;
         }
 
