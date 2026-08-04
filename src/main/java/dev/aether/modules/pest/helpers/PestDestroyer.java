@@ -49,6 +49,7 @@ public class PestDestroyer {
         AOTV_TO_ROOF,
         AOTV_TO_ROOF_RETURN,
         AOTV_POST_LOOKDOWN,
+        BALLSACK_SHREDDER,
         FINISH
     }
 
@@ -223,6 +224,7 @@ public class PestDestroyer {
                     || runtime.state == State.AOTV_TO_ROOF
                     || runtime.state == State.AOTV_TO_ROOF_RETURN
                     || runtime.state == State.AOTV_POST_LOOKDOWN
+                    || runtime.state == State.BALLSACK_SHREDDER
                     || runtime.state == State.FLY_UP) {
                 break;
             }
@@ -253,6 +255,8 @@ public class PestDestroyer {
             case AOTV_TO_ROOF_RETURN -> {
             } // Handled early in update()
             case AOTV_POST_LOOKDOWN -> handlePostAotvLookdown(client);
+            case BALLSACK_SHREDDER -> {
+            } // Handled by its dedicated worker task.
             case FINISH -> finish(client);
             default -> {
             }
@@ -436,6 +440,35 @@ public class PestDestroyer {
         if (System.currentTimeMillis() - runtime.stateEnteredAt >= AetherConfig.BALLSACK_LOOK_DOWN_TIME_MS.get()) {
             completeRoofAotv();
         }
+    }
+
+    static void startBallsackShredder(Minecraft client, String plot) {
+        if (!PestBallsackShredder.shouldRunOnPlot(plot)) {
+            return;
+        }
+
+        setState(State.BALLSACK_SHREDDER);
+        int sessionId = PestManager.getCurrentPestSessionId();
+        int startingPests = Math.max(0, PestManager.getTabAliveCountNow(client));
+        ClientUtils.sendDebugMessage("[PestDestroyer] Running Ballsack Shredder after arrival on plot " + plot + ".");
+        MacroWorkerThread.getInstance().submit("PestBallsack-Arrival-" + plot, () -> {
+            try {
+                PestBallsackShredder.run(client, sessionId, startingPests);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            } finally {
+                client.execute(() -> {
+                    if (!runtime.active || runtime.state != State.BALLSACK_SHREDDER) {
+                        return;
+                    }
+                    if (!client.player.getAbilities().flying && client.player.getAbilities().mayfly) {
+                        setState(State.FLY_UP);
+                    } else {
+                        setState(State.CHECK_NEXT);
+                    }
+                });
+            }
+        });
     }
 
     private static void handleAotvBetweenPests(Minecraft client) {
