@@ -484,12 +484,13 @@ public class PestManager {
             return false;
         }
 
+        PestTabSnapshot data = parseTabList(client);
         if (spawnedCount > 0) {
-            predictedAliveCount = Math.min(99, predictedAliveCount + spawnedCount);
+            predictedAliveCount = reconcileChatSpawnCount(
+                    predictedAliveCount, spawnedCount, data.aliveCount());
             lastChatSpawnUpdateMs = System.currentTimeMillis();
         }
 
-        PestTabSnapshot data = parseTabList(client);
         syncPredictedAliveFromTab(data.aliveCount());
         int effectiveAlive = getEffectiveAliveCount(data.aliveCount());
 
@@ -603,6 +604,13 @@ public class PestManager {
             int tabAliveCount,
             int effectiveAliveCount) {
         return estimateCompletion ? effectiveAliveCount : Math.max(0, tabAliveCount);
+    }
+
+    static int reconcileChatSpawnCount(int previousPrediction, int spawnedCount, int tabAliveCount) {
+        if (tabAliveCount >= 0) {
+            return tabAliveCount;
+        }
+        return Math.min(99, Math.max(0, previousPrediction) + Math.max(0, spawnedCount));
     }
 
     private static boolean hasRecentLocalKill(long now) {
