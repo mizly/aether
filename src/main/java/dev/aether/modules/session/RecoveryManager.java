@@ -106,8 +106,23 @@ public class RecoveryManager {
                 && worldChangeTargetPosition != null;
     }
 
+    public static void handleRecoveryCommandSuccess(String lowerText) {
+        if (recoveryCommandStage != RecoveryCommandStage.SKYBLOCK
+                || !recoveryCommandSent
+                || !lowerText.contains("you are already playing skyblock")) {
+            return;
+        }
+
+        recoveryCommandFailed = false;
+        ClientUtils.sendDebugMessage("Recovery: already in SkyBlock; continuing recovery sequence.");
+    }
+
     public static void handleRecoveryCommandFailure(String lowerText) {
         if (recoveryCommandStage == null || !recoveryCommandSent) {
+            return;
+        }
+
+        if (lowerText.contains("you are already playing skyblock")) {
             return;
         }
 

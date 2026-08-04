@@ -63,6 +63,7 @@ public final class AetherChatEvents {
                 return;
             }
 
+            RecoveryManager.handleRecoveryCommandSuccess(lowerPlainText);
             RecoveryManager.handleRecoveryCommandFailure(lowerPlainText);
             CommandUtils.onChatMessage(plainText);
 
