@@ -7,6 +7,7 @@ import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.CropFeverManager;
 import dev.aether.modules.farming.BedrockPlotMaker;
+import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.metaldetector.MetalDetectorSolver;
 import dev.aether.modules.misc.AutoCarnivalManager;
 import dev.aether.modules.pest.PestManager;
@@ -62,6 +63,8 @@ public final class AetherChatEvents {
             if (overlay || isHandlingMessage) {
                 return;
             }
+
+            LoadoutManager.onChatMessage(plainText);
 
             RecoveryManager.handleRecoveryCommandSuccess(lowerPlainText);
             RecoveryManager.handleRecoveryCommandFailure(lowerPlainText);

@@ -15,6 +15,8 @@ import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 
 public class LoadoutManager {
+    private static final long LOADOUT_CHAT_RETRY_DELAY_MS = 500L;
+
     public static volatile boolean isSwappingLoadout = false;
     public static volatile long loadoutInteractionTime = 0;
     public static volatile int loadoutInteractionStage = 0;
@@ -27,6 +29,7 @@ public class LoadoutManager {
     public static volatile boolean loadoutGuiDetected = false;
     public static volatile boolean loadoutGuiCloseComplete = true;
     public static volatile long loadoutTimelineStartTime = 0;
+    private static volatile boolean loadoutChatConfirmed = false;
     private static volatile long loadoutRequestId = 0;
 
     public static void resetState() {
@@ -43,6 +46,7 @@ public class LoadoutManager {
         loadoutOpenPendingTime = 0;
         loadoutFirstClickDelayMs = 0;
         loadoutTimelineStartTime = 0;
+        loadoutChatConfirmed = false;
     }
 
     public static void triggerLoadoutSwap(Minecraft client, int slot) {
@@ -91,6 +95,7 @@ public class LoadoutManager {
         loadoutTimelineStartTime = 0;
         loadoutOpenPendingTime = 0;
         loadoutFirstClickDelayMs = 0;
+        loadoutChatConfirmed = false;
         shouldRestartFarmingAfterSwap = true;
         MacroStateManager.setCurrentState(MacroState.State.WARDROBE);
         ClientUtils.sendDebugMessage("Triggering loadout swap to slot " + slot);
@@ -116,6 +121,7 @@ public class LoadoutManager {
         loadoutTimelineStartTime = 0;
         loadoutOpenPendingTime = 0;
         loadoutFirstClickDelayMs = 0;
+        loadoutChatConfirmed = false;
         ClientUtils.sendCommand("/loadout");
     }
 
@@ -133,6 +139,7 @@ public class LoadoutManager {
         loadoutTimelineStartTime = 0;
         loadoutOpenPendingTime = 0;
         loadoutFirstClickDelayMs = 0;
+        loadoutChatConfirmed = false;
 
         if (MacroStateManager.getCurrentState() == MacroState.State.WARDROBE) {
             MacroStateManager.setCurrentState(MacroState.State.FARMING);
@@ -174,7 +181,12 @@ public class LoadoutManager {
         Slot slot = screen.getMenu().slots.get(slotIdx);
 
         if (loadoutInteractionStage == 1) {
-            if (now - loadoutInteractionTime < ClientUtils.getGuiClickDelayMs(false)) {
+            if (!loadoutChatConfirmed && now - loadoutInteractionTime >= LOADOUT_CHAT_RETRY_DELAY_MS) {
+                sendTimedDebug(client, "Retrying loadout slot " + targetLoadoutSlot, now);
+                ClientUtils.performSlotClick(screen, slot.index, 0, ContainerInput.PICKUP);
+                loadoutInteractionTime = now;
+            }
+            if (!loadoutChatConfirmed) {
                 return;
             }
             finishLoadoutAfterClick(client, targetLoadoutSlot);
@@ -190,9 +202,20 @@ public class LoadoutManager {
         }
 
         sendTimedDebug(client, "Clicked loadout slot " + targetLoadoutSlot, now);
+        loadoutChatConfirmed = false;
         ClientUtils.performSlotClick(screen, slot.index, 0, ContainerInput.PICKUP);
         loadoutInteractionTime = now;
         loadoutInteractionStage = 1;
+    }
+
+    public static void onChatMessage(String plainText) {
+        if (!isSwappingLoadout || loadoutInteractionStage != 1 || loadoutChatConfirmed
+                || plainText == null || !plainText.contains("Loadout")) {
+            return;
+        }
+
+        loadoutChatConfirmed = true;
+        ClientUtils.sendDebugMessage("Loadout chat confirmation received.");
     }
 
     private static void finishLoadoutAfterClick(Minecraft client, int clickedLoadoutSlot) {
@@ -205,6 +228,7 @@ public class LoadoutManager {
         isSwappingLoadout = false;
         loadoutGuiDetected = false;
         loadoutInteractionStage = 0;
+        loadoutChatConfirmed = false;
         loadoutOpenPendingTime = 0;
         loadoutFirstClickDelayMs = 0;
 
