@@ -5,6 +5,8 @@
   "rewarpDelayMax": 1000,
   "pestChatTriggerDelayMin": 500,
   "pestChatTriggerDelayMax": 3000,
+  "ballsackShredderTriggerDelayMin": 20000,
+  "ballsackShredderTriggerDelayMax": 25000,
   "pestExchangeDelayMin": 2000,
   "pestExchangeDelayMax": 5000,
   "pestAotvDelayMin": 150,

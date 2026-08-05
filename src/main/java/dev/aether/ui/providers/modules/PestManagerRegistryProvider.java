@@ -83,6 +83,7 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.save();
                         })
                         .withDecimals(0))
+                .add(FarmingSettingsFactory.pestDestroyerTriggerDelaySetting())
                 .add(new ToggleSetting("Estimate Pest Destroyer Completion",
                         AetherConfig.ESTIMATE_PEST_DESTROYER_COMPLETION::get,
                         v -> {
@@ -165,7 +166,7 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.save();
                         })
                         .withDecimals(0))
-                .add(FarmingSettingsFactory.pestDestroyerTriggerDelaySetting())
+                .add(FarmingSettingsFactory.ballsackShredderTriggerDelaySetting())
                 .add(new SliderSetting("Look Down Time", 0, 3000,
                         () -> (float) AetherConfig.BALLSACK_LOOK_DOWN_TIME_MS.get(),
                         v -> {

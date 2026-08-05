@@ -129,6 +129,8 @@ public final class HumanizationPresetManager {
         addEntry(entries, AetherConfig.REWARP_DELAY_MAX);
         addEntry(entries, AetherConfig.PEST_CHAT_TRIGGER_DELAY_MIN);
         addEntry(entries, AetherConfig.PEST_CHAT_TRIGGER_DELAY_MAX);
+        addEntry(entries, AetherConfig.BALLSACK_SHREDDER_TRIGGER_DELAY_MIN);
+        addEntry(entries, AetherConfig.BALLSACK_SHREDDER_TRIGGER_DELAY_MAX);
         addEntry(entries, AetherConfig.PEST_EXCHANGE_DELAY_MIN);
         addEntry(entries, AetherConfig.PEST_EXCHANGE_DELAY_MAX);
         addEntry(entries, AetherConfig.PEST_AOTV_DELAY_MIN);

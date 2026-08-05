@@ -443,7 +443,7 @@ public class PestDestroyer {
     }
 
     static void startBallsackShredder(Minecraft client, String plot) {
-        if (!PestBallsackShredder.shouldRunOnPlot(plot)) {
+        if (!PestManager.isBallsackShredderActiveForCurrentCycle()) {
             return;
         }
 

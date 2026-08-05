@@ -47,7 +47,7 @@ final class PestPreStage {
             return Result.failure();
         }
 
-        boolean ballsackOnPlot = PestBallsackShredder.shouldRunOnPlot(plot);
+        boolean ballsackOnPlot = PestManager.isBallsackShredderActiveForCurrentCycle();
         if (ballsackOnPlot) {
             PestBallsackShredder.Result result =
                     PestBallsackShredder.run(client, sessionId, pestCount);
@@ -74,7 +74,7 @@ final class PestPreStage {
 
         boolean forcePlotTp =
                 alreadyOnPlot && (AetherConfig.PEST_PLOT_TP_FOR_CURRENT_PLOT.get()
-                        || PestBallsackShredder.shouldRunOnPlot(plot));
+                        || PestManager.isBallsackShredderActiveForCurrentCycle());
 
         if (alreadyOnPlot && !forcePlotTp) {
             String source = chatMatch ? "chat" : "scoreboard";
@@ -111,7 +111,7 @@ final class PestPreStage {
             CommandUtils.initiatePlotTp(plot);
             MacroWorkerThread.sleep(2500);
         } else {
-            PestAotvManager.rotateDownAfterAotv(client, PestBallsackShredder.shouldRunOnPlot(plot));
+            PestAotvManager.rotateDownAfterAotv(client, PestManager.isBallsackShredderActiveForCurrentCycle());
         }
         return !shouldAbort(client, sessionId);
     }

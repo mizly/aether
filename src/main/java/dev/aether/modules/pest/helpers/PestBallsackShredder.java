@@ -15,7 +15,7 @@ import net.minecraft.world.phys.Vec3;
 import java.util.List;
 
 /** Dedicated pre-cleaning AOTV route used by Ballsack Shredder. */
-final class PestBallsackShredder {
+public final class PestBallsackShredder {
     private static final long AOTV_TIMEOUT_MS = 10_000L;
     private static final long RESULT_CONFIRM_TIMEOUT_MS = 2_000L;
     private static final double POSITION_CHANGE_DISTANCE_SQR = 1.0;
@@ -92,7 +92,7 @@ final class PestBallsackShredder {
                 && isConfiguredForPlot(plot, AetherConfig.BALLSACK_SHREDDER_PLOTS.get());
     }
 
-    static boolean isConfiguredForPlot(String plot, List<String> configuredPlots) {
+    public static boolean isConfiguredForPlot(String plot, List<String> configuredPlots) {
         if (configuredPlots == null || configuredPlots.isEmpty()) {
             return true;
         }

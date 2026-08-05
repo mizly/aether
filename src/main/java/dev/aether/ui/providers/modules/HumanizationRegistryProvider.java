@@ -36,6 +36,7 @@ public final class HumanizationRegistryProvider extends AbstractModulesRegistryP
                         "Timing controls for macro and gear actions")
                 .add(FarmingSettingsFactory.laneSwitchDelaySetting())
                 .add(FarmingSettingsFactory.pestDestroyerTriggerDelaySetting())
+                .add(FarmingSettingsFactory.ballsackShredderTriggerDelaySetting())
                 .add(FarmingSettingsFactory.pestExchangeDelaySetting())
                 .add(FarmingSettingsFactory.aotvBetweenPestsDelaySetting())
                 .add(FarmingSettingsFactory.rodSwapDelaySetting())

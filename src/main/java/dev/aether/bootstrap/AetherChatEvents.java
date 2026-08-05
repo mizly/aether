@@ -245,7 +245,11 @@ public final class AetherChatEvents {
         int triggerDelay = ConfigHelpers.getRandomizedDelay(
                 AetherConfig.PEST_CHAT_TRIGGER_DELAY_MIN.get(),
                 AetherConfig.PEST_CHAT_TRIGGER_DELAY_MAX.get());
-        PestManager.scheduleChatCleaningTrigger(plot, parsedSpawnedCount, triggerDelay);
+        int ballsackTriggerDelay = ConfigHelpers.getRandomizedDelay(
+                AetherConfig.BALLSACK_SHREDDER_TRIGGER_DELAY_MIN.get(),
+                AetherConfig.BALLSACK_SHREDDER_TRIGGER_DELAY_MAX.get());
+        PestManager.scheduleChatCleaningTrigger(
+                plot, parsedSpawnedCount, triggerDelay, ballsackTriggerDelay, lowerText.contains("spawned"));
     }
 
     private static void handleStashState(String lowerText) {

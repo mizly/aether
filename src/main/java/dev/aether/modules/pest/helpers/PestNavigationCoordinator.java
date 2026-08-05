@@ -4,6 +4,7 @@ import dev.aether.config.AetherConfig;
 import dev.aether.mixin.AccessorInventory;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
+import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.CommandUtils;
@@ -273,7 +274,7 @@ final class PestNavigationCoordinator {
         navigationState.trustedPlotExpiresAt = System.currentTimeMillis() + 120_000;
         navigationState.plotTpSent = false;
         navigationState.plotTpWindow = null;
-        if (PestBallsackShredder.shouldRunOnPlot(plot)) {
+        if (PestManager.isBallsackShredderActiveForCurrentCycle()) {
             context.startBallsackShredder(client, plot);
             return;
         }

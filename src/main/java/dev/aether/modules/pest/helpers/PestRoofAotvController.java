@@ -3,6 +3,7 @@ package dev.aether.modules.pest.helpers;
 import dev.aether.config.AetherConfig;
 import dev.aether.mixin.AccessorInventory;
 import dev.aether.modules.gear.GearManager;
+import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.CommandUtils;
@@ -54,7 +55,7 @@ final class PestRoofAotvController {
         runtime.aotvStartY = Double.NaN;
         releaseAotvKeys(client);
         float targetYaw = client.player.getYRot() + (float) (-10.0 + Math.random() * 20.0);
-        boolean ballsackOnPlot = PestBallsackShredder.shouldRunOnPlot(ClientUtils.getCurrentPlot());
+        boolean ballsackOnPlot = PestManager.isBallsackShredderActiveForCurrentCycle();
         float targetPitch = ballsackOnPlot
                 ? 90.0f
                 : (float) (-30.0 + Math.random() * 60.0);

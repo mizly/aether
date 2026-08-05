@@ -52,15 +52,23 @@ final class FarmingSettingsFactory {
     }
 
     static RangeSliderSetting pestDestroyerTriggerDelaySetting() {
-        return new RangeSliderSetting("Pest Destroyer Trigger Delay", 0f, 30f,
-                () -> AetherConfig.PEST_CHAT_TRIGGER_DELAY_MIN.get() / 1000f,
-                () -> AetherConfig.PEST_CHAT_TRIGGER_DELAY_MAX.get() / 1000f,
-                (lower, upper) -> {
-                    AetherConfig.PEST_CHAT_TRIGGER_DELAY_MIN.set(Math.round(lower * 1000f));
-                    AetherConfig.PEST_CHAT_TRIGGER_DELAY_MAX.set(Math.round(upper * 1000f));
-                    AetherConfig.save();
-                })
-                .withDecimals(1).withSuffix("s");
+        return intDelayRangeSetting("Pest Destroyer Trigger Delay", 0f, 5000f,
+                () -> AetherConfig.PEST_CHAT_TRIGGER_DELAY_MIN.get(),
+                () -> AetherConfig.PEST_CHAT_TRIGGER_DELAY_MAX.get(),
+                (min, max) -> {
+                    AetherConfig.PEST_CHAT_TRIGGER_DELAY_MIN.set(min);
+                    AetherConfig.PEST_CHAT_TRIGGER_DELAY_MAX.set(max);
+                });
+    }
+
+    static RangeSliderSetting ballsackShredderTriggerDelaySetting() {
+        return intDelayRangeSetting("Ballsack Shredder Trigger Delay", 0f, 30000f,
+                () -> AetherConfig.BALLSACK_SHREDDER_TRIGGER_DELAY_MIN.get(),
+                () -> AetherConfig.BALLSACK_SHREDDER_TRIGGER_DELAY_MAX.get(),
+                (min, max) -> {
+                    AetherConfig.BALLSACK_SHREDDER_TRIGGER_DELAY_MIN.set(min);
+                    AetherConfig.BALLSACK_SHREDDER_TRIGGER_DELAY_MAX.set(max);
+                });
     }
 
     static RangeSliderSetting pestExchangeDelaySetting() {

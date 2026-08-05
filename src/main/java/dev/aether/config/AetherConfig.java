@@ -420,9 +420,9 @@ public final class AetherConfig {
                         Config.bool("estimatePestDestroyerCompletion", true);
         public static final BooleanEntry PEST_TRIGGER_ONLY_AFTER_REWARP = Config.bool("pestTriggerOnlyAfterRewarp", false);
         public static final IntEntry PEST_CHAT_TRIGGER_DELAY_MIN = Config.integer("pestChatTriggerDelayMin", 500)
-                        .range(0, 30000);
+                        .range(0, 5000);
         public static final IntEntry PEST_CHAT_TRIGGER_DELAY_MAX = Config.integer("pestChatTriggerDelayMax", 3000)
-                        .range(0, 30000);
+                        .range(0, 5000);
         public static final BooleanEntry DELAY_PEST_FOR_CROP_FEVER = Config.bool("delayPestForCropFever", false);
         public static final BooleanEntry PEST_ON_TRACK_ENABLED = Config.bool("pestOnTrackEnabled", false);
         // start: farmhelper ish pest on track
@@ -451,6 +451,10 @@ public final class AetherConfig {
                         Collections.emptyList(), String.class);
         public static final BooleanEntry SUNSET_PESTS = Config.bool("sunsetPests", false);
         public static final BooleanEntry BALLSACK_SHREDDER = Config.bool("ballsackShredder", false);
+        public static final IntEntry BALLSACK_SHREDDER_TRIGGER_DELAY_MIN =
+                        Config.integer("ballsackShredderTriggerDelayMin", 20000).range(0, 30000);
+        public static final IntEntry BALLSACK_SHREDDER_TRIGGER_DELAY_MAX =
+                        Config.integer("ballsackShredderTriggerDelayMax", 25000).range(0, 30000);
         public static final ListEntry<String> BALLSACK_SHREDDER_PLOTS = Config.list("ballsackShredderPlots",
                         Collections.emptyList(), String.class);
         public static final IntEntry BALLSACK_WARPS = Config.integer("ballsackWarps", 2).range(1, 5);
