@@ -28,6 +28,7 @@ public class PestManager {
     // Shared state
     private static volatile boolean isCleaningInProgress = false;
     private static volatile String currentInfestedPlot = null;
+    private static volatile boolean ballsackShredderActiveForCurrentCycle = false;
     private static volatile Set<String> currentInfestedPlots = Set.of();
     private static volatile int currentPestSessionId = 0;
     private static final long PEST_REENTRY_COOLDOWN_MS = 30_000;
@@ -40,6 +41,7 @@ public class PestManager {
     private static volatile PendingChatTrigger pendingChatTrigger;
     private static volatile boolean pendingChatTriggerWaitsForLoadout = false;
     private static volatile long pendingChatTriggerDelayAfterLoadoutMs = 0L;
+    private static volatile boolean pendingChatTriggerUsesBallsack = false;
     private static volatile int lastCleaningAliveCount = -1;
     private static volatile long lastCleaningProgressAtMs = 0L;
     private static volatile boolean rewarpTriggerAvailable = false;
@@ -71,6 +73,21 @@ public class PestManager {
 
     public static int getCurrentPestSessionId() {
         return currentPestSessionId;
+    }
+
+    public static boolean isBallsackShredderActiveForCurrentCycle() {
+        return ballsackShredderActiveForCurrentCycle;
+    }
+
+    public static boolean shouldUseBallsackShredderForSpawn(String plot) {
+        return shouldRunBallsackShredderForSpawn(plot)
+                && PestPlotId.equals(plot, ClientUtils.getCurrentPlot());
+    }
+
+    private static boolean shouldRunBallsackShredderForSpawn(String plot) {
+        return AetherConfig.BALLSACK_SHREDDER.get()
+                && dev.aether.modules.pest.helpers.PestBallsackShredder.isConfiguredForPlot(
+                        plot, AetherConfig.BALLSACK_SHREDDER_PLOTS.get());
     }
     private static boolean isThresholdMet(int aliveCount) {
         return aliveCount >= AetherConfig.PEST_THRESHOLD.get() || aliveCount >= 8;
@@ -171,6 +188,7 @@ public class PestManager {
     public static void reset() {
         isCleaningInProgress = false;
         currentInfestedPlot = null;
+        ballsackShredderActiveForCurrentCycle = false;
         currentInfestedPlots = Set.of();
         lastZeroPestTime = 0;
         predictedAliveCount = 0;
@@ -320,8 +338,10 @@ public class PestManager {
             String targetPlot = actionablePlots.stream().findFirst().orElse(null);
             ClientUtils.sendDebugMessage("[PestManager] Tab threshold met. infestedPlots=" + actionablePlots
                             + " targetPlot=" + targetPlot + " currentPlot=" + ClientUtils.getCurrentPlot());
+            boolean useBallsackRoute = shouldRunBallsackShredderForSpawn(targetPlot);
             boolean started = startCleaningSequence(client, targetPlot, effectiveAlive);
             if (started) {
+                ballsackShredderActiveForCurrentCycle = useBallsackRoute;
                 consumeRewarpTrigger();
             }
         }
@@ -335,6 +355,7 @@ public class PestManager {
         if (PestDestroyer.isActive()) {
             PestDestroyer.stop(client);
         }
+        ballsackShredderActiveForCurrentCycle = false;
         PestLifecycleManager.startPostStage(client);
     }
 
@@ -344,9 +365,13 @@ public class PestManager {
     }
 
     /** Schedules a chat trigger without blocking the shared worker or farming. */
-    public static synchronized void scheduleChatCleaningTrigger(String plot, int spawnedCount, long delayMs) {
+    public static synchronized void scheduleChatCleaningTrigger(
+            String plot, int spawnedCount, long delayMs, long ballsackDelayMs, boolean spawnedMessage) {
+        boolean useBallsackRoute = spawnedMessage && shouldRunBallsackShredderForSpawn(plot);
+        boolean useBallsackTriggerFlow = spawnedMessage && shouldUseBallsackShredderForSpawn(plot);
+        long selectedDelayMs = useBallsackTriggerFlow ? ballsackDelayMs : delayMs;
         boolean requestedBallsackLoadout = false;
-        if (AetherConfig.BALLSACK_SHREDDER.get()) {
+        if (useBallsackTriggerFlow) {
             int farmingSlot = AetherConfig.LOADOUT_SLOT_FARMING.get();
             if (farmingSlot > 0
                     && LoadoutManager.trackedLoadoutSlot != farmingSlot
@@ -357,14 +382,16 @@ public class PestManager {
             }
         }
 
-        long normalizedDelayMs = Math.max(0L, delayMs);
+        long normalizedDelayMs = Math.max(0L, selectedDelayMs);
         long triggerAt = System.currentTimeMillis() + normalizedDelayMs;
         if (pendingChatTrigger == null) {
             pendingChatTrigger = new PendingChatTrigger(plot, Math.max(0, spawnedCount), triggerAt);
+            pendingChatTriggerUsesBallsack = useBallsackRoute;
         } else {
             pendingChatTrigger = new PendingChatTrigger(plot,
                     pendingChatTrigger.spawnedCount + Math.max(0, spawnedCount),
                     Math.min(pendingChatTrigger.triggerAtMs, triggerAt));
+            pendingChatTriggerUsesBallsack |= useBallsackRoute;
         }
 
         if (requestedBallsackLoadout) {
@@ -394,12 +421,13 @@ public class PestManager {
             return false;
         }
         if (currentState != MacroState.State.FARMING) {
-            if (AetherConfig.BALLSACK_SHREDDER.get() && LoadoutManager.isSwappingLoadout) {
+            if (pendingChatTriggerUsesBallsack && LoadoutManager.isSwappingLoadout) {
                 return false;
             }
             pendingChatTrigger = null;
             pendingChatTriggerWaitsForLoadout = false;
             pendingChatTriggerDelayAfterLoadoutMs = 0L;
+            pendingChatTriggerUsesBallsack = false;
             return false;
         }
         if (System.currentTimeMillis() < pending.triggerAtMs) {
@@ -411,7 +439,9 @@ public class PestManager {
         pendingChatTrigger = null;
         pendingChatTriggerWaitsForLoadout = false;
         pendingChatTriggerDelayAfterLoadoutMs = 0L;
-        tryStartCleaningSequenceFromChat(client, pending.plot, pending.spawnedCount);
+        boolean useBallsackFlow = pendingChatTriggerUsesBallsack;
+        pendingChatTriggerUsesBallsack = false;
+        tryStartCleaningSequenceFromChat(client, pending.plot, pending.spawnedCount, useBallsackFlow);
         return true;
     }
 
@@ -476,6 +506,11 @@ public class PestManager {
     }
 
     public static boolean tryStartCleaningSequenceFromChat(Minecraft client, String requestedPlot, int spawnedCount) {
+        return tryStartCleaningSequenceFromChat(client, requestedPlot, spawnedCount, false);
+    }
+
+    private static boolean tryStartCleaningSequenceFromChat(
+            Minecraft client, String requestedPlot, int spawnedCount, boolean useBallsackFlow) {
         if (!isPestDestroyerEnabled()
                 || client == null
                 || client.getConnection() == null
@@ -538,6 +573,7 @@ public class PestManager {
                         + ", ordered=" + currentInfestedPlots);
         boolean started = startCleaningSequence(client, targetPlot, effectiveAlive);
         if (started) {
+            ballsackShredderActiveForCurrentCycle = useBallsackFlow;
             consumeRewarpTrigger();
         }
         return started;

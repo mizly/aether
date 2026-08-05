@@ -11,6 +11,7 @@ import dev.aether.modules.gear.GearManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.modules.failsafe.FailsafeManager;
+import dev.aether.modules.pest.PestManager;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -101,7 +102,7 @@ public class PestAotvManager {
     }
 
     public static boolean shouldDoAotvOnCurrentPlot(Minecraft client, String currentInfestedPlot, boolean isSamePlot) {
-        if (PestBallsackShredder.shouldRunOnPlot(currentInfestedPlot) || !AetherConfig.AOTV_TO_ROOF.get())
+        if (PestManager.isBallsackShredderActiveForCurrentCycle() || !AetherConfig.AOTV_TO_ROOF.get())
             return false;
 
         if (AetherConfig.AOTV_ROOF_PLOTS.get().isEmpty())

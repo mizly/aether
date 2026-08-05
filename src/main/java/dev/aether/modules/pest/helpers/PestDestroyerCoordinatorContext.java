@@ -130,6 +130,11 @@ final class PestDestroyerCoordinatorContext
     }
 
     @Override
+    public void startBallsackShredder(Minecraft client, String plot) {
+        PestDestroyer.startBallsackShredder(client, plot);
+    }
+
+    @Override
     public boolean isLookingAt(
             Minecraft client, Vec3 targetPosition, float tolerance) {
         return PestTargetController.isLookingAt(client, targetPosition, tolerance);
