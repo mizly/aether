@@ -28,7 +28,10 @@ public final class RewarpManager {
     private static final int REWARP_LANDING_ATTEMPTS = 3;
     private static final long REWARP_POSITION_ADJUST_TIMEOUT_MS = 6000L;
     private static final long REWARP_DESCENT_TIMEOUT_MS = 12000L;
+    private static final long REWARP_RECOVERY_TIMEOUT_MS = 4000L;
     private static final long REWARP_MOVEMENT_TICK_MS = 50L;
+    private static final double REWARP_RECOVERY_HEIGHT_ABOVE_TARGET = 4.0;
+    private static final double REWARP_RECOVERY_HEIGHT_ABOVE_OBSTACLE = 2.0;
     private static final double REWARP_CENTER_TOLERANCE = 0.18;
     private static final double REWARP_DESCENT_DRIFT_LIMIT = 0.32;
     private static final double REWARP_SETTLED_SPEED = 0.025;
@@ -248,6 +251,11 @@ public final class RewarpManager {
     private static boolean landOnRewarpBlock(Minecraft client, RewarpPointPair pair) {
         Vec3 target = getRewarpWalkGoalPosition(pair);
         for (int attempt = 1; attempt <= REWARP_LANDING_ATTEMPTS; attempt++) {
+            if (!prepareLandingAttempt(client, target, attempt)) {
+                ClientUtils.sendDebugMessage("Rewarp landing attempt " + attempt
+                        + " could not recover flight above the landing area");
+                continue;
+            }
             ClientUtils.sendDebugMessage("Rewarp landing attempt " + attempt + "/" + REWARP_LANDING_ATTEMPTS
                     + " target=" + formatVec(target) + " current=" + formatVec(getPlayerPosition(client))
                     + " flying=" + isPlayerFlying(client));
@@ -293,6 +301,13 @@ public final class RewarpManager {
 
             FlightSnapshot snapshot = getFlightSnapshot(client);
             if (snapshot == null) {
+                return false;
+            }
+            if (snapshot.onGround()) {
+                ClientUtils.sendDebugMessage("Rewarp centering touched a solid block: target=" + formatVec(target)
+                        + " current=" + formatVec(snapshot.position())
+                        + " flying=" + isPlayerFlying(client) + "; retrying from above");
+                releaseMovementKeys(client);
                 return false;
             }
 
@@ -361,6 +376,15 @@ public final class RewarpManager {
                 releaseMovementKeys(client);
                 return true;
             }
+            if (snapshot.onGround()) {
+                ClientUtils.sendDebugMessage("Rewarp descent landed on an unexpected solid block: target="
+                        + formatVec(target)
+                        + " current=" + formatVec(snapshot.position())
+                        + " targetFeetY=" + format(pair.startY)
+                        + "; retrying from above");
+                releaseMovementKeys(client);
+                return false;
+            }
 
             double deltaX = target.x - snapshot.position().x;
             double deltaZ = target.z - snapshot.position().z;
@@ -392,6 +416,63 @@ public final class RewarpManager {
         releaseMovementKeys(client);
         ClientUtils.sendDebugMessage("Rewarp descent timed out after " + REWARP_DESCENT_TIMEOUT_MS
                 + "ms; target=" + formatVec(target) + " current=" + formatVec(getPlayerPosition(client)));
+        return false;
+    }
+
+    private static boolean prepareLandingAttempt(Minecraft client, Vec3 target, int attempt) {
+        FlightSnapshot initial = getFlightSnapshot(client);
+        if (initial == null) {
+            return false;
+        }
+        if (!initial.onGround() && isPlayerFlying(client)) {
+            return true;
+        }
+
+        releaseMovementKeys(client);
+        double recoveryY = Math.max(
+                target.y + REWARP_RECOVERY_HEIGHT_ABOVE_TARGET,
+                initial.position().y + REWARP_RECOVERY_HEIGHT_ABOVE_OBSTACLE);
+        ClientUtils.sendDebugMessage("Rewarp landing attempt " + attempt
+                + " recovering from solid block: current=" + formatVec(initial.position())
+                + " flying=" + isPlayerFlying(client)
+                + " recoveryY=" + format(recoveryY));
+
+        ensureFlight(client);
+        if (!isPlayerFlying(client)) {
+            ClientUtils.sendDebugMessage("Rewarp recovery could not enable flight: current="
+                    + formatVec(getPlayerPosition(client))
+                    + " canFly=" + canPlayerFly(client));
+            return false;
+        }
+
+        long deadline = System.currentTimeMillis() + REWARP_RECOVERY_TIMEOUT_MS;
+        client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyJump, true));
+        while (System.currentTimeMillis() < deadline) {
+            if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
+                releaseMovementKeys(client);
+                return false;
+            }
+
+            FlightSnapshot snapshot = getFlightSnapshot(client);
+            if (snapshot == null) {
+                releaseMovementKeys(client);
+                return false;
+            }
+            if (!snapshot.onGround() && snapshot.position().y >= recoveryY) {
+                client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyJump, false));
+                MacroWorkerThread.sleep(100);
+                ClientUtils.sendDebugMessage("Rewarp recovery reached safe height: current="
+                        + formatVec(snapshot.position()) + " recoveryY=" + format(recoveryY));
+                return true;
+            }
+            MacroWorkerThread.sleep(REWARP_MOVEMENT_TICK_MS);
+        }
+
+        releaseMovementKeys(client);
+        ClientUtils.sendDebugMessage("Rewarp recovery timed out after " + REWARP_RECOVERY_TIMEOUT_MS
+                + "ms: current=" + formatVec(getPlayerPosition(client))
+                + " recoveryY=" + format(recoveryY)
+                + " flying=" + isPlayerFlying(client));
         return false;
     }
 
