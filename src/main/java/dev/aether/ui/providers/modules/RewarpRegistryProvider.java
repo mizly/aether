@@ -87,10 +87,6 @@ public final class RewarpRegistryProvider extends AbstractModulesRegistryProvide
         group.add(new ToggleSetting("Hold W Until Wall",
                 () -> RewarpPointPairs.get(index).holdWUntilWall,
                 v -> RewarpPointPairs.update(index, p -> p.holdWUntilWall = v)));
-        group.add(new ToggleSetting("AOTV/AOTE Align",
-                () -> RewarpPointPairs.get(index).aotvAlign,
-                v -> RewarpPointPairs.update(index, p -> p.aotvAlign = v))
-                .visibleWhen(() -> RewarpPointPairs.get(index).rewarpMode == RewarpMode.FLY));
         group.add(buildRewarpStartSetting(index));
         group.add(buildRewarpEndSetting(index));
         group.add(new ActionSetting("Add Rewarp", RewarpRegistryProvider::addRewarpPair));
@@ -116,11 +112,11 @@ public final class RewarpRegistryProvider extends AbstractModulesRegistryProvide
     private static PositionSetting buildRewarpStartSetting(int index) {
         return new PositionSetting("Rewarp Start",
                 () -> RewarpPointPairs.get(index).startX,
-                v -> RewarpPointPairs.update(index, pair -> pair.startX = v),
+                v -> RewarpPointPairs.update(index, pair -> pair.startX = RewarpPointPair.snapToBlockCenter(v)),
                 () -> RewarpPointPairs.get(index).startY,
                 v -> RewarpPointPairs.update(index, pair -> pair.startY = v),
                 () -> RewarpPointPairs.get(index).startZ,
-                v -> RewarpPointPairs.update(index, pair -> pair.startZ = v),
+                v -> RewarpPointPairs.update(index, pair -> pair.startZ = RewarpPointPair.snapToBlockCenter(v)),
                 () -> RewarpPointPairs.get(index).highlightStart,
                 v -> RewarpPointPairs.update(index, pair -> pair.highlightStart = v),
                 () -> captureStart(index));
@@ -129,11 +125,11 @@ public final class RewarpRegistryProvider extends AbstractModulesRegistryProvide
     private static PositionSetting buildRewarpEndSetting(int index) {
         return new PositionSetting("Rewarp End",
                 () -> RewarpPointPairs.get(index).endX,
-                v -> RewarpPointPairs.update(index, pair -> pair.endX = v),
+                v -> RewarpPointPairs.update(index, pair -> pair.endX = RewarpPointPair.snapToBlockCenter(v)),
                 () -> RewarpPointPairs.get(index).endY,
                 v -> RewarpPointPairs.update(index, pair -> pair.endY = v),
                 () -> RewarpPointPairs.get(index).endZ,
-                v -> RewarpPointPairs.update(index, pair -> pair.endZ = v),
+                v -> RewarpPointPairs.update(index, pair -> pair.endZ = RewarpPointPair.snapToBlockCenter(v)),
                 () -> RewarpPointPairs.get(index).highlightEnd,
                 v -> RewarpPointPairs.update(index, pair -> pair.highlightEnd = v),
                 () -> captureEnd(index));
@@ -145,9 +141,9 @@ public final class RewarpRegistryProvider extends AbstractModulesRegistryProvide
             return;
         }
         RewarpPointPairs.update(index, pair -> {
-            pair.startX = player.getX();
+            pair.startX = RewarpPointPair.snapToBlockCenter(player.getX());
             pair.startY = player.getY();
-            pair.startZ = player.getZ();
+            pair.startZ = RewarpPointPair.snapToBlockCenter(player.getZ());
             pair.startSet = true;
         });
         RewarpPointPair pair = RewarpPointPairs.get(index);
@@ -162,9 +158,9 @@ public final class RewarpRegistryProvider extends AbstractModulesRegistryProvide
             return;
         }
         RewarpPointPairs.update(index, pair -> {
-            pair.endX = player.getX();
+            pair.endX = RewarpPointPair.snapToBlockCenter(player.getX());
             pair.endY = player.getY();
-            pair.endZ = player.getZ();
+            pair.endZ = RewarpPointPair.snapToBlockCenter(player.getZ());
             pair.endSet = true;
         });
         RewarpPointPair pair = RewarpPointPairs.get(index);
