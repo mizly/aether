@@ -32,8 +32,8 @@ public final class RewarpManager {
     private static final long REWARP_MOVEMENT_TICK_MS = 50L;
     private static final double REWARP_RECOVERY_HEIGHT_ABOVE_TARGET = 4.0;
     private static final double REWARP_RECOVERY_HEIGHT_ABOVE_OBSTACLE = 2.0;
-    private static final double REWARP_CENTER_TOLERANCE = 0.18;
-    private static final double REWARP_DESCENT_DRIFT_LIMIT = 0.32;
+    private static final double REWARP_CENTER_TOLERANCE = 0.2;
+    private static final double REWARP_DESCENT_DRIFT_LIMIT = 0.4;
     private static final double REWARP_SETTLED_SPEED = 0.025;
     private static final double REWARP_CORRECTION_AXIS_THRESHOLD = 0.05;
     private static final long REWARP_CORRECTION_PULSE_MS = 50L;
