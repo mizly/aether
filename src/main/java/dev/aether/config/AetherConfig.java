@@ -659,6 +659,7 @@ public final class AetherConfig {
         
         public static final BooleanEntry ENABLE_REWARP = Config.bool("enableRewarp", false);
         public static final BooleanEntry ENABLE_PLOT_TP_REWARP = Config.bool("enablePlotTpRewarp", false);
+        public static final BooleanEntry REWARP_AOTV_ALIGN = Config.bool("rewarpAotvAlign", false);
         public static final StringEntry PLOT_TP_NUMBER = Config.string("plotTpNumber", "0");
         public static final BooleanEntry HOLD_W_UNTIL_WALL = Config.bool("holdWUntilWall", false);
         public static final IntEntry REWARP_DELAY_MIN = Config.integer("rewarpDelayMin", 0).range(0, 1000);

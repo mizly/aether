@@ -5,6 +5,7 @@ import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.gear.GearManager;
+import dev.aether.modules.rewarp.RewarpManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.helpers.AutoPestExchangeManager;
 import dev.aether.modules.session.RestartManager;
@@ -123,11 +124,13 @@ public final class FarmingMacroManager {
                     return;
                 }
 
+                RewarpManager.runPendingPostResumeActions(mc);
                 mc.execute(() -> startMacroNow(mc, macro));
             });
             return;
         }
 
+        RewarpManager.runPendingPostResumeActions(mc);
         startMacroNow(mc, macro);
     }
 
