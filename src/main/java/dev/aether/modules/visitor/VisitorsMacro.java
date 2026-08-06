@@ -64,6 +64,10 @@ import java.util.regex.Pattern;
 public class VisitorsMacro {
 
     private static final Pattern ITEM_PATTERN = Pattern.compile("^(.+?)\\s+x([\\d,]+)$");
+    private static final Pattern COPPER_PATTERN = Pattern.compile("([\\d,]+)\\s+Copper", Pattern.CASE_INSENSITIVE);
+    private static final Set<String> RARE_REWARDS = Set.of(
+            "Dedication", "Cultivating", "Delicate", "Replenish", "Music Rune",
+            "Green Bandana", "Overgrown Grass", "Space Helmet", "Copper Dye");
     private static final int ACCEPT_OFFER_SLOT = 29;
     private static final int REJECT_OFFER_SLOT = 33;
     private static final long COMPACTOR_GUI_TIMEOUT_MS = 2500L;
@@ -321,9 +325,17 @@ public class VisitorsMacro {
         MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(true));
 
         // Read required items from "Accept Offer" lore
-        List<ItemRequirement> requirements = readRequirements(client);
-        if (requirements == null) {
+        VisitorOffer offer = readOffer(client);
+        if (offer == null) {
             msg(client, "\u00A7cCould not read requirements for: " + visitorName);
+            closeScreen(client);
+            return false;
+        }
+        List<ItemRequirement> requirements = offer.requirements;
+
+        if (!shouldAcceptOffer(offer)) {
+            clickRejectOffer(client);
+            MacroWorkerThread.sleep(300);
             closeScreen(client);
             return false;
         }
@@ -427,6 +439,50 @@ public class VisitorsMacro {
             buyValue = ProfitManager.getItemPrice(req.name) * req.count;
         }
         return (long) Math.ceil(Math.abs(buyValue));
+    }
+
+    private static boolean shouldAcceptOffer(VisitorOffer offer) {
+        boolean coinsPerCopperEnabled = AetherConfig.VISITOR_COINS_PER_COPPER.get();
+        boolean onlyRareDrops = AetherConfig.VISITOR_ONLY_RARE_DROPS.get();
+        if (!coinsPerCopperEnabled && !onlyRareDrops) {
+            return true;
+        }
+
+        if (onlyRareDrops && offer.hasRareReward) {
+            return true;
+        }
+
+        double npcCost = 0.0;
+        for (ItemRequirement requirement : offer.requirements) {
+            double price = ProfitManager.getNpcPrice(requirement.name);
+            if (price <= 0.0) {
+                ClientUtils.sendDebugMessage("[VisitorsMacro] Unknown NPC price: " + requirement.name);
+                return false;
+            }
+            npcCost += price * requirement.count;
+        }
+
+        int coinsPerCopper = calculatePricePerCopper(npcCost, offer.copper);
+        boolean accepted = shouldAcceptOffer(coinsPerCopperEnabled,
+                AetherConfig.VISITOR_COINS_PER_COPPER_LIMIT.get(), onlyRareDrops,
+                offer.hasRareReward, offer.copper, coinsPerCopper);
+        if (!accepted) {
+            ClientUtils.sendDebugMessage("[VisitorsMacro] Rejecting offer: " + coinsPerCopper
+                    + " coins/copper, copper=" + offer.copper + ", rare=" + offer.hasRareReward);
+        }
+        return accepted;
+    }
+
+    static int calculatePricePerCopper(double totalPrice, int copper) {
+        if (copper <= 0) return 0;
+        return (int) (totalPrice / copper);
+    }
+
+    static boolean shouldAcceptOffer(boolean coinsPerCopperEnabled, int limit, boolean onlyRareDrops,
+            boolean hasRareReward, int copper, int coinsPerCopper) {
+        if (onlyRareDrops && hasRareReward) return true;
+        if (coinsPerCopperEnabled) return copper > 0 && coinsPerCopper <= limit;
+        return !onlyRareDrops;
     }
 
     private static String formatCoins(long coins) {
@@ -909,7 +965,7 @@ public class VisitorsMacro {
         return !title.equals(target);
     }
 
-    private static List<ItemRequirement> readRequirements(Minecraft client) {
+    private static VisitorOffer readOffer(Minecraft client) {
         if (!(client.screen instanceof AbstractContainerScreen<?> screen))
             return null;
 
@@ -930,6 +986,9 @@ public class VisitorsMacro {
 
         List<ItemRequirement> requirements = new ArrayList<>();
         boolean parsingRequired = false;
+        boolean parsingRewards = false;
+        int copper = 0;
+        boolean hasRareReward = false;
 
         for (Component line : loreCmp.lines()) {
             String text = stripColors(line.getString()).trim();
@@ -938,11 +997,12 @@ public class VisitorsMacro {
 
             if (text.contains("Required:") || text.contains("Items Required:")) {
                 parsingRequired = true;
+                parsingRewards = false;
                 continue;
             }
-            if (text.contains("Rewards:") || text.contains("Copper") || text.contains("Garden Experience")) {
-                if (parsingRequired)
-                    parsingRequired = false;
+            if (text.contains("Rewards:")) {
+                parsingRequired = false;
+                parsingRewards = true;
                 continue;
             }
 
@@ -961,10 +1021,23 @@ public class VisitorsMacro {
                     requirements.add(new ItemRequirement(text.trim(), 1));
                     ClientUtils.sendDebugMessage("[VisitorsMacro] Required: " + text.trim() + " x1");
                 }
+            } else if (parsingRewards) {
+                copper = Math.max(copper, parseCopperReward(text));
+                hasRareReward |= hasRareReward(text);
             }
         }
 
-        return requirements;
+        return new VisitorOffer(requirements, copper, hasRareReward);
+    }
+
+    static int parseCopperReward(String text) {
+        Matcher matcher = COPPER_PATTERN.matcher(text);
+        return matcher.find() ? Integer.parseInt(matcher.group(1).replace(",", "")) : 0;
+    }
+
+    static boolean hasRareReward(String text) {
+        return RARE_REWARDS.stream().anyMatch(reward -> text.toLowerCase(Locale.ROOT)
+                .contains(reward.toLowerCase(Locale.ROOT)));
     }
 
     private static boolean checkHasItems(Minecraft client) {
@@ -1324,5 +1397,8 @@ public class VisitorsMacro {
             this.name = name;
             this.count = count;
         }
+    }
+
+    private record VisitorOffer(List<ItemRequirement> requirements, int copper, boolean hasRareReward) {
     }
 }

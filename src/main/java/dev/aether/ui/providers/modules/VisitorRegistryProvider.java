@@ -41,6 +41,26 @@ public final class VisitorRegistryProvider extends AbstractModulesRegistryProvid
                     AetherConfig.save();
                 })
                 .withDecimals(1).withSuffix("m"));
+        group.add(new ToggleSetting("Max Coins/Copper",
+                () -> AetherConfig.VISITOR_COINS_PER_COPPER.get(),
+                v -> {
+                    AetherConfig.VISITOR_COINS_PER_COPPER.set(v);
+                    AetherConfig.save();
+                }));
+        group.add(new SliderSetting("Coins/Copper Limit", 0.0f, 100.0f,
+                () -> AetherConfig.VISITOR_COINS_PER_COPPER_LIMIT.get() / 1_000.0f,
+                v -> {
+                    AetherConfig.VISITOR_COINS_PER_COPPER_LIMIT.set(Math.round(v * 1_000.0f));
+                    AetherConfig.save();
+                })
+                .withDecimals(1).withSuffix("k")
+                .visibleWhen(() -> AetherConfig.VISITOR_COINS_PER_COPPER.get()));
+        group.add(new ToggleSetting("Only Accept Rare Drops",
+                () -> AetherConfig.VISITOR_ONLY_RARE_DROPS.get(),
+                v -> {
+                    AetherConfig.VISITOR_ONLY_RARE_DROPS.set(v);
+                    AetherConfig.save();
+                }));
         group.add(new ListSetting("Visitor Ignored", "Add visitor name",
                 () -> AetherConfig.VISITOR_ignore.get(),
                 v -> {

@@ -226,6 +226,10 @@ public final class ProfitManager {
         return PRICING.getItemPrice(itemName);
     }
 
+    public static double getNpcPrice(String itemName) {
+        return PRICING.getNpcPrice(itemName);
+    }
+
     public static double getItemValue(String itemName, long count) {
         return PRICING.getItemValue(itemName, count);
     }
