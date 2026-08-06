@@ -14,6 +14,7 @@ import dev.aether.modules.inventorymanager.BookCombineManager;
 import dev.aether.modules.inventorymanager.GeorgeManager;
 import dev.aether.modules.inventorymanager.JunkManager;
 import dev.aether.modules.pest.ManualPestManager;
+import dev.aether.modules.movement.MovementPlaybackManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.profit.ProfitManager;
 import dev.aether.modules.session.DynamicRestManager;
@@ -96,6 +97,12 @@ public final class AetherKeybindHandler {
     }
 
     private static void handleMacroToggle(Minecraft client) {
+        if (MovementPlaybackManager.isPlaying()) {
+        MovementPlaybackManager.stop();
+        MacroStateManager.stopMacro();
+        return;
+        }
+        
         if (MacroStateManager.getCurrentState() == MacroState.State.OFF) {
             startFarmingMacro(client, false);
             return;
