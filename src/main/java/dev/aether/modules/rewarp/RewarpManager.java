@@ -10,12 +10,15 @@ import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.farming.SqueakyMousematManager;
+import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.pest.helpers.PestReturnManager;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.concurrent.CompletableFuture;
@@ -27,16 +30,23 @@ public final class RewarpManager {
     private static final long CLIENT_THREAD_TIMEOUT_MS = 1000L;
     private static final int REWARP_LANDING_ATTEMPTS = 3;
     private static final long REWARP_POSITION_ADJUST_TIMEOUT_MS = 6000L;
+    private static final long REWARP_POSITION_TAP_MS = 50L;
+    private static final long REWARP_POSITION_SETTLE_MS = 75L;
     private static final long REWARP_DESCENT_TIMEOUT_MS = 12000L;
+    private static final long REWARP_RECOVERY_TIMEOUT_MS = 4000L;
     private static final long REWARP_MOVEMENT_TICK_MS = 50L;
-    private static final double REWARP_CENTER_TOLERANCE = 0.18;
-    private static final double REWARP_DESCENT_DRIFT_LIMIT = 0.32;
+    private static final double REWARP_RECOVERY_HEIGHT_ABOVE_TARGET = 4.0;
+    private static final double REWARP_RECOVERY_HEIGHT_ABOVE_OBSTACLE = 2.0;
+    private static final double REWARP_CENTER_TOLERANCE = 0.2;
+    private static final double REWARP_AOTV_ALIGN_CENTER_TOLERANCE = 1.0;
+    private static final double REWARP_DESCENT_DRIFT_LIMIT = 0.4;
     private static final double REWARP_SETTLED_SPEED = 0.025;
     private static final double REWARP_CORRECTION_AXIS_THRESHOLD = 0.05;
     private static final long REWARP_CORRECTION_PULSE_MS = 50L;
     private static final int REWARP_SETTLED_SAMPLES = 3;
 
     private static long lastRewarpTime = 0;
+    private static volatile RewarpPointPair pendingPostResumePair;
 
     private RewarpManager() {
     }
@@ -133,6 +143,7 @@ public final class RewarpManager {
                 return;
             }
 
+            queuePostResumeActions(pair);
             MacroStateManager.setCurrentState(MacroState.State.FARMING);
             SqueakyMousematManager.armReapplyAttempt();
             client.execute(() -> FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig()));
@@ -173,46 +184,6 @@ public final class RewarpManager {
             return;
         }
 
-        if (!pair.holdWUntilWall) {
-            return;
-        }
-
-        client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyUp, true));
-        MacroWorkerThread.sleepRandom(170, 60);
-        long wallTimeout = System.currentTimeMillis() + 5000;
-        Vec3 lastPos = getPlayerPosition(client);
-        if (lastPos == null) {
-            client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyUp, false));
-            return;
-        }
-
-        double lastX = lastPos.x;
-        double lastZ = lastPos.z;
-        while (System.currentTimeMillis() < wallTimeout) {
-            if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
-                client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyUp, false));
-                return;
-            }
-
-            MacroWorkerThread.sleep(100);
-            Vec3 currPos = getPlayerPosition(client);
-            if (currPos == null) {
-                client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyUp, false));
-                return;
-            }
-
-            double currX = currPos.x;
-            double currZ = currPos.z;
-            double moved = Math.sqrt((currX - lastX) * (currX - lastX) + (currZ - lastZ) * (currZ - lastZ));
-            if (moved < 0.03) {
-                break;
-            }
-            lastX = currX;
-            lastZ = currZ;
-        }
-
-        client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyUp, false));
-        MacroWorkerThread.sleepRandom(85, 30);
     }
 
     private static boolean performCoordinateRewarp(Minecraft client, RewarpPointPair pair) {
@@ -242,12 +213,170 @@ public final class RewarpManager {
             return false;
         }
 
-        return landOnRewarpBlock(client, pair);
+        if (pair.aotvAlign) {
+            if (!performAotvAlign(client, pair)) {
+                return false;
+            }
+        } else if (!landOnRewarpBlock(client, pair)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public static void runPendingPostResumeActions(Minecraft client) {
+        RewarpPointPair pair = consumePendingPostResumePair();
+        if (pair == null) {
+            return;
+        }
+
+        holdWUntilWall(client, pair);
+    }
+
+    private static void queuePostResumeActions(RewarpPointPair pair) {
+        pendingPostResumePair = pair != null && pair.holdWUntilWall ? pair : null;
+    }
+
+    private static RewarpPointPair consumePendingPostResumePair() {
+        RewarpPointPair pair = pendingPostResumePair;
+        pendingPostResumePair = null;
+        return pair;
+    }
+
+    private static boolean performAotvAlign(Minecraft client, RewarpPointPair pair) {
+        if (getPlayerPosition(client) == null) {
+            return false;
+        }
+
+        int aotvSlot = GearManager.findAspectOfTheVoidSlot(client);
+        if (aotvSlot < 0 || aotvSlot > 8) {
+            ClientUtils.sendDebugMessage("Rewarp align failed: no AOTV/AOTE in hotbar");
+            return false;
+        }
+
+        if (!stabilizeFlyPositionForAotv(client, pair)) {
+            ClientUtils.sendDebugMessage("Rewarp align failed: could not stabilize above target");
+            return false;
+        }
+
+        rotateToRewarpStartBlock(client, pair);
+        if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
+            return false;
+        }
+
+        Vec3 playerPos = getPlayerPosition(client);
+        if (playerPos == null) {
+            return false;
+        }
+
+        GearManager.swapToAOTVSync(client);
+        if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
+            return false;
+        }
+
+        ClientUtils.performUseClick();
+        ClientUtils.waitForYChange(playerPos.y, 900);
+        MacroWorkerThread.sleepRandom(170, 60);
+        return !MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING);
+    }
+
+    private static boolean stabilizeFlyPositionForAotv(Minecraft client, RewarpPointPair pair) {
+        releaseHorizontalMovementKeys(client);
+        if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
+            return false;
+        }
+
+        rotateToRewarpStartBlock(client, pair);
+        if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
+            return false;
+        }
+
+        Vec3 target = getRewarpWalkGoalPosition(pair);
+        long deadline = System.currentTimeMillis() + REWARP_POSITION_ADJUST_TIMEOUT_MS;
+        while (System.currentTimeMillis() < deadline) {
+            if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
+                releaseHorizontalMovementKeys(client);
+                return false;
+            }
+
+            Vec3 playerPos = getPlayerPosition(client);
+            if (playerPos == null) {
+                releaseHorizontalMovementKeys(client);
+                return false;
+            }
+
+            double deltaX = target.x - playerPos.x;
+            double deltaZ = target.z - playerPos.z;
+            if (Math.abs(deltaX) <= REWARP_AOTV_ALIGN_CENTER_TOLERANCE
+                    && Math.abs(deltaZ) <= REWARP_AOTV_ALIGN_CENTER_TOLERANCE) {
+                releaseHorizontalMovementKeys(client);
+                return true;
+            }
+
+            double yawRad = Math.toRadians(getPlayerYaw(client));
+            double forwardError = deltaX * -Math.sin(yawRad) + deltaZ * Math.cos(yawRad);
+            double strafeError = deltaX * Math.cos(yawRad) + deltaZ * Math.sin(yawRad);
+            KeyMapping keyToTap = Math.abs(forwardError) >= Math.abs(strafeError)
+                    ? (forwardError >= 0 ? client.options.keyUp : client.options.keyDown)
+                    : (strafeError >= 0 ? client.options.keyRight : client.options.keyLeft);
+            tapMovementKey(client, keyToTap);
+        }
+
+        releaseHorizontalMovementKeys(client);
+        return false;
+    }
+
+    private static void holdWUntilWall(Minecraft client, RewarpPointPair pair) {
+        if (!pair.holdWUntilWall) {
+            return;
+        }
+
+        client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyUp, true));
+        MacroWorkerThread.sleepRandom(170, 60);
+        long wallTimeout = System.currentTimeMillis() + 5000;
+        Vec3 lastPos = getPlayerPosition(client);
+        if (lastPos == null) {
+            client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyUp, false));
+            return;
+        }
+
+        double lastX = lastPos.x;
+        double lastZ = lastPos.z;
+        while (System.currentTimeMillis() < wallTimeout) {
+            if (MacroWorkerThread.shouldAbortTask(client)) {
+                client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyUp, false));
+                return;
+            }
+
+            MacroWorkerThread.sleep(100);
+            Vec3 currPos = getPlayerPosition(client);
+            if (currPos == null) {
+                client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyUp, false));
+                return;
+            }
+
+            double currX = currPos.x;
+            double currZ = currPos.z;
+            double moved = Math.sqrt((currX - lastX) * (currX - lastX) + (currZ - lastZ) * (currZ - lastZ));
+            if (moved < 0.03) {
+                break;
+            }
+            lastX = currX;
+            lastZ = currZ;
+        }
+
+        client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyUp, false));
+        MacroWorkerThread.sleepRandom(85, 30);
     }
 
     private static boolean landOnRewarpBlock(Minecraft client, RewarpPointPair pair) {
         Vec3 target = getRewarpWalkGoalPosition(pair);
         for (int attempt = 1; attempt <= REWARP_LANDING_ATTEMPTS; attempt++) {
+            if (!prepareLandingAttempt(client, target, attempt)) {
+                ClientUtils.sendDebugMessage("Rewarp landing attempt " + attempt
+                        + " could not recover flight above the landing area");
+                continue;
+            }
             ClientUtils.sendDebugMessage("Rewarp landing attempt " + attempt + "/" + REWARP_LANDING_ATTEMPTS
                     + " target=" + formatVec(target) + " current=" + formatVec(getPlayerPosition(client))
                     + " flying=" + isPlayerFlying(client));
@@ -293,6 +422,13 @@ public final class RewarpManager {
 
             FlightSnapshot snapshot = getFlightSnapshot(client);
             if (snapshot == null) {
+                return false;
+            }
+            if (snapshot.onGround()) {
+                ClientUtils.sendDebugMessage("Rewarp centering touched a solid block: target=" + formatVec(target)
+                        + " current=" + formatVec(snapshot.position())
+                        + " flying=" + isPlayerFlying(client) + "; retrying from above");
+                releaseMovementKeys(client);
                 return false;
             }
 
@@ -361,6 +497,15 @@ public final class RewarpManager {
                 releaseMovementKeys(client);
                 return true;
             }
+            if (snapshot.onGround()) {
+                ClientUtils.sendDebugMessage("Rewarp descent landed on an unexpected solid block: target="
+                        + formatVec(target)
+                        + " current=" + formatVec(snapshot.position())
+                        + " targetFeetY=" + format(pair.startY)
+                        + "; retrying from above");
+                releaseMovementKeys(client);
+                return false;
+            }
 
             double deltaX = target.x - snapshot.position().x;
             double deltaZ = target.z - snapshot.position().z;
@@ -392,6 +537,63 @@ public final class RewarpManager {
         releaseMovementKeys(client);
         ClientUtils.sendDebugMessage("Rewarp descent timed out after " + REWARP_DESCENT_TIMEOUT_MS
                 + "ms; target=" + formatVec(target) + " current=" + formatVec(getPlayerPosition(client)));
+        return false;
+    }
+
+    private static boolean prepareLandingAttempt(Minecraft client, Vec3 target, int attempt) {
+        FlightSnapshot initial = getFlightSnapshot(client);
+        if (initial == null) {
+            return false;
+        }
+        if (!initial.onGround() && isPlayerFlying(client)) {
+            return true;
+        }
+
+        releaseMovementKeys(client);
+        double recoveryY = Math.max(
+                target.y + REWARP_RECOVERY_HEIGHT_ABOVE_TARGET,
+                initial.position().y + REWARP_RECOVERY_HEIGHT_ABOVE_OBSTACLE);
+        ClientUtils.sendDebugMessage("Rewarp landing attempt " + attempt
+                + " recovering from solid block: current=" + formatVec(initial.position())
+                + " flying=" + isPlayerFlying(client)
+                + " recoveryY=" + format(recoveryY));
+
+        ensureFlight(client);
+        if (!isPlayerFlying(client)) {
+            ClientUtils.sendDebugMessage("Rewarp recovery could not enable flight: current="
+                    + formatVec(getPlayerPosition(client))
+                    + " canFly=" + canPlayerFly(client));
+            return false;
+        }
+
+        long deadline = System.currentTimeMillis() + REWARP_RECOVERY_TIMEOUT_MS;
+        client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyJump, true));
+        while (System.currentTimeMillis() < deadline) {
+            if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
+                releaseMovementKeys(client);
+                return false;
+            }
+
+            FlightSnapshot snapshot = getFlightSnapshot(client);
+            if (snapshot == null) {
+                releaseMovementKeys(client);
+                return false;
+            }
+            if (!snapshot.onGround() && snapshot.position().y >= recoveryY) {
+                client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyJump, false));
+                MacroWorkerThread.sleep(100);
+                ClientUtils.sendDebugMessage("Rewarp recovery reached safe height: current="
+                        + formatVec(snapshot.position()) + " recoveryY=" + format(recoveryY));
+                return true;
+            }
+            MacroWorkerThread.sleep(REWARP_MOVEMENT_TICK_MS);
+        }
+
+        releaseMovementKeys(client);
+        ClientUtils.sendDebugMessage("Rewarp recovery timed out after " + REWARP_RECOVERY_TIMEOUT_MS
+                + "ms: current=" + formatVec(getPlayerPosition(client))
+                + " recoveryY=" + format(recoveryY)
+                + " flying=" + isPlayerFlying(client));
         return false;
     }
 
@@ -479,6 +681,34 @@ public final class RewarpManager {
             }
             MacroWorkerThread.sleep(50);
         }
+    }
+
+    private static void rotateToRewarpStartBlock(Minecraft client, RewarpPointPair pair) {
+        BlockPos targetBlock = BlockPos.containing(
+                Math.floor(pair.startX),
+                Math.floor(pair.startY),
+                Math.floor(pair.startZ));
+        client.execute(() -> RotationManager.initiateRotation(
+                client,
+                Vec3.atCenterOf(targetBlock),
+                0));
+        while (RotationManager.isRotating()) {
+            if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
+                return;
+            }
+            MacroWorkerThread.sleep(50);
+        }
+    }
+
+    private static void tapMovementKey(Minecraft client, KeyMapping key) {
+        if (client == null || client.options == null || key == null) {
+            return;
+        }
+
+        client.execute(() -> ClientUtils.setKeyMappingState(key, true));
+        MacroWorkerThread.sleep(REWARP_POSITION_TAP_MS);
+        client.execute(() -> ClientUtils.setKeyMappingState(key, false));
+        MacroWorkerThread.sleep(REWARP_POSITION_SETTLE_MS);
     }
 
     private static void releaseHorizontalMovementKeys(Minecraft client) {
