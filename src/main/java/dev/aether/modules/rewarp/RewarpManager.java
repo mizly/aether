@@ -176,6 +176,46 @@ public final class RewarpManager {
             return;
         }
 
+        holdWUntilWall(client, pair);
+    }
+
+    private static boolean performCoordinateRewarp(Minecraft client, RewarpPointPair pair) {
+        ensureFlight(client);
+        if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
+            return false;
+        }
+
+        rotateToRewarpStart(client, pair);
+        if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
+            return false;
+        }
+
+        client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyJump, true));
+        MacroWorkerThread.sleepRandom(1300, 300);
+        client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyJump, false));
+        if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
+            return false;
+        }
+
+        client.execute(() -> PathfindingManager.startFlyPathfind(
+                client,
+                (int) Math.floor(pair.startX),
+                74,
+                (int) Math.floor(pair.startZ)));
+        if (!waitForNavigationToFinish(client)) {
+            return false;
+        }
+
+        boolean landed = landOnRewarpBlock(client, pair);
+        if (!landed) {
+            return false;
+        }
+
+        holdWUntilWall(client, pair);
+        return true;
+    }
+
+    private static void holdWUntilWall(Minecraft client, RewarpPointPair pair) {
         if (!pair.holdWUntilWall) {
             return;
         }
@@ -216,36 +256,6 @@ public final class RewarpManager {
 
         client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyUp, false));
         MacroWorkerThread.sleepRandom(85, 30);
-    }
-
-    private static boolean performCoordinateRewarp(Minecraft client, RewarpPointPair pair) {
-        ensureFlight(client);
-        if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
-            return false;
-        }
-
-        rotateToRewarpStart(client, pair);
-        if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
-            return false;
-        }
-
-        client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyJump, true));
-        MacroWorkerThread.sleepRandom(1300, 300);
-        client.execute(() -> ClientUtils.setKeyMappingState(client.options.keyJump, false));
-        if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
-            return false;
-        }
-
-        client.execute(() -> PathfindingManager.startFlyPathfind(
-                client,
-                (int) Math.floor(pair.startX),
-                74,
-                (int) Math.floor(pair.startZ)));
-        if (!waitForNavigationToFinish(client)) {
-            return false;
-        }
-
-        return landOnRewarpBlock(client, pair);
     }
 
     private static boolean landOnRewarpBlock(Minecraft client, RewarpPointPair pair) {
