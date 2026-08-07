@@ -279,6 +279,10 @@ public final class ProfitPricing {
         return getPreferredPrice(resolveLookupKey(cleanName));
     }
 
+    public double getNpcPrice(String itemName) {
+        return TRACKED_ITEMS.getOrDefault(resolveLookupKey(itemName), 0.0);
+    }
+
     public double getItemValue(String itemName, long count) {
         String cleanName = sanitizeName(itemName);
         if (count < 0L) {

@@ -503,6 +503,10 @@ public final class AetherConfig {
         public static final StringEntry VISITOR_CUSTOM_ITEM = Config.string("visitorCustomItem", "");
         public static final IntEntry VISITOR_MAX_PURCHASE_LIMIT = Config.integer("visitorMaxPurchaseLimit", 10_000_000)
                         .range(0, 20_000_000);
+        public static final BooleanEntry VISITOR_COINS_PER_COPPER = Config.bool("visitorCoinsPerCopper", false);
+        public static final IntEntry VISITOR_COINS_PER_COPPER_LIMIT = Config.integer("visitorCoinsPerCopperLimit", 20_000)
+                        .range(0, 100_000);
+        public static final BooleanEntry VISITOR_ONLY_RARE_DROPS = Config.bool("visitorOnlyRareDrops", false);
         public static final BooleanEntry DISABLE_VISITORS_DURING_JACOBS_CONTEST = Config.bool("disableVisitorsDuringJacobsContest", false);
         public static final BooleanEntry DISABLE_COMPACTORS_DURING_VISITORS = Config.bool("disableCompactorsDuringVisitors", false);
         public static final FloatEntry VISITOR_FOV_RANGE = Config.floatVal("visitorFovRange", 12.0f)
