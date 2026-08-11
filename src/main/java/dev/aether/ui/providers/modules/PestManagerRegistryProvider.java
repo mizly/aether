@@ -239,6 +239,13 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.MANUAL_PEST_MODE.set(v);
                             AetherConfig.save();
                         })
+                .add(new ToggleSetting("Switch to Vacuum When Start",
+                        () -> AetherConfig.VACCUM_WHEN_START.get(),
+                        v -> {
+                            AetherConfig.VACCUM_WHEN_START.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(() -> AetherConfig.MANUAL_PEST_MODE.get()))
                 .add(new DropdownSetting("Manual Pest Sound", manualPestSoundOptions,
                         () -> getSoundIndex(manualPestSoundOptions, AetherConfig.MANUAL_PEST_SOUND_FILE.get()),
                         i -> {

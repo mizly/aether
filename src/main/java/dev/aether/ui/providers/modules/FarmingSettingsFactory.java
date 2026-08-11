@@ -32,7 +32,7 @@ final class FarmingSettingsFactory {
     }
 
     static RangeSliderSetting laneSwitchDelaySetting() {
-        return intDelayRangeSetting("Lane Switch Delay", 0f, 1000f,
+        return intDelayRangeSetting("Lane Switch Delay", 0f, 5000f,
                 () -> AetherConfig.MACRO_LANE_SWITCH_DELAY_MIN.get(),
                 () -> AetherConfig.MACRO_LANE_SWITCH_DELAY_MAX.get(),
                 (min, max) -> {
