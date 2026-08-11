@@ -15,6 +15,7 @@ import dev.aether.modules.pest.helpers.PestReturnManager;
 import dev.aether.modules.GreenhouseManager;
 import dev.aether.modules.CropFeverManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
+import dev.aether.modules.inventorymanager.GeorgeManager;
 import dev.aether.util.ClientUtils;
 
 import net.minecraft.client.Minecraft;
@@ -114,7 +115,9 @@ public class PestManager {
     }
 
     private static synchronized boolean claimCleaningTrigger() {
-        if (isCleaningTriggerPending
+        if (!canStartCleaningInState(MacroStateManager.getCurrentState())
+                || GeorgeManager.shouldDelayPestTrigger()
+                || isCleaningTriggerPending
                 || isCleaningInProgress
                 || isPestReentryCooldownActive()
                 || PestDestroyer.isActive()
@@ -306,10 +309,18 @@ public class PestManager {
             return;
         }
 
+        if (!canStartCleaningInState(currentState)) {
+            return;
+        }
+
         // Do not trigger pest cleaning while the visitors macro is actively running.
         // Visitors takes priority; pest cleaning will be re-evaluated once we return
         // to the farm after visitors finishes.
         if (VisitorsMacro.isRunning) {
+            return;
+        }
+
+        if (GeorgeManager.shouldDelayPestTrigger()) {
             return;
         }
 
@@ -345,6 +356,10 @@ public class PestManager {
                 consumeRewarpTrigger();
             }
         }
+    }
+
+    static boolean canStartCleaningInState(MacroState.State state) {
+        return state == MacroState.State.FARMING;
     }
 
     public static void handlePestCleaningFinished(Minecraft client) {
@@ -405,6 +420,10 @@ public class PestManager {
     private static synchronized boolean processPendingChatTrigger(Minecraft client, MacroState.State currentState) {
         PendingChatTrigger pending = pendingChatTrigger;
         if (pending == null) {
+            return false;
+        }
+
+        if (GeorgeManager.shouldDelayPestTrigger()) {
             return false;
         }
         if (pendingChatTriggerWaitsForLoadout) {

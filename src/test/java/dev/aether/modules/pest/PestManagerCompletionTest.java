@@ -1,8 +1,11 @@
 package dev.aether.modules.pest;
 
+import dev.aether.macro.MacroState;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PestManagerCompletionTest {
     @Test
@@ -24,5 +27,14 @@ class PestManagerCompletionTest {
     @Test
     void chatSpawnRemainsFallbackWhenTabCountIsUnavailable() {
         assertEquals(12, PestManager.reconcileChatSpawnCount(6, 6, -1));
+    }
+
+    @Test
+    void cleaningCanOnlyStartWhileFarming() {
+        assertTrue(PestManager.canStartCleaningInState(MacroState.State.FARMING));
+        assertFalse(PestManager.canStartCleaningInState(MacroState.State.REWARPING));
+        assertFalse(PestManager.canStartCleaningInState(MacroState.State.CLEANING));
+        assertFalse(PestManager.canStartCleaningInState(MacroState.State.RECOVERING));
+        assertFalse(PestManager.canStartCleaningInState(MacroState.State.OFF));
     }
 }
