@@ -331,6 +331,17 @@ public class GeorgeManager {
         return Math.max(0L, GEORGE_COOLDOWN_MS - (System.currentTimeMillis() - lastGeorgeSellAttemptTime));
     }
 
+    public static boolean shouldDelayPestTrigger() {
+        return shouldDelayPestTrigger(
+                AetherConfig.FARM_WHILE_CALLING_GEORGE.get(),
+                isPreparingToSell,
+                isSelling);
+    }
+
+    static boolean shouldDelayPestTrigger(boolean farmWhileCalling, boolean preparing, boolean selling) {
+        return farmWhileCalling && (preparing || selling);
+    }
+
     private static int countPetsInInventory(Minecraft client) {
         int count = 0;
         for (int i = 0; i < 36; i++) {

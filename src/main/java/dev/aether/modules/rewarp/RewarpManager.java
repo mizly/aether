@@ -75,6 +75,9 @@ public final class RewarpManager {
 
         lastRewarpTime = now;
         ClientUtils.sendMessage("\u00A76Rewarp End Position reached!", true);
+
+        MacroStateManager.setCurrentState(MacroState.State.REWARPING);
+        FarmingMacroManager.disable(client);
         MacroWorkerThread.getInstance().submit("PlotTpRewarp", () -> performRewarp(client, pair));
     }
 
@@ -114,7 +117,7 @@ public final class RewarpManager {
     }
 
     private static void performRewarp(Minecraft client, RewarpPointPair pair) {
-        if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING)) {
+        if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
             return;
         }
 
@@ -122,8 +125,6 @@ public final class RewarpManager {
         // teleport that may have changed the player's rotation (avoids snapping).
         RotationSnapshot savedRotation = getPlayerRotation(client);
 
-        MacroStateManager.setCurrentState(MacroState.State.REWARPING);
-        client.execute(() -> FarmingMacroManager.disable(client));
         MacroWorkerThread.sleepRandom(255, 90);
         if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
             return;

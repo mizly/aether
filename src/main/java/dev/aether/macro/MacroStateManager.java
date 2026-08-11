@@ -122,16 +122,17 @@ public class MacroStateManager {
 
     public static void setCurrentState(MacroState.State state) {
         MacroState.State prevState = currentState;
-        currentState = state;
         Minecraft client = Minecraft.getInstance();
-
-        if (prevState == MacroState.State.FARMING && state != MacroState.State.FARMING) {
-            runOnClientThread(client, () -> FarmingMacroManager.releaseInputs(client));
-        }
 
         if (state == MacroState.State.FARMING && prevState != MacroState.State.FARMING) {
             MacroWorkerThread.getInstance().clearPendingTasks();
             PathfindingManager.stop();
+        }
+
+        currentState = state;
+
+        if (prevState == MacroState.State.FARMING && state != MacroState.State.FARMING) {
+            runOnClientThread(client, () -> FarmingMacroManager.releaseInputs(client));
         }
 
         if (prevState == MacroState.State.OFF && state != MacroState.State.OFF
