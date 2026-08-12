@@ -430,19 +430,22 @@ public final class ProfitPricing {
         }
 
         try {
-            String encoded = URLEncoder.encode(name, StandardCharsets.UTF_8);
+            // cofl wants %20 for spaces; URLEncoder's + form returns an empty result set
+            String encoded = URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20");
             HttpClient http = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(3))
                     .build();
+            // old /api/items/search 404s since the cofl api change; prices then silently
+            // fell back to npc values, inflating displayed profit vs real instasell
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://sky.coflnet.com/api/items/search/" + encoded + "?limit=1"))
+                    .uri(URI.create("https://sky.coflnet.com/api/item/search/" + encoded))
                     .GET()
                     .build();
             HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() == 200) {
                 JsonArray results = JsonParser.parseString(response.body()).getAsJsonArray();
                 if (!results.isEmpty()) {
-                    String tag = results.get(0).getAsJsonObject().get("tag").getAsString();
+                    String tag = results.get(0).getAsJsonObject().get("id").getAsString();
                     idByNameCache.put(name, tag);
                     return tag;
                 }
