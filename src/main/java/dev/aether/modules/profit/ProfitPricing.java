@@ -435,8 +435,6 @@ public final class ProfitPricing {
             HttpClient http = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(3))
                     .build();
-            // old /api/items/search 404s since the cofl api change; prices then silently
-            // fell back to npc values, inflating displayed profit vs real instasell
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create("https://sky.coflnet.com/api/item/search/" + encoded))
                     .GET()
