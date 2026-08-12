@@ -64,17 +64,26 @@ public final class AetherApiClient {
 
     public static LoginStatus getLoginStatus(String loginId) throws AetherApiException {
         String query = "/auth/status?login_id=" + URLEncoder.encode(loginId, StandardCharsets.UTF_8);
-        JsonObject body = send(request(query).GET().build(), "/auth/status");
+        return parseLoginStatus(send(request(query).GET().build(), "/auth/status"));
+    }
 
+    static LoginStatus parseLoginStatus(JsonObject body) {
+        String token = string(body, "token");
         LoginStatusKind kind = switch (string(body, "status").toLowerCase(Locale.ROOT)) {
             case "pending" -> LoginStatusKind.PENDING;
-            case "complete" -> LoginStatusKind.COMPLETE;
+            case "complete", "authenticated" -> LoginStatusKind.COMPLETE;
             case "claimed" -> LoginStatusKind.CLAIMED;
             case "expired" -> LoginStatusKind.EXPIRED;
             case "invalid" -> LoginStatusKind.INVALID;
             default -> LoginStatusKind.UNKNOWN;
         };
-        return new LoginStatus(kind, string(body, "token"), string(body, "discord_id"));
+
+        // The token is handed out exactly once, so letting an unrecognised status hide one
+        // would burn the login and the next poll would report it as already claimed.
+        if (kind == LoginStatusKind.UNKNOWN && !token.isEmpty()) {
+            kind = LoginStatusKind.COMPLETE;
+        }
+        return new LoginStatus(kind, token, string(body, "discord_id"));
     }
 
     public static AccountInfo getCurrentUser(String token) throws AetherApiException {

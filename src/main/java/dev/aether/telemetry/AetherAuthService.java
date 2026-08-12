@@ -31,7 +31,8 @@ public final class AetherAuthService {
     private static volatile long totalSeconds;
 
     private static ScheduledFuture<?> pollTask;
-    private static int generation;
+    // Read by poll() on the auth thread outside LOCK, written by the render thread inside it.
+    private static volatile int generation;
 
     private AetherAuthService() {
     }
