@@ -6,6 +6,7 @@ import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.macro.farming.FarmingMacroManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
+import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.pest.ManualPestManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.util.ClientUtils;
@@ -196,6 +197,7 @@ public final class PestLifecycleManager {
                 + (manualMode ? "manual" : "automatic") + ").");
 
         if (manualMode) {
+            switchToVacuumForManualStart(client);
             if (!ManualPestManager.startCleaningStage(client, pestCount)) {
                 PestManager.handlePestCleaningFinished(client);
             }
@@ -208,6 +210,22 @@ public final class PestLifecycleManager {
             PestBonusManager.beginReactivation();
         }
         client.execute(() -> PestDestroyer.start(client, plot));
+    }
+
+    private static void switchToVacuumForManualStart(Minecraft client) {
+        if (!AetherConfig.VACCUM_WHEN_START.get()) {
+            return;
+        }
+
+        int vacuumSlot = PestLoadoutHelper.findVacuumHotbarSlot(client);
+        if (vacuumSlot < 0) {
+            ClientUtils.sendMessage("\u00A7cManual Pest Mode: no vacuum found in hotbar.", false);
+            ClientUtils.sendDebugMessage("Manual Pest Mode: Switch to Vacuum When Start enabled, but no vacuum was found.");
+            return;
+        }
+
+        FailsafeManager.selectHotbarSlot(client, vacuumSlot);
+        ClientUtils.sendDebugMessage("Manual Pest Mode: switched to vacuum slot " + (vacuumSlot + 1) + ".");
     }
 
     static boolean shouldSkipCleaningAfterBallsack(

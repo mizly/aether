@@ -196,6 +196,15 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
                 "Farm Waypoints",
                 "Configure custom farm waypoint positions and movement keys");
 
+        group.add(new SliderSetting("Switch Point Radius", 0.05f, 1.00f,
+                () -> AetherConfig.MACRO_CUSTOM_WAYPOINT_SWITCH_RADIUS.get(),
+                v -> {
+                    AetherConfig.MACRO_CUSTOM_WAYPOINT_SWITCH_RADIUS.set(v);
+                    AetherConfig.save();
+                })
+                .withDecimals(2)
+                .withSuffix(" blocks"));
+
         int count = Math.max(1, FarmWaypoints.get().size());
         for (int i = 0; i < count; i++) {
             final int index = i;

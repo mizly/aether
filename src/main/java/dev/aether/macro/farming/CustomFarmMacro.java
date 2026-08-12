@@ -2,16 +2,19 @@ package dev.aether.macro.farming;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.config.FarmWaypoint;
+import dev.aether.config.ConfigHelpers;
 import dev.aether.config.FarmWaypoints;
 import net.minecraft.client.Minecraft;
 
 import java.util.List;
 
 public class CustomFarmMacro extends AbstractFarmingMacro {
-    private static final double REACHED_HORIZONTAL_DISTANCE_SQ = 0.2 * 0.2;
     private static final double REACHED_VERTICAL_DISTANCE = 1.5;
 
     private int activeWaypointIndex = 0;
+    private boolean keySwitchConfirm = false;
+    private int pendingWaypointIndex = -1;
+    private int keySwitchDelayTicks = 0;
 
     @Override
     public void onEnable(Minecraft mc) {
@@ -22,6 +25,13 @@ public class CustomFarmMacro extends AbstractFarmingMacro {
         }
         List<FarmWaypoint> waypoints = FarmWaypoints.get();
         activeWaypointIndex = initialActiveIndex(mc, waypoints);
+        resetKeySwitchConfirmation();
+    }
+
+    @Override
+    public void onDisable(Minecraft mc) {
+        resetKeySwitchConfirmation();
+        super.onDisable(mc);
     }
 
     @Override
@@ -39,19 +49,48 @@ public class CustomFarmMacro extends AbstractFarmingMacro {
         if (waypoints.isEmpty()) {
             changeState(State.NONE);
             activeWaypointIndex = 0;
+            resetKeySwitchConfirmation();
             return;
         }
 
         if (activeWaypointIndex < 0 || activeWaypointIndex >= waypoints.size()) {
             activeWaypointIndex = 0;
+            resetKeySwitchConfirmation();
+        }
+
+        if (keySwitchConfirm) {
+            if (pendingWaypointIndex < 0 || pendingWaypointIndex >= waypoints.size()) {
+                resetKeySwitchConfirmation();
+            } else {
+                if (keySwitchDelayTicks > 0) {
+                    keySwitchDelayTicks--;
+                }
+
+                if (keySwitchDelayTicks > 0) {
+                    changeState(displayStateFor(waypoints.get(activeWaypointIndex)));
+                    return;
+                }
+
+                commitPendingWaypoint();
+                changeState(displayStateFor(waypoints.get(activeWaypointIndex)));
+                return;
+            }
         }
 
         for (int i = 0; i < waypoints.size(); i++) {
-            if (isAtWaypoint(mc, waypoints.get(i))) {
-                activeWaypointIndex = i;
-                FarmWaypoints.saveLastWaypoint(i);
+            if (!isAtWaypoint(mc, waypoints.get(i))) {
+                continue;
+            }
+
+            if (i == activeWaypointIndex) {
                 break;
             }
+
+            beginKeySwitchConfirmation(i);
+            if (keySwitchDelayTicks <= 0) {
+                commitPendingWaypoint();
+            }
+            break;
         }
 
         changeState(displayStateFor(waypoints.get(activeWaypointIndex)));
@@ -74,6 +113,29 @@ public class CustomFarmMacro extends AbstractFarmingMacro {
                 true,
                 false,
                 false);
+    }
+
+    private void beginKeySwitchConfirmation(int waypointIndex) {
+        keySwitchConfirm = true;
+        pendingWaypointIndex = waypointIndex;
+
+        int delayMs = ConfigHelpers.getRandomizedDelay(
+                AetherConfig.MACRO_LANE_SWITCH_DELAY_MIN.get(),
+                AetherConfig.MACRO_LANE_SWITCH_DELAY_MAX.get());
+
+        keySwitchDelayTicks = (delayMs + 25) / 50;
+    }
+
+    private void commitPendingWaypoint() {
+        activeWaypointIndex = pendingWaypointIndex;
+        FarmWaypoints.saveLastWaypoint(activeWaypointIndex);
+        resetKeySwitchConfirmation();
+    }
+
+    private void resetKeySwitchConfirmation() {
+        keySwitchConfirm = false;
+        pendingWaypointIndex = -1;
+        keySwitchDelayTicks = 0;
     }
 
     private int initialActiveIndex(Minecraft mc, List<FarmWaypoint> waypoints) {
@@ -101,7 +163,9 @@ public class CustomFarmMacro extends AbstractFarmingMacro {
         double dx = mc.player.getX() - waypoint.x();
         double dz = mc.player.getZ() - waypoint.z();
         double dy = Math.abs(mc.player.getY() - waypoint.y());
-        return dx * dx + dz * dz <= REACHED_HORIZONTAL_DISTANCE_SQ
+        double radius = AetherConfig.MACRO_CUSTOM_WAYPOINT_SWITCH_RADIUS.get();
+        double radiusSq = radius * radius;
+        return dx * dx + dz * dz <= radiusSq
                 && dy <= REACHED_VERTICAL_DISTANCE;
     }
 

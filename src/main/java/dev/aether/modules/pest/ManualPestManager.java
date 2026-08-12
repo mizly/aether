@@ -135,6 +135,7 @@ public final class ManualPestManager {
         waitingStartedAt = 0L;
         clearedPestTabTicks = 0;
         ClientUtils.sendMessage("\u00A7aManual Pest Mode: pests cleared. Running pest post-actions.", false);
+        UngrabMouse.ungrabMouse();
         PestManager.handlePestCleaningFinished(client);
     }
 

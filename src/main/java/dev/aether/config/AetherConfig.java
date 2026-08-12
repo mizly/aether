@@ -473,6 +473,7 @@ public final class AetherConfig {
         // -- MANUAL PEST MODE ------------------------------------------------------
 
         public static final BooleanEntry MANUAL_PEST_MODE = Config.bool("manualPestMode", false);
+        public static final BooleanEntry VACCUM_WHEN_START = Config.bool("vaccumwhenstart", false);
         public static final StringEntry MANUAL_PEST_SOUND_FILE = Config.string("manualPestSoundFile", "fnaf.mp3");
 
         // -- PEST EXCHANGE ---------------------------------------------------------
@@ -861,12 +862,16 @@ public final class AetherConfig {
                         .range(-240, 240);
         public static final ListEntry<String> MACRO_FARM_WAYPOINTS = Config.list("macroFarmWaypoints",
                         Collections.emptyList(), String.class);
+        /** Horizontal distance in blocks used to trigger a Custom Farm waypoint switch. */
+        public static final FloatEntry MACRO_CUSTOM_WAYPOINT_SWITCH_RADIUS = Config
+                        .floatVal("macroCustomWaypointSwitchRadius", 0.20f)
+                        .range(0.05f, 1.00f);
         public static final StringEntry BEDROCK_PLOT_MAKER_PLOT = Config.string("bedrockPlotMakerPlot", "1");
         /** Post lane-switch delay in milliseconds before evaluating row-end checks again. */
         public static final IntEntry MACRO_LANE_SWITCH_DELAY_MIN = Config.integer("macroLaneSwitchDelayMin", 0)
-                        .range(0, 1000);
+                        .range(0, 5000);
         public static final IntEntry MACRO_LANE_SWITCH_DELAY_MAX = Config.integer("macroLaneSwitchDelayMax", 500)
-                        .range(0, 1000);
+                        .range(0, 5000);
         public static final BooleanEntry FAILSAFE_INVENTORY_SLOT_CHANGED = Config.bool("failsafeInventorySlotChanged", true);
         public static final BooleanEntry FAILSAFE_UNEXPECTED_INVENTORY_GUI = Config.bool("failsafeUnexpectedInventoryGui", true);
         public static final BooleanEntry FAILSAFE_BPS = Config.bool("failsafeBps", true);
