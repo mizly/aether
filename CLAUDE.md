@@ -106,7 +106,9 @@ that services file** — it is not auto-discovered otherwise. `/aether` opens th
 
 ### Code Comments
 
+	•	Default to no comment. Comment only where a future reader would genuinely ask "wait, why?"
 	•	Keep comments to two lines max — if it needs more, the code probably needs a better name or the logic needs simplifying instead.
+	•	Never add a javadoc block or multi-line comment to a field, constant, or one-line declaration. If the name doesn't carry it, rename the thing.
 	•	Comment why, not what. The code already says what it does.
 	•	Bad: // increment counter above counter++
 	•	Good: // retry once cause api flakes on cold start
