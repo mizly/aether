@@ -1,6 +1,7 @@
 package dev.aether.ui;
 
 import dev.aether.macro.ReconnectScheduler;
+import dev.aether.telemetry.ban.AetherBanService;
 import dev.aether.util.AetherLang;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.screens.DisconnectedScreen;
@@ -13,13 +14,19 @@ public class FunnyDynamicRestScreen extends DisconnectedScreen {
     private long lastRemainingSeconds;
 
     public FunnyDynamicRestScreen(long restEndTimeMs) {
+        this(restEndTimeMs, buildReason(restEndTimeMs));
+    }
+
+    private FunnyDynamicRestScreen(long restEndTimeMs, Component reason) {
         super(
                 new CancelDynamicRestParentScreen(),
                 Component.literal(AetherLang.localize("Failed to connect to the server")),
-                buildReason(restEndTimeMs),
+                reason,
                 Component.literal(AetherLang.localize("Back to Server List")));
         this.restEndTimeMs = restEndTimeMs;
         this.lastRemainingSeconds = remainingSeconds(restEndTimeMs);
+        // Keyed on the rest window so the once-per-second screen rebuild only logs once.
+        AetherBanService.observeSimulatedBanScreen(reason.getString(), restEndTimeMs);
     }
 
     @Override

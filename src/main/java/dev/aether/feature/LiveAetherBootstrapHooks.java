@@ -1,6 +1,7 @@
 package dev.aether.feature;
 
 import com.mojang.authlib.GameProfile;
+import dev.aether.Aether;
 import dev.aether.config.AetherConfig;
 import dev.aether.hud.HudEditScreen;
 import dev.aether.hud.HudRegistry;
@@ -23,6 +24,9 @@ import dev.aether.modules.visuals.StreamerModeManager;
 import dev.aether.renderer.AetherBackground;
 import dev.aether.renderer.AetherBackgroundScreens;
 import dev.aether.renderer.NVGRenderer;
+import dev.aether.telemetry.ban.AetherBanService;
+import dev.aether.telemetry.ban.BanDisconnectContext;
+import dev.aether.telemetry.ban.PlaySessionTracker;
 import dev.aether.ui.AetherConfirmScreen;
 import dev.aether.ui.AetherDirectJoinScreen;
 import dev.aether.ui.AetherManageServerScreen;
@@ -56,6 +60,29 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
         if (MacroStateManager.isMacroRunning() && !MacroStateManager.isIntentionalDisconnect()) {
             long delay = 30 + (long) (Math.random() * 30);
             ReconnectScheduler.scheduleReconnect(delay, true);
+        }
+    }
+
+    @Override
+    public void onPlayStageDisconnect(String serverAddress, Component reason) {
+        // Snapshot first: stopMacro() clears the macro state and the failsafes moments later.
+        BanDisconnectContext context = BanDisconnectContext.capture(MacroStateManager.isMacroRunning());
+        boolean established = PlaySessionTracker.isPlaySessionEstablished();
+        boolean intentional = MacroStateManager.isIntentionalDisconnect();
+        String address = serverAddress == null || serverAddress.isBlank()
+                ? PlaySessionTracker.getServerAddress()
+                : serverAddress;
+        PlaySessionTracker.markSessionEnded();
+
+        try {
+            AetherBanService.onPlayDisconnect(
+                    address,
+                    reason == null ? "" : reason.getString(),
+                    context,
+                    established,
+                    intentional);
+        } catch (RuntimeException e) {
+            Aether.LOGGER.warn("[aether] Ban detection failed: {}", e.getClass().getSimpleName());
         }
     }
 

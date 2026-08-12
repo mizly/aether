@@ -285,6 +285,11 @@ public final class FailsafeManager {
     }
 
     public static void onFailsafeTriggered(FailsafeAction action) {
+        onFailsafeTriggered(action, "");
+    }
+
+    public static void onFailsafeTriggered(FailsafeAction action, String details) {
+        FailsafeTriggerHistory.recordTrigger(details);
         FailsafeColourFlashManager.trigger();
         FailsafeSoundManager.playConfiguredSound(action);
         FailsafeWindowFocusManager.bringWindowToFront();
@@ -351,7 +356,7 @@ public final class FailsafeManager {
             String debugReason,
             String actionDone
     ) {
-        onFailsafeTriggered(action);
+        onFailsafeTriggered(action, details);
         if (AetherConfig.FAILSAFE_DESKTOP_NOTIFICATION_ENABLED.get()) {
             DesktopNotificationManager.notify(
                     getNotificationTitle(action),
