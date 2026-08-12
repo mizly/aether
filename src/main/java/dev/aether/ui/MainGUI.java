@@ -11,6 +11,7 @@ import dev.aether.ui.theme.Theme;
 import dev.aether.renderer.AetherRenderQueue;
 import dev.aether.renderer.NanoVGManager;
 import dev.aether.renderer.NVGRenderer;
+import dev.aether.telemetry.AetherAuthService;
 import dev.aether.renderer.NVGScreen;
 import dev.aether.util.AetherLang;
 import net.minecraft.client.Minecraft;
@@ -334,6 +335,7 @@ public class MainGUI extends NVGScreen {
             MacroStateManager.stopMacro(client, "MainGUI opened", false);
         }
         MainGUIRegistry.refresh();
+        AetherAuthService.refreshAccount();
         // Resolve pixel ratio from the live render target so panel dimensions
         // are expressed in physical pixels, not GUI-scaled logical pixels.
         try {

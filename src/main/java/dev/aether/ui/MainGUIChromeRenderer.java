@@ -1,8 +1,9 @@
 package dev.aether.ui;
 
-import dev.aether.macro.MacroStateManager;
 import dev.aether.renderer.NVGRenderer;
 import dev.aether.renderer.SkinFaceProvider;
+import dev.aether.telemetry.AetherAuthService;
+import dev.aether.telemetry.AetherAuthState;
 import dev.aether.ui.util.Fonts;
 import dev.aether.ui.theme.Theme;
 import dev.aether.util.AetherLang;
@@ -170,7 +171,7 @@ final class MainGUIChromeRenderer {
 
         nvg.rect(context.layout.px + MainGUI.SB_H_PAD, profileTabY - MainGUI.SB_SEP_GAP,
                 sbW - MainGUI.SB_H_PAD * 2f, 1f, Theme.SEPARATOR);
-        renderFarmProfile(nvg, context, textX, profileTabY);
+        renderFarmProfile(nvg, context, textX, profileTabY, mx, my);
 
         nvg.popScissor();
     }
@@ -240,7 +241,7 @@ final class MainGUIChromeRenderer {
         nvg.rect(context.layout.contX, context.layout.contY + MainGUI.TOP_BAR_H, context.layout.contW, 1f, Theme.SEPARATOR);
     }
 
-    private void renderFarmProfile(NVGRenderer nvg, MainGUIContext context, float textX, float rowY) {
+    private void renderFarmProfile(NVGRenderer nvg, MainGUIContext context, float textX, float rowY, float mx, float my) {
         float headSize = 28f;
         float pillY = rowY + MainGUI.SB_ROW_PAD;
         float headX = context.layout.px + MainGUI.SB_H_PAD + (MainGUI.SB_PILL - headSize) / 2f;
@@ -248,25 +249,51 @@ final class MainGUIChromeRenderer {
 
         SkinFaceProvider.render(nvg, headX, headY, headSize, 1f);
 
-        if (context.animation.sidebarAnim > 0.01f) {
-            String hours = formatFarmedHours(MacroStateManager.getLifetimeRunningTime());
-            String label = "HOURS FARMED";
-            float textSize = 12f;
-            float labelSize = 8f;
-            float cy = pillY + MainGUI.SB_PILL / 2f;
+        if (context.animation.sidebarAnim <= 0.01f) {
+            return;
+        }
 
-            nvg.save();
-            nvg.globalAlpha(context.animation.sidebarAnim);
-            nvg.translate((1f - context.animation.sidebarAnim) * -6f, 0f);
-            nvg.text(Fonts.BOLD, hours, textX, cy - textSize + 1f, textSize, Theme.ACCENT_PRIMARY);
-            nvg.text(Fonts.BOLD, label, textX, cy + 2f, labelSize, Theme.TEXT_TERTIARY);
-            nvg.restore();
+        float cy = pillY + MainGUI.SB_PILL / 2f;
+        nvg.save();
+        nvg.globalAlpha(context.animation.sidebarAnim);
+        nvg.translate((1f - context.animation.sidebarAnim) * -6f, 0f);
+        if (AetherAuthService.isAuthenticated()) {
+            renderPlayedHours(nvg, textX, cy);
+        } else {
+            renderLoginButton(nvg, textX, cy, mx, my);
+        }
+        nvg.restore();
+    }
+
+    private void renderPlayedHours(NVGRenderer nvg, float textX, float cy) {
+        float textSize = 12f;
+        nvg.text(Fonts.BOLD, formatPlayedHours(AetherAuthService.getTotalSeconds()),
+                textX, cy - textSize + 1f, textSize, Theme.ACCENT_PRIMARY);
+        nvg.text(Fonts.BOLD, AetherLang.localize("HOURS PLAYED"), textX, cy + 2f, 8f, Theme.TEXT_TERTIARY);
+    }
+
+    private void renderLoginButton(NVGRenderer nvg, float textX, float cy, float mx, float my) {
+        boolean authenticating = AetherAuthService.getState() == AetherAuthState.AUTHENTICATING;
+        String label = AetherLang.localize(authenticating ? "SIGNING IN..." : "LOG IN");
+        float fontSize = 9f;
+        float labelW = nvg.textWidth(Fonts.BOLD, label, fontSize);
+        float btnH = 18f;
+        float btnW = labelW + 18f;
+        float btnY = cy - btnH / 2f;
+        boolean hovered = !authenticating && mx >= textX && mx < textX + btnW && my >= btnY && my < btnY + btnH;
+        int accent = authenticating ? Theme.TEXT_MUTED : Theme.ACCENT_PRIMARY;
+
+        nvg.roundedRect(textX, btnY, btnW, btnH, 6f, Theme.withAlpha(accent, hovered ? 0x44 : 0x22));
+        nvg.rectOutlineSolid(textX, btnY, btnW, btnH, 6f, 1f, Theme.withAlpha(accent, hovered ? 0xFF : 0x88));
+        nvg.text(Fonts.BOLD, label, textX + (btnW - labelW) / 2f, cy - fontSize / 2f, fontSize, accent);
+
+        if (!authenticating) {
+            owner.addClickArea(textX, btnY, btnW, btnH, AetherAuthService::beginLogin);
         }
     }
 
-    private static String formatFarmedHours(long ms) {
-        long totalMinutes = ms / 60000L;
-        return (totalMinutes / 60L) + "h " + (totalMinutes % 60L) + "m";
+    private static String formatPlayedHours(long seconds) {
+        return (seconds / 3600L) + "h " + ((seconds % 3600L) / 60L) + "m";
     }
 
     void renderFilterBar(NVGRenderer nvg, float mx, float my) {
