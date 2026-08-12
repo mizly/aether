@@ -250,6 +250,7 @@ final class MainGUIChromeRenderer {
         SkinFaceProvider.render(nvg, headX, headY, headSize, 1f);
 
         if (context.animation.sidebarAnim <= 0.01f) {
+            owner.clearLoginButtonBounds();
             return;
         }
 
@@ -258,6 +259,7 @@ final class MainGUIChromeRenderer {
         nvg.globalAlpha(context.animation.sidebarAnim);
         nvg.translate((1f - context.animation.sidebarAnim) * -6f, 0f);
         if (AetherAuthService.isAuthenticated()) {
+            owner.clearLoginButtonBounds();
             renderPlayedHours(nvg, textX, cy);
         } else {
             renderLoginButton(nvg, textX, cy, mx, my);
@@ -287,8 +289,10 @@ final class MainGUIChromeRenderer {
         nvg.rectOutlineSolid(textX, btnY, btnW, btnH, 6f, 1f, Theme.withAlpha(accent, hovered ? 0xFF : 0x88));
         nvg.text(Fonts.BOLD, label, textX + (btnW - labelW) / 2f, cy - fontSize / 2f, fontSize, accent);
 
-        if (!authenticating) {
-            owner.addClickArea(textX, btnY, btnW, btnH, AetherAuthService::beginLogin);
+        if (authenticating) {
+            owner.clearLoginButtonBounds();
+        } else {
+            owner.setLoginButtonBounds(textX, btnY, btnW, btnH);
         }
     }
 

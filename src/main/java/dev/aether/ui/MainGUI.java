@@ -158,6 +158,11 @@ public class MainGUI extends NVGScreen {
 
     // -- Click areas (repopulated each render frame, consumed on click) ---------
 
+    private float loginButtonX;
+    private float loginButtonY;
+    private float loginButtonW;
+    private float loginButtonH;
+
     private record ClickArea(float x, float y, float w, float h, Runnable action) {}
     private final List<ClickArea> clickAreas = new ArrayList<>();
 
@@ -2654,7 +2659,26 @@ public class MainGUI extends NVGScreen {
         return false;
     }
 
+    // The sidebar swallows every click in its rect before runClickAreas is reached, so the
+    // profile row's login button has to be routed here rather than as a click area.
+    void setLoginButtonBounds(float x, float y, float w, float h) {
+        loginButtonX = x;
+        loginButtonY = y;
+        loginButtonW = w;
+        loginButtonH = h;
+    }
+
+    void clearLoginButtonBounds() {
+        loginButtonW = 0f;
+        loginButtonH = 0f;
+    }
+
     boolean tryHandleSidebarNavigationClick(float mx, float my, Minecraft minecraft) {
+        if (loginButtonW > 0f && mx >= loginButtonX && mx <= loginButtonX + loginButtonW
+                && my >= loginButtonY && my <= loginButtonY + loginButtonH) {
+            AetherAuthService.beginLogin();
+            return true;
+        }
         float sbClickW = SIDEBAR_W + sidebarAnim * ((computedSidebarExpanded > 0f ? computedSidebarExpanded : SIDEBAR_EXPANDED) - SIDEBAR_W);
         float tabsStartY = py + SB_LOGO_H + SB_SEP_GAP;
         for (int i = 0; i < 3; i++) {
