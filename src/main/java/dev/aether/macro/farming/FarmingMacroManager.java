@@ -1,6 +1,7 @@
 package dev.aether.macro.farming;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.config.ConfigHelpers;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.farming.SqueakyMousematManager;
@@ -30,8 +31,11 @@ public final class FarmingMacroManager {
     private static final long START_GUI_CLOSE_TIMEOUT_MS = 3500L;
     private static final long START_GUI_CLOSE_POLL_MS = 50L;
     private static final long START_IN_WORLD_STABLE_MS = 300L;
+    private static final int START_DELAY_MIN_TICKS = 1;
+    private static final int START_DELAY_MAX_TICKS = 10;
     private static AbstractFarmingMacro activeMacro = null;
     private static volatile boolean deferredStartPending = false;
+    private static int pendingEnableTicks = 0;
 
     /** Persists the active step within a macro's declared state cycle. */
     private static volatile Integer cachedCycleStep = null;
@@ -105,6 +109,7 @@ public final class FarmingMacroManager {
         if (activeMacro != null) {
             activeMacro.onDisable(mc);
             activeMacro = null;
+            pendingEnableTicks = 0;
         }
 
         if (SqueakyMousematManager.shouldUseBeforeFarming(mc)) {
@@ -145,8 +150,9 @@ public final class FarmingMacroManager {
             ClientUtils.sendDebugMessage("Farming start: no farming tool found in hotbar, continuing with current item.");
         }
 
+        // swap + first click landing on the same tick every resume is fingerprintable
         activeMacro = macro;
-        activeMacro.onEnable(mc);
+        pendingEnableTicks = ConfigHelpers.getRandomizedDelay(START_DELAY_MIN_TICKS, START_DELAY_MAX_TICKS);
     }
 
     private static void deferStartUntilReady(Minecraft mc, AbstractFarmingMacro macro) {
@@ -227,6 +233,7 @@ public final class FarmingMacroManager {
         if (activeMacro != null) {
             activeMacro.onDisable(mc);
             activeMacro = null;
+            pendingEnableTicks = 0;
         }
     }
 
@@ -251,8 +258,18 @@ public final class FarmingMacroManager {
      * Wire this to {@code ClientTickEvents.END_CLIENT_TICK}.
      */
     public static void tick(Minecraft mc) {
-        if (activeMacro != null && mc.player != null) {
-            activeMacro.onTick(mc);
+        if (activeMacro == null || mc.player == null) {
+            return;
         }
+
+        if (pendingEnableTicks > 0) {
+            if (--pendingEnableTicks > 0) {
+                return;
+            }
+            activeMacro.onEnable(mc);
+            return;
+        }
+
+        activeMacro.onTick(mc);
     }
 }
