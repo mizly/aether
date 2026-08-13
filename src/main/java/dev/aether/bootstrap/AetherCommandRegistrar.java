@@ -51,6 +51,8 @@ public final class AetherCommandRegistrar {
     }
 
     private static void registerLegacyCommandIntercepts() {
+        // only fires for chat, never for commands, so slash commands still run normally.
+        ClientSendMessageEvents.ALLOW_CHAT.register(message -> !IrcManager.interceptChat(message));
         ClientSendMessageEvents.CHAT.register(message ->
                 MovementPlaybackManager.recordOutgoingChat(message, false));
         ClientSendMessageEvents.COMMAND.register(command -> {
@@ -320,6 +322,10 @@ public final class AetherCommandRegistrar {
                                                         return 1;
                                                     }))))
                             .then(ClientCommands.literal("irc")
+                                    .executes(ctx -> {
+                                        IrcManager.toggleRedirect();
+                                        return 1;
+                                    })
                                     .then(ClientCommands.literal("on")
                                             .executes(ctx -> setIrcEnabled(true)))
                                     .then(ClientCommands.literal("off")

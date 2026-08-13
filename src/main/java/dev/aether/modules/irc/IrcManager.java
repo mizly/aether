@@ -31,6 +31,7 @@ public final class IrcManager {
     });
 
     private static boolean running;
+    private static volatile boolean redirecting;
     private static volatile int generation;
     private static volatile String cursor = "";
     private static long backoffSeconds = RETRY_DELAY_SECONDS;
@@ -70,6 +71,48 @@ public final class IrcManager {
 
     public static void onLoggedOut() {
         stop();
+    }
+
+    public static boolean isRedirecting() {
+        return redirecting;
+    }
+
+    public static void toggleRedirect() {
+        if (redirecting) {
+            redirecting = false;
+            ClientUtils.sendMessage("§echat is back to normal", false);
+            return;
+        }
+
+        if (!AetherAuthService.isAuthenticated() || AetherTokenStore.getToken().isEmpty()) {
+            ClientUtils.sendMessage("§clink your account dude", false);
+            return;
+        }
+
+        if (!isEnabled()) {
+            ClientUtils.sendMessage("§eirc is off turn it on", false);
+            return;
+        }
+
+        redirecting = true;
+        ClientUtils.sendMessage("§aall chat goes to irc now - §f/aether irc§a to stop", false);
+    }
+
+    /** Returns true when the message was taken over, so the caller cancels the outgoing chat. */
+    public static boolean interceptChat(String message) {
+        if (!redirecting) {
+            return false;
+        }
+
+        // never swallow a message that cannot be delivered; fall back to normal chat instead.
+        if (!isEnabled() || !AetherAuthService.isAuthenticated()) {
+            redirecting = false;
+            ClientUtils.sendMessage("§echat is back to normal", false);
+            return false;
+        }
+
+        sendChat(message);
+        return true;
     }
 
     public static void sendChat(String message) {
@@ -141,6 +184,7 @@ public final class IrcManager {
     }
 
     private static void stop() {
+        redirecting = false;
         synchronized (LOCK) {
             if (!running) {
                 return;
