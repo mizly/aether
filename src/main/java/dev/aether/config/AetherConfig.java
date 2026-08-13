@@ -474,7 +474,9 @@ public final class AetherConfig {
 
         public static final BooleanEntry MANUAL_PEST_MODE = Config.bool("manualPestMode", false);
         public static final BooleanEntry VACCUM_WHEN_START = Config.bool("vaccumwhenstart", false);
+        public static final BooleanEntry TELEPORT_TO_PLOT_WHEN_START = Config.bool("teleportToPlotWhenStart", false);
         public static final StringEntry MANUAL_PEST_SOUND_FILE = Config.string("manualPestSoundFile", "fnaf.mp3");
+
 
         // -- PEST EXCHANGE ---------------------------------------------------------
 
