@@ -2,8 +2,7 @@ package dev.aether.telemetry;
 
 import java.io.IOException;
 
-// statusCode is 0 when no HTTP response happened at all (offline, DNS, timeout).
-// Messages must never carry request headers or the API token.
+// statusCode is 0 when no HTTP response happened (offline/DNS/timeout); messages never carry headers or the token.
 public final class AetherApiException extends IOException {
     private final int statusCode;
     private final String errorCode;

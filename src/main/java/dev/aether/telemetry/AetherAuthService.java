@@ -31,7 +31,7 @@ public final class AetherAuthService {
     private static volatile long totalSeconds;
 
     private static ScheduledFuture<?> pollTask;
-    // Read by poll() on the auth thread outside LOCK, written by the render thread inside it.
+    // read by poll() on the auth thread outside LOCK, written by the render thread inside it.
     private static volatile int generation;
 
     private AetherAuthService() {
@@ -43,8 +43,7 @@ public final class AetherAuthService {
             return;
         }
 
-        // Trust the saved token up front so a restart while offline does not look
-        // like a logout; /me demotes us to LOGGED_OUT if it was actually revoked.
+        // trust the saved token up front so an offline restart is not seen as a logout; /me demotes if revoked.
         synchronized (LOCK) {
             state = AetherAuthState.AUTHENTICATED;
             discordId = AetherTokenStore.getDiscordId();
@@ -92,8 +91,7 @@ public final class AetherAuthService {
         }
     }
 
-    // /mod/* replies carry the running total, so the mod-time endpoints keep it fresh for free.
-    // They omit the field in some replies, hence the zero guard.
+    // /mod/* replies carry the running total and keep it fresh for free; the zero guard covers replies that omit it.
     static void updateTotalSeconds(long seconds) {
         if (seconds <= 0L) {
             return;
@@ -142,8 +140,7 @@ public final class AetherAuthService {
             statusDetail = "";
             totalSeconds = 0L;
         }
-        // No client-facing revoke endpoint yet; a call would slot in here before
-        // the local token is dropped.
+        // the revoke endpoint exists server-side but the client does not call it yet; a call would slot in here.
         AetherTelemetryService.stopForLogout(token);
         AetherTokenStore.clear();
         Aether.LOGGER.info("[aether] Aether account disconnected");
@@ -249,7 +246,7 @@ public final class AetherAuthService {
         Aether.LOGGER.info("[aether] Aether authentication completed");
         NotificationManager.success("Discord Connected", "Aether is linked to your Discord account");
         AetherTelemetryService.onAuthenticated();
-        // A fresh login has no total yet; without this the UI would read zero until the next restart.
+        // a fresh login has no total yet; without this the UI would read zero until the next restart.
         validateSavedToken();
     }
 

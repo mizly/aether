@@ -17,8 +17,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.Set;
 
-// Kept out of aether_config.json on purpose: that file is exported/imported and
-// shared between users via config profiles, which would hand over the token.
+// kept out of aether_config.json on purpose: config profiles are shared between users and would leak the token.
 public final class AetherTokenStore {
     private static final String FILE_NAME = "aether_auth.json";
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -134,7 +133,7 @@ public final class AetherTokenStore {
             Files.setPosixFilePermissions(path,
                     Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
         } catch (IOException | UnsupportedOperationException | SecurityException ignored) {
-            // Windows and some filesystems have no POSIX permissions; nothing to harden there.
+            // windows and some filesystems have no POSIX permissions; nothing to harden there.
         }
     }
 

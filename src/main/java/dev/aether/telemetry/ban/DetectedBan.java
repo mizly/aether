@@ -1,6 +1,6 @@
 package dev.aether.telemetry.ban;
 
-// Parsed punishment text only. Never carries a Ban ID.
+// parsed punishment text only; never carries a ban id.
 public record DetectedBan(boolean temporary, String reason, String duration, boolean simulated) {
     public DetectedBan {
         reason = reason == null ? "" : reason;

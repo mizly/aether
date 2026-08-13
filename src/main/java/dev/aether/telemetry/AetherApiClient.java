@@ -78,8 +78,7 @@ public final class AetherApiClient {
             default -> LoginStatusKind.UNKNOWN;
         };
 
-        // The token is handed out exactly once, so letting an unrecognised status hide one
-        // would burn the login and the next poll would report it as already claimed.
+        // the token is handed out once, so hiding it behind an unknown status would burn the login.
         if (kind == LoginStatusKind.UNKNOWN && !token.isEmpty()) {
             kind = LoginStatusKind.COMPLETE;
         }
@@ -106,12 +105,12 @@ public final class AetherApiClient {
         return modOff(token, REQUEST_TIMEOUT);
     }
 
-    /** Shutdown paths pass a short timeout so telemetry never stalls the client exit. */
+    /** shutdown paths pass a short timeout so telemetry never stalls the client exit. */
     public static ModState modOff(String token, Duration timeout) throws AetherApiException {
         return modState("/mod/off", token, timeout);
     }
 
-    // The bearer token identifies the user; the payload carries no Minecraft or Discord identity.
+    // the bearer token identifies the user; the payload carries no Minecraft or Discord identity.
     public static void reportBan(String token, JsonObject payload) throws AetherApiException {
         HttpRequest req = authorized(request("/ban")
                 .header("Content-Type", "application/json")

@@ -29,8 +29,7 @@ public record BanDisconnectContext(
                 FailsafeTriggerHistory.getLastTriggerDetails());
     }
 
-    // A ban with no macro running and no failsafe in the last 10 minutes is not macro-related,
-    // so it stays local rather than polluting the ban statistics.
+    // a ban with no macro and no failsafe in the last 10 minutes is not macro-related, so it stays local.
     public boolean eligibleForReport() {
         return macroActiveAtDisconnect || failsafeTriggeredWithinLast10Minutes;
     }

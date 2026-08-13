@@ -25,8 +25,7 @@ public final class AetherBanService {
     private AetherBanService() {
     }
 
-    // The context must already be captured by the caller, before any disconnect handling
-    // has had a chance to stop the macro or reset the failsafes.
+    // the caller must capture context before disconnect handling stops the macro or resets failsafes.
     public static void onPlayDisconnect(
             String serverAddress,
             String disconnectReason,
@@ -36,7 +35,7 @@ public final class AetherBanService {
     ) {
         DetectedBan ban = HypixelBanDetector.detect(disconnectReason);
         if (!BanDetectionGate.allowsDetection(true, playSessionEstablished, intentionalDisconnect, serverAddress)) {
-            // Silence here used to make a dropped punishment indistinguishable from a normal quit.
+            // silence here used to make a dropped punishment indistinguishable from a normal quit.
             if (ban != null && !ban.simulated()) {
                 Aether.LOGGER.info("[aether] Ban-shaped disconnect not reported (established={}, intentional={}, hypixel={})",
                         playSessionEstablished, intentionalDisconnect, BanDetectionGate.isHypixelAddress(serverAddress));
@@ -69,8 +68,7 @@ public final class AetherBanService {
         submitReport(report);
     }
 
-    // Dynamic Rest's fake screen is the detector's manual test; it never reaches the
-    // reporting pipeline because it is not a network disconnect.
+    // the dynamic-rest fake screen is a manual test; not a network disconnect, so it never reaches reporting.
     public static void observeSimulatedBanScreen(String screenText, long screenKey) {
         if (lastSimulatedScreenKey == screenKey) {
             return;

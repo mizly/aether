@@ -139,14 +139,14 @@ public final class AetherTelemetryService {
                 AetherAuthService.invalidateToken();
                 return;
             }
-            // Keep the loop alive; the heartbeat retries /mod/on while serverActive is false.
+            // keep the loop alive; the heartbeat retries /mod/on while serverActive is false.
             Aether.LOGGER.warn("[aether] Aether /mod/on failed: {}", e.getMessage());
             scheduleHeartbeat(gen, false);
             return;
         }
 
         if (gen != generation) {
-            // Toggled off while /mod/on was in flight, so undo it server-side.
+            // toggled off while /mod/on was in flight, so undo it server-side.
             sendModOff(token, null);
             return;
         }

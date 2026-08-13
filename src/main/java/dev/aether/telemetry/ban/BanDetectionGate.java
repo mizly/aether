@@ -10,8 +10,7 @@ public final class BanDetectionGate {
     private BanDetectionGate() {
     }
 
-    // Login-stage rejections never reach a play listener, so playStageDisconnect is false there
-    // and no amount of ban-shaped text can produce an event.
+    // login-stage rejections never reach a play listener, so playStageDisconnect is false and no ban text fires.
     public static boolean allowsDetection(
             boolean playStageDisconnect,
             boolean playSessionEstablished,

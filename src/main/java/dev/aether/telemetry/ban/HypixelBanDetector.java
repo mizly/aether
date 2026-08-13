@@ -6,7 +6,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-// Pure classification of a disconnect reason: no client state, no Minecraft classes.
+// pure classification of a disconnect reason: no client state, no Minecraft classes.
 public final class HypixelBanDetector {
     public static final String SIMULATED_BAN_ID = "AETHERSB";
 
@@ -23,8 +23,7 @@ public final class HypixelBanDetector {
     private HypixelBanDetector() {
     }
 
-    // Null unless both ban wording and a Hypixel punishment marker are present, so kicks,
-    // timeouts and other servers' messages fall through.
+    // null unless both ban wording and a Hypixel punishment marker are present, so kicks and timeouts fall through.
     public static DetectedBan detect(String rawReason) {
         List<String> lines = normalizeLines(rawReason);
         if (lines.isEmpty()) {
@@ -44,7 +43,7 @@ public final class HypixelBanDetector {
                 SIMULATED_BAN_ID.equalsIgnoreCase(parseBanId(lines)));
     }
 
-    // Strips legacy colour codes and exotic spacing, then yields trimmed non-empty lines.
+    // strips legacy colour codes and exotic spacing, then yields trimmed non-empty lines.
     static List<String> normalizeLines(String rawReason) {
         List<String> lines = new ArrayList<>();
         if (rawReason == null || rawReason.isBlank()) {
@@ -62,7 +61,7 @@ public final class HypixelBanDetector {
         return lines;
     }
 
-    // TRUE = temporary, FALSE = permanent, null = not ban-shaped.
+    // true = temporary, false = permanent, null = not ban-shaped.
     private static Boolean classifyBanKind(String lower) {
         if (lower.contains("temporarily banned") || TEMPORARY_FALLBACK.matcher(lower).find()) {
             return Boolean.TRUE;
@@ -107,7 +106,7 @@ public final class HypixelBanDetector {
             if (!inline.isEmpty()) {
                 return inline;
             }
-            // Wrapped component: the reason text landed on the following line.
+            // wrapped component: the reason text landed on the following line.
             if (i + 1 < lines.size() && !MARKER_LINE.matcher(lines.get(i + 1)).find()) {
                 return lines.get(i + 1).trim();
             }
@@ -116,7 +115,7 @@ public final class HypixelBanDetector {
         return "";
     }
 
-    // Only ever compared to SIMULATED_BAN_ID; a real Ban ID must never be stored or reported.
+    // only ever compared to SIMULATED_BAN_ID; a real ban id must never be stored or reported.
     private static String parseBanId(List<String> lines) {
         for (String line : lines) {
             Matcher matcher = BAN_ID_LINE.matcher(line);
