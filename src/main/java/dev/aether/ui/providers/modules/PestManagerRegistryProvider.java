@@ -246,6 +246,13 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.save();
                         })
                         .visibleWhen(() -> AetherConfig.MANUAL_PEST_MODE.get()))
+                .add(new ToggleSetting("Teleport to Plot When Start",
+                        () -> AetherConfig.TELEPORT_TO_PLOT_WHEN_START.get(),
+                        v -> {
+                            AetherConfig.TELEPORT_TO_PLOT_WHEN_START.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(() -> AetherConfig.MANUAL_PEST_MODE.get()))
                 .add(new DropdownSetting("Manual Pest Sound", manualPestSoundOptions,
                         () -> getSoundIndex(manualPestSoundOptions, AetherConfig.MANUAL_PEST_SOUND_FILE.get()),
                         i -> {
