@@ -197,6 +197,7 @@ public final class PestLifecycleManager {
                 + (manualMode ? "manual" : "automatic") + ").");
 
         if (manualMode) {
+            teleportToPlotForManualStart(client, plot);
             switchToVacuumForManualStart(client);
             if (!ManualPestManager.startCleaningStage(client, pestCount)) {
                 PestManager.handlePestCleaningFinished(client);
@@ -210,6 +211,18 @@ public final class PestLifecycleManager {
             PestBonusManager.beginReactivation();
         }
         client.execute(() -> PestDestroyer.start(client, plot));
+    }
+
+    private static void teleportToPlotForManualStart(Minecraft client, String plot) {
+        if (!AetherConfig.TELEPORT_TO_PLOT_WHEN_START.get()) {
+            return;
+        }
+        if (!PestPlotId.isUsable(plot)) {
+            return;
+        }
+
+        CommandUtils.initiatePlotTp(plot);
+        ClientUtils.sendDebugMessage("Manual Pest Mode: initiated plot tp to plot " + plot + ".");
     }
 
     private static void switchToVacuumForManualStart(Minecraft client) {
