@@ -110,22 +110,32 @@ public final class AetherApiClient {
         return modState("/mod/off", token, timeout);
     }
 
-    // the bearer token identifies the user; the payload carries no Minecraft or Discord identity.
     public static void reportBan(String token, JsonObject payload) throws AetherApiException {
+        JsonObject body = payload == null ? new JsonObject() : payload;
+        body.addProperty("instance_id", AetherInstanceStore.getInstanceId());
         HttpRequest req = authorized(request("/ban")
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8)), token)
+                .POST(HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8)), token)
                 .build();
         execute(req, "/ban");
     }
 
     private static ModState modState(String path, String token, Duration timeout) throws AetherApiException {
-        HttpRequest req = authorized(request(path, timeout).POST(HttpRequest.BodyPublishers.noBody()), token).build();
+        HttpRequest req = authorized(request(path, timeout)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(instancePayload().toString(), StandardCharsets.UTF_8)), token)
+                .build();
         JsonObject body = send(req, path);
         return new ModState(
                 !body.has("ok") || body.get("ok").getAsBoolean(),
                 body.has("active") && !body.get("active").isJsonNull() && body.get("active").getAsBoolean(),
                 longValue(body, "total_seconds", 0L));
+    }
+
+    private static JsonObject instancePayload() {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("instance_id", AetherInstanceStore.getInstanceId());
+        return payload;
     }
 
     private static HttpRequest.Builder request(String path) {
