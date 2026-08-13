@@ -54,6 +54,10 @@ public final class ProfitPricing {
             "Pest Shard", "Locust Larva");
 
     private static final Set<String> PETS_SET = Set.of("Epic Slug", "Legendary Slug", "Rat");
+    private static final Set<String> SHARDS_SET = Set.of(
+            "Pest Shard", "Fly Shard", "Cricket Shard", "Locust Shard", "Rat Shard",
+            "Mosquito Shard", "Earthworm Shard", "Mite Shard", "Moth Shard", "Slug Shard",
+            "Beetle Shard", "Firefly Shard", "Dragonfly Shard", "Praying Mantis Shard");
     private static final Set<String> MISC_DROPS_SET = Set.of("Cropie", "Squash", "Fermento", "Helianthus",
             "Tool EXP Capsule", "Pet XP", "Purse",
             "Raw Mutton", "Enchanted Raw Mutton", "Enchanted Cooked Mutton");
@@ -93,7 +97,13 @@ public final class ProfitPricing {
             Map.entry("Cropie", 25000.0), Map.entry("Squash", 75000.0), Map.entry("Fermento", 250000.0),
             Map.entry("Helianthus", 0.0), Map.entry("Tool EXP Capsule", 100000.0), Map.entry("Pet XP", 0.0),
             Map.entry("Raw Mutton", 0.0), Map.entry("Enchanted Raw Mutton", 0.0), Map.entry("Enchanted Cooked Mutton", 0.0),
-            Map.entry("Pest Shard", 0.0),
+            Map.entry("Pest Shard", 0.0), Map.entry("Fly Shard", 0.0),
+            Map.entry("Cricket Shard", 0.0), Map.entry("Locust Shard", 0.0),
+            Map.entry("Rat Shard", 0.0), Map.entry("Mosquito Shard", 0.0),
+            Map.entry("Earthworm Shard", 0.0), Map.entry("Mite Shard", 0.0),
+            Map.entry("Moth Shard", 0.0), Map.entry("Slug Shard", 0.0),
+            Map.entry("Beetle Shard", 0.0), Map.entry("Firefly Shard", 0.0),
+            Map.entry("Dragonfly Shard", 0.0), Map.entry("Praying Mantis Shard", 0.0),
             Map.entry("Biofuel", 0.0), Map.entry("Farming Exp Boost", 0.0), Map.entry("Harvest Harbinger V Potion", 0.0),
             Map.entry("Velvet Top Hat", 0.0), Map.entry("Cashmere Hat", 0.0), Map.entry("Satin Trousers", 0.0),
             Map.entry("Oxford Shoes", 0.0), Map.entry("Space Helmet", 0.0), Map.entry("Wild Strawberry Dye", 0.0),
@@ -137,6 +147,19 @@ public final class ProfitPricing {
             Map.entry("Vermin Vaporizer Chip", "VERMIN_VAPORIZER_GARDEN_CHIP"),
             Map.entry("ENCHANTMENT_GREEN_THUMB_1", "ENCHANTMENT_GREEN_THUMB_1"),
             Map.entry("Pest Shard", "SHARD_PEST"),
+            Map.entry("Fly Shard", "SHARD_FLY"),
+            Map.entry("Cricket Shard", "SHARD_CRICKET"),
+            Map.entry("Locust Shard", "SHARD_LOCUST"),
+            Map.entry("Rat Shard", "SHARD_RAT"),
+            Map.entry("Mosquito Shard", "SHARD_MOSQUITO"),
+            Map.entry("Earthworm Shard", "SHARD_EARTHWORM"),
+            Map.entry("Mite Shard", "SHARD_MITE"),
+            Map.entry("Moth Shard", "SHARD_MOTH"),
+            Map.entry("Slug Shard", "SHARD_SLUG"),
+            Map.entry("Beetle Shard", "SHARD_BEETLE"),
+            Map.entry("Firefly Shard", "SHARD_FIREFLY"),
+            Map.entry("Dragonfly Shard", "SHARD_DRAGONFLY"),
+            Map.entry("Praying Mantis Shard", "SHARD_PRAYING_MANTIS"),
             Map.entry("Overgrown Grass", "OVERGROWN_GRASS"),
             Map.entry("Flowering Bouqet", "FLOWERING_BOUQUET"),
             Map.entry("Green Bandana", "GREEN_BANDANA"),
@@ -321,6 +344,8 @@ public final class ProfitPricing {
         String tag = "OTHER";
         if (isCrop(cleanName)) {
             tag = "CROP";
+        } else if (isShard(cleanName)) {
+            tag = "SHARD";
         } else if (isPestItem(cleanName)) {
             tag = "PEST";
         } else if (isPet(cleanName)) {
@@ -341,6 +366,7 @@ public final class ProfitPricing {
     public String getCompactCategoryLabel(String category) {
         return switch (category) {
             case "Crops" -> "[CROP]";
+            case "Shards" -> "[SHARD]";
             case "Pest Items" -> "[PEST]";
             case "Pets" -> "[PET]";
             case "Feast" -> "[FEAST]";
@@ -357,6 +383,10 @@ public final class ProfitPricing {
 
     public boolean isPestItem(String name) {
         return PEST_ITEMS_SET.contains(sanitizeName(name));
+    }
+
+    public boolean isShard(String name) {
+        return SHARDS_SET.contains(sanitizeName(name));
     }
 
     public boolean isPet(String name) {
@@ -413,6 +443,11 @@ public final class ProfitPricing {
         }
     }
 
+    public void handleShardPriceSourceChanged() {
+        onPricesChanged.run();
+        fetchBazaarPrices();
+    }
+
     public void refreshBazaarPricesIfNeeded() {
         long now = System.currentTimeMillis();
         if (now - lastBazaarFetchTime > 3600000L) {
@@ -460,6 +495,16 @@ public final class ProfitPricing {
             return 0.0;
         }
 
+        if (isShard(lookupKey)) {
+            ShardPriceSource shardSource = ShardPriceSource.fromConfig(
+                    AetherConfig.SHARD_PRICE_SOURCE.get());
+            Map<String, Double> selected = shardSource == ShardPriceSource.BUY_OFFER
+                    ? bazaarBuyPrices : bazaarPrices;
+            double shardPrice = selected.getOrDefault(lookupKey, 0.0);
+            if (shardPrice > 0.0) {
+                return shardPrice;
+            }
+        }
         ProfitPriceSource source = ProfitPriceSource.fromConfig(AetherConfig.PROFIT_PRICE_SOURCE.get());
         if (source == ProfitPriceSource.BAZAAR) {
             double marketPrice = bazaarPrices.getOrDefault(lookupKey, 0.0);

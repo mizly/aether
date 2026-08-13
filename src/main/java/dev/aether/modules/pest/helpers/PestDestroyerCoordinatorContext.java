@@ -15,6 +15,7 @@ final class PestDestroyerCoordinatorContext
         implements PestTargetController.Context,
                 PestEquipmentController.Context,
                 PestHuntController.Context,
+                PestHuntingController.Context,
                 PestNavigationCoordinator.Context,
                 PestCombatCoordinator.Context,
                 PestDestroyerProgressController.Context {
@@ -70,6 +71,11 @@ final class PestDestroyerCoordinatorContext
     }
 
     @Override
+    public void beginTerminalState(Minecraft client) {
+        PestTargetController.beginTerminalState(client, runtime, this);
+    }
+
+    @Override
     public void finish(Minecraft client) {
         PestDestroyer.finish(client);
     }
@@ -102,11 +108,6 @@ final class PestDestroyerCoordinatorContext
     @Override
     public void engagePestTarget(Minecraft client, Entity pest) {
         PestTargetController.engage(client, runtime, this, pest);
-    }
-
-    @Override
-    public int countVisiblePestSkulls(Minecraft client) {
-        return PestTargetController.countVisiblePestSkulls(client);
     }
 
     @Override

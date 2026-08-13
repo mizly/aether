@@ -83,6 +83,8 @@ public final class PathfindingManager {
 
     // Held so we can abort the current async run
     private static volatile AStarPathfinder currentPathfinder = null;
+    /** Invalidates late async A* results when a newer route has already started. */
+    private static volatile long pathSearchToken = 0L;
     private static volatile EtherwarpPathfinder currentEtherwarpPathfinder = null;
     private static volatile long etherwarpSearchToken = 0L;
     private static volatile int etherwarpRepathCount = 0;
@@ -184,12 +186,21 @@ public final class PathfindingManager {
                 mc.player.onUpdateAbilities();
             }
             flyExecutor.tick(mc);
-            if (flyExecutor.getState() == FlyExecutor.State.FINISHED) {
+            if (flyExecutor.getState() == FlyExecutor.State.FINISHED
+                    || flyExecutor.getState() == FlyExecutor.State.IDLE) {
                 navigating = false;
                 activeMode = NavigationMode.NONE;
                 clearTransientDebugRenderingIfActive();
             }
         } else if (activeMode == NavigationMode.FLY && currentPathfinder != null) {
+            return;
+        } else if (activeMode == NavigationMode.FLY) {
+            // A stuck FlyExecutor stops into IDLE. Treat that as a failed route
+            // immediately; otherwise `navigating` remains true with no executor
+            // running and the pest controller can wait until its 30s timeout.
+            navigating = false;
+            activeMode = NavigationMode.NONE;
+            clearTransientDebugRenderingIfActive();
             return;
         } else {
             NavigationMode modeBeforeTick = activeMode;
@@ -559,6 +570,7 @@ public final class PathfindingManager {
     }
 
     private static void abortCurrentNavigation(Minecraft mc) {
+        pathSearchToken++;
         abortFlag.set(true);
         etherwarpRetryPending = false;
         etherwarpRetryTarget = null;
@@ -596,7 +608,7 @@ public final class PathfindingManager {
     // --- Internal ------------------------------------------------------------
 
     private static void doStartPathfind(Minecraft mc, int x, int y, int z, boolean fly) {
-        if (navigating) {
+        if (navigating || currentPathfinder != null) {
             abortCurrentNavigation(mc);
         }
         PathVisualizer.clear();
@@ -605,6 +617,7 @@ public final class PathfindingManager {
         navigating = true;
         activeMode = fly ? NavigationMode.FLY : NavigationMode.WALK;
         currentEtherwarpPathfinder = null;
+        final long searchToken = ++pathSearchToken;
 
         // Create checker once; reused for solid-check, pathfinding, and smoothing.
         final WalkabilityChecker sharedChecker = mc.level != null ? new WalkabilityChecker(mc.level) : null;
@@ -654,7 +667,9 @@ public final class PathfindingManager {
 
             pathfinder.findPath(start, target)
                     .thenAccept(result -> mc.execute(() -> {
-                        if (abortFlag.get()) return;
+                        if (abortFlag.get()
+                                || searchToken != pathSearchToken
+                                || currentPathfinder != pathfinder) return;
                         handleFlyResult(mc, result, config, x, finalY, z, startMs, pathfinder);
                     }));
         } else {
@@ -668,7 +683,9 @@ public final class PathfindingManager {
 
             pathfinder.findPath(start, target)
                     .thenAccept(result -> mc.execute(() -> {
-                        if (abortFlag.get()) return;
+                        if (abortFlag.get()
+                                || searchToken != pathSearchToken
+                                || currentPathfinder != pathfinder) return;
                         handleWalkResult(mc, result, config, sharedChecker, x, finalY, z,
                                 startMs, pathfinder);
                     }));
@@ -1634,4 +1651,3 @@ public final class PathfindingManager {
         return (raw & (1L << 25)) != 0 ? (int)(raw | ~MASK_XZ) : (int) raw;
     }
 }
-

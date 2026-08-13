@@ -577,36 +577,32 @@ final class MainGUISettingRowRenderer {
 
     private void renderMultiDropdown(NVGRenderer nvg, MultiDropdownSetting setting, float x, float w, float y, float cardH,
                                      List<String> labelLines, float labelFontSize, float labelLineStep, float labelBlockH) {
-        float textY = y + (cardH - labelBlockH) / 2f;
+        float textY = y + 12f;
         for (int i = 0; i < labelLines.size(); i++) {
             nvg.text(Fonts.REGULAR, labelLines.get(i), x, textY + i * labelLineStep, labelFontSize, Theme.TEXT_LABEL);
         }
         float chipH      = MultiDropdownSetting.CHIP_H;
-        float chipPadX   = MultiDropdownSetting.CHIP_PAD_X;
         float chipGap    = MultiDropdownSetting.CHIP_GAP;
         float chipFontSz = MultiDropdownSetting.CHIP_FONT_SZ;
-        float chipY = y + (cardH - chipH) / 2f;
+        float chipY = textY + labelBlockH + 8f;
 
         List<String> options = setting.getOptions();
-        float[] chipWidths = new float[options.size()];
-        float totalW = 0f;
+        float cx = x;
         for (int i = 0; i < options.size(); i++) {
             String optionText = AetherLang.localize(options.get(i));
-            chipWidths[i] = nvg.textWidth(Fonts.REGULAR, optionText, chipFontSz) + chipPadX * 2f;
-            totalW += chipWidths[i];
-            if (i > 0) totalW += chipGap;
-        }
-
-        float cx = x + w - totalW;
-        for (int i = 0; i < options.size(); i++) {
+            float chipWidth = MultiDropdownSetting.chipWidth(optionText);
+            if (cx > x && cx + chipWidth > x + w) {
+                cx = x;
+                chipY += chipH + chipGap;
+            }
             boolean sel = setting.isSelected(i);
             int bg        = sel ? Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.15f) : Theme.ELEMENT_BG;
             int border    = sel ? Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.5f)  : Theme.BORDER_DEFAULT;
             int textColor = sel ? Theme.ACCENT_PRIMARY : Theme.TEXT_VALUE;
-            nvg.roundedRect(cx, chipY, chipWidths[i], chipH, 5f, bg);
-            nvg.rectOutline(cx, chipY, chipWidths[i], chipH, 5f, 1f, border);
-            nvg.textCentered(Fonts.REGULAR, AetherLang.localize(options.get(i)), cx, chipY, chipWidths[i], chipH, chipFontSz, textColor);
-            cx += chipWidths[i] + chipGap;
+            nvg.roundedRect(cx, chipY, chipWidth, chipH, 5f, bg);
+            nvg.rectOutline(cx, chipY, chipWidth, chipH, 5f, 1f, border);
+            nvg.textCentered(Fonts.REGULAR, optionText, cx, chipY, chipWidth, chipH, chipFontSz, textColor);
+            cx += chipWidth + chipGap;
         }
     }
 

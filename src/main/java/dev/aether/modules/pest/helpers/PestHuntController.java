@@ -99,7 +99,7 @@ final class PestHuntController {
         ClientUtils.sendDebugMessage(
                 "[PestDestroyer] No visible pests on Plot "
                         + firstPlot
-                        + ". Using firework tracker...");
+                        + ". Sweeping the plot...");
         context.setState(PestDestroyer.State.GET_LOCATION);
     }
 }

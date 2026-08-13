@@ -39,13 +39,17 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
-import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket;
 
 import java.io.File;
 
 public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.FeatureHooks {
+    @Override
+    public boolean isAttackSuppressed() {
+        return PestDestroyer.isCatchInProgress();
+    }
+
     @Override
     public void onConfigProfileLoaded(File profileFile) {
         ClientFeatureBootstrap.onConfigProfileLoaded(profileFile);
@@ -330,9 +334,6 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
     @Override
     public void onParticlePacket(Minecraft minecraft, ClientboundLevelParticlesPacket packet) {
         VacuumParticleDebug.onParticlePacket(packet);
-        if (packet.getParticle().getType() == ParticleTypes.ANGRY_VILLAGER) {
-            PestDestroyer.onFireworkParticle(packet.getX(), packet.getY(), packet.getZ());
-        }
     }
 
     @Override

@@ -17,6 +17,26 @@ public class MultiDropdownSetting implements Setting {
     public static final float CHIP_GAP     = 6f;
     public static final float CHIP_FONT_SZ = 12f;
 
+    public static float chipWidth(String option) {
+        return option.length() * (CHIP_FONT_SZ * 0.52f) + CHIP_PAD_X * 2f;
+    }
+
+    public int rowCount(float availableWidth) {
+        float width = Math.max(1f, availableWidth);
+        float used = 0f;
+        int rows = 1;
+        for (String option : options) {
+            float chip = chipWidth(option);
+            if (used > 0f && used + CHIP_GAP + chip > width) {
+                rows++;
+                used = chip;
+            } else {
+                used += (used > 0f ? CHIP_GAP : 0f) + chip;
+            }
+        }
+        return rows;
+    }
+
     private final String name;
     private final String rawName;
     private final List<String> options;

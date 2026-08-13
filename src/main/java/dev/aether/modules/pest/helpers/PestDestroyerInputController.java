@@ -21,7 +21,8 @@ final class PestDestroyerInputController {
         if (!runtime.active || client.player == null) {
             return;
         }
-        if (runtime.state == PestDestroyer.State.AOTV_BETWEEN_PESTS) {
+        if (runtime.state == PestDestroyer.State.AOTV_BETWEEN_PESTS
+                || runtime.state == PestDestroyer.State.HUNT_PEST) {
             return;
         }
         if (runtime.vacuumSlot < 0) {
@@ -30,9 +31,8 @@ final class PestDestroyerInputController {
         }
 
         int selected = ((AccessorInventory) client.player.getInventory()).getSelected();
-        boolean capturing = runtime.navigation.isCapturingFirework;
         if (runtime.state == PestDestroyer.State.KILL_PEST) {
-            boolean shouldUse = !capturing && !vacuumTemporarilyReleased;
+            boolean shouldUse = !vacuumTemporarilyReleased;
             if (shouldUse && selected != runtime.vacuumSlot) {
                 client.execute(() -> FailsafeManager.selectHotbarSlot(client, runtime.vacuumSlot));
             }
@@ -42,7 +42,6 @@ final class PestDestroyerInputController {
 
         boolean shouldUse = selected == runtime.vacuumSlot
                 && runtime.state != PestDestroyer.State.GET_LOCATION
-                && !capturing
                 && !vacuumTemporarilyReleased;
         ClientUtils.setKeyMappingState(client.options.keyUse, shouldUse);
     }

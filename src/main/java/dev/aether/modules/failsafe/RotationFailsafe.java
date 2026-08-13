@@ -176,6 +176,10 @@ final class RotationFailsafe {
         return State.IDLE;
     }
 
+    static boolean isExpectedRotationSet() {
+        return expectedRotationSet;
+    }
+
     static float getExpectedYaw() {
         return expectedYaw;
     }

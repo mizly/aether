@@ -465,10 +465,29 @@ public final class AetherConfig {
         public static final IntEntry PEST_AOTV_DELAY_MIN = Config.integer("pestAotvDelayMin", 150).range(100, 250);
         public static final IntEntry PEST_AOTV_DELAY_MAX = Config.integer("pestAotvDelayMax", 250).range(100, 250);
         public static final FloatEntry PEST_FOV_RANGE = Config.floatVal("pestFovRange", 20.0f).range(0.0f, 90.0f);
+        /** Multiplier applied only to live pest-target tracking rotations. */
+        public static final FloatEntry PEST_ROTATION_SPEED =
+                        Config.floatVal("pestRotationSpeed", 1.5f).range(0.5f, 4.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MIN = Config.floatVal("pestAboveTargetPitchMin", 25.0f)
                         .range(20.0f, 40.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MAX = Config.floatVal("pestAboveTargetPitchMax", 40.0f)
                         .range(10.0f, 90.0f);
+
+        // -- PEST HUNTING ----------------------------------------------------------
+
+        public static final BooleanEntry PEST_HUNTING = Config.bool("pestHunting", false);
+        public static final BooleanEntry PEST_HUNTING_VACUUM_STUN = Config.bool("pestHuntingVacuumStun", true);
+        /** Selected pest types use the vacuum instead of the lasso. */
+        public static final IntEntry PEST_HUNTING_VACUUM_PEST_MASK =
+                        Config.integer("pestHuntingVacuumPestMask", 0);
+        public static final FloatEntry PEST_HUNTING_FOLLOW_DISTANCE =
+                        Config.floatVal("pestHuntingFollowDistance", 5.0f).range(1.0f, 8.0f);
+        public static final FloatEntry PEST_HUNTING_MAX_DISTANCE =
+                        Config.floatVal("pestHuntingMaxDistance", 8.0f).range(4.0f, 10.0f);
+        public static final IntEntry PEST_HUNTING_TIMEOUT_MS = Config.integer("pestHuntingTimeoutMs", 45000)
+                        .range(10000, 120000);
+        public static final IntEntry PEST_HUNTING_MAX_THROWS = Config.integer("pestHuntingMaxThrows", 6)
+                        .range(1, 15);
 
         // -- MANUAL PEST MODE ------------------------------------------------------
 
@@ -706,6 +725,7 @@ public final class AetherConfig {
         public static final BooleanEntry PROFIT_HUD_ENABLED = Config.bool("profitHudEnabled", true);
         public static final BooleanEntry COMPACT_PROFIT_CALCULATOR = Config.bool("compactProfitCalculator", true);
         public static final StringEntry PROFIT_PRICE_SOURCE = Config.string("profitPriceSource", "BAZAAR");
+        public static final StringEntry SHARD_PRICE_SOURCE = Config.string("shardPriceSource", "INSTA_SELL");
         public static final BooleanEntry FARMING_XP_HUD = Config.bool("farmingXpHud", true);
         public static final BooleanEntry FARMING_HUD_XP_RATE = Config.bool("farmingHudXpRate", true);
         public static final BooleanEntry FARMING_HUD_ETA_NEXT = Config.bool("farmingHudEtaNext", true);

@@ -291,6 +291,7 @@ public class ProfitHudElement extends HudElement {
     private static int compactCategoryColor(String category) {
         return switch (category) {
             case "Crops" -> 0xFFFFFF55;
+            case "Shards" -> 0xFFAA55FF;
             case "Pest Items" -> 0xFFFF5555;
             case "Pets" -> 0xFFFFAA00;
             case "Feast" -> 0xFFFFFF55;
@@ -304,6 +305,7 @@ public class ProfitHudElement extends HudElement {
     private static int categoryTagColor(String tag) {
         return switch (tag) {
             case "[CROP]", "[FEAST]" -> 0xFFFFFF55;
+            case "[SHARD]" -> 0xFFAA55FF;
             case "[PEST]", "[COST]" -> 0xFFFF5555;
             case "[PET]" -> 0xFFFFAA00;
             case "[MISC]" -> 0xFF55FFFF;

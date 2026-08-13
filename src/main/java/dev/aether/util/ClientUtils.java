@@ -739,6 +739,44 @@ public class ClientUtils {
                 randomizedClickHoldMs());
     }
 
+    /**
+     * Queues the click as well as holding the key, so the use fires on this tick.
+     * A held-only press waits on Minecraft's rightClickDelay and is dropped
+     * entirely if the previous use was less than four ticks ago.
+     */
+    public static void performUseClickNow() {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.options == null) {
+            return;
+        }
+
+        pressAndReleaseInput(client, USE_CLICK_SEQUENCE,
+                () -> {
+                    setKeyMappingState(client.options.keyUse, true);
+                    clickKeyMapping(client.options.keyUse);
+                },
+                () -> setKeyMappingState(client.options.keyUse, false),
+                randomizedClickHoldMs());
+    }
+
+    /**
+     * Queues a single use click without holding the use key. This is used for
+     * the stun tap immediately before a hotbar swap: the click is consumed by
+     * Minecraft on the current tick and cannot overlap the lasso throw.
+     */
+    public static void performUseClickInstant() {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.options == null) {
+            return;
+        }
+        USE_CLICK_SEQUENCE.incrementAndGet();
+        client.execute(() -> {
+            setKeyMappingState(client.options.keyUse, true);
+            clickKeyMapping(client.options.keyUse);
+            setKeyMappingState(client.options.keyUse, false);
+        });
+    }
+
     public static void performAttackClickDirect() {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
@@ -806,6 +844,19 @@ public class ClientUtils {
         }
 
         client.execute(() -> clickKeyMapping(client.options.keyHotbarSlots[slot]));
+    }
+
+    /**
+     * Releasing a key does not drop clicks already queued on it, and Minecraft only
+     * drains that queue with no screen open, so they fire whenever a GUI closes.
+     */
+    public static void discardQueuedClicks(KeyMapping mapping) {
+        if (mapping == null) {
+            return;
+        }
+
+        while (mapping.consumeClick()) {
+        }
     }
 
     public static void setKeyMappingState(KeyMapping mapping, boolean down) {

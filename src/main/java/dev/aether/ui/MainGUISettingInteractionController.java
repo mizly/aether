@@ -488,27 +488,24 @@ final class MainGUISettingInteractionController {
 
     private void handleMultiDropdownClick(MultiDropdownSetting setting, float mx, float my, float y, float ix, float iw, float cardH) {
         float chipH    = MultiDropdownSetting.CHIP_H;
-        float chipPadX = MultiDropdownSetting.CHIP_PAD_X;
         float chipGap  = MultiDropdownSetting.CHIP_GAP;
-        float chipFontSz = MultiDropdownSetting.CHIP_FONT_SZ;
-        float chipY = y + (cardH - chipH) / 2f;
+        float labelBlockH = owner.wrappedSettingLabelLineCountForRow(setting, iw + 32f)
+                * owner.settingLabelLineStepForRow(setting);
+        float chipY = y + 12f + labelBlockH + 8f;
 
         List<String> options = setting.getOptions();
-        float[] chipWidths = new float[options.size()];
-        float totalW = 0f;
+        float cx = ix;
         for (int i = 0; i < options.size(); i++) {
-            chipWidths[i] = options.get(i).length() * (chipFontSz * 0.52f) + chipPadX * 2f;
-            totalW += chipWidths[i];
-            if (i > 0) totalW += chipGap;
-        }
-
-        float cx = ix + iw - totalW;
-        for (int i = 0; i < options.size(); i++) {
-            if (mx >= cx && mx <= cx + chipWidths[i] && my >= chipY && my <= chipY + chipH) {
+            float chipWidth = MultiDropdownSetting.chipWidth(options.get(i));
+            if (cx > ix && cx + chipWidth > ix + iw) {
+                cx = ix;
+                chipY += chipH + chipGap;
+            }
+            if (mx >= cx && mx <= cx + chipWidth && my >= chipY && my <= chipY + chipH) {
                 setting.toggleOption(i);
                 return;
             }
-            cx += chipWidths[i] + chipGap;
+            cx += chipWidth + chipGap;
         }
     }
 

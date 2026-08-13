@@ -173,10 +173,6 @@ public final class PestTargetTracker {
                 .anyMatch(marker -> !marker.isRemoved() && marker.distanceToSqr(targetEntity) <= 4.0);
     }
 
-    static int countVisiblePestSkulls(Minecraft client) {
-        return snapshot(client).markers().size();
-    }
-
     static boolean hasPestSkullMarkerForTarget(Minecraft client, Entity target) {
         if (isUnavailable(client, target, List.of())) {
             return false;
