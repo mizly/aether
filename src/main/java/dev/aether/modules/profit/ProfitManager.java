@@ -263,6 +263,10 @@ public final class ProfitManager {
         PRICING.handlePriceSourceChanged();
     }
 
+    public static void handleShardPriceSourceChanged() {
+        PRICING.handleShardPriceSourceChanged();
+    }
+
     public static void startStartupPriceFetch() {
         PRICING.startStartupPriceFetch();
     }

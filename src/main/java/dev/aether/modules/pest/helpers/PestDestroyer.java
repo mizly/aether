@@ -42,6 +42,7 @@ public class PestDestroyer {
         FLY_TO_PEST,
         APPROACH_PEST,
         KILL_PEST,
+        HUNT_PEST,
         CHECK_NEXT,
         GET_LOCATION,
         FLY_TO_WAYPOINT,
@@ -58,10 +59,8 @@ public class PestDestroyer {
     private static final double TARGET_REACH_DISTANCE = 12.0;
     private static final int PATHFINDER_STUCK_RETRY_TICKS = 20;
     private static final int APPROACH_TIMEOUT_TICKS = 120;
-    private static final int MAX_GET_LOCATION_ATTEMPTS = 3;
-    private static final int MAX_WAYPOINT_CYCLES = 5;
-    private static final long FIREWORK_CAPTURE_DURATION_MS = 1200;
-    private static final double FIREWORK_EXTRAPOLATE_DISTANCE = 15.0;
+    private static final int MAX_PLOT_SWEEPS = 2;
+    private static final int MAX_SCAN_WAYPOINTS = 10;
     private static final long PLOT_TP_WAIT_MS = 2500;
     private static final int SKULL_MISSING_CONFIRM_TICKS = 3;
     private static final long ROOF_RESCAN_INTERVAL_MS = 1000L;
@@ -83,9 +82,12 @@ public class PestDestroyer {
     public static void start(Minecraft client, String initialPlot) {
         if (runtime.active)
             return;
+        int[] vacuumSlots = PestLoadoutHelper.findAutomaticVacuumSlots(client);
         runtime.beginRun(
-                PestLoadoutHelper.findVacuumHotbarSlot(client),
+                vacuumSlots[1],
                 System.currentTimeMillis());
+        runtime.stunVacuumSlot = vacuumSlots[0];
+        runtime.killVacuumSlot = vacuumSlots[1];
 
         // Build plot queue from tab list (always fresh read)
         runtime.navigation.plotQueue.clear();
@@ -156,6 +158,7 @@ public class PestDestroyer {
     public static void stop(Minecraft client) {
         if (!runtime.active)
             return;
+        PestHuntingController.clearHunt(client, runtime);
         runtime.stopRun();
         PathfindingManager.stop();
         PestAotvManager.resetState();
@@ -218,6 +221,7 @@ public class PestDestroyer {
             processState(client);
             // Break if state didn't change or we entered a "long" or delicate state
             if (!runtime.active || runtime.state == prevState || runtime.state == State.IDLE || runtime.state == State.KILL_PEST
+                    || runtime.state == State.HUNT_PEST
                     || runtime.state == State.FLY_TO_PEST || runtime.state == State.FLY_TO_WAYPOINT
                     || runtime.state == State.GET_LOCATION || runtime.state == State.AOTV_BETWEEN_PESTS
                     || runtime.state == State.TELEPORT_TO_PLOT
@@ -246,6 +250,7 @@ public class PestDestroyer {
             case FLY_TO_PEST -> handleFlyToPest(client);
             case APPROACH_PEST -> handleApproachPest(client);
             case KILL_PEST -> handleKillPest(client);
+            case HUNT_PEST -> PestHuntingController.handleHuntPest(client, CONTEXT);
             case CHECK_NEXT -> handleCheckNext(client);
             case GET_LOCATION -> handleGetLocation(client);
             case FLY_TO_WAYPOINT -> handleFlyToWaypoint(client);
@@ -408,10 +413,8 @@ public class PestDestroyer {
                 client,
                 runtime.navigation,
                 CONTEXT,
-                MAX_GET_LOCATION_ATTEMPTS,
-                MAX_WAYPOINT_CYCLES,
-                FIREWORK_CAPTURE_DURATION_MS,
-                FIREWORK_EXTRAPOLATE_DISTANCE);
+                MAX_PLOT_SWEEPS,
+                MAX_SCAN_WAYPOINTS);
     }
 
     private static void handleFlyToWaypoint(Minecraft client) {
@@ -480,16 +483,6 @@ public class PestDestroyer {
                 STATE_TIMEOUT_MS);
     }
 
-    // -- Firework particle tracking -------------------------------------------
-
-    /**
-     * Called from the particle packet mixin when an ANGRY_VILLAGER particle
-     * is received. These trace the firework trail fired by the vacuum.
-     */
-    public static void onFireworkParticle(double x, double y, double z) {
-        PestPlotNavigator.onFireworkParticle(runtime.navigation, x, y, z);
-    }
-
     static boolean tryNextPlot(Minecraft client) {
         boolean shouldTeleport = PestPlotNavigator.tryNextPlot(client, runtime.navigation);
         if (shouldTeleport) {
@@ -506,8 +499,6 @@ public class PestDestroyer {
         ClientUtils.setKeyMappingState(client.options.keyDown, false);
         ClientUtils.setKeyMappingState(client.options.keyAttack, false);
         ClientUtils.setKeyMappingState(client.options.keyUp, false);
-        runtime.navigation.isCapturingFirework = false;
-        runtime.navigation.fireworkCaptureStartedAt = 0L;
         int killed = runtime.killedEntities.size();
         ClientUtils.sendMessage("\u00A7aPest destroyer finished. Tracked " + killed + " pest(s).", false);
         runtime.resetAll();
@@ -567,6 +558,22 @@ public class PestDestroyer {
         return runtime.vacuumSlot;
     }
 
+    public static void onPestCaught() {
+        if (isCatchInProgress()) {
+            PestHuntingController.onPestCaught(runtime);
+        }
+    }
+
+    public static void onLassoOverlayMessage(String message) {
+        if (isCatchInProgress()) {
+            PestHuntingController.onOverlayMessage(runtime, message);
+        }
+    }
+
+    public static boolean isCatchInProgress() {
+        return runtime.active && runtime.state == State.HUNT_PEST;
+    }
+
     public static void setAotvStartY(double startY) {
         runtime.aotvStartY = startY;
     }
@@ -592,5 +599,3 @@ public class PestDestroyer {
         return PestPlotNavigator.getEffectivePlot(client, runtime.navigation);
     }
 }
-
-

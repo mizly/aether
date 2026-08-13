@@ -11,33 +11,36 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 final class PestPlotNavigator {
+    // Quadrant sweep of a 96x96 garden plot, measured from the plot-centre anchor.
+    private static final double[][] SCAN_OFFSETS = {
+            {30.0, 30.0},
+            {-30.0, 30.0},
+            {-30.0, -30.0},
+            {30.0, -30.0},
+    };
+
     private PestPlotNavigator() {
     }
 
-    static void onFireworkParticle(PestNavigationState navigationState, double x, double y, double z) {
-        if (!navigationState.isCapturingFirework) {
-            return;
-        }
-        Vec3 pos = new Vec3(x, y, z);
-        if (navigationState.fireworkFirstPos == null) {
-            navigationState.fireworkFirstPos = pos;
-        }
-        navigationState.fireworkLastPos = pos;
-        navigationState.fireworkParticleCount++;
+    static int scanPointCount() {
+        return SCAN_OFFSETS.length;
     }
 
-    static Vec3 calculateWaypoint(PestNavigationState navigationState, double extrapolateDistance) {
-        if (navigationState.fireworkFirstPos == null
-                || navigationState.fireworkLastPos == null
-                || navigationState.fireworkParticleCount < 2) {
+    /** Next plot sweep point, or null once the whole plot has been covered. */
+    static Vec3 nextScanWaypoint(Minecraft client, PestNavigationState navigationState) {
+        if (client == null || client.player == null) {
             return null;
         }
-        Vec3 direction = navigationState.fireworkLastPos.subtract(navigationState.fireworkFirstPos);
-        if (direction.lengthSqr() < 0.01) {
+        if (navigationState.plotAnchor == null) {
+            navigationState.plotAnchor = client.player.position();
+        }
+        if (navigationState.scanPointIdx >= SCAN_OFFSETS.length) {
             return null;
         }
-        direction = direction.normalize();
-        return navigationState.fireworkLastPos.add(direction.scale(extrapolateDistance));
+        double[] offset = SCAN_OFFSETS[navigationState.scanPointIdx++];
+        Vec3 anchor = navigationState.plotAnchor;
+        // Sweep at the current altitude so a roof AOTV's vantage point is not thrown away.
+        return new Vec3(anchor.x + offset[0], client.player.getY(), anchor.z + offset[1]);
     }
 
     static String getNextPlotTarget(PestNavigationState navigationState) {

@@ -39,6 +39,60 @@ final class PestLoadoutHelper {
         return -1;
     }
 
+    /** Returns [lowest-rarity stun slot, highest-rarity kill slot]. */
+    static int[] findAutomaticVacuumSlots(Minecraft client) {
+        if (client.player == null) return new int[] {-1, -1};
+        int lowestSlot = -1, highestSlot = -1;
+        int lowestQuality = Integer.MAX_VALUE, highestQuality = Integer.MIN_VALUE;
+        for (int slot = 0; slot < 9; slot++) {
+            ItemStack stack = client.player.getInventory().getItem(slot);
+            if (stack.isEmpty() || !isVacuum(stack)) continue;
+            int quality = vacuumQuality(stack);
+            if (quality < lowestQuality) { lowestQuality = quality; lowestSlot = slot; }
+            if (quality > highestQuality) { highestQuality = quality; highestSlot = slot; }
+        }
+        if (lowestSlot < 0) return new int[] {-1, -1};
+        // One vacuum is deliberately used for both stun and kill.
+        return new int[] {lowestSlot, highestSlot < 0 ? lowestSlot : highestSlot};
+    }
+
+    private static boolean isVacuum(ItemStack stack) {
+        return stack.getHoverName().getString().toLowerCase().contains("vacuum");
+    }
+
+    private static int vacuumQuality(ItemStack stack) {
+        String name = stack.getHoverName().getString().toLowerCase();
+        int tier = name.contains("hooverius") ? 5
+                : name.contains("infinivacuum") ? 4
+                : name.contains("hyper vacuum") ? 3
+                : name.contains("turbo vacuum") ? 2
+                : name.contains("skymart vacuum") ? 1 : 0;
+        return stack.getRarity().ordinal() * 100 + tier;
+    }
+
+    static int findLassoHotbarSlot(Minecraft client) {
+        if (client.player == null) {
+            return -1;
+        }
+
+        ItemStack current = client.player.getMainHandItem();
+        if (isLasso(current)) {
+            return ((AccessorInventory) client.player.getInventory()).getSelected();
+        }
+
+        for (int i = 0; i < 9; i++) {
+            if (isLasso(client.player.getInventory().getItem(i))) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isLasso(ItemStack stack) {
+        return !stack.isEmpty()
+                && stack.getHoverName().getString().toLowerCase().contains("lasso");
+    }
+
     static int findAotvHotbarSlot(Minecraft client) {
         if (client.player == null) {
             return -1;

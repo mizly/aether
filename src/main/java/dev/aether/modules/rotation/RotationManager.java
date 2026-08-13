@@ -24,6 +24,10 @@ public class RotationManager {
     private static float lastAppliedYaw = 0.0f;
     private static float lastAppliedPitch = 0.0f;
     private static boolean hasLastApplied = false;
+    private static boolean smoothTrackingMode = false;
+    private static float trackingYawVelocity = 0.0f;
+    private static float trackingPitchVelocity = 0.0f;
+    private static long trackingLastUpdateAt = 0L;
 
     public static boolean isRotating() {
         return isRotating;
@@ -38,6 +42,7 @@ public class RotationManager {
         applyTrackingNoise = false;
         rotationGcd = Double.NaN;
         hasLastApplied = false;
+        resetTrackingMotion();
     }
 
     public static void initiateRotation(Minecraft mc, Vec3 targetPos, long minDuration) {
@@ -69,6 +74,35 @@ public class RotationManager {
         rotationDuration = Math.max(150, Math.max(Math.max(configDuration, dynamicDuration), minDuration));
         rotationStartTime = System.currentTimeMillis();
         applyTrackingNoise = false;
+        resetTrackingMotion();
+        rotationGcd = computeGcd(mc);
+        hasLastApplied = false;
+        isRotating = true;
+    }
+
+    /** Start a pest-target rotation using the dedicated pest speed setting. */
+    public static void initiatePestRotation(
+            Minecraft mc, Vec3 targetPos, long minDuration, float humanizeRange) {
+        if (mc.player == null || isRotating) return;
+        if (FailsafeManager.shouldSuppressPestCleanerRotation(mc)) return;
+
+        startRot = new RotationUtils.Rotation(mc.player.getYRot(), mc.player.getXRot());
+        RotationUtils.Rotation end = RotationUtils.calculateLookAt(mc.player.getEyePosition(), targetPos);
+        if (humanizeRange > 0) {
+            end = RotationUtils.applyImprecision(end, humanizeRange);
+        }
+        targetRot = RotationUtils.getAdjustedEnd(startRot, end);
+
+        float speed = pestRotationSpeed();
+        long configDuration = Math.round(
+                ConfigHelpers.getRandomizedDelay(AetherConfig.ROTATION_TIME.get()) / speed);
+        long dynamicDuration = Math.round(computeDynamicDuration(startRot, targetRot) / speed);
+        long scaledMinimum = Math.round(Math.max(150L, minDuration) / speed);
+        rotationDuration = Math.max(45L,
+                Math.max(scaledMinimum, Math.max(configDuration, dynamicDuration)));
+        rotationStartTime = System.currentTimeMillis();
+        applyTrackingNoise = false;
+        resetTrackingMotion();
         rotationGcd = computeGcd(mc);
         hasLastApplied = false;
         isRotating = true;
@@ -92,6 +126,7 @@ public class RotationManager {
         rotationDuration = Math.max(100, Math.max(durationMs, computeDynamicDuration(startRot, targetRot)));
         rotationStartTime = System.currentTimeMillis();
         applyTrackingNoise = false;
+        resetTrackingMotion();
         rotationGcd = computeGcd(mc);
         hasLastApplied = false;
         isRotating = true;
@@ -110,9 +145,43 @@ public class RotationManager {
         rotationDuration = Math.max(1, durationMs);
         rotationStartTime = System.currentTimeMillis();
         applyTrackingNoise = true;
+        resetTrackingMotion();
         rotationGcd = computeGcd(mc);
         hasLastApplied = false;
         isRotating = true;
+    }
+
+    /** Retarget a moving entity with an eased, minimum-length turn. */
+    public static void smoothForceRotation(Minecraft mc, Vec3 targetPos, long durationMs) {
+        if (mc.player == null) return;
+        if (FailsafeManager.shouldSuppressPestCleanerRotation(mc)) return;
+
+        RotationUtils.Rotation current = new RotationUtils.Rotation(
+                mc.player.getYRot(), mc.player.getXRot());
+        RotationUtils.Rotation end = RotationUtils.calculateLookAt(mc.player.getEyePosition(), targetPos);
+        targetRot = RotationUtils.getAdjustedEnd(current, end);
+
+        // Retarget without restarting the turn. Preserving angular velocity is
+        // what prevents a moving pest from producing a visible step every tick.
+        if (!smoothTrackingMode) {
+            startRot = current;
+            trackingYawVelocity = 0.0f;
+            trackingPitchVelocity = 0.0f;
+            trackingLastUpdateAt = System.currentTimeMillis();
+            hasLastApplied = false;
+        }
+        rotationDuration = Math.max(1L, durationMs);
+        rotationStartTime = System.currentTimeMillis();
+        applyTrackingNoise = false;
+        smoothTrackingMode = true;
+        if (Double.isNaN(rotationGcd)) {
+            rotationGcd = computeGcd(mc);
+        }
+        isRotating = true;
+    }
+
+    private static float pestRotationSpeed() {
+        return Mth.clamp(AetherConfig.PEST_ROTATION_SPEED.get(), 0.5f, 4.0f);
     }
 
     public static void update() {
@@ -124,6 +193,11 @@ public class RotationManager {
             if (hasExternalRotation(mc)) {
                 FailsafeManager.reportExternalRotation();
                 cancelRotation();
+                return;
+            }
+
+            if (smoothTrackingMode) {
+                updateSmoothTracking(mc);
                 return;
             }
 
@@ -174,13 +248,104 @@ public class RotationManager {
         }
     }
 
+    /**
+     * Acceleration-limited pest tracking. It behaves like a hand moving a
+     * mouse: accelerate into a large turn, carry momentum while the target
+     * moves, then brake before reaching the target.
+     */
+    private static void updateSmoothTracking(Minecraft mc) {
+        long now = System.currentTimeMillis();
+        float deltaSeconds = trackingLastUpdateAt == 0L
+                ? 0.05f
+                : Mth.clamp((now - trackingLastUpdateAt) / 1000.0f, 0.005f, 0.05f);
+        trackingLastUpdateAt = now;
+
+        float currentYaw = mc.player.getYRot();
+        float currentPitch = mc.player.getXRot();
+        float yawError = Mth.wrapDegrees(targetRot.yaw - currentYaw);
+        float pitchError = targetRot.pitch - currentPitch;
+        float speed = pestRotationSpeed();
+
+        float maxAngularSpeed = 120.0f * speed;
+        float acceleration = 720.0f * speed;
+        float response = 9.0f;
+        float desiredYawVelocity = Mth.clamp(
+                yawError * response, -maxAngularSpeed, maxAngularSpeed);
+        float desiredPitchVelocity = Mth.clamp(
+                pitchError * response, -maxAngularSpeed, maxAngularSpeed);
+
+        trackingYawVelocity = approach(
+                trackingYawVelocity, desiredYawVelocity, acceleration * deltaSeconds);
+        trackingPitchVelocity = approach(
+                trackingPitchVelocity, desiredPitchVelocity, acceleration * deltaSeconds);
+
+        float yawStep = trackingYawVelocity * deltaSeconds;
+        float pitchStep = trackingPitchVelocity * deltaSeconds;
+        if (Math.abs(yawStep) > Math.abs(yawError)) {
+            yawStep = yawError;
+            trackingYawVelocity = 0.0f;
+        }
+        if (Math.abs(pitchStep) > Math.abs(pitchError)) {
+            pitchStep = pitchError;
+            trackingPitchVelocity = 0.0f;
+        }
+
+        float nextYaw = applyGcd(currentYaw + yawStep, currentYaw);
+        float nextPitch = applyGcd(
+                Mth.clamp(currentPitch + pitchStep, -90.0f, 90.0f),
+                currentPitch,
+                -90.0f,
+                90.0f);
+
+        mc.player.setYRot(nextYaw);
+        mc.player.setXRot(nextPitch);
+        mc.player.yRotO = nextYaw;
+        mc.player.xRotO = nextPitch;
+        lastAppliedYaw = nextYaw;
+        lastAppliedPitch = nextPitch;
+        hasLastApplied = true;
+        FailsafeManager.expectRotation(nextYaw, nextPitch);
+
+        double gcd = Double.isNaN(rotationGcd) ? computeGcd(mc) : rotationGcd;
+        float finishTolerance = (float) Math.max(0.35, gcd);
+        if (Math.abs(yawError) <= finishTolerance
+                && Math.abs(pitchError) <= finishTolerance
+                && Math.abs(trackingYawVelocity) < 4.0f
+                && Math.abs(trackingPitchVelocity) < 4.0f) {
+            isRotating = false;
+            resetTrackingMotion();
+        }
+    }
+
+    private static float approach(float current, float target, float maxDelta) {
+        if (current < target) {
+            return Math.min(current + maxDelta, target);
+        }
+        return Math.max(current - maxDelta, target);
+    }
+
+    private static void resetTrackingMotion() {
+        smoothTrackingMode = false;
+        trackingYawVelocity = 0.0f;
+        trackingPitchVelocity = 0.0f;
+        trackingLastUpdateAt = 0L;
+    }
+
     private static boolean hasExternalRotation(Minecraft mc) {
         if (!hasLastApplied) {
             return false;
         }
 
-        float yawDrift = Math.abs(Mth.wrapDegrees(mc.player.getYRot() - lastAppliedYaw));
-        float pitchDrift = Math.abs(mc.player.getXRot() - lastAppliedPitch);
+        // Pathfinding rotates through its own executor. Measuring drift against only
+        // our own last write makes the two systems report each other as external.
+        float baseYaw = lastAppliedYaw;
+        float basePitch = lastAppliedPitch;
+        if (FailsafeManager.isExpectedRotationSet()) {
+            baseYaw = FailsafeManager.getExpectedYaw();
+            basePitch = FailsafeManager.getExpectedPitch();
+        }
+        float yawDrift = Math.abs(Mth.wrapDegrees(mc.player.getYRot() - baseYaw));
+        float pitchDrift = Math.abs(mc.player.getXRot() - basePitch);
         return yawDrift > EXTERNAL_ROTATION_TOLERANCE_DEGREES
                 || pitchDrift > EXTERNAL_ROTATION_TOLERANCE_DEGREES;
     }

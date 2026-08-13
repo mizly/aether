@@ -53,6 +53,13 @@ final class MainGUITextLayout {
                 yield 9f + labelBlockH + 6f + rowCount * MainGUI.LIST_ITEM_H + (rowCount - 1) * MainGUI.LIST_ITEM_GAP + 15f;
             }
             case ACTION -> 50f;
+            case MULTI_DROPDOWN -> {
+                float innerWidth = Math.max(1f, rowW - 32f);
+                float labelBlockH = wrappedSettingLabelLineCount(setting, rowW) * settingLabelLineStep(setting);
+                int rows = ((MultiDropdownSetting) setting).rowCount(innerWidth);
+                yield 12f + labelBlockH + 8f + rows * MultiDropdownSetting.CHIP_H
+                        + (rows - 1) * MultiDropdownSetting.CHIP_GAP + 12f;
+            }
             default -> 50f + extraLines * 14f;
         };
     }
@@ -83,7 +90,7 @@ final class MainGUITextLayout {
             case INFO -> Math.max(80f, innerWidth - 16f);
             case LIST, DROPDOWN_LIST -> Math.max(80f, innerWidth);
             case DROPDOWN -> Math.max(80f, innerWidth - (MainGUI.DROPDOWN_FIELD_W + dropdownActionStripWidth((DropdownSetting) setting) + 12f));
-            case MULTI_DROPDOWN -> Math.max(80f, innerWidth - ((MultiDropdownSetting) setting).estimateTotalWidth() - 12f);
+            case MULTI_DROPDOWN -> Math.max(80f, innerWidth - 16f);
             case COLOR -> Math.max(80f, innerWidth - 96f);
             case POSITION -> Math.max(80f, innerWidth - (320f + positionActionStripWidth((PositionSetting) setting)));
             case KEYBIND -> Math.max(80f, innerWidth - 220f);

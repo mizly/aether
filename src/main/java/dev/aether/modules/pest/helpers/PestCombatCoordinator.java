@@ -13,11 +13,18 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
 
 final class PestCombatCoordinator {
-    private static final long STUCK_PATH_RETRY_DELAY_MS = 2000L;
+    // A completed/aborted fly path used to leave the cleaner motionless for
+    // two full seconds before retrying. A short debounce releases keys without
+    // making the route visibly pause.
+    private static final long STUCK_PATH_RETRY_DELAY_MS = 300L;
     private static final long AOTV_POST_CLICK_GRACE_MS = 250L;
     private static final double AOTV_CONFIRM_DISTANCE = 2.0;
     private static final double AOTV_CONFIRM_DISTANCE_SQ = AOTV_CONFIRM_DISTANCE * AOTV_CONFIRM_DISTANCE;
     private static final float AOTV_AIM_TOLERANCE_DEGREES = 2.0f;
+    // A pest that never settles inside the tight tolerance must not stall the hop chain.
+    private static final long AOTV_AIM_SETTLE_TIMEOUT_MS = 1_000L;
+    private static final float AOTV_AIM_FALLBACK_TOLERANCE_DEGREES = 6.0f;
+    private static final long AOTV_AIM_TRACK_MS = 120L;
     private static final double POST_AOTV_LOOK_DOWN_HORIZONTAL_DISTANCE = 3.0;
     private static final double VACUUM_REAPPROACH_BUFFER = 6.0;
     private static final double TARGET_REACQUIRE_CONE_DEGREES = 120.0;
@@ -29,7 +36,9 @@ final class PestCombatCoordinator {
         PestDestroyerRuntime runtime();
 
         default Entity getCurrentTarget() { return runtime().currentTarget; }
-        default int getVacuumSlot() { return runtime().vacuumSlot; }
+        default int getVacuumSlot() {
+            return runtime().killVacuumSlot >= 0 ? runtime().killVacuumSlot : runtime().vacuumSlot;
+        }
         default void setVacuumSlot(int slot) { runtime().vacuumSlot = slot; }
         default double getVacuumRange() { return runtime().vacuumRange; }
         default int getAotvSlot() { return runtime().aotvSlot; }
@@ -44,6 +53,8 @@ final class PestCombatCoordinator {
         default void setAotvPostClickGraceUntil(long value) { runtime().aotvPostClickGraceUntil = value; }
         default long getAotvPendingUseAt() { return runtime().aotvPendingUseAt; }
         default void setAotvPendingUseAt(long value) { runtime().aotvPendingUseAt = value; }
+        default long getAotvAimStartedAt() { return runtime().aotvAimStartedAt; }
+        default void setAotvAimStartedAt(long value) { runtime().aotvAimStartedAt = value; }
         default double getAotvLastUsePlayerX() { return runtime().aotvLastUsePlayerX; }
         default void setAotvLastUsePlayerX(double value) { runtime().aotvLastUsePlayerX = value; }
         default double getAotvLastUsePlayerY() { return runtime().aotvLastUsePlayerY; }
@@ -64,6 +75,7 @@ final class PestCombatCoordinator {
         default void setTargetWithoutSkullTicks(int value) { runtime().targetWithoutSkullTicks = value; }
         boolean isLookingAt(Minecraft client, Vec3 targetPos, float tolerance);
         void setState(PestDestroyer.State state);
+        void beginTerminalState(Minecraft client);
         void startPathToPest(Minecraft client, Entity pest);
         boolean switchToNextQueuedTarget(Minecraft client);
         Entity peekNextQueuedPest(Minecraft client);
@@ -95,14 +107,9 @@ final class PestCombatCoordinator {
         }
 
         double dist = client.player.distanceTo(currentTarget);
-        if (dist <= targetReachDistance * 1.5
-                && !FailsafeManager.shouldSuppressPestCleanerRotation(client)
-                && shouldRotateForCombatAim(context, client, currentTarget)) {
-            Vec3 targetEye = buildCombatAimTarget(client, currentTarget);
-            if (!context.isLookingAt(client, targetEye, AetherConfig.PEST_FOV_RANGE.get())) {
-                RotationManager.initiateRotation(client, targetEye, 80, AetherConfig.PEST_FOV_RANGE.get());
-            }
-        }
+        // The fly executor owns the camera until the route reaches its handoff.
+        // Tracking the moving pest here overwrote the path heading after only a
+        // few movement ticks, making every stuck recovery forget its goal.
 
         if (dist <= targetReachDistance) {
             PathfindingManager.stop();
@@ -115,22 +122,16 @@ final class PestCombatCoordinator {
             if (context.getFlyRetryAfterUnflyAt() > now) {
                 return;
             }
-
-            if (context.getFlyRetryAfterUnflyAt() != 0L) {
-                context.setFlyRetryAfterUnflyAt(0L);
-                context.startPathToPest(client, currentTarget);
-                return;
-            }
-
-            context.setStuckTicks(context.getStuckTicks() + 1);
-            if (context.getStuckTicks() > pathfinderStuckRetryTicks) {
-                ClientUtils.sendDebugMessage("[PestDestroyer] Pathfinder stuck. Retrying path to pest.");
-                context.setStuckTicks(0);
-                context.setFlyRetryAfterUnflyAt(now + STUCK_PATH_RETRY_DELAY_MS);
-            }
+            // A failed or partial fly route used to sit idle for twenty ticks
+            // before it was even scheduled again. Retry immediately with only
+            // a short debounce to avoid hammering an unloaded world.
+            ClientUtils.sendDebugMessage("[PestDestroyer] Fly route ended before reaching pest. Repathing now.");
+            context.setStuckTicks(0);
+            context.setFlyRetryAfterUnflyAt(now + STUCK_PATH_RETRY_DELAY_MS);
+            context.startPathToPest(client, currentTarget);
+            return;
         } else {
             context.setStuckTicks(0);
-            context.setFlyRetryAfterUnflyAt(0L);
         }
 
         if (System.currentTimeMillis() - context.getStateEnteredAt() > stateTimeoutMs) {
@@ -156,14 +157,18 @@ final class PestCombatCoordinator {
         double dist = client.player.distanceTo(currentTarget);
         context.setApproachTicks(context.getApproachTicks() + 1);
 
-        if (!FailsafeManager.shouldSuppressPestCleanerRotation(client)
+        double terminalRange = PestHuntingController.handoffRange(
+                client, currentTarget, targetReachDistance);
+        if (dist <= terminalRange
+                && !PestHuntingController.shouldLassoTarget(client, currentTarget)
+                && !FailsafeManager.shouldSuppressPestCleanerRotation(client)
                 && shouldRotateForCombatAim(context, client, currentTarget)) {
             Vec3 targetEye = buildCombatAimTarget(client, currentTarget);
-            RotationManager.forceRotation(client, targetEye, 120);
+            RotationManager.smoothForceRotation(client, targetEye, 120);
         }
 
-        if (dist <= targetReachDistance) {
-            context.setState(PestDestroyer.State.KILL_PEST);
+        if (dist <= terminalRange) {
+            context.beginTerminalState(client);
             return;
         }
 
@@ -212,7 +217,7 @@ final class PestCombatCoordinator {
             PathfindingManager.stop();
             context.setTargetWithoutSkullTicks(0);
             if (!FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
-                RotationManager.forceRotation(client, buildCombatAimTarget(client, currentTarget), 120);
+                RotationManager.smoothForceRotation(client, buildCombatAimTarget(client, currentTarget), 120);
             }
             ClientUtils.sendDebugMessage("[PestDestroyer] Target moved behind forward cone. Turning to reacquire.");
             return;
@@ -241,7 +246,7 @@ final class PestCombatCoordinator {
             if (!FailsafeManager.shouldSuppressPestCleanerRotation(client)
                     && shouldRotateForCombatAim(context, client, currentTarget)) {
                 Vec3 targetEye = buildCombatAimTarget(client, currentTarget);
-                RotationManager.forceRotation(client, targetEye, 120);
+                RotationManager.smoothForceRotation(client, targetEye, 120);
             }
 
             double speed = Math.abs(client.player.getDeltaMovement().x)
@@ -320,6 +325,21 @@ final class PestCombatCoordinator {
             context.setStateEnteredAt(System.currentTimeMillis());
         }
 
+        long now = System.currentTimeMillis();
+        // Measured from the last hop, not from state entry: a long chain of hops is
+        // progress. Checked up front because waiting on an aim or a climb returns
+        // early, so a timeout further down never runs.
+        long lastProgressAt = Math.max(
+                context.getStateEnteredAt(),
+                Math.max(context.getAotvLastUseAt(), context.getAotvPendingUseAt()));
+        if (now - lastProgressAt > stateTimeoutMs) {
+            clearAotvBetweenPests(client, context);
+            ClientUtils.sendDebugMessage("[PestDestroyer] AOTV state timed out. Falling back to pathfinding.");
+            context.startPathToPest(client, currentTarget);
+            context.setState(PestDestroyer.State.FLY_TO_PEST);
+            return;
+        }
+
         double stopDistance = aotvRange * aotvGapMultiplier;
         double dist = client.player.distanceTo(currentTarget);
         if (finishAotvIfClose(client, context, currentTarget, dist, stopDistance)) {
@@ -346,24 +366,25 @@ final class PestCombatCoordinator {
             return;
         }
 
-        boolean facingAim = context.isLookingAt(client, aimPos, AOTV_AIM_TOLERANCE_DEGREES);
         boolean suppressRotation = FailsafeManager.shouldSuppressPestCleanerRotation(client);
         if (!suppressRotation) {
             ClientUtils.setKeyMappingState(client.options.keyUp, false);
             ClientUtils.setKeyMappingState(client.options.keySprint, false);
-        }
-        long now = System.currentTimeMillis();
-        long elapsed = now - context.getStateEnteredAt();
-        if (!facingAim) {
-            if (!suppressRotation && !RotationManager.isRotating()) {
-                RotationManager.initiateRotation(client, aimPos, AetherConfig.ROTATION_TIME.get());
+
+            if (context.getAotvAimStartedAt() == 0L) {
+                context.setAotvAimStartedAt(now);
             }
-            if (!suppressRotation) {
+            // A one-shot rotation lands where the pest was and has to restart, which is
+            // what froze the hop chain staring at the pest. Retarget every tick instead.
+            RotationManager.smoothForceRotation(client, aimPos, AOTV_AIM_TRACK_MS);
+
+            float tolerance = now - context.getAotvAimStartedAt() > AOTV_AIM_SETTLE_TIMEOUT_MS
+                    ? AOTV_AIM_FALLBACK_TOLERANCE_DEGREES
+                    : AOTV_AIM_TOLERANCE_DEGREES;
+            if (!context.isLookingAt(client, aimPos, tolerance)) {
                 return;
             }
-        }
-        if (!suppressRotation && RotationManager.isRotating()) {
-            return;
+            context.setAotvAimStartedAt(0L);
         }
 
         if (AetherConfig.PEST_AOTV_CONFIRM_BETWEEN.get() && context.getAotvPendingUseAt() != 0L) {
@@ -438,14 +459,6 @@ final class PestCombatCoordinator {
             ClientUtils.sendDebugMessage("[PestDestroyer] AOTV usage exceeded maximum. Falling back to pathfinding.");
             context.startPathToPest(client, currentTarget);
             context.setState(PestDestroyer.State.FLY_TO_PEST);
-            return;
-        }
-
-        if (elapsed > stateTimeoutMs) {
-            clearAotvBetweenPests(client, context);
-            ClientUtils.sendDebugMessage("[PestDestroyer] AOTV state timed out. Falling back to pathfinding.");
-            context.startPathToPest(client, currentTarget);
-            context.setState(PestDestroyer.State.FLY_TO_PEST);
         }
     }
 
@@ -465,8 +478,8 @@ final class PestCombatCoordinator {
         context.setArrivedAtCurrentTargetViaAotv(arrivedViaAotv);
         ClientUtils.sendDebugMessage("[PestDestroyer] AOTV closed gap. Distance now " + String.format("%.1f", dist)
                         + ". Switching to pathfinding.");
-        if (dist <= context.getVacuumRange()) {
-            context.setState(PestDestroyer.State.KILL_PEST);
+        if (dist <= PestHuntingController.handoffRange(client, currentTarget, context.getVacuumRange())) {
+            context.beginTerminalState(client);
         } else {
             context.startPathToPest(client, currentTarget);
             context.setState(PestDestroyer.State.FLY_TO_PEST);
@@ -502,6 +515,7 @@ final class PestCombatCoordinator {
         context.setAotvNextUseAt(0L);
         context.setAotvPostClickGraceUntil(0L);
         context.setAotvPendingUseAt(0L);
+        context.setAotvAimStartedAt(0L);
     }
 
     private static double getAotvMovedDistance(Minecraft client, Context context) {
@@ -527,6 +541,17 @@ final class PestCombatCoordinator {
     }
 
     static Vec3 buildCombatAimTarget(Minecraft client, Entity target) {
+        if (PestDestroyer.isCatchInProgress()) {
+            return target.position().add(0, target.getEyeHeight(target.getPose()), 0);
+        }
+        if (PestHuntingController.shouldLassoTarget(client, target)) {
+            return target.position().add(0, target.getEyeHeight(target.getPose()), 0);
+        }
+        return buildVacuumAimTarget(client, target);
+    }
+
+    /** Builds the high aim point that lets the vacuum beam connect from above. */
+    static Vec3 buildVacuumAimTarget(Minecraft client, Entity target) {
         Vec3 eyePos = client.player.getEyePosition();
         Vec3 targetEye = target.position().add(0, target.getEyeHeight(target.getPose()), 0);
         if (eyePos.y > targetEye.y) {

@@ -44,9 +44,10 @@ public final class FlyExecutor {
     private static final long STUCK_ABORT_MS = 3000;
     // How far ahead to raycast for block detection (blocks)
     private static final double RAY_DIST = 2.5;
-    private static final long ROTATION_DURATION_MS = 550L;
-    private static final float YAW_ROTATION_THRESHOLD = 1.5f;
-    private static final float PITCH_ROTATION_THRESHOLD = 2.5f;
+    private static final long ROTATION_DURATION_MS = 300L;
+    private static final long DECELERATE_TIMEOUT_MS = 650L;
+    private static final float YAW_ROTATION_THRESHOLD = 6.0f;
+    private static final float PITCH_ROTATION_THRESHOLD = 6.0f;
 
     private State state = State.IDLE;
     private List<Node> path;
@@ -136,6 +137,12 @@ public final class FlyExecutor {
         }
 
         Vec3 pos = mc.player.position();
+
+        // An async path is calculated from an earlier player position. Momentum
+        // can move us beyond its first node before the result arrives, so begin
+        // at the closest directly visible early waypoint instead of flying
+        // backwards to the stale start block.
+        skipStaleStartingWaypoints(mc, pos);
 
         // -- Waypoint advancement -------------------------------------------
         while (wpIndex < path.size()) {
@@ -289,8 +296,8 @@ public final class FlyExecutor {
             return;
         }
         Vec3 vel = mc.player.getDeltaMovement();
-        boolean stopped = Math.abs(vel.x) < 0.05 && Math.abs(vel.z) < 0.05 && Math.abs(vel.y) < 0.05;
-        if (stopped || System.currentTimeMillis() - decelStartTime > 2000) {
+        boolean stopped = Math.abs(vel.x) < 0.05 && Math.abs(vel.z) < 0.05;
+        if (stopped || System.currentTimeMillis() - decelStartTime > DECELERATE_TIMEOUT_MS) {
             finish(mc);
         }
     }
@@ -342,7 +349,10 @@ public final class FlyExecutor {
         float yawDrift = Math.abs(AngleUtils.getRotationDelta(sourceYaw, desiredRot.yaw));
         float pitchDrift = Math.abs(AngleUtils.getRotationDelta(sourcePitch, desiredRot.pitch));
 
-        if (yawDrift > YAW_ROTATION_THRESHOLD || pitchDrift > PITCH_ROTATION_THRESHOLD) {
+        if ((!RotationExecutor.isRotating()
+                        && (yawDrift > YAW_ROTATION_THRESHOLD || pitchDrift > PITCH_ROTATION_THRESHOLD))
+                || yawDrift > 16.0f
+                || pitchDrift > 14.0f) {
             RotationExecutor.rotateTo(desiredRot,
                     new TimedEaseStrategy(EasingType.EASE_OUT_CUBIC, ROTATION_DURATION_MS));
         }
@@ -351,14 +361,67 @@ public final class FlyExecutor {
     private void applyStrafingMovement(Minecraft mc, double dx, double dz) {
         float yawRad = (float) Math.toRadians(mc.player.getYRot());
         double fX = -Math.sin(yawRad), fZ = Math.cos(yawRad);
-        double sX = -Math.sin(yawRad + Math.PI / 2), sZ = Math.cos(yawRad + Math.PI / 2);
+        // Positive strafe is to the player's right (yaw 0 => +X).  Using the
+        // old +PI/2 vector inverted A/D and caused visible side-to-side chatter.
+        double sX = Math.cos(yawRad), sZ = Math.sin(yawRad);
         double dotF = dx * fX + dz * fZ;
         double dotS = dx * sX + dz * sZ;
 
-        ClientUtils.setKeyMappingState(mc.options.keyUp, dotF > 0.1);
-        ClientUtils.setKeyMappingState(mc.options.keyDown, dotF < -0.1);
-        ClientUtils.setKeyMappingState(mc.options.keyRight, dotS > 0.1);
-        ClientUtils.setKeyMappingState(mc.options.keyLeft, dotS < -0.1);
+        // Never reverse or strafe while the camera is still turning toward the
+        // route. Once the forward component is safely positive we can move
+        // through the smooth turn instead of waiting stationary for it.
+        if (RotationExecutor.isRotating()) {
+            ClientUtils.setKeyMappingState(mc.options.keyUp, dotF > 0.35);
+            ClientUtils.setKeyMappingState(mc.options.keyDown, false);
+            ClientUtils.setKeyMappingState(mc.options.keyRight, false);
+            ClientUtils.setKeyMappingState(mc.options.keyLeft, false);
+            return;
+        }
+
+        boolean lateral = Math.abs(dotS) > 0.50;
+        ClientUtils.setKeyMappingState(mc.options.keyUp, !lateral && dotF > 0.05 || lateral && dotF > 0.18);
+        ClientUtils.setKeyMappingState(mc.options.keyDown, false);
+        ClientUtils.setKeyMappingState(mc.options.keyRight, lateral && dotS > 0.50);
+        ClientUtils.setKeyMappingState(mc.options.keyLeft, lateral && dotS < -0.50);
+    }
+
+    private void skipStaleStartingWaypoints(Minecraft mc, Vec3 pos) {
+        if (wpIndex != 0 || path == null || path.size() < 2 || mc.level == null) {
+            return;
+        }
+
+        int bestIndex = 0;
+        double bestDistance = waypointDistanceSqr(path.getFirst(), pos);
+        int scanLimit = Math.min(path.size() - 1, 8);
+        for (int i = 1; i <= scanLimit; i++) {
+            Node candidate = path.get(i);
+            double distance = waypointDistanceSqr(candidate, pos);
+            if (distance >= bestDistance || !hasClearFlightLine(mc, pos, candidate)) {
+                continue;
+            }
+            bestDistance = distance;
+            bestIndex = i;
+        }
+        wpIndex = bestIndex;
+    }
+
+    private double waypointDistanceSqr(Node waypoint, Vec3 pos) {
+        double dx = waypoint.position.flooredX() + 0.5 - pos.x;
+        double dy = waypoint.position.flooredY() + 0.15 - pos.y;
+        double dz = waypoint.position.flooredZ() + 0.5 - pos.z;
+        return dx * dx + dy * dy + dz * dz;
+    }
+
+    private boolean hasClearFlightLine(Minecraft mc, Vec3 pos, Node waypoint) {
+        Vec3 target = new Vec3(
+                waypoint.position.flooredX() + 0.5,
+                waypoint.position.flooredY() + 0.15,
+                waypoint.position.flooredZ() + 0.5);
+        Vec3 bodyStart = pos.add(0, mc.player.getBbHeight() * 0.5, 0);
+        Vec3 bodyTarget = target.add(0, mc.player.getBbHeight() * 0.5, 0);
+        HitResult trace = mc.level.clip(new ClipContext(
+                bodyStart, bodyTarget, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+        return trace.getType() != HitResult.Type.BLOCK;
     }
 
     /**
@@ -445,4 +508,3 @@ public final class FlyExecutor {
         return predictedDist < goalStopThreshold;
     }
 }
-

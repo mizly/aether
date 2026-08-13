@@ -20,6 +20,7 @@ public final class TimedEaseStrategy implements IRotationStrategy {
     private float startYaw;
     private float startPitch;
     private long  endTime;
+    private boolean finalRotationApplied;
 
     public TimedEaseStrategy(EasingType yawEasing, EasingType pitchEasing, long durationMs) {
         this.yawEasing   = yawEasing;
@@ -39,12 +40,22 @@ public final class TimedEaseStrategy implements IRotationStrategy {
         startYaw   = player.getYRot();
         startPitch = player.getXRot();
         endTime    = System.currentTimeMillis() + duration;
+        finalRotationApplied = false;
     }
 
     @Override
     public Rotation onRotate(LocalPlayer player, float targetYaw, float targetPitch) {
         long now = System.currentTimeMillis();
-        if (now >= endTime) return new Rotation(targetYaw, targetPitch);  // hold at target
+        if (now >= endTime) {
+            // Apply the exact target once, then signal completion. Previously
+            // this returned the target forever, leaving isRotating() permanently
+            // true and any movement waiting on the turn permanently blocked.
+            if (!finalRotationApplied) {
+                finalRotationApplied = true;
+                return new Rotation(targetYaw, targetPitch);
+            }
+            return null;
+        }
 
         float progress = 1f - ((float)(endTime - now) / (float) duration);
         float t        = Math.max(0f, Math.min(1f, progress));

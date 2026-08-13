@@ -28,7 +28,35 @@ final class PestDestroyerRuntime {
     int approachTicks = 0;
 
     int vacuumSlot = -1;
+    int stunVacuumSlot = -1;
+    int killVacuumSlot = -1;
     float vacuumRange = 7.5f;
+
+    int lassoSlot = -1;
+    PestHuntingController.Stage huntStage = PestHuntingController.Stage.STUN;
+    long huntStartedAt = 0L;
+    long huntStageEnteredAt = 0L;
+    long huntThrownAt = 0L;
+    long huntLastReelClickAt = 0L;
+    long huntLastAttachedAt = 0L;
+    long huntAttachedSince = 0L;
+    volatile long huntReelSignalAt = 0L;
+    int huntThrowCount = 0;
+    int huntReelCount = 0;
+    boolean huntEverAttached = false;
+    boolean huntReelPromptLatched = false;
+    int huntReelPromptTicks = 0;
+    int huntReelPromptClearTicks = 0;
+    long huntReelAwaitingResponseUntil = 0L;
+    boolean huntReelPromptArmed = true;
+    int huntSwapReadyTick = 0;
+    boolean huntDelayBeforeStunSwap = false;
+    boolean huntStunDelivered = false;
+    int huntStageEnteredTick = 0;
+    long huntLandingWaitStartedAt = 0L;
+    double huntTargetY = Double.NaN;
+    volatile boolean huntCaughtSignal = false;
+    boolean currentTargetUsesLasso = false;
 
     int aotvSlot = -1;
     int aotvUseCount = 0;
@@ -36,6 +64,7 @@ final class PestDestroyerRuntime {
     long aotvNextUseAt = 0L;
     long aotvPostClickGraceUntil = 0L;
     long aotvPendingUseAt = 0L;
+    long aotvAimStartedAt = 0L;
     double aotvLastUsePlayerX = Double.NaN;
     double aotvLastUsePlayerY = Double.NaN;
     double aotvLastUsePlayerZ = Double.NaN;
@@ -56,10 +85,12 @@ final class PestDestroyerRuntime {
         stateEnteredAt = now;
         activatedAt = now;
         currentTarget = null;
+        currentTargetUsesLasso = false;
         killedEntities.clear();
         pestTargetQueue.clear();
         accountedKilledPestEntityIds.clear();
         vacuumSlot = detectedVacuumSlot;
+        killVacuumSlot = detectedVacuumSlot;
         vacuumRange = 7.5f;
         resetTransientState();
         navigation.resetForRun();
@@ -69,6 +100,7 @@ final class PestDestroyerRuntime {
         active = false;
         state = PestDestroyer.State.IDLE;
         currentTarget = null;
+        currentTargetUsesLasso = false;
         killedEntities.clear();
         pestTargetQueue.clear();
         accountedKilledPestEntityIds.clear();
@@ -93,15 +125,12 @@ final class PestDestroyerRuntime {
                 || newState == PestDestroyer.State.IDLE) {
             arrivedAtCurrentTargetViaAotv = false;
         }
-        if (newState != PestDestroyer.State.GET_LOCATION) {
-            navigation.isCapturingFirework = false;
-            navigation.fireworkCaptureStartedAt = 0L;
-        }
         if (newState != PestDestroyer.State.AOTV_BETWEEN_PESTS) {
             aotvLastUseAt = 0L;
             aotvNextUseAt = 0L;
             aotvPostClickGraceUntil = 0L;
             aotvPendingUseAt = 0L;
+            aotvAimStartedAt = 0L;
             aotvLastUsePlayerX = Double.NaN;
             aotvLastUsePlayerY = Double.NaN;
             aotvLastUsePlayerZ = Double.NaN;
@@ -110,6 +139,9 @@ final class PestDestroyerRuntime {
             targetWithoutSkullTicks = 0;
             lastPreRotateAt = 0L;
             resetKillVacuumRetry();
+        }
+        if (newState != PestDestroyer.State.HUNT_PEST) {
+            resetHuntState();
         }
     }
 
@@ -139,6 +171,7 @@ final class PestDestroyerRuntime {
         aotvNextUseAt = 0L;
         aotvPostClickGraceUntil = 0L;
         aotvPendingUseAt = 0L;
+        aotvAimStartedAt = 0L;
         aotvLastUsePlayerX = Double.NaN;
         aotvLastUsePlayerY = Double.NaN;
         aotvLastUsePlayerZ = Double.NaN;
@@ -146,5 +179,33 @@ final class PestDestroyerRuntime {
         aotvStartY = Double.NaN;
         lastRoofRescanAt = 0L;
         roofAotvReturnState = null;
+        resetHuntState();
+    }
+
+    void resetHuntState() {
+        lassoSlot = -1;
+        huntStage = PestHuntingController.Stage.STUN;
+        huntStartedAt = 0L;
+        huntStageEnteredAt = 0L;
+        huntThrownAt = 0L;
+        huntLastReelClickAt = 0L;
+        huntLastAttachedAt = 0L;
+        huntAttachedSince = 0L;
+        huntReelSignalAt = 0L;
+        huntThrowCount = 0;
+        huntReelCount = 0;
+        huntEverAttached = false;
+        huntReelPromptLatched = false;
+        huntReelPromptTicks = 0;
+        huntReelAwaitingResponseUntil = 0L;
+        huntReelPromptClearTicks = 0;
+        huntReelPromptArmed = true;
+        huntSwapReadyTick = 0;
+        huntDelayBeforeStunSwap = false;
+        huntStunDelivered = false;
+        huntStageEnteredTick = 0;
+        huntLandingWaitStartedAt = 0L;
+        huntTargetY = Double.NaN;
+        huntCaughtSignal = false;
     }
 }

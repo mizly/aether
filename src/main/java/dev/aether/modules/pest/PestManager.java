@@ -678,7 +678,11 @@ public class PestManager {
         }
 
         long now = System.currentTimeMillis();
-        if (lastCleaningAliveCount < 0 || effectiveAlive < lastCleaningAliveCount) {
+        // A lasso catch holds the alive count still for longer than the stall
+        // window, and aborting mid-catch drops the run into its post stage.
+        if (lastCleaningAliveCount < 0
+                || effectiveAlive < lastCleaningAliveCount
+                || PestDestroyer.isCatchInProgress()) {
             lastCleaningAliveCount = effectiveAlive;
             lastCleaningProgressAtMs = now;
             return;
