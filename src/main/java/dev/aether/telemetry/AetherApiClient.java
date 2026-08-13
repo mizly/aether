@@ -11,6 +11,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public final class AetherApiClient {
@@ -108,6 +110,55 @@ public final class AetherApiClient {
     /** shutdown paths pass a short timeout so telemetry never stalls the client exit. */
     public static ModState modOff(String token, Duration timeout) throws AetherApiException {
         return modState("/mod/off", token, timeout);
+    }
+
+    public record IrcMessage(String id, String source, String author, String content) {
+    }
+
+    public record IrcPoll(String latestId, List<IrcMessage> messages) {
+    }
+
+    public static void sendIrc(String token, String message) throws AetherApiException {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("message", message);
+
+        HttpRequest req = authorized(request("/irc/send")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8)), token)
+                .build();
+        execute(req, "/irc/send");
+    }
+
+    // waitSeconds asks the server to hold the request open until a message lands, so the timeout must outlast it.
+    public static IrcPoll pollIrc(String token, String afterId, int waitSeconds) throws AetherApiException {
+        StringBuilder path = new StringBuilder("/irc/poll?wait=").append(waitSeconds);
+        if (afterId != null && !afterId.isEmpty()) {
+            path.append("&after=").append(URLEncoder.encode(afterId, StandardCharsets.UTF_8));
+        }
+
+        Duration timeout = Duration.ofSeconds(waitSeconds).plus(REQUEST_TIMEOUT);
+        JsonObject body = send(authorized(request(path.toString(), timeout).GET(), token).build(), "/irc/poll");
+
+        List<IrcMessage> messages = new ArrayList<>();
+        JsonElement raw = body.get("messages");
+        if (raw != null && raw.isJsonArray()) {
+            for (JsonElement element : raw.getAsJsonArray()) {
+                if (!element.isJsonObject()) {
+                    continue;
+                }
+                JsonObject entry = element.getAsJsonObject();
+                String content = string(entry, "content");
+                if (content.isEmpty()) {
+                    continue;
+                }
+                messages.add(new IrcMessage(
+                        string(entry, "id"),
+                        string(entry, "source"),
+                        string(entry, "author"),
+                        content));
+            }
+        }
+        return new IrcPoll(string(body, "latest_id"), List.copyOf(messages));
     }
 
     // the bearer token identifies the user; the payload carries no Minecraft or Discord identity.
