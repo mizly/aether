@@ -6,6 +6,7 @@ import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.farming.FastLaneSwitchManager;
 import dev.aether.modules.session.DynamicRestManager;
 import dev.aether.renderer.NVGRenderer;
+import dev.aether.telemetry.AetherAuthService;
 import dev.aether.ui.theme.Theme;
 import dev.aether.ui.util.Fonts;
 import dev.aether.util.BpsTracker;
@@ -112,7 +113,6 @@ public class MacroHudElement extends HudElement {
         }
 
         long sessionMs     = MacroStateManager.getSessionRunningTime();
-        long lifetimeMs    = MacroStateManager.getLifetimeRunningTime();
         long restTriggerMs = DynamicRestManager.getNextRestTriggerMs();
         String nextRest    = restTriggerMs <= 0 ? "---"
                            : formatTime(Math.max(0, restTriggerMs - System.currentTimeMillis()));
@@ -161,7 +161,9 @@ public class MacroHudElement extends HudElement {
         row(nvg, ry, "next lane", FastLaneSwitchManager.getDisplayText(),
                 FastLaneSwitchManager.hasEstimate() ? Theme.HUD_VALUE : Theme.HUD_LABEL); ry += ROW_H;
         row(nvg, ry, "current session", formatTime(sessionMs));  ry += ROW_H;
-        row(nvg, ry, "lifetime session", formatTime(lifetimeMs)); ry += ROW_H;
+        row(nvg, ry, "hours played", AetherAuthService.isAuthenticated()
+                ? formatTime(AetherAuthService.getTotalSeconds() * 1000L)
+                : "not linked"); ry += ROW_H;
         row(nvg, ry, "next rest", nextRest); ry += ROW_H;
 
         // Progress bar

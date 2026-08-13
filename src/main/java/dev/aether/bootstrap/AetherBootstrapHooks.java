@@ -23,6 +23,9 @@ public final class AetherBootstrapHooks {
         default void onUnexpectedDisconnect() {
         }
 
+        default void onPlayStageDisconnect(String serverAddress, Component reason) {
+        }
+
         default Screen maybeCreateConfirmScreen(BooleanConsumer callback, Component title, Component message) {
             return null;
         }
@@ -205,6 +208,10 @@ public final class AetherBootstrapHooks {
 
     public static void onUnexpectedDisconnect() {
         hooks.onUnexpectedDisconnect();
+    }
+
+    public static void onPlayStageDisconnect(String serverAddress, Component reason) {
+        hooks.onPlayStageDisconnect(serverAddress, reason);
     }
 
     public static void onConfigProfileLoaded(File profileFile) {

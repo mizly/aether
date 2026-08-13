@@ -2,6 +2,8 @@ package dev.aether.mixin;
 
 import dev.aether.bootstrap.AetherBootstrapHooks;
 import net.minecraft.client.multiplayer.ClientCommonPacketListenerImpl;
+import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.Connection;
 import net.minecraft.network.DisconnectionDetails;
 import net.minecraft.network.protocol.common.ClientboundResourcePackPushPacket;
@@ -20,8 +22,17 @@ public class MixinClientPacketListener {
 
     @Shadow @Final protected Connection connection;
 
+    @Shadow @Final protected ServerData serverData;
+
+    // Configuration-stage disconnects share this method and login-stage ones never reach it,
+    // so the instanceof narrows us to an established PLAY connection being terminated.
     @Inject(method = "onDisconnect", at = @At("HEAD"))
     private void onDisconnect(DisconnectionDetails details, CallbackInfo ci) {
+        if ((Object) this instanceof ClientPacketListener) {
+            AetherBootstrapHooks.onPlayStageDisconnect(
+                    serverData == null ? "" : serverData.ip,
+                    details == null ? null : details.reason());
+        }
         AetherBootstrapHooks.onUnexpectedDisconnect();
     }
 

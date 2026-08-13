@@ -21,6 +21,10 @@ import dev.aether.modules.visuals.PestEspManager;
 import dev.aether.notification.NotificationManager;
 import dev.aether.renderer.FunRenderer;
 import dev.aether.renderer.PositionHighlighter;
+import dev.aether.telemetry.AetherAuthService;
+import dev.aether.telemetry.AetherTelemetryService;
+import dev.aether.telemetry.ban.AetherBanService;
+import dev.aether.telemetry.ban.PlaySessionTracker;
 import dev.aether.ui.MainGUI;
 import dev.aether.ui.theme.Theme;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -52,6 +56,8 @@ public final class ClientFeatureBootstrap {
         ReconnectScheduler.clearState();
         HudRegistry.register();
         MacroWorkerThread.getInstance().start();
+        AetherAuthService.initialize();
+        PlaySessionTracker.register();
         PathVisualizer.register();
 
         LevelRenderEvents.END_MAIN.register(ctx -> {
@@ -97,6 +103,10 @@ public final class ClientFeatureBootstrap {
         // until the game closes never fires onMacroStop(), so this prevents the day's
         // un-committed time from being lost on exit.
         dev.aether.modules.session.DailyFarmTimeTracker.persistNow();
+        AetherTelemetryService.shutdown();
+        AetherBanService.shutdown();
+        AetherAuthService.shutdown();
+        PlaySessionTracker.clear();
         PerformanceModeManager.stop(Minecraft.getInstance());
         NotificationManager.clearAll();
         HudRegistry.reset();

@@ -33,6 +33,7 @@ import dev.aether.modules.session.DynamicRestManager;
 import dev.aether.modules.session.RecoveryManager;
 import dev.aether.modules.session.RestartManager;
 import dev.aether.modules.visitor.VisitorsMacro;
+import dev.aether.telemetry.AetherTelemetryService;
 import dev.aether.util.BpsTracker;
 import net.minecraft.client.Minecraft;
 
@@ -180,6 +181,10 @@ public class MacroStateManager {
                 PerformanceModeManager.stop(client);
                 MuteManager.stop(client);
             });
+        }
+
+        if ((prevState == MacroState.State.OFF) != (state == MacroState.State.OFF)) {
+            AetherTelemetryService.onModEnabledChanged(state != MacroState.State.OFF);
         }
     }
 
