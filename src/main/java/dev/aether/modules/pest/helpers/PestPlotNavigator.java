@@ -3,12 +3,15 @@ package dev.aether.modules.pest.helpers;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.CommandUtils;
+import dev.aether.util.GardenPlots;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
 final class PestPlotNavigator {
     // Quadrant sweep of a 96x96 garden plot, measured from the plot-centre anchor.
@@ -18,6 +21,9 @@ final class PestPlotNavigator {
             {-30.0, -30.0},
             {30.0, -30.0},
     };
+    // Leaving the plot makes the tab-list plot check teleport us back, so sweeps stay well inside it.
+    private static final double SCAN_EDGE_INSET = 8.0;
+    private static final double TARGET_PLOT_MARGIN = 3.0;
 
     private PestPlotNavigator() {
     }
@@ -31,16 +37,49 @@ final class PestPlotNavigator {
         if (client == null || client.player == null) {
             return null;
         }
+        GardenPlots.Bounds bounds = currentPlotBounds(client, navigationState);
         if (navigationState.plotAnchor == null) {
-            navigationState.plotAnchor = client.player.position();
+            navigationState.plotAnchor = bounds != null
+                    ? new Vec3(bounds.centerX(), client.player.getY(), bounds.centerZ())
+                    : client.player.position();
         }
         if (navigationState.scanPointIdx >= SCAN_OFFSETS.length) {
             return null;
         }
         double[] offset = SCAN_OFFSETS[navigationState.scanPointIdx++];
         Vec3 anchor = navigationState.plotAnchor;
+        double x = anchor.x + offset[0];
+        double z = anchor.z + offset[1];
+        if (bounds != null) {
+            if (!bounds.contains(client.player.getX(), client.player.getZ(), TARGET_PLOT_MARGIN)) {
+                ClientUtils.sendDebugMessage("[PestDestroyer] Sweeping plot "
+                        + getEffectivePlot(client, navigationState) + " from outside its bounds.");
+            }
+            x = bounds.clampX(x, SCAN_EDGE_INSET);
+            z = bounds.clampZ(z, SCAN_EDGE_INSET);
+        }
         // Sweep at the current altitude so a roof AOTV's vantage point is not thrown away.
-        return new Vec3(anchor.x + offset[0], client.player.getY(), anchor.z + offset[1]);
+        return new Vec3(x, client.player.getY(), z);
+    }
+
+    /** Bounds of the plot being cleaned, or null when the plot number is unknown. */
+    static GardenPlots.Bounds currentPlotBounds(Minecraft client, PestNavigationState navigationState) {
+        String plot = getEffectivePlot(client, navigationState);
+        return PestPlotId.isUsable(plot) ? GardenPlots.boundsForPlot(plot) : null;
+    }
+
+    /**
+     * Pests on a neighbouring plot are in entity range but chasing them leaves the
+     * plot, which the tab-list plot check answers with a teleport back.
+     */
+    static Predicate<Entity> currentPlotFilter(
+            Minecraft client, PestNavigationState navigationState) {
+        GardenPlots.Bounds bounds = currentPlotBounds(client, navigationState);
+        if (bounds == null) {
+            return entity -> true;
+        }
+        return entity -> entity != null
+                && bounds.contains(entity.getX(), entity.getZ(), TARGET_PLOT_MARGIN);
     }
 
     static String getNextPlotTarget(PestNavigationState navigationState) {

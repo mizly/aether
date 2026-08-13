@@ -15,6 +15,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /** Owns target discovery, queueing, handoff, and kill accounting. */
 final class PestTargetController {
@@ -153,7 +154,7 @@ final class PestTargetController {
 
     static Entity peekNextQueuedPest(Minecraft client, PestDestroyerRuntime runtime) {
         return PestTargetTracker.peekNextQueuedPest(
-                client, runtime.pestTargetQueue, runtime.killedEntities);
+                client, runtime.pestTargetQueue, runtime.killedEntities, onCurrentPlot(client, runtime));
     }
 
     static void rebuildQueue(
@@ -165,12 +166,13 @@ final class PestTargetController {
                 client,
                 runtime.pestTargetQueue,
                 runtime.killedEntities,
-                runtime.navigation.leaveOneReservedEntityId);
+                runtime.navigation.leaveOneReservedEntityId,
+                onCurrentPlot(client, runtime));
     }
 
     static Entity nextQueuedPest(Minecraft client, PestDestroyerRuntime runtime) {
         return PestTargetTracker.getNextQueuedPest(
-                client, runtime.pestTargetQueue, runtime.killedEntities);
+                client, runtime.pestTargetQueue, runtime.killedEntities, onCurrentPlot(client, runtime));
     }
 
     static Entity findClosestPest(
@@ -181,7 +183,12 @@ final class PestTargetController {
         return PestTargetTracker.findClosestPest(
                 client,
                 runtime.killedEntities,
-                runtime.navigation.leaveOneReservedEntityId);
+                runtime.navigation.leaveOneReservedEntityId,
+                onCurrentPlot(client, runtime));
+    }
+
+    private static Predicate<Entity> onCurrentPlot(Minecraft client, PestDestroyerRuntime runtime) {
+        return PestPlotNavigator.currentPlotFilter(client, runtime.navigation);
     }
 
     static boolean hasPestSkullMarkerForTarget(Minecraft client, Entity target) {
@@ -300,9 +307,9 @@ final class PestTargetController {
         int reservedId = runtime.navigation.leaveOneReservedEntityId;
         boolean reservedStillAvailable = reservedId != -1
                 && PestTargetTracker.isAvailablePest(
-                        client, runtime.killedEntities, reservedId);
+                        client, runtime.killedEntities, reservedId, onCurrentPlot(client, runtime));
         Entity reserved = PestTargetTracker.findMostIsolatedPest(
-                client, runtime.killedEntities);
+                client, runtime.killedEntities, onCurrentPlot(client, runtime));
         if (reserved != null) {
             runtime.navigation.leaveOneReservedEntityId = reserved.getId();
         } else if (!reservedStillAvailable) {

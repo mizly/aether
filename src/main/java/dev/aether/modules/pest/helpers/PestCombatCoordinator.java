@@ -106,6 +106,15 @@ final class PestCombatCoordinator {
             return;
         }
 
+        // Following a pest across the plot line makes the plot check teleport us back mid-route.
+        if (!PestPlotNavigator.currentPlotFilter(client, context.runtime().navigation).test(currentTarget)) {
+            ClientUtils.sendDebugMessage("[PestDestroyer] Target drifted off the plot. Picking another.");
+            PathfindingManager.stop();
+            context.runtime().currentTarget = null;
+            context.setState(PestDestroyer.State.CHECK_NEXT);
+            return;
+        }
+
         double dist = client.player.distanceTo(currentTarget);
         // The fly executor owns the camera until the route reaches its handoff.
         // Tracking the moving pest here overwrote the path heading after only a
