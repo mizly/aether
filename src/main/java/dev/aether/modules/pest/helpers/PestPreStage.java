@@ -74,6 +74,7 @@ final class PestPreStage {
 
         boolean forcePlotTp =
                 alreadyOnPlot && (AetherConfig.PEST_PLOT_TP_FOR_CURRENT_PLOT.get()
+                        || (AetherConfig.TELEPORT_TO_PLOT_WHEN_START.get() && AetherConfig.MANUAL_PEST_MODE.get())
                         || PestManager.isBallsackShredderActiveForCurrentCycle());
 
         if (alreadyOnPlot && !forcePlotTp) {
