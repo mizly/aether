@@ -64,6 +64,14 @@ public final class IrcManager {
         stop();
     }
 
+    public static void onAuthenticated() {
+        syncFromConfig();
+    }
+
+    public static void onLoggedOut() {
+        stop();
+    }
+
     public static void sendChat(String message) {
         if (message == null || message.isBlank()) {
             ClientUtils.sendMessage("§cUsage: /aether irc chat <message>", false);
@@ -119,7 +127,8 @@ public final class IrcManager {
     private static void start() {
         int gen;
         synchronized (LOCK) {
-            if (running) {
+            // stay fully dormant while unlinked; onAuthenticated() starts the loop later.
+            if (running || !AetherAuthService.isAuthenticated()) {
                 return;
             }
             running = true;
@@ -147,14 +156,9 @@ public final class IrcManager {
             return;
         }
 
-        if (!AetherAuthService.isAuthenticated()) {
-            reschedule(gen, RETRY_DELAY_SECONDS);
-            return;
-        }
-
         String token = AetherTokenStore.getToken();
-        if (token.isEmpty()) {
-            reschedule(gen, RETRY_DELAY_SECONDS);
+        if (!AetherAuthService.isAuthenticated() || token.isEmpty()) {
+            stop();
             return;
         }
 
@@ -174,8 +178,8 @@ public final class IrcManager {
             submit(() -> poll(gen));
         } catch (AetherApiException e) {
             if (e.isUnauthorized()) {
-                // the auth service demotes the token on its own /me check; just idle until it does.
-                reschedule(gen, RETRY_DELAY_SECONDS);
+                // the auth service demotes the token on its own /me check and calls onLoggedOut().
+                stop();
                 return;
             }
             Aether.LOGGER.debug("[aether] Aether IRC poll failed: {}", e.getMessage());

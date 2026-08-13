@@ -1,6 +1,7 @@
 package dev.aether.telemetry;
 
 import dev.aether.Aether;
+import dev.aether.modules.irc.IrcManager;
 import dev.aether.notification.NotificationManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Util;
@@ -142,6 +143,7 @@ public final class AetherAuthService {
         }
         // the revoke endpoint exists server-side but the client does not call it yet; a call would slot in here.
         AetherTelemetryService.stopForLogout(token);
+        IrcManager.onLoggedOut();
         AetherTokenStore.clear();
         Aether.LOGGER.info("[aether] Aether account disconnected");
     }
@@ -159,6 +161,7 @@ public final class AetherAuthService {
         }
 
         AetherTelemetryService.onTokenInvalidated();
+        IrcManager.onLoggedOut();
         AetherTokenStore.clear();
         Aether.LOGGER.warn("[aether] Aether token validation failed; local token cleared");
         if (wasAuthenticated) {
@@ -246,6 +249,7 @@ public final class AetherAuthService {
         Aether.LOGGER.info("[aether] Aether authentication completed");
         NotificationManager.success("Discord Connected", "Aether is linked to your Discord account");
         AetherTelemetryService.onAuthenticated();
+        IrcManager.onAuthenticated();
         // a fresh login has no total yet; without this the UI would read zero until the next restart.
         validateSavedToken();
     }
