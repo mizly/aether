@@ -331,6 +331,11 @@ public final class AetherCommandRegistrar {
                                     .then(ClientCommands.literal("off")
                                             .executes(ctx -> setIrcEnabled(false)))
                                     .then(ClientCommands.literal("chat")
+                                            // without this the bare subcommand fails to parse and leaks to the server.
+                                            .executes(ctx -> {
+                                                ClientUtils.sendMessage("§cUsage: /aether irc chat <message>", false);
+                                                return 1;
+                                            })
                                             .then(ClientCommands.argument("message", StringArgumentType.greedyString())
                                                     .executes(ctx -> {
                                                         IrcManager.sendChat(

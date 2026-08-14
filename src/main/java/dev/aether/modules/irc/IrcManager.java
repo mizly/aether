@@ -13,6 +13,7 @@ import net.minecraft.network.chat.Component;
 
 import java.util.List;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -30,10 +31,11 @@ public final class IrcManager {
         return thread;
     });
 
-    private static boolean running;
+    private static volatile boolean running;
     private static volatile boolean redirecting;
     private static volatile int generation;
-    private static volatile String cursor = "";
+    private static String cursor = "";
+    private static Future<?> pollTask;
     private static long backoffSeconds = RETRY_DELAY_SECONDS;
 
     private IrcManager() {
@@ -63,6 +65,7 @@ public final class IrcManager {
 
     public static void shutdown() {
         stop();
+        SCHEDULER.shutdownNow();
     }
 
     public static void onAuthenticated() {
@@ -177,22 +180,30 @@ public final class IrcManager {
             running = true;
             backoffSeconds = RETRY_DELAY_SECONDS;
             gen = ++generation;
+            // an empty cursor makes the first poll return the head id only, so joining never replays backlog.
+            cursor = "";
         }
-        // an empty cursor makes the first poll return the head id only, so joining never replays backlog.
-        cursor = "";
-        submit(() -> poll(gen));
+        schedulePoll(gen, 0L);
     }
 
     private static void stop() {
         redirecting = false;
+        Future<?> cancelled;
         synchronized (LOCK) {
             if (!running) {
                 return;
             }
             running = false;
             generation++;
+            cursor = "";
+            cancelled = pollTask;
+            pollTask = null;
         }
-        cursor = "";
+
+        // interrupt the in-flight long poll; otherwise it holds a pool thread for up to 35s.
+        if (cancelled != null) {
+            cancelled.cancel(true);
+        }
     }
 
     private static void poll(int gen) {
@@ -206,20 +217,32 @@ public final class IrcManager {
             return;
         }
 
-        try {
-            AetherApiClient.IrcPoll result = AetherApiClient.pollIrc(token, cursor, POLL_WAIT_SECONDS);
+        String after;
+        synchronized (LOCK) {
             if (gen != generation || !running) {
                 return;
             }
+            after = cursor;
+        }
 
-            boolean hadCursor = !cursor.isEmpty();
-            cursor = result.latestId();
-            backoffSeconds = RETRY_DELAY_SECONDS;
+        try {
+            AetherApiClient.IrcPoll result = AetherApiClient.pollIrc(token, after, POLL_WAIT_SECONDS);
+
+            boolean hadCursor;
+            synchronized (LOCK) {
+                // re-check inside the lock so a stop()/start() pair cannot be clobbered by this stale write.
+                if (gen != generation || !running) {
+                    return;
+                }
+                hadCursor = !cursor.isEmpty();
+                cursor = result.latestId();
+                backoffSeconds = RETRY_DELAY_SECONDS;
+            }
 
             if (hadCursor) {
                 display(result.messages());
             }
-            submit(() -> poll(gen));
+            schedulePoll(gen, 0L);
         } catch (AetherApiException e) {
             if (e.isUnauthorized()) {
                 // the auth service demotes the token on its own /me check and calls onLoggedOut().
@@ -227,10 +250,18 @@ public final class IrcManager {
                 return;
             }
             Aether.LOGGER.debug("[aether] Aether IRC poll failed: {}", e.getMessage());
-            long delay = backoffSeconds;
-            backoffSeconds = Math.min(backoffSeconds * 2L, BACKOFF_MAX_SECONDS);
-            reschedule(gen, delay);
+            long delay;
+            synchronized (LOCK) {
+                delay = backoffSeconds;
+                backoffSeconds = Math.min(backoffSeconds * 2L, BACKOFF_MAX_SECONDS);
+            }
+            schedulePoll(gen, delay);
         }
+    }
+
+    // the backend strips these too, but the client must not let relayed text restyle its own chat line.
+    private static String stripFormatting(String value) {
+        return value == null ? "" : value.replace('§', ' ');
     }
 
     private static void display(List<AetherApiClient.IrcMessage> messages) {
@@ -249,16 +280,25 @@ public final class IrcManager {
             }
             for (AetherApiClient.IrcMessage message : messages) {
                 client.player.sendSystemMessage(Component.literal(
-                        CHAT_PREFIX + "§b" + message.author() + "§7: §f" + message.content()));
+                        CHAT_PREFIX + "§b" + stripFormatting(message.author())
+                                + "§7: §f" + stripFormatting(message.content())));
             }
         });
     }
 
-    private static void reschedule(int gen, long delaySeconds) {
-        try {
-            SCHEDULER.schedule(() -> poll(gen), delaySeconds, TimeUnit.SECONDS);
-        } catch (RuntimeException e) {
-            Aether.LOGGER.debug("[aether] Aether IRC poll rejected: {}", e.getClass().getSimpleName());
+    // tracked so stop() can interrupt whichever poll is pending or in flight.
+    private static void schedulePoll(int gen, long delaySeconds) {
+        synchronized (LOCK) {
+            if (gen != generation || !running) {
+                return;
+            }
+            try {
+                pollTask = delaySeconds <= 0L
+                        ? SCHEDULER.submit(() -> poll(gen))
+                        : SCHEDULER.schedule(() -> poll(gen), delaySeconds, TimeUnit.SECONDS);
+            } catch (RuntimeException e) {
+                Aether.LOGGER.debug("[aether] Aether IRC poll rejected: {}", e.getClass().getSimpleName());
+            }
         }
     }
 
