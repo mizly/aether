@@ -18,6 +18,7 @@ import dev.aether.modules.forge.ForgeManager;
 import dev.aether.modules.failsafe.FailsafeTestManager;
 import dev.aether.modules.farming.BedrockPlotMaker;
 import dev.aether.modules.interaction.EntityInteractManager;
+import dev.aether.modules.irc.IrcManager;
 import dev.aether.modules.metaldetector.MetalDetectorSolver;
 import dev.aether.modules.inventorymanager.AutoSellManager;
 import dev.aether.modules.movement.MovementPlaybackManager;
@@ -50,6 +51,8 @@ public final class AetherCommandRegistrar {
     }
 
     private static void registerLegacyCommandIntercepts() {
+        // only fires for chat, never for commands, so slash commands still run normally.
+        ClientSendMessageEvents.ALLOW_CHAT.register(message -> !IrcManager.interceptChat(message));
         ClientSendMessageEvents.CHAT.register(message ->
                 MovementPlaybackManager.recordOutgoingChat(message, false));
         ClientSendMessageEvents.COMMAND.register(command -> {
@@ -73,6 +76,14 @@ public final class AetherCommandRegistrar {
                 startPathTest(command);
             }
         });
+    }
+
+    private static int setIrcEnabled(boolean enabled) {
+        IrcManager.setEnabled(enabled);
+        ClientUtils.sendMessage(enabled
+                ? "§airc is on"
+                : "§eirc is off", false);
+        return 1;
     }
 
     private static void registerClientCommands() {
@@ -308,6 +319,27 @@ public final class AetherCommandRegistrar {
                                                                 });
                                                             }
                                                         });
+                                                        return 1;
+                                                    }))))
+                            .then(ClientCommands.literal("irc")
+                                    .executes(ctx -> {
+                                        IrcManager.toggleRedirect();
+                                        return 1;
+                                    })
+                                    .then(ClientCommands.literal("on")
+                                            .executes(ctx -> setIrcEnabled(true)))
+                                    .then(ClientCommands.literal("off")
+                                            .executes(ctx -> setIrcEnabled(false)))
+                                    .then(ClientCommands.literal("chat")
+                                            // without this the bare subcommand fails to parse and leaks to the server.
+                                            .executes(ctx -> {
+                                                ClientUtils.sendMessage("§cUsage: /aether irc chat <message>", false);
+                                                return 1;
+                                            })
+                                            .then(ClientCommands.argument("message", StringArgumentType.greedyString())
+                                                    .executes(ctx -> {
+                                                        IrcManager.sendChat(
+                                                                StringArgumentType.getString(ctx, "message"));
                                                         return 1;
                                                     }))))
                             .then(ClientCommands.literal("visitors")

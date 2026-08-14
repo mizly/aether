@@ -23,6 +23,7 @@ public final class AetherTelemetryService {
     private static boolean modEnabled;
     private static boolean running;
     private static volatile boolean serverActive;
+    private static volatile String playtimeSessionToken = "";
     private static ScheduledFuture<?> heartbeatTask;
     private static volatile int generation;
 
@@ -31,6 +32,10 @@ public final class AetherTelemetryService {
 
     public static boolean isActive() {
         return serverActive;
+    }
+
+    public static String getPlaytimeSessionToken() {
+        return playtimeSessionToken;
     }
 
     public static void onModEnabledChanged(boolean enabled) {
@@ -53,6 +58,9 @@ public final class AetherTelemetryService {
     }
 
     public static void onTokenInvalidated() {
+        synchronized (LOCK) {
+            playtimeSessionToken = "";
+        }
         stop(false, null);
     }
 
@@ -62,17 +70,20 @@ public final class AetherTelemetryService {
 
     public static void shutdown() {
         String token;
+        String sessionToken;
         synchronized (LOCK) {
             token = running && serverActive ? AetherTokenStore.getToken() : "";
+            sessionToken = playtimeSessionToken;
             modEnabled = false;
             running = false;
             serverActive = false;
+            playtimeSessionToken = "";
             generation++;
             cancelHeartbeat();
         }
 
         if (!token.isEmpty()) {
-            SCHEDULER.execute(() -> sendModOff(token, SHUTDOWN_OFF_TIMEOUT));
+            SCHEDULER.execute(() -> sendModOff(token, sessionToken, SHUTDOWN_OFF_TIMEOUT));
         }
 
         SCHEDULER.shutdown();
@@ -100,6 +111,7 @@ public final class AetherTelemetryService {
 
     private static void stop(boolean sendOff, String tokenOverride) {
         boolean wasActive;
+        String sessionToken;
         synchronized (LOCK) {
             if (!running) {
                 return;
@@ -107,6 +119,8 @@ public final class AetherTelemetryService {
             running = false;
             wasActive = serverActive;
             serverActive = false;
+            sessionToken = playtimeSessionToken;
+            playtimeSessionToken = "";
             generation++;
             cancelHeartbeat();
         }
@@ -116,7 +130,7 @@ public final class AetherTelemetryService {
                     ? AetherTokenStore.getToken()
                     : tokenOverride;
             if (!token.isEmpty()) {
-                submit(() -> sendModOff(token, null));
+                submit(() -> sendModOff(token, sessionToken, null));
             }
         }
         Aether.LOGGER.info("[aether] Aether telemetry stopped");
@@ -132,8 +146,9 @@ public final class AetherTelemetryService {
             return;
         }
 
+        AetherApiClient.ModState state;
         try {
-            AetherAuthService.updateTotalSeconds(AetherApiClient.modOn(token).totalSeconds());
+            state = AetherApiClient.modOn(token);
         } catch (AetherApiException e) {
             if (e.isUnauthorized()) {
                 AetherAuthService.invalidateToken();
@@ -147,9 +162,10 @@ public final class AetherTelemetryService {
 
         if (gen != generation) {
             // toggled off while /mod/on was in flight, so undo it server-side.
-            sendModOff(token, null);
+            sendModOff(token, state.sessionToken(), null);
             return;
         }
+        updateFromModState(state);
         scheduleHeartbeat(gen, true);
         Aether.LOGGER.info("[aether] Aether telemetry activated");
     }
@@ -178,12 +194,18 @@ public final class AetherTelemetryService {
 
         try {
             if (!serverActive) {
-                AetherAuthService.updateTotalSeconds(AetherApiClient.modOn(token).totalSeconds());
+                AetherApiClient.ModState state = AetherApiClient.modOn(token);
+                if (gen != generation) {
+                    sendModOff(token, state.sessionToken(), null);
+                    return;
+                }
+                updateFromModState(state);
                 serverActive = true;
                 Aether.LOGGER.info("[aether] Aether telemetry activated");
                 return;
             }
-            AetherAuthService.updateTotalSeconds(AetherApiClient.heartbeat(token).totalSeconds());
+            AetherApiClient.ModState state = AetherApiClient.heartbeat(token, playtimeSessionToken);
+            updateFromModState(state);
         } catch (AetherApiException e) {
             if (e.isUnauthorized()) {
                 AetherAuthService.invalidateToken();
@@ -201,8 +223,14 @@ public final class AetherTelemetryService {
         if (gen != generation) {
             return;
         }
+        playtimeSessionToken = "";
         try {
-            AetherApiClient.modOn(token);
+            AetherApiClient.ModState state = AetherApiClient.modOn(token);
+            if (gen != generation) {
+                sendModOff(token, state.sessionToken(), null);
+                return;
+            }
+            updateFromModState(state);
             serverActive = true;
             Aether.LOGGER.info("[aether] Aether telemetry re-activated after not_active");
         } catch (AetherApiException e) {
@@ -215,12 +243,12 @@ public final class AetherTelemetryService {
         }
     }
 
-    private static void sendModOff(String token, Duration timeout) {
+    private static void sendModOff(String token, String sessionToken, Duration timeout) {
         try {
             if (timeout == null) {
-                AetherApiClient.modOff(token);
+                AetherApiClient.modOff(token, sessionToken);
             } else {
-                AetherApiClient.modOff(token, timeout);
+                AetherApiClient.modOff(token, sessionToken, timeout);
             }
         } catch (AetherApiException e) {
             if (e.isUnauthorized()) {
@@ -228,6 +256,13 @@ public final class AetherTelemetryService {
                 return;
             }
             Aether.LOGGER.warn("[aether] Aether /mod/off failed: {}", e.getMessage());
+        }
+    }
+
+    private static void updateFromModState(AetherApiClient.ModState state) {
+        AetherAuthService.updateTotalSeconds(state.totalSeconds());
+        if (!state.sessionToken().isEmpty()) {
+            playtimeSessionToken = state.sessionToken();
         }
     }
 

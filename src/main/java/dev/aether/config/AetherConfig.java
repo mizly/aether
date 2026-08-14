@@ -710,6 +710,10 @@ public final class AetherConfig {
                         60);
         public static final BooleanEntry SEND_DISCORD_STATUS = Config.bool("sendDiscordStatus", false);
 
+        // -- IRC -------------------------------------------------------------------
+
+        public static final BooleanEntry IRC_ENABLED = Config.bool("ircEnabled", true);
+
         // -- REMOTE CONTROL --------------------------------------------------------
 
         public static final BooleanEntry REMOTE_CONTROL_ENABLED = Config.bool("remoteControlEnabled", false);
