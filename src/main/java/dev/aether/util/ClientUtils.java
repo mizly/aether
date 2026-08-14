@@ -248,10 +248,6 @@ public class ClientUtils {
             ProgrammaticAttackTracker.setHeld(client.options.keyAttack, false);
             restorePhysicalKeyStates(client);
         }
-
-        if (client.mouseHandler != null) {
-            client.mouseHandler.releaseMouse();
-        }
     }
 
     public static boolean isInventoryScreenOpen() {
