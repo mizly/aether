@@ -6,12 +6,12 @@ import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.failsafe.DesktopNotificationManager;
 import dev.aether.modules.failsafe.FailsafeColourFlashManager;
 import dev.aether.modules.failsafe.FailsafeSoundManager;
+import dev.aether.modules.failsafe.FailsafeWindowFocusManager;
 import dev.aether.modules.farming.UngrabMouse;
 import dev.aether.modules.performance.MuteManager;
 import dev.aether.modules.performance.PerformanceModeManager;
 import dev.aether.modules.pest.helpers.PestCompletionGuard;
 import dev.aether.util.ClientUtils;
-import dev.aether.util.WindowFocusHelper;
 import net.minecraft.client.Minecraft;
 
 /**
@@ -142,7 +142,7 @@ public final class ManualPestManager {
     private static void fireAlert(int count) {
         FailsafeColourFlashManager.trigger();
         FailsafeSoundManager.playConfiguredSoundFile(AetherConfig.MANUAL_PEST_SOUND_FILE.get());
-        WindowFocusHelper.focusMinecraftWindow("ManualPestWindowFocus");
+        FailsafeWindowFocusManager.bringWindowToFront();
         if (AetherConfig.FAILSAFE_DESKTOP_NOTIFICATION_ENABLED.get()) {
             DesktopNotificationManager.notify("Pests Detected",
                     count + " pest(s) spawned - macro paused for manual kill.", true);

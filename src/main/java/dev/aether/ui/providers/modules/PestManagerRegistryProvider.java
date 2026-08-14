@@ -246,6 +246,13 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.save();
                         })
                         .visibleWhen(() -> AetherConfig.MANUAL_PEST_MODE.get()))
+                .add(new ToggleSetting("Auto Alt-Tab",
+                        () -> AetherConfig.FAILSAFE_AUTO_ALT_TAB.get(),
+                        v -> {
+                            AetherConfig.FAILSAFE_AUTO_ALT_TAB.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(() -> AetherConfig.MANUAL_PEST_MODE.get()))
                 .add(new DropdownSetting("Manual Pest Sound", manualPestSoundOptions,
                         () -> getSoundIndex(manualPestSoundOptions, AetherConfig.MANUAL_PEST_SOUND_FILE.get()),
                         i -> {
