@@ -48,7 +48,7 @@ public final class AetherApiClient {
     public record AccountInfo(String discordId, long totalSeconds, boolean active) {
     }
 
-    public record ModState(boolean ok, boolean active, long totalSeconds) {
+    public record ModState(boolean ok, boolean active, long totalSeconds, String sessionToken) {
     }
 
     public static LoginStart startLogin() throws AetherApiException {
@@ -96,20 +96,32 @@ public final class AetherApiClient {
     }
 
     public static ModState modOn(String token) throws AetherApiException {
-        return modState("/mod/on", token, REQUEST_TIMEOUT);
+        return modState("/mod/on", token, REQUEST_TIMEOUT, modOnPayload());
     }
 
     public static ModState heartbeat(String token) throws AetherApiException {
-        return modState("/mod/heartbeat", token, REQUEST_TIMEOUT);
+        return heartbeat(token, "");
+    }
+
+    public static ModState heartbeat(String token, String sessionToken) throws AetherApiException {
+        return modState("/mod/heartbeat", token, REQUEST_TIMEOUT, sessionPayload(sessionToken));
     }
 
     public static ModState modOff(String token) throws AetherApiException {
-        return modOff(token, REQUEST_TIMEOUT);
+        return modOff(token, "", REQUEST_TIMEOUT);
     }
 
     /** shutdown paths pass a short timeout so telemetry never stalls the client exit. */
     public static ModState modOff(String token, Duration timeout) throws AetherApiException {
-        return modState("/mod/off", token, timeout);
+        return modOff(token, "", timeout);
+    }
+
+    public static ModState modOff(String token, String sessionToken) throws AetherApiException {
+        return modOff(token, sessionToken, REQUEST_TIMEOUT);
+    }
+
+    public static ModState modOff(String token, String sessionToken, Duration timeout) throws AetherApiException {
+        return modState("/mod/off", token, timeout, sessionPayload(sessionToken));
     }
 
     public record IrcMessage(String id, String source, String author, String content) {
@@ -161,22 +173,47 @@ public final class AetherApiClient {
         return new IrcPoll(string(body, "latest_id"), List.copyOf(messages));
     }
 
-    // the bearer token identifies the user; the payload carries no Minecraft or Discord identity.
     public static void reportBan(String token, JsonObject payload) throws AetherApiException {
+        reportBan(token, payload, "");
+    }
+
+    public static void reportBan(String token, JsonObject payload, String sessionToken) throws AetherApiException {
+        JsonObject body = payload == null ? new JsonObject() : payload;
+        if (sessionToken != null && !sessionToken.isBlank()) {
+            body.addProperty("session_token", sessionToken);
+        }
         HttpRequest req = authorized(request("/ban")
                 .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8)), token)
+                .POST(HttpRequest.BodyPublishers.ofString(body.toString(), StandardCharsets.UTF_8)), token)
                 .build();
         execute(req, "/ban");
     }
 
-    private static ModState modState(String path, String token, Duration timeout) throws AetherApiException {
-        HttpRequest req = authorized(request(path, timeout).POST(HttpRequest.BodyPublishers.noBody()), token).build();
+    private static ModState modState(String path, String token, Duration timeout, JsonObject payload) throws AetherApiException {
+        HttpRequest req = authorized(request(path, timeout)
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8)), token)
+                .build();
         JsonObject body = send(req, path);
         return new ModState(
                 !body.has("ok") || body.get("ok").getAsBoolean(),
                 body.has("active") && !body.get("active").isJsonNull() && body.get("active").getAsBoolean(),
-                longValue(body, "total_seconds", 0L));
+                longValue(body, "total_seconds", 0L),
+                string(body, "session_token"));
+    }
+
+    private static JsonObject modOnPayload() {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("use_session_token", true);
+        return payload;
+    }
+
+    private static JsonObject sessionPayload(String sessionToken) {
+        JsonObject payload = new JsonObject();
+        if (sessionToken != null && !sessionToken.isBlank()) {
+            payload.addProperty("session_token", sessionToken);
+        }
+        return payload;
     }
 
     private static HttpRequest.Builder request(String path) {
