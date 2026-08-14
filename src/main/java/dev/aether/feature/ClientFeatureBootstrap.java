@@ -11,6 +11,7 @@ import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.macro.ReconnectScheduler;
 import dev.aether.modules.failsafe.FailsafeSoundManager;
+import dev.aether.modules.irc.IrcManager;
 import dev.aether.modules.misc.AutoCarnivalManager;
 import dev.aether.modules.pathfinding.debug.PathVisualizer;
 import dev.aether.modules.performance.MuteManager;
@@ -57,6 +58,7 @@ public final class ClientFeatureBootstrap {
         HudRegistry.register();
         MacroWorkerThread.getInstance().start();
         AetherAuthService.initialize();
+        IrcManager.initialize();
         PlaySessionTracker.register();
         PathVisualizer.register();
 
@@ -105,6 +107,7 @@ public final class ClientFeatureBootstrap {
         dev.aether.modules.session.DailyFarmTimeTracker.persistNow();
         AetherTelemetryService.shutdown();
         AetherBanService.shutdown();
+        IrcManager.shutdown();
         AetherAuthService.shutdown();
         PlaySessionTracker.clear();
         PerformanceModeManager.stop(Minecraft.getInstance());
@@ -120,6 +123,7 @@ public final class ClientFeatureBootstrap {
     public static synchronized void onConfigProfileLoaded(File profileFile) {
         FailsafeSoundManager.refresh();
         MacroStateManager.syncFromConfig();
+        IrcManager.syncFromConfig();
         AutoCarnivalManager.syncFromConfig(Minecraft.getInstance());
 
         Minecraft client = Minecraft.getInstance();

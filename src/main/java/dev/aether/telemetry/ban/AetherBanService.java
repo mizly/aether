@@ -4,6 +4,7 @@ import dev.aether.Aether;
 import dev.aether.telemetry.AetherApiClient;
 import dev.aether.telemetry.AetherApiException;
 import dev.aether.telemetry.AetherAuthService;
+import dev.aether.telemetry.AetherTelemetryService;
 import dev.aether.telemetry.AetherTokenStore;
 
 import java.util.concurrent.ExecutorService;
@@ -108,17 +109,18 @@ public final class AetherBanService {
         if (token.isEmpty()) {
             return;
         }
+        String sessionToken = AetherTelemetryService.getPlaytimeSessionToken();
 
         try {
-            EXECUTOR.execute(() -> send(report, token));
+            EXECUTOR.execute(() -> send(report, token, sessionToken));
         } catch (RuntimeException e) {
             Aether.LOGGER.debug("[aether] Aether ban report rejected: {}", e.getClass().getSimpleName());
         }
     }
 
-    private static void send(BanReport report, String token) {
+    private static void send(BanReport report, String token, String sessionToken) {
         try {
-            AetherApiClient.reportBan(token, report.toJson());
+            AetherApiClient.reportBan(token, report.toJson(), sessionToken);
             Aether.LOGGER.info("[aether] Aether ban report delivered");
         } catch (AetherApiException e) {
             Aether.LOGGER.warn("[aether] Aether /ban report failed: {}", e.getMessage());
