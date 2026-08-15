@@ -77,6 +77,8 @@ final class PestHuntingController {
 
         void markKilled(Entity entity);
 
+        void deferTarget(Entity entity);
+
         boolean recordTrackedPestKill(Minecraft client, Entity entity);
 
         boolean switchToNextQueuedTarget(Minecraft client);
@@ -532,7 +534,9 @@ final class PestHuntingController {
             Entity target) {
         clearHunt(client, runtime);
         if (target != null) {
-            context.markKilled(target);
+            // Not a catch: the pest is still out there, so skip it for a while
+            // instead of hiding it from the rest of the run.
+            context.deferTarget(target);
         }
         runtime.currentTarget = null;
         if (!context.switchToNextQueuedTarget(client)) {
@@ -699,13 +703,25 @@ final class PestHuntingController {
         // not confuse health or stamina armor stands with the prompt.
         AABB catchArea = AABB.ofSize(target.position(), 16.0, 10.0, 16.0);
         for (ArmorStand marker : client.level.getEntitiesOfClass(ArmorStand.class, catchArea)) {
-            Component name = marker.getCustomName();
-            if (name == null) name = marker.getName();
-            if (isReelPrompt(stripFormatting(name.getString()))) {
+            if (isReelPrompt(plainMarkerName(marker))) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Empty for a nameless stand: getName() falls back to the vanilla "Armor
+     * Stand" label, which made the lasso's cobweb stand look like a pest marker.
+     */
+    private static String plainMarkerName(ArmorStand marker) {
+        Component custom = marker.getCustomName();
+        if (custom != null) {
+            return stripFormatting(custom.getString());
+        }
+        String plain = stripFormatting(marker.getName().getString());
+        String typeName = stripFormatting(marker.getType().getDescription().getString());
+        return plain.equals(typeName) ? "" : plain;
     }
 
     static String stripFormatting(String text) {
@@ -765,12 +781,9 @@ final class PestHuntingController {
         ArmorStand closest = null;
         double closestDistance = Double.MAX_VALUE;
         for (ArmorStand marker : client.level.getEntitiesOfClass(ArmorStand.class, searchBox)) {
-            Component name = marker.getCustomName();
-            // Some server marker updates expose the text through getName()
-            // before getCustomName() becomes available on the client.
-            if (name == null) name = marker.getName();
-            String plain = stripFormatting(name.getString());
-            // An empty name is the stamina bar, which is drawn from spacers.
+            String plain = plainMarkerName(marker);
+            // An empty name is the stamina bar or a prop stand such as the
+            // thrown lasso's cobweb, neither of which the pest rides on.
             if (plain.isEmpty()
                     || isReelPrompt(plain) != reelPrompt
                     || !ridesOn(marker, pest, reelPrompt
