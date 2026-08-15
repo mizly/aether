@@ -110,7 +110,7 @@ public final class AetherTokenStore {
         return !getToken().isEmpty();
     }
 
-    // an unknown expiry means a token minted before rotation existed, so it is treated as due.
+    // no expiry means it predates rotation, so treat it as due
     public static boolean needsRefresh(long refreshBeforeMillis) {
         if (!hasToken()) {
             return false;

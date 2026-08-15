@@ -12,9 +12,11 @@ import net.minecraft.network.chat.Component;
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class IrcManager {
     private static final String CHAT_PREFIX = "§8[§caether §7#irc§8] ";
+    private static final int MAX_UNAUTHORIZED_RETRIES = 3;
 
     private static final Object LOCK = new Object();
     private static final ScheduledExecutorService SCHEDULER = Executors.newScheduledThreadPool(2, task -> {
@@ -24,6 +26,8 @@ public final class IrcManager {
     });
 
     private static final AetherIrcSocket SOCKET = new AetherIrcSocket(SCHEDULER, new SocketHandler());
+
+    private static final AtomicInteger unauthorizedRetries = new AtomicInteger();
 
     private static volatile boolean running;
     private static volatile boolean redirecting;
@@ -66,13 +70,26 @@ public final class IrcManager {
         stop();
     }
 
-    // rotation retires the old token, so the socket has to be rebuilt around the new one.
-    public static void onTokenRotated() {
+    // drop the socket before the refresh retires its token
+    public static void suspendForRotation() {
         synchronized (LOCK) {
             if (!running) {
                 return;
             }
         }
+        SOCKET.stop();
+    }
+
+    // a stale 4401 may have stopped us
+    public static void onTokenRotated() {
+        if (!isEnabled() || !AetherAuthService.isAuthenticated()) {
+            return;
+        }
+
+        synchronized (LOCK) {
+            running = true;
+        }
+        unauthorizedRetries.set(0);
         SOCKET.stop();
         SOCKET.start(AetherTokenStore.getToken());
     }
@@ -152,6 +169,7 @@ public final class IrcManager {
             }
             running = true;
         }
+        unauthorizedRetries.set(0);
         SOCKET.start(AetherTokenStore.getToken());
     }
 
@@ -199,11 +217,23 @@ public final class IrcManager {
 
         @Override
         public void onConnected() {
+            // handshake worked, so the token is fine
+            unauthorizedRetries.set(0);
             Aether.LOGGER.debug("[aether] Aether IRC connected");
         }
 
         @Override
         public void onUnauthorized() {
+            // rotation closes sockets on a healthy account
+            if (AetherAuthService.isAuthenticated()
+                    && AetherTokenStore.hasToken()
+                    && !AetherTokenStore.isExpired()
+                    && unauthorizedRetries.incrementAndGet() <= MAX_UNAUTHORIZED_RETRIES) {
+                SOCKET.stop();
+                SOCKET.start(AetherTokenStore.getToken());
+                return;
+            }
+
             stop();
             ClientUtils.sendMessage("§clogin expired pls relink", false);
         }

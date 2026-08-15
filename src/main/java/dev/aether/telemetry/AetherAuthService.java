@@ -18,7 +18,7 @@ public final class AetherAuthService {
     private static final long POLL_INTERVAL_SECONDS = 2L;
     private static final long MAX_LOGIN_SECONDS = 600L;
     private static final long REFRESH_CHECK_MINUTES = 30L;
-    // rotate a week before expiry so a client that is offline for a while still comes back with a live token.
+    // rotate early so an offline client still returns with a live token
     private static final long REFRESH_BEFORE_MILLIS = 7L * 24L * 60L * 60L * 1000L;
     private static final String EXPECTED_HOST = URI.create(AetherApiClient.BASE_URL).getHost();
 
@@ -95,6 +95,9 @@ public final class AetherAuthService {
             return;
         }
 
+        // the refresh retires the old token
+        IrcManager.suspendForRotation();
+
         try {
             AetherApiClient.TokenRefresh refreshed = AetherApiClient.refreshToken(token);
             long expiresAt = refreshed.expiresInSeconds() > 0L
@@ -109,7 +112,7 @@ public final class AetherAuthService {
             }
 
             Aether.LOGGER.info("[aether] Aether token rotated");
-            // the live socket still holds the retired token, so it has to pick up the new one.
+            // the socket still holds the retired token
             IrcManager.onTokenRotated();
         } catch (AetherApiException e) {
             if (e.isUnauthorized()) {
@@ -117,6 +120,8 @@ public final class AetherAuthService {
                 return;
             }
             Aether.LOGGER.debug("[aether] Aether token refresh deferred: {}", e.getMessage());
+            // refresh never landed, so the old token still works
+            IrcManager.onTokenRotated();
         }
     }
 

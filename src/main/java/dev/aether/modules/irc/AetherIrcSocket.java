@@ -18,7 +18,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Persistent IRC connection; reconnects on its own and replays anything missed while offline. */
+// reconnects on its own and replays whatever it missed
 public final class AetherIrcSocket {
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final long RECONNECT_BASE_SECONDS = 3L;
@@ -162,7 +162,7 @@ public final class AetherIrcSocket {
         }
     }
 
-    // a rejected upgrade arrives wrapped in a CompletionException, so the real status lives on the cause.
+    // the real status is on the cause, not the wrapper
     private void handleFailure(int gen, Throwable error) {
         Throwable cause = error;
         while (cause instanceof CompletionException && cause.getCause() != null) {
@@ -203,7 +203,7 @@ public final class AetherIrcSocket {
         }
     }
 
-    // a silently dead tcp connection never fires onClose, so an idle socket is torn down and retried.
+    // a dead tcp connection never fires onClose
     private void startWatchdog() {
         synchronized (lock) {
             cancel(watchdogTask);
@@ -269,7 +269,7 @@ public final class AetherIrcSocket {
             lastActivity.set(System.currentTimeMillis());
             webSocket.request(1);
 
-            // onOpen runs before buildAsync completes, so publishing here is what makes the first send work.
+            // onOpen lands before buildAsync completes
             synchronized (lock) {
                 if (gen != generation || !running) {
                     webSocket.abort();
@@ -286,7 +286,7 @@ public final class AetherIrcSocket {
                 try {
                     webSocket.sendText(payload.toString(), true);
                 } catch (RuntimeException ignored) {
-                    // the hello frame still arrives; a failed resume only costs backlog.
+                    // a failed resume only costs backlog
                 }
             }
 
@@ -364,7 +364,7 @@ public final class AetherIrcSocket {
             JsonObject frame = element.getAsJsonObject();
             switch (text(frame, "op")) {
                 case "hello" -> {
-                    // an empty cursor means a fresh join, so the head id is adopted without replaying backlog.
+                    // empty cursor means a fresh join, so skip backlog
                     if (cursor.isEmpty()) {
                         cursor = text(frame, "latest_id");
                     }
