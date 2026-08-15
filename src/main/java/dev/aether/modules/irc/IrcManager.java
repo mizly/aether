@@ -199,13 +199,16 @@ public final class IrcManager {
             return;
         }
 
+        String replyTo = stripFormatting(message.replyTo());
+        String author = "§b" + stripFormatting(message.author())
+                + (replyTo.isBlank() ? "" : " §7replied to §b" + replyTo);
+
         client.execute(() -> {
             if (client.player == null) {
                 return;
             }
             client.player.sendSystemMessage(Component.literal(
-                    CHAT_PREFIX + "§b" + stripFormatting(message.author())
-                            + "§7: §f" + stripFormatting(message.content())));
+                    CHAT_PREFIX + author + "§7: §f" + stripFormatting(message.content())));
         });
     }
 

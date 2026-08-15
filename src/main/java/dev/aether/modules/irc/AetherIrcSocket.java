@@ -407,6 +407,7 @@ public final class AetherIrcSocket {
                     id,
                     text(message, "source"),
                     text(message, "author"),
+                    text(message, "reply_to"),
                     content));
         }
 

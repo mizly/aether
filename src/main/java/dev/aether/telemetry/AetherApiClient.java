@@ -160,7 +160,7 @@ public final class AetherApiClient {
         return modState("/mod/off", token, timeout, sessionPayload(sessionToken));
     }
 
-    public record IrcMessage(String id, String source, String author, String content) {
+    public record IrcMessage(String id, String source, String author, String replyTo, String content) {
     }
 
     public static void reportBan(String token, JsonObject payload) throws AetherApiException {
