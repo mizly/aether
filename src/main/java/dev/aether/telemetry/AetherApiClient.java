@@ -5,7 +5,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.net.URI;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -17,6 +16,7 @@ import java.util.Locale;
 
 public final class AetherApiClient {
     public static final String BASE_URL = "https://wheat.aether.cat";
+    public static final String IRC_SOCKET_URL = BASE_URL.replaceFirst("^http", "ws") + "/irc/ws";
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(8);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(10);
@@ -30,7 +30,10 @@ public final class AetherApiClient {
     private AetherApiClient() {
     }
 
-    public record LoginStart(String loginId, String loginUrl, long expiresInSeconds) {
+    public record LoginStart(String loginId,
+                             String claimSecret,
+                             String loginUrl,
+                             long expiresInSeconds) {
     }
 
     public enum LoginStatusKind {
@@ -39,10 +42,17 @@ public final class AetherApiClient {
         CLAIMED,
         EXPIRED,
         INVALID,
+        OUTDATED_CLIENT,
         UNKNOWN
     }
 
-    public record LoginStatus(LoginStatusKind kind, String token, String discordId) {
+    public record LoginStatus(LoginStatusKind kind,
+                              String token,
+                              String discordId,
+                              long expiresInSeconds) {
+    }
+
+    public record TokenRefresh(String token, long expiresInSeconds) {
     }
 
     public record AccountInfo(String discordId, long totalSeconds, boolean active) {
@@ -57,16 +67,38 @@ public final class AetherApiClient {
                 .build(), "/auth/start");
 
         String loginId = string(body, "login_id");
+        String claimSecret = string(body, "claim_secret");
         String loginUrl = string(body, "login_url");
-        if (loginId.isEmpty() || loginUrl.isEmpty()) {
+        if (loginId.isEmpty() || claimSecret.isEmpty() || loginUrl.isEmpty()) {
             throw new AetherApiException("/auth/start returned an incomplete response", 0, "");
         }
-        return new LoginStart(loginId, loginUrl, longValue(body, "expires_in", 600L));
+        return new LoginStart(
+                loginId,
+                claimSecret,
+                loginUrl,
+                longValue(body, "expires_in", 600L));
     }
 
-    public static LoginStatus getLoginStatus(String loginId) throws AetherApiException {
-        String query = "/auth/status?login_id=" + URLEncoder.encode(loginId, StandardCharsets.UTF_8);
-        return parseLoginStatus(send(request(query).GET().build(), "/auth/status"));
+    public static LoginStatus getLoginStatus(String loginId, String claimSecret) throws AetherApiException {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("login_id", loginId);
+        payload.addProperty("claim_secret", claimSecret);
+
+        return parseLoginStatus(send(request("/auth/status")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8))
+                .build(), "/auth/status"));
+    }
+
+    public static TokenRefresh refreshToken(String token) throws AetherApiException {
+        JsonObject body = send(authorized(request("/auth/refresh")
+                .POST(HttpRequest.BodyPublishers.noBody()), token).build(), "/auth/refresh");
+
+        String refreshed = string(body, "token");
+        if (refreshed.isEmpty()) {
+            throw new AetherApiException("/auth/refresh returned no token", 0, "");
+        }
+        return new TokenRefresh(refreshed, longValue(body, "expires_in", 0L));
     }
 
     static LoginStatus parseLoginStatus(JsonObject body) {
@@ -84,7 +116,11 @@ public final class AetherApiClient {
         if (kind == LoginStatusKind.UNKNOWN && !token.isEmpty()) {
             kind = LoginStatusKind.COMPLETE;
         }
-        return new LoginStatus(kind, token, string(body, "discord_id"));
+        return new LoginStatus(
+                kind,
+                token,
+                string(body, "discord_id"),
+                longValue(body, "expires_in", 0L));
     }
 
     public static AccountInfo getCurrentUser(String token) throws AetherApiException {
@@ -124,53 +160,7 @@ public final class AetherApiClient {
         return modState("/mod/off", token, timeout, sessionPayload(sessionToken));
     }
 
-    public record IrcMessage(String id, String source, String author, String content) {
-    }
-
-    public record IrcPoll(String latestId, List<IrcMessage> messages) {
-    }
-
-    public static void sendIrc(String token, String message) throws AetherApiException {
-        JsonObject payload = new JsonObject();
-        payload.addProperty("message", message);
-
-        HttpRequest req = authorized(request("/irc/send")
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8)), token)
-                .build();
-        execute(req, "/irc/send");
-    }
-
-    // waitSeconds asks the server to hold the request open until a message lands, so the timeout must outlast it.
-    public static IrcPoll pollIrc(String token, String afterId, int waitSeconds) throws AetherApiException {
-        StringBuilder path = new StringBuilder("/irc/poll?wait=").append(waitSeconds);
-        if (afterId != null && !afterId.isEmpty()) {
-            path.append("&after=").append(URLEncoder.encode(afterId, StandardCharsets.UTF_8));
-        }
-
-        Duration timeout = Duration.ofSeconds(waitSeconds).plus(REQUEST_TIMEOUT);
-        JsonObject body = send(authorized(request(path.toString(), timeout).GET(), token).build(), "/irc/poll");
-
-        List<IrcMessage> messages = new ArrayList<>();
-        JsonElement raw = body.get("messages");
-        if (raw != null && raw.isJsonArray()) {
-            for (JsonElement element : raw.getAsJsonArray()) {
-                if (!element.isJsonObject()) {
-                    continue;
-                }
-                JsonObject entry = element.getAsJsonObject();
-                String content = string(entry, "content");
-                if (content.isEmpty()) {
-                    continue;
-                }
-                messages.add(new IrcMessage(
-                        string(entry, "id"),
-                        string(entry, "source"),
-                        string(entry, "author"),
-                        content));
-            }
-        }
-        return new IrcPoll(string(body, "latest_id"), List.copyOf(messages));
+    public record IrcMessage(String id, String source, String author, String replyTo, String content) {
     }
 
     public static void reportBan(String token, JsonObject payload) throws AetherApiException {
