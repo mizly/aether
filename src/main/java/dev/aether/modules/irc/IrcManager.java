@@ -4,39 +4,33 @@ import dev.aether.Aether;
 import dev.aether.config.AetherConfig;
 import dev.aether.modules.visuals.StreamerModeManager;
 import dev.aether.telemetry.AetherApiClient;
-import dev.aether.telemetry.AetherApiException;
 import dev.aether.telemetry.AetherAuthService;
 import dev.aether.telemetry.AetherTokenStore;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 
-import java.util.List;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class IrcManager {
     private static final String CHAT_PREFIX = "§8[§caether §7#irc§8] ";
-    private static final int POLL_WAIT_SECONDS = 25;
-    private static final long RETRY_DELAY_SECONDS = 15L;
-    private static final long BACKOFF_MAX_SECONDS = 120L;
+    private static final int MAX_UNAUTHORIZED_RETRIES = 3;
 
     private static final Object LOCK = new Object();
-    // two threads so an outgoing message never queues behind the 25s long poll.
     private static final ScheduledExecutorService SCHEDULER = Executors.newScheduledThreadPool(2, task -> {
         Thread thread = new Thread(task, "Aether IRC");
         thread.setDaemon(true);
         return thread;
     });
 
+    private static final AetherIrcSocket SOCKET = new AetherIrcSocket(SCHEDULER, new SocketHandler());
+
+    private static final AtomicInteger unauthorizedRetries = new AtomicInteger();
+
     private static volatile boolean running;
     private static volatile boolean redirecting;
-    private static volatile int generation;
-    private static String cursor = "";
-    private static Future<?> pollTask;
-    private static long backoffSeconds = RETRY_DELAY_SECONDS;
 
     private IrcManager() {
     }
@@ -74,6 +68,34 @@ public final class IrcManager {
 
     public static void onLoggedOut() {
         stop();
+    }
+
+    // drop the socket before the refresh retires its token
+    public static void suspendForRotation() {
+        synchronized (LOCK) {
+            if (!running) {
+                return;
+            }
+        }
+        SOCKET.stop();
+    }
+
+    // a stale 4401 may have stopped us
+    public static void onTokenRotated() {
+        if (!isEnabled() || !AetherAuthService.isAuthenticated()) {
+            return;
+        }
+
+        synchronized (LOCK) {
+            running = true;
+        }
+        unauthorizedRetries.set(0);
+        SOCKET.stop();
+        SOCKET.start(AetherTokenStore.getToken());
+    }
+
+    public static boolean isConnected() {
+        return SOCKET.isConnected();
     }
 
     public static boolean isRedirecting() {
@@ -124,7 +146,7 @@ public final class IrcManager {
             return;
         }
 
-        if (!AetherAuthService.isAuthenticated()) {
+        if (!AetherAuthService.isAuthenticated() || AetherTokenStore.getToken().isEmpty()) {
             ClientUtils.sendMessage("§clink your account dude", false);
             return;
         }
@@ -134,129 +156,32 @@ public final class IrcManager {
             return;
         }
 
-        String token = AetherTokenStore.getToken();
-        if (token.isEmpty()) {
-            ClientUtils.sendMessage("§clink your account dude", false);
-            return;
+        if (!SOCKET.send(message)) {
+            ClientUtils.sendMessage("§ereconnecting - try that again in a sec", false);
         }
-
-        submit(() -> {
-            try {
-                AetherApiClient.sendIrc(token, message);
-            } catch (AetherApiException e) {
-                reportSendFailure(e);
-            }
-        });
-    }
-
-    private static void reportSendFailure(AetherApiException e) {
-        if (e.isUnauthorized()) {
-            ClientUtils.sendMessage("§clogin expired pls relink", false);
-            return;
-        }
-        if (e.statusCode() == 422) {
-            ClientUtils.sendMessage("§ewatch your language", false);
-            return;
-        }
-        if (e.statusCode() == 429) {
-            ClientUtils.sendMessage("§eslow down buddy", false);
-            return;
-        }
-        if (e.statusCode() == 403) {
-            ClientUtils.sendMessage("§cur banned", false);
-            return;
-        }
-        ClientUtils.sendMessage("§cwhoops cant deliver ur msg", false);
-        Aether.LOGGER.warn("[aether] Aether IRC send failed: {}", e.getMessage());
     }
 
     private static void start() {
-        int gen;
         synchronized (LOCK) {
-            // stay fully dormant while unlinked; onAuthenticated() starts the loop later.
+            // stay fully dormant while unlinked; onAuthenticated() starts the socket later.
             if (running || !AetherAuthService.isAuthenticated()) {
                 return;
             }
             running = true;
-            backoffSeconds = RETRY_DELAY_SECONDS;
-            gen = ++generation;
-            // an empty cursor makes the first poll return the head id only, so joining never replays backlog.
-            cursor = "";
         }
-        schedulePoll(gen, 0L);
+        unauthorizedRetries.set(0);
+        SOCKET.start(AetherTokenStore.getToken());
     }
 
     private static void stop() {
         redirecting = false;
-        Future<?> cancelled;
         synchronized (LOCK) {
             if (!running) {
                 return;
             }
             running = false;
-            generation++;
-            cursor = "";
-            cancelled = pollTask;
-            pollTask = null;
         }
-
-        // interrupt the in-flight long poll; otherwise it holds a pool thread for up to 35s.
-        if (cancelled != null) {
-            cancelled.cancel(true);
-        }
-    }
-
-    private static void poll(int gen) {
-        if (gen != generation || !running) {
-            return;
-        }
-
-        String token = AetherTokenStore.getToken();
-        if (!AetherAuthService.isAuthenticated() || token.isEmpty()) {
-            stop();
-            return;
-        }
-
-        String after;
-        synchronized (LOCK) {
-            if (gen != generation || !running) {
-                return;
-            }
-            after = cursor;
-        }
-
-        try {
-            AetherApiClient.IrcPoll result = AetherApiClient.pollIrc(token, after, POLL_WAIT_SECONDS);
-
-            boolean hadCursor;
-            synchronized (LOCK) {
-                // re-check inside the lock so a stop()/start() pair cannot be clobbered by this stale write.
-                if (gen != generation || !running) {
-                    return;
-                }
-                hadCursor = !cursor.isEmpty();
-                cursor = result.latestId();
-                backoffSeconds = RETRY_DELAY_SECONDS;
-            }
-
-            if (hadCursor) {
-                display(result.messages());
-            }
-            schedulePoll(gen, 0L);
-        } catch (AetherApiException e) {
-            if (e.isUnauthorized()) {
-                // the auth service demotes the token on its own /me check and calls onLoggedOut().
-                stop();
-                return;
-            }
-            Aether.LOGGER.debug("[aether] Aether IRC poll failed: {}", e.getMessage());
-            long delay;
-            synchronized (LOCK) {
-                delay = backoffSeconds;
-                backoffSeconds = Math.min(backoffSeconds * 2L, BACKOFF_MAX_SECONDS);
-            }
-            schedulePoll(gen, delay);
-        }
+        SOCKET.stop();
     }
 
     // the backend strips these too, but the client must not let relayed text restyle its own chat line.
@@ -264,8 +189,8 @@ public final class IrcManager {
         return value == null ? "" : value.replace('§', ' ');
     }
 
-    private static void display(List<AetherApiClient.IrcMessage> messages) {
-        if (messages.isEmpty() || StreamerModeManager.isEnabled()) {
+    private static void display(AetherApiClient.IrcMessage message) {
+        if (StreamerModeManager.isEnabled()) {
             return;
         }
 
@@ -274,39 +199,69 @@ public final class IrcManager {
             return;
         }
 
+        String replyTo = stripFormatting(message.replyTo());
+        String author = "§b" + stripFormatting(message.author())
+                + (replyTo.isBlank() ? "" : " §7replied to §b" + replyTo);
+
         client.execute(() -> {
             if (client.player == null) {
                 return;
             }
-            for (AetherApiClient.IrcMessage message : messages) {
-                client.player.sendSystemMessage(Component.literal(
-                        CHAT_PREFIX + "§b" + stripFormatting(message.author())
-                                + "§7: §f" + stripFormatting(message.content())));
-            }
+            client.player.sendSystemMessage(Component.literal(
+                    CHAT_PREFIX + author + "§7: §f" + stripFormatting(message.content())));
         });
     }
 
-    // tracked so stop() can interrupt whichever poll is pending or in flight.
-    private static void schedulePoll(int gen, long delaySeconds) {
-        synchronized (LOCK) {
-            if (gen != generation || !running) {
+    private static final class SocketHandler implements AetherIrcSocket.Handler {
+        @Override
+        public void onMessage(AetherApiClient.IrcMessage message) {
+            display(message);
+        }
+
+        @Override
+        public void onConnected() {
+            // handshake worked, so the token is fine
+            unauthorizedRetries.set(0);
+            Aether.LOGGER.debug("[aether] Aether IRC connected");
+        }
+
+        @Override
+        public void onUnauthorized() {
+            // rotation closes sockets on a healthy account
+            if (AetherAuthService.isAuthenticated()
+                    && AetherTokenStore.hasToken()
+                    && !AetherTokenStore.isExpired()
+                    && unauthorizedRetries.incrementAndGet() <= MAX_UNAUTHORIZED_RETRIES) {
+                SOCKET.stop();
+                SOCKET.start(AetherTokenStore.getToken());
                 return;
             }
-            try {
-                pollTask = delaySeconds <= 0L
-                        ? SCHEDULER.submit(() -> poll(gen))
-                        : SCHEDULER.schedule(() -> poll(gen), delaySeconds, TimeUnit.SECONDS);
-            } catch (RuntimeException e) {
-                Aether.LOGGER.debug("[aether] Aether IRC poll rejected: {}", e.getClass().getSimpleName());
-            }
-        }
-    }
 
-    private static void submit(Runnable task) {
-        try {
-            SCHEDULER.execute(task);
-        } catch (RuntimeException e) {
-            Aether.LOGGER.debug("[aether] Aether IRC task rejected: {}", e.getClass().getSimpleName());
+            stop();
+            ClientUtils.sendMessage("§clogin expired pls relink", false);
+        }
+
+        @Override
+        public void onRejected(String reason) {
+            if ("too_many_connections".equals(reason)) {
+                ClientUtils.sendMessage("§eirc is already open on another game", false);
+            }
+            stop();
+        }
+
+        @Override
+        public void onSendFailed(String error, long retryAfterSeconds) {
+            switch (error) {
+                case "blocked_content" -> ClientUtils.sendMessage("§ewatch your language", false);
+                case "rate_limited" -> ClientUtils.sendMessage("§eslow down buddy", false);
+                case "empty_message" -> {
+                }
+                case "blocked" -> ClientUtils.sendMessage("§cur banned", false);
+                default -> {
+                    ClientUtils.sendMessage("§cwhoops cant deliver ur msg", false);
+                    Aether.LOGGER.warn("[aether] Aether IRC send failed: {}", error);
+                }
+            }
         }
     }
 }
