@@ -25,6 +25,7 @@ public final class AetherTokenStore {
 
     private static volatile String token = "";
     private static volatile String discordId = "";
+    private static volatile long expiresAtMillis;
     private static volatile boolean loaded;
 
     private AetherTokenStore() {
@@ -35,6 +36,7 @@ public final class AetherTokenStore {
             loaded = true;
             token = "";
             discordId = "";
+            expiresAtMillis = 0L;
 
             Path path = path();
             if (path == null || !Files.exists(path)) {
@@ -48,6 +50,7 @@ public final class AetherTokenStore {
                 JsonObject obj = element.getAsJsonObject();
                 token = readString(obj, "token");
                 discordId = readString(obj, "discord_id");
+                expiresAtMillis = readLong(obj, "expires_at_ms");
             } catch (IOException | RuntimeException e) {
                 Aether.LOGGER.warn("[aether] Could not read {}: {}", FILE_NAME, e.getClass().getSimpleName());
             }
@@ -56,8 +59,15 @@ public final class AetherTokenStore {
 
     public static void save(String newToken, String newDiscordId) {
         synchronized (LOCK) {
+            save(newToken, newDiscordId, expiresAtMillis);
+        }
+    }
+
+    public static void save(String newToken, String newDiscordId, long newExpiresAtMillis) {
+        synchronized (LOCK) {
             token = newToken == null ? "" : newToken.trim();
             discordId = newDiscordId == null ? "" : newDiscordId.trim();
+            expiresAtMillis = Math.max(0L, newExpiresAtMillis);
             loaded = true;
             write();
         }
@@ -67,6 +77,7 @@ public final class AetherTokenStore {
         synchronized (LOCK) {
             token = "";
             discordId = "";
+            expiresAtMillis = 0L;
             loaded = true;
             Path path = path();
             if (path == null) {
@@ -90,8 +101,27 @@ public final class AetherTokenStore {
         return discordId;
     }
 
+    public static long getExpiresAtMillis() {
+        ensureLoaded();
+        return expiresAtMillis;
+    }
+
     public static boolean hasToken() {
         return !getToken().isEmpty();
+    }
+
+    // an unknown expiry means a token minted before rotation existed, so it is treated as due.
+    public static boolean needsRefresh(long refreshBeforeMillis) {
+        if (!hasToken()) {
+            return false;
+        }
+        long expiry = getExpiresAtMillis();
+        return expiry <= 0L || System.currentTimeMillis() >= expiry - refreshBeforeMillis;
+    }
+
+    public static boolean isExpired() {
+        long expiry = getExpiresAtMillis();
+        return expiry > 0L && System.currentTimeMillis() >= expiry;
     }
 
     private static void ensureLoaded() {
@@ -109,6 +139,7 @@ public final class AetherTokenStore {
         JsonObject obj = new JsonObject();
         obj.addProperty("token", token);
         obj.addProperty("discord_id", discordId);
+        obj.addProperty("expires_at_ms", expiresAtMillis);
 
         try {
             Path parent = path.getParent();
@@ -142,6 +173,17 @@ public final class AetherTokenStore {
             return FabricLoader.getInstance().getConfigDir().resolve(FILE_NAME);
         } catch (RuntimeException | LinkageError e) {
             return null;
+        }
+    }
+
+    private static long readLong(JsonObject obj, String key) {
+        if (!obj.has(key) || obj.get(key).isJsonNull()) {
+            return 0L;
+        }
+        try {
+            return obj.get(key).getAsLong();
+        } catch (RuntimeException e) {
+            return 0L;
         }
     }
 

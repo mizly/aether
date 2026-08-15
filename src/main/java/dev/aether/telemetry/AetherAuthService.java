@@ -17,6 +17,9 @@ import java.util.concurrent.TimeUnit;
 public final class AetherAuthService {
     private static final long POLL_INTERVAL_SECONDS = 2L;
     private static final long MAX_LOGIN_SECONDS = 600L;
+    private static final long REFRESH_CHECK_MINUTES = 30L;
+    // rotate a week before expiry so a client that is offline for a while still comes back with a live token.
+    private static final long REFRESH_BEFORE_MILLIS = 7L * 24L * 60L * 60L * 1000L;
     private static final String EXPECTED_HOST = URI.create(AetherApiClient.BASE_URL).getHost();
 
     private static final Object LOCK = new Object();
@@ -32,6 +35,7 @@ public final class AetherAuthService {
     private static volatile long totalSeconds;
 
     private static ScheduledFuture<?> pollTask;
+    private static ScheduledFuture<?> refreshTask;
     // read by poll() on the auth thread outside LOCK, written by the render thread inside it.
     private static volatile int generation;
 
@@ -51,14 +55,69 @@ public final class AetherAuthService {
             statusDetail = "";
         }
         SCHEDULER.execute(AetherAuthService::validateSavedToken);
+        startRefreshLoop();
     }
 
     public static void shutdown() {
         synchronized (LOCK) {
             cancelPollTask();
+            if (refreshTask != null) {
+                refreshTask.cancel(false);
+                refreshTask = null;
+            }
             generation++;
         }
         SCHEDULER.shutdownNow();
+    }
+
+    private static void startRefreshLoop() {
+        synchronized (LOCK) {
+            if (refreshTask != null) {
+                return;
+            }
+            try {
+                refreshTask = SCHEDULER.scheduleWithFixedDelay(
+                        AetherAuthService::refreshIfDue,
+                        1L, REFRESH_CHECK_MINUTES, TimeUnit.MINUTES);
+            } catch (RuntimeException e) {
+                Aether.LOGGER.debug("[aether] Aether token refresh loop rejected: {}", e.getClass().getSimpleName());
+            }
+        }
+    }
+
+    private static void refreshIfDue() {
+        if (state != AetherAuthState.AUTHENTICATED || !AetherTokenStore.needsRefresh(REFRESH_BEFORE_MILLIS)) {
+            return;
+        }
+
+        String token = AetherTokenStore.getToken();
+        if (token.isEmpty()) {
+            return;
+        }
+
+        try {
+            AetherApiClient.TokenRefresh refreshed = AetherApiClient.refreshToken(token);
+            long expiresAt = refreshed.expiresInSeconds() > 0L
+                    ? System.currentTimeMillis() + refreshed.expiresInSeconds() * 1000L
+                    : 0L;
+
+            synchronized (LOCK) {
+                if (state != AetherAuthState.AUTHENTICATED) {
+                    return;
+                }
+                AetherTokenStore.save(refreshed.token(), discordId, expiresAt);
+            }
+
+            Aether.LOGGER.info("[aether] Aether token rotated");
+            // the live socket still holds the retired token, so it has to pick up the new one.
+            IrcManager.onTokenRotated();
+        } catch (AetherApiException e) {
+            if (e.isUnauthorized()) {
+                invalidateToken();
+                return;
+            }
+            Aether.LOGGER.debug("[aether] Aether token refresh deferred: {}", e.getMessage());
+        }
     }
 
     public static AetherAuthState getState() {
@@ -196,7 +255,7 @@ public final class AetherAuthService {
             statusDetail = "Waiting for authorization...";
             cancelPollTask();
             pollTask = SCHEDULER.scheduleWithFixedDelay(
-                    () -> poll(start.loginId(), deadline, gen),
+                    () -> poll(start.loginId(), start.claimSecret(), deadline, gen),
                     POLL_INTERVAL_SECONDS, POLL_INTERVAL_SECONDS, TimeUnit.SECONDS);
         }
 
@@ -204,7 +263,7 @@ public final class AetherAuthService {
         openInBrowser(loginUri);
     }
 
-    private static void poll(String loginId, long deadlineMillis, int gen) {
+    private static void poll(String loginId, String claimSecret, long deadlineMillis, int gen) {
         if (gen != generation) {
             return;
         }
@@ -214,12 +273,13 @@ public final class AetherAuthService {
         }
 
         try {
-            AetherApiClient.LoginStatus status = AetherApiClient.getLoginStatus(loginId);
+            AetherApiClient.LoginStatus status = AetherApiClient.getLoginStatus(loginId, claimSecret);
             switch (status.kind()) {
                 case COMPLETE -> completeLogin(status, gen);
                 case CLAIMED -> failLogin(gen, "Login link was already used");
                 case EXPIRED -> failLogin(gen, "Login link expired");
                 case INVALID -> failLogin(gen, "Login link is invalid");
+                case OUTDATED_CLIENT -> failLogin(gen, "This Aether build is too old to log in");
                 case PENDING, UNKNOWN -> {
                 }
             }
@@ -240,7 +300,12 @@ public final class AetherAuthService {
             }
             generation++;
             cancelPollTask();
-            AetherTokenStore.save(status.token(), status.discordId());
+            AetherTokenStore.save(
+                    status.token(),
+                    status.discordId(),
+                    status.expiresInSeconds() > 0L
+                            ? System.currentTimeMillis() + status.expiresInSeconds() * 1000L
+                            : 0L);
             discordId = status.discordId();
             state = AetherAuthState.AUTHENTICATED;
             statusDetail = "";
