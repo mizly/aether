@@ -14,6 +14,7 @@ final class PestDestroyerRuntime {
     volatile boolean active = false;
     Entity currentTarget = null;
     final List<Entity> killedEntities = new CopyOnWriteArrayList<>();
+    final PestTargetDeferrals deferredTargets = new PestTargetDeferrals();
     final Deque<Entity> pestTargetQueue = new ArrayDeque<>();
     final Set<Integer> accountedKilledPestEntityIds = ConcurrentHashMap.newKeySet();
 
@@ -87,6 +88,7 @@ final class PestDestroyerRuntime {
         currentTarget = null;
         currentTargetUsesLasso = false;
         killedEntities.clear();
+        deferredTargets.clear();
         pestTargetQueue.clear();
         accountedKilledPestEntityIds.clear();
         vacuumSlot = detectedVacuumSlot;
@@ -102,6 +104,7 @@ final class PestDestroyerRuntime {
         currentTarget = null;
         currentTargetUsesLasso = false;
         killedEntities.clear();
+        deferredTargets.clear();
         pestTargetQueue.clear();
         accountedKilledPestEntityIds.clear();
         targetWithoutSkullTicks = 0;

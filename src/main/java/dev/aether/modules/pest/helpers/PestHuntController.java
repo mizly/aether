@@ -40,6 +40,10 @@ final class PestHuntController {
             PestTargetController.rebuildQueue(client, runtime, targetContext);
             pest = PestTargetController.nextQueuedPest(client, runtime);
         }
+        if (pest == null && runtime.deferredTargets.releaseRetryable()) {
+            PestTargetController.rebuildQueue(client, runtime, targetContext);
+            pest = PestTargetController.nextQueuedPest(client, runtime);
+        }
         if (pest != null) {
             PestTargetController.engage(client, runtime, targetContext, pest);
             return;

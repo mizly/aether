@@ -175,6 +175,11 @@ final class PestDestroyerCoordinatorContext
     }
 
     @Override
+    public void deferTarget(Entity entity) {
+        runtime.deferredTargets.defer(entity);
+    }
+
+    @Override
     public boolean recordTrackedPestKill(Minecraft client, Entity entity) {
         return PestTargetController.recordTrackedKill(client, runtime, this, entity);
     }

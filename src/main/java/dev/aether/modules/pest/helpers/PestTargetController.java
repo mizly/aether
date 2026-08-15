@@ -154,7 +154,7 @@ final class PestTargetController {
 
     static Entity peekNextQueuedPest(Minecraft client, PestDestroyerRuntime runtime) {
         return PestTargetTracker.peekNextQueuedPest(
-                client, runtime.pestTargetQueue, runtime.killedEntities, onCurrentPlot(client, runtime));
+                client, runtime.pestTargetQueue, runtime.killedEntities, eligibleTarget(client, runtime));
     }
 
     static void rebuildQueue(
@@ -167,12 +167,12 @@ final class PestTargetController {
                 runtime.pestTargetQueue,
                 runtime.killedEntities,
                 runtime.navigation.leaveOneReservedEntityId,
-                onCurrentPlot(client, runtime));
+                eligibleTarget(client, runtime));
     }
 
     static Entity nextQueuedPest(Minecraft client, PestDestroyerRuntime runtime) {
         return PestTargetTracker.getNextQueuedPest(
-                client, runtime.pestTargetQueue, runtime.killedEntities, onCurrentPlot(client, runtime));
+                client, runtime.pestTargetQueue, runtime.killedEntities, eligibleTarget(client, runtime));
     }
 
     static Entity findClosestPest(
@@ -184,11 +184,14 @@ final class PestTargetController {
                 client,
                 runtime.killedEntities,
                 runtime.navigation.leaveOneReservedEntityId,
-                onCurrentPlot(client, runtime));
+                eligibleTarget(client, runtime));
     }
 
-    private static Predicate<Entity> onCurrentPlot(Minecraft client, PestDestroyerRuntime runtime) {
-        return PestPlotNavigator.currentPlotFilter(client, runtime.navigation);
+    private static Predicate<Entity> eligibleTarget(Minecraft client, PestDestroyerRuntime runtime) {
+        Predicate<Entity> onPlot = PestPlotNavigator.currentPlotFilter(client, runtime.navigation);
+        return entity -> entity != null
+                && !runtime.deferredTargets.isDeferred(entity.getId())
+                && onPlot.test(entity);
     }
 
     static boolean hasPestSkullMarkerForTarget(Minecraft client, Entity target) {
@@ -307,9 +310,9 @@ final class PestTargetController {
         int reservedId = runtime.navigation.leaveOneReservedEntityId;
         boolean reservedStillAvailable = reservedId != -1
                 && PestTargetTracker.isAvailablePest(
-                        client, runtime.killedEntities, reservedId, onCurrentPlot(client, runtime));
+                        client, runtime.killedEntities, reservedId, eligibleTarget(client, runtime));
         Entity reserved = PestTargetTracker.findMostIsolatedPest(
-                client, runtime.killedEntities, onCurrentPlot(client, runtime));
+                client, runtime.killedEntities, eligibleTarget(client, runtime));
         if (reserved != null) {
             runtime.navigation.leaveOneReservedEntityId = reserved.getId();
         } else if (!reservedStillAvailable) {

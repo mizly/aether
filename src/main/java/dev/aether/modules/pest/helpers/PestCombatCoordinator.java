@@ -82,6 +82,7 @@ final class PestCombatCoordinator {
         void maybePreMoveToNextTarget(Minecraft client, Entity nextTarget, double currentDist);
         boolean hasPestSkullMarkerForTarget(Minecraft client, Entity target);
         void markKilled(Entity entity);
+        void deferTarget(Entity entity);
         boolean recordTrackedPestKill(Minecraft client, Entity entity);
         boolean shouldTemporarilyReleaseKillVacuum(
                 Minecraft client, boolean vacuumReady, boolean targetInRange);
@@ -146,7 +147,7 @@ final class PestCombatCoordinator {
         if (System.currentTimeMillis() - context.getStateEnteredAt() > stateTimeoutMs) {
             ClientUtils.sendDebugMessage("[PestDestroyer] Fly-to-pest timed out. Checking for next pest.");
             PathfindingManager.stop();
-            context.markKilled(currentTarget);
+            context.deferTarget(currentTarget);
             context.setState(PestDestroyer.State.CHECK_NEXT);
         }
     }
@@ -188,7 +189,7 @@ final class PestCombatCoordinator {
         if (context.getApproachTicks() > approachTimeoutTicks) {
             ClientUtils.sendDebugMessage("[PestDestroyer] Approach timed out.");
             PathfindingManager.stop();
-            context.markKilled(currentTarget);
+            context.deferTarget(currentTarget);
             context.setState(PestDestroyer.State.CHECK_NEXT);
         }
     }
@@ -300,7 +301,7 @@ final class PestCombatCoordinator {
             ClientUtils.setKeyMappingState(client.options.keyDown, false);
             ClientUtils.setKeyMappingState(client.options.keyUp, false);
             ClientUtils.sendDebugMessage("[PestDestroyer] Kill pest timed out. Moving on.");
-            context.markKilled(currentTarget);
+            context.deferTarget(currentTarget);
             context.setTargetWithoutSkullTicks(0);
             if (!context.switchToNextQueuedTarget(client)) {
                 context.setState(PestDestroyer.State.CHECK_NEXT);

@@ -136,6 +136,14 @@ final class PestNavigationCoordinator {
         Vec3 waypoint = PestPlotNavigator.nextScanWaypoint(client, navigationState);
         if (waypoint == null) {
             navigationState.scanPointIdx = 0;
+            // Having covered the plot and found nothing, a pest we timed out on
+            // is the best remaining lead: retry it rather than fly another lap.
+            if (context.runtime().deferredTargets.releaseRetryable()) {
+                ClientUtils.sendDebugMessage(
+                        "[PestDestroyer] Plot sweep found nothing. Retrying timed-out pest(s).");
+                context.setState(PestDestroyer.State.CHECK_NEXT);
+                return;
+            }
             navigationState.getLocationAttempts++;
             ClientUtils.sendDebugMessage("[PestDestroyer] Plot sweep found no pests (sweep "
                     + navigationState.getLocationAttempts + "/" + maxPlotSweeps + ")");
