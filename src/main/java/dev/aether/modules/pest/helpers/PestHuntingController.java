@@ -42,8 +42,9 @@ final class PestHuntingController {
     private static final int MIN_RETRY_SWAP_TICKS = 1;
     private static final int MAX_RETRY_SWAP_TICKS = 2;
     private static final int LASSO_SETTLE_TICKS = 0;
-    // Only has to cover the server's attach round trip; the rest is drift the retry has to re-aim.
-    private static final long THROW_CONFIRM_MS = 400L;
+    // Has to cover the web's flight plus the server's attach round trip. Too
+    // short and a landed lasso is retried, which knocks the pest back off.
+    private static final long THROW_CONFIRM_MS = 1_200L;
     private static final long REEL_CLICK_COOLDOWN_MS = 250L;
     private static final long DETACH_CONFIRM_MS = 2_500L;
     private static final float THROW_AIM_TOLERANCE_DEGREES = 10.0f;
@@ -239,9 +240,24 @@ final class PestHuntingController {
         // while it is still in the air. That is fine for the stage machine, but
         // aiming at it made the camera follow the web out of the player's hand.
         Entity focus = isPestMob(target) ? target : lassoed != null ? lassoed : target;
-        boolean attached = lassoed != null;
+
+        // An overlay received before the previous click belongs to the previous
+        // reel stage. Letting its grace window spill into the next stage can
+        // manufacture a prompt that is no longer on screen.
+        boolean overlayReelSignal = runtime.huntReelSignalAt > runtime.huntLastReelClickAt
+                && now - runtime.huntReelSignalAt <= REEL_OVERLAY_SIGNAL_GRACE_MS;
+        boolean reelPromptUp = hasReelPrompt(client, focus) || overlayReelSignal;
+        // The prompt is only up while the lasso is on the pest, so it proves the
+        // catch by itself. Requiring the leash instead had a landed lasso read as
+        // a miss, and the retry stun then knocked the pest straight back off.
+        boolean attached = lassoed != null
+                || (reelPromptUp && runtime.huntThrownAt != 0L);
 
         if (attached) {
+            if (!runtime.huntEverAttached) {
+                ClientUtils.sendDebugMessage("[PestHunting] Lasso on ("
+                        + (lassoed != null ? "leash" : "reel prompt") + ").");
+            }
             runtime.huntEverAttached = true;
             runtime.huntLastAttachedAt = now;
             if (runtime.huntAttachedSince == 0L) {
@@ -251,12 +267,6 @@ final class PestHuntingController {
             runtime.huntAttachedSince = 0L;
         }
 
-        // An overlay received before the previous click belongs to the previous
-        // reel stage. Letting its grace window spill into the next stage can
-        // manufacture a prompt that is no longer on screen.
-        boolean overlayReelSignal = runtime.huntReelSignalAt > runtime.huntLastReelClickAt
-                && now - runtime.huntReelSignalAt <= REEL_OVERLAY_SIGNAL_GRACE_MS;
-        boolean reelPromptUp = attached && (hasReelPrompt(client, focus) || overlayReelSignal);
         if (reelPromptUp) {
             runtime.huntReelPromptTicks++;
             runtime.huntReelPromptClearTicks = 0;
