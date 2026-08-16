@@ -25,6 +25,7 @@ import java.util.concurrent.ThreadLocalRandom;
 /** Stuns, lassos and reels in a pest for its shard, in place of vacuuming it. */
 final class PestHuntingController {
     private static final String REEL_PROMPT = "REEL";
+    private static final char HEALTH_GLYPH = '❤';
     private static final double MARKER_SEARCH_SIZE = 6.0;
     private static final double MARKER_SEARCH_HEIGHT_OFFSET = 1.5;
     private static final double MARKER_MAX_HORIZONTAL = 2.0;
@@ -186,7 +187,7 @@ final class PestHuntingController {
         }
         // The destroyer's target is often the pest's marker armor stand, which
         // cannot hold a leash; re-throwing onto a live lasso reels it in early.
-        Entity lassoed = findLassoedPest(client, target);
+        Entity lassoed = findLassoedPest(client, target, isGone(target));
         if (isGone(target)) {
             // Hypixel cycles the marker stands, and losing one is not losing the
             // pest: as long as it is still on our lasso, stay on it.
@@ -658,25 +659,45 @@ final class PestHuntingController {
                 || target instanceof LivingEntity living && living.isDeadOrDying();
     }
 
-    private static Entity findLassoedPest(Minecraft client, Entity target) {
+    /**
+     * The thrown lasso flies on our leash too, so a leash alone is not a catch:
+     * accepting it made the aim track the web instead of the pest on every throw.
+     */
+    private static Entity findLassoedPest(Minecraft client, Entity target, boolean targetGone) {
         if (client.level == null) {
             return null;
         }
+        if (isPestMob(target) && !targetGone) {
+            return holdsOurLeash(client, target) ? target : null;
+        }
+
+        // The target is a marker stand or has been cycled away, so the pest it
+        // stood for has to be recovered by identity rather than by leash alone.
         Entity closest = null;
         double closestDistance = Double.MAX_VALUE;
         for (Entity entity : client.level.entitiesForRendering()) {
-            if ((entity instanceof Bat || entity instanceof Silverfish)
-                    && entity instanceof Leashable leashable
-                    && leashable.getLeashHolder() == client.player) {
-                double distance = target == null ? 0.0 : entity.distanceToSqr(target);
-                if (target == null || distance < closestDistance) {
-                    closest = entity;
-                    closestDistance = distance;
-                }
+            if (!isPestMob(entity)
+                    || !holdsOurLeash(client, entity)
+                    || !PestTargetTracker.hasPestArmorStandNearby(client, entity)) {
+                continue;
+            }
+            double distance = target == null ? 0.0 : entity.distanceToSqr(target);
+            if (target == null || distance < closestDistance) {
+                closest = entity;
+                closestDistance = distance;
             }
         }
         // Do not steal another pest's leash when multiple catches are visible.
         return target == null || closestDistance <= 36.0 ? closest : null;
+    }
+
+    private static boolean isPestMob(Entity entity) {
+        return entity instanceof Bat || entity instanceof Silverfish;
+    }
+
+    private static boolean holdsOurLeash(Minecraft client, Entity entity) {
+        return entity instanceof Leashable leashable
+                && leashable.getLeashHolder() == client.player;
     }
 
     private static void holdLassoPosition(Minecraft client) {
@@ -726,6 +747,11 @@ final class PestHuntingController {
 
     static String stripFormatting(String text) {
         return text.replaceAll("(?i)\\u00A7.", "").trim();
+    }
+
+    private static boolean isPestNameplate(String plainName) {
+        return plainName.indexOf(HEALTH_GLYPH) >= 0
+                || PestHuntingPolicy.findPestTypeIndex(plainName) >= 0;
     }
 
     static boolean isReelPrompt(String plainName) {
@@ -782,10 +808,10 @@ final class PestHuntingController {
         double closestDistance = Double.MAX_VALUE;
         for (ArmorStand marker : client.level.getEntitiesOfClass(ArmorStand.class, searchBox)) {
             String plain = plainMarkerName(marker);
-            // An empty name is the stamina bar or a prop stand such as the
-            // thrown lasso's cobweb, neither of which the pest rides on.
-            if (plain.isEmpty()
-                    || isReelPrompt(plain) != reelPrompt
+            // Only the pest's own nameplate is worth aiming at: the stamina bar
+            // and the thrown lasso's cobweb stand both sit right on the pest.
+            if (isReelPrompt(plain) != reelPrompt
+                    || (!reelPrompt && !isPestNameplate(plain))
                     || !ridesOn(marker, pest, reelPrompt
                             ? REEL_MARKER_MAX_HORIZONTAL
                             : MARKER_MAX_HORIZONTAL)) {
