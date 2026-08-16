@@ -25,7 +25,6 @@ import java.util.concurrent.ThreadLocalRandom;
 /** Stuns, lassos and reels in a pest for its shard, in place of vacuuming it. */
 final class PestHuntingController {
     private static final String REEL_PROMPT = "REEL";
-    private static final char HEALTH_GLYPH = '❤';
     private static final double MARKER_SEARCH_SIZE = 6.0;
     private static final double MARKER_SEARCH_HEIGHT_OFFSET = 1.5;
     private static final double MARKER_MAX_HORIZONTAL = 2.0;
@@ -187,7 +186,7 @@ final class PestHuntingController {
         }
         // The destroyer's target is often the pest's marker armor stand, which
         // cannot hold a leash; re-throwing onto a live lasso reels it in early.
-        Entity lassoed = findLassoedPest(client, target, isGone(target));
+        Entity lassoed = findLassoedPest(client, target);
         if (isGone(target)) {
             // Hypixel cycles the marker stands, and losing one is not losing the
             // pest: as long as it is still on our lasso, stay on it.
@@ -236,7 +235,10 @@ final class PestHuntingController {
             return;
         }
 
-        Entity focus = lassoed != null ? lassoed : target;
+        // The thrown lasso flies on our leash too, so it counts as attached
+        // while it is still in the air. That is fine for the stage machine, but
+        // aiming at it made the camera follow the web out of the player's hand.
+        Entity focus = isPestMob(target) ? target : lassoed != null ? lassoed : target;
         boolean attached = lassoed != null;
 
         if (attached) {
@@ -659,26 +661,14 @@ final class PestHuntingController {
                 || target instanceof LivingEntity living && living.isDeadOrDying();
     }
 
-    /**
-     * The thrown lasso flies on our leash too, so a leash alone is not a catch:
-     * accepting it made the aim track the web instead of the pest on every throw.
-     */
-    private static Entity findLassoedPest(Minecraft client, Entity target, boolean targetGone) {
+    private static Entity findLassoedPest(Minecraft client, Entity target) {
         if (client.level == null) {
             return null;
         }
-        if (isPestMob(target) && !targetGone) {
-            return holdsOurLeash(client, target) ? target : null;
-        }
-
-        // The target is a marker stand or has been cycled away, so the pest it
-        // stood for has to be recovered by identity rather than by leash alone.
         Entity closest = null;
         double closestDistance = Double.MAX_VALUE;
         for (Entity entity : client.level.entitiesForRendering()) {
-            if (!isPestMob(entity)
-                    || !holdsOurLeash(client, entity)
-                    || !PestTargetTracker.hasPestArmorStandNearby(client, entity)) {
+            if (!isPestMob(entity) || !holdsOurLeash(client, entity)) {
                 continue;
             }
             double distance = target == null ? 0.0 : entity.distanceToSqr(target);
@@ -749,11 +739,6 @@ final class PestHuntingController {
         return text.replaceAll("(?i)\\u00A7.", "").trim();
     }
 
-    private static boolean isPestNameplate(String plainName) {
-        return plainName.indexOf(HEALTH_GLYPH) >= 0
-                || PestHuntingPolicy.findPestTypeIndex(plainName) >= 0;
-    }
-
     static boolean isReelPrompt(String plainName) {
         return plainName.toUpperCase(Locale.ROOT).contains(REEL_PROMPT);
     }
@@ -808,10 +793,10 @@ final class PestHuntingController {
         double closestDistance = Double.MAX_VALUE;
         for (ArmorStand marker : client.level.getEntitiesOfClass(ArmorStand.class, searchBox)) {
             String plain = plainMarkerName(marker);
-            // Only the pest's own nameplate is worth aiming at: the stamina bar
-            // and the thrown lasso's cobweb stand both sit right on the pest.
-            if (isReelPrompt(plain) != reelPrompt
-                    || (!reelPrompt && !isPestNameplate(plain))
+            // An empty name is the stamina bar or a prop stand such as the
+            // thrown lasso's cobweb, neither of which the pest rides on.
+            if (plain.isEmpty()
+                    || isReelPrompt(plain) != reelPrompt
                     || !ridesOn(marker, pest, reelPrompt
                             ? REEL_MARKER_MAX_HORIZONTAL
                             : MARKER_MAX_HORIZONTAL)) {
