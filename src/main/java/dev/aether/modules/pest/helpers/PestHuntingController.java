@@ -10,12 +10,14 @@ import dev.aether.util.ProgrammaticAttackTracker;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Leashable;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ambient.Bat;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.monster.Silverfish;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
@@ -63,6 +65,9 @@ final class PestHuntingController {
     private static final double REPATH_DISTANCE = 16.0;
     private static final double VERTICAL_ALIGN_TOLERANCE = 1.0;
     private static final int MAX_STAGES_PER_TICK = 3;
+    private static final long CATCH_PROBE_WINDOW_MS = 2_500L;
+    private static final int CATCH_PROBE_INTERVAL_TICKS = 10;
+    private static final double CATCH_PROBE_SIZE = 5.0;
 
     enum Stage {
         STUN,
@@ -283,6 +288,7 @@ final class PestHuntingController {
                 && runtime.huntReelPromptTicks >= REEL_PROMPT_CONFIRM_TICKS
                 && runtime.huntReelPromptArmed
                 && !runtime.huntReelPromptLatched;
+        probeCatchState(client, runtime, focus, lassoed, now);
         // The reel prompt lasts only a moment, so stay aimed for the whole leash
         // instead of starting to turn once it is already up.
         maintainAim(client, runtime, focus);
@@ -689,6 +695,70 @@ final class PestHuntingController {
         }
         // Do not steal another pest's leash when multiple catches are visible.
         return target == null || closestDistance <= 36.0 ? closest : null;
+    }
+
+    /**
+     * The client never reported the leash the catch detection is built on, so
+     * log what is actually around the pest on the first throw of a hunt.
+     */
+    private static void probeCatchState(
+            Minecraft client,
+            PestDestroyerRuntime runtime,
+            Entity focus,
+            Entity lassoed,
+            long now) {
+        if (focus == null
+                || client.level == null
+                || runtime.huntThrownAt == 0L
+                || runtime.huntThrowCount > 1) {
+            return;
+        }
+        long since = now - runtime.huntThrownAt;
+        if (since > CATCH_PROBE_WINDOW_MS
+                || client.player.tickCount % CATCH_PROBE_INTERVAL_TICKS != 0) {
+            return;
+        }
+
+        ClientUtils.sendDebugMessage("[PestHunting][probe] +" + since + "ms pest="
+                + describeEntity(client, focus, focus)
+                + " lassoed=" + (lassoed == null ? "none" : lassoed.getId()));
+        AABB box = AABB.ofSize(
+                focus.position(), CATCH_PROBE_SIZE, CATCH_PROBE_SIZE, CATCH_PROBE_SIZE);
+        for (Entity entity : client.level.getEntities(client.player, box)) {
+            if (entity != focus) {
+                ClientUtils.sendDebugMessage(
+                        "[PestHunting][probe]   " + describeEntity(client, entity, focus));
+            }
+        }
+    }
+
+    private static String describeEntity(Minecraft client, Entity entity, Entity focus) {
+        StringBuilder text = new StringBuilder(entity.getClass().getSimpleName())
+                .append('#').append(entity.getId())
+                .append(String.format(" d=%.1f", Math.sqrt(entity.distanceToSqr(focus))));
+        Component custom = entity.getCustomName();
+        if (custom != null) {
+            text.append(" name='").append(stripFormatting(custom.getString())).append('\'');
+        }
+        if (entity instanceof ArmorStand stand) {
+            ItemStack head = stand.getItemBySlot(EquipmentSlot.HEAD);
+            if (!head.isEmpty()) {
+                text.append(" head=").append(head.getItem());
+            }
+        }
+        if (entity instanceof Leashable leashable) {
+            Entity holder = leashable.getLeashHolder();
+            text.append(" leash=").append(holder == null
+                    ? "none"
+                    : holder == client.player ? "player" : holder.getId());
+        }
+        if (entity.getVehicle() != null) {
+            text.append(" riding#").append(entity.getVehicle().getId());
+        }
+        if (entity.isInvisible()) {
+            text.append(" invisible");
+        }
+        return text.toString();
     }
 
     private static boolean isPestMob(Entity entity) {
