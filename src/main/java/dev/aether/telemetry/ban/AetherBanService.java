@@ -101,15 +101,20 @@ public final class AetherBanService {
     }
 
     private static void submitReport(BanReport report) {
-        if (!AetherAuthService.isAuthenticated()) {
-            Aether.LOGGER.info("[aether] No Aether account linked, ban detected locally only");
+        if (!AetherAuthService.isAuthenticated() || AetherAuthService.getDiscordId().isEmpty()) {
+            Aether.LOGGER.info("[aether] No Discord account linked, ban detected locally only");
             return;
         }
         String token = AetherTokenStore.getToken();
         if (token.isEmpty()) {
             return;
         }
+        // the backend ties the report to this session token, so a report without one is refused anyway
         String sessionToken = AetherTelemetryService.getPlaytimeSessionToken();
+        if (sessionToken.isBlank()) {
+            Aether.LOGGER.info("[aether] No playtime session token yet, ban detected locally only");
+            return;
+        }
 
         try {
             EXECUTOR.execute(() -> send(report, token, sessionToken));
