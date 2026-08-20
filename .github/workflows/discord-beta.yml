@@ -1,15 +1,17 @@
-# Release announcements + checksums. Kept out of build.yml on purpose so that
-# upstream merges of the build workflow never conflict with fork-only logic.
+# Beta release announcement -> #beta-releases (DISCORD_WEBHOOK_URL).
+# Posts jar + source archive + sha256 checksums, and attaches the source
+# archive and .sha256 sidecars to the release itself.
 #
-# Required repo secrets:
-#   DISCORD_WEBHOOK_URL    - primary Discord webhook (optional, skipped when empty)
-#   DISCORD_WEBHOOK_URL_2  - secondary Discord webhook (optional, skipped when empty)
+# Kept out of build.yml on purpose so upstream merges of the build workflow
+# never conflict with fork-only logic.
 #
-# Note: releases created with the default GITHUB_TOKEN do not trigger the
-# `release: published` event. For this to fire automatically, build.yml's
+# Required repo secret: DISCORD_WEBHOOK_URL   (skipped when empty)
+#
+# Note: releases created with the default GITHUB_TOKEN do not fire the
+# `release: published` event. For this to run automatically, build.yml's
 # "Create Release" step must authenticate with a PAT (e.g. secrets.RELEASE_PAT).
 # Otherwise run this workflow manually with the release tag.
-name: Discord Release Notify
+name: Discord Beta Release
 
 on:
   release:
@@ -43,12 +45,9 @@ jobs:
           set -euo pipefail
           gh release view "$RELEASE_TAG" --json name,tagName,url,assets > release.json
 
-          RELEASE_NAME=$(jq -r '.name // .tagName' release.json)
-          RELEASE_URL=$(jq -r '.url' release.json)
-
           {
-            echo "name=$RELEASE_NAME"
-            echo "url=$RELEASE_URL"
+            echo "name=$(jq -r '.name // .tagName' release.json)"
+            echo "url=$(jq -r '.url' release.json)"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -113,17 +112,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Send Discord Webhooks
+      - name: Send Discord Webhook
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          DISCORD_WEBHOOK_URL_2: ${{ secrets.DISCORD_WEBHOOK_URL_2 }}
           COMMIT_MESSAGE: ${{ steps.release.outputs.commit_message }}
         run: |
           set -euo pipefail
-          printf -v DESCRIPTION "A new build has been released! :rocket:\n\n**Commit Message:**\n%s" "$COMMIT_MESSAGE"
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "Skipping beta notify: DISCORD_WEBHOOK_URL is not set"
+            exit 0
+          fi
+
+          printf -v DESCRIPTION "A new beta build has been released! :rocket:\n\n**Commit Message:**\n%s" "$COMMIT_MESSAGE"
 
           jq -n \
-            --arg title "New Release: ${{ steps.release.outputs.name }}" \
+            --arg title "New Beta Release: ${{ steps.release.outputs.name }}" \
             --arg desc "$DESCRIPTION" \
             --arg url "${{ steps.release.outputs.url }}" \
             --arg jar_name "${{ steps.jar.outputs.name }}" \
@@ -158,15 +161,4 @@ jobs:
               }]
             }' > payload.json
 
-          POSTED=0
-          for WEBHOOK in "$DISCORD_WEBHOOK_URL" "$DISCORD_WEBHOOK_URL_2"; do
-            if [ -z "$WEBHOOK" ]; then
-              continue
-            fi
-            curl -sS -f -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"
-            POSTED=$((POSTED + 1))
-          done
-
-          if [ "$POSTED" -eq 0 ]; then
-            echo "Skipping Discord notify: neither DISCORD_WEBHOOK_URL nor DISCORD_WEBHOOK_URL_2 is set"
-          fi
+          curl -sS -f -H "Content-Type: application/json" -d @payload.json "$DISCORD_WEBHOOK_URL"
