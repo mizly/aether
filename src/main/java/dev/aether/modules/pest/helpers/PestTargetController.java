@@ -321,8 +321,7 @@ final class PestTargetController {
     }
 
     private static boolean isDead(Entity entity) {
-        return entity.isRemoved()
-                || entity instanceof LivingEntity living && living.isDeadOrDying();
+        return entity instanceof LivingEntity living && living.isDeadOrDying();
     }
 
     static boolean isLookingAt(Minecraft client, Vec3 targetPosition, float tolerance) {
