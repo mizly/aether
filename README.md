@@ -43,28 +43,3 @@ contributions are welcome, so feel free to make a PR!
 
 To contribute to language packs, see https://github.com/iceangelsaint/aether-language-packs
 
----
-
-## ci secrets
-release automation is split across three workflows so upstream merges of the build
-workflow never conflict with fork-only logic:
-
-| workflow | trigger | does |
-| --- | --- | --- |
-| `build.yml` | push to `main`/`master` | builds the jar, creates the github release |
-| `discord-beta.yml` | `release: published` | attaches source archive + sha256 sidecars to the release, posts jar + src + checksums to **#beta-releases** |
-| `discord-public.yml` | `release: published` | posts the jar download to **#releases** |
-
-repo secrets:
-
-| secret | required | used by | purpose |
-| --- | --- | --- | --- |
-| `GITHUB_TOKEN` | provided automatically | all | create the release, upload assets |
-| `DISCORD_WEBHOOK_URL` | optional | `discord-beta.yml` | **#beta-releases** webhook, skipped when unset |
-| `DISCORD_WEBHOOK_URL_2` | optional | `discord-public.yml` | **#releases** webhook, skipped when unset |
-| `RELEASE_PAT` | optional | `build.yml` | needed only if you want the release event to auto-trigger the discord workflows (releases made with `GITHUB_TOKEN` do not fire workflow triggers) |
-
-without `RELEASE_PAT`, run **Discord Beta Release** / **Discord Public Release** manually from the
-actions tab and pass the release tag.
-
----
