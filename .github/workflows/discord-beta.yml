@@ -2,64 +2,72 @@
 # Posts jar + source archive + sha256 checksums, and attaches the source
 # archive and .sha256 sidecars to the release itself.
 #
-# Kept out of build.yml on purpose so upstream merges of the build workflow
-# never conflict with fork-only logic.
+# Deliberately separate from build.yml: build.yml is shared with upstream, so
+# keeping fork-only logic here means upstream merges never conflict with it.
+#
+# Runs off build.yml finishing rather than `release: published`, because a
+# release created with the default GITHUB_TOKEN does not fire release events.
 #
 # Required repo secret: DISCORD_WEBHOOK_URL   (skipped when empty)
-#
-# Note: releases created with the default GITHUB_TOKEN do not fire the
-# `release: published` event. For this to run automatically, build.yml's
-# "Create Release" step must authenticate with a PAT (e.g. secrets.RELEASE_PAT).
-# Otherwise run this workflow manually with the release tag.
 name: Discord Beta Release
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: ["Build and Release"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to announce"
-        required: true
+        description: "Release tag to announce (defaults to latest release)"
+        required: false
 
 jobs:
   notify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      contains(fromJSON('["push","workflow_dispatch"]'), github.event.workflow_run.event) &&
+      contains(fromJSON('["main","master"]'), github.event.workflow_run.head_branch))
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     env:
-      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
 
     steps:
+      - name: Resolve Release Tag
+        id: tag
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(gh release view --json tagName -q .tagName)
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Checkout Release Tag
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          ref: ${{ steps.tag.outputs.tag }}
           fetch-depth: 0
 
       - name: Resolve Release Metadata
         id: release
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -euo pipefail
           gh release view "$RELEASE_TAG" --json name,tagName,url,assets > release.json
 
-          {
-            echo "name=$(jq -r '.name // .tagName' release.json)"
-            echo "url=$(jq -r '.url' release.json)"
-          } >> "$GITHUB_OUTPUT"
+          SRC_NAME="aether-${RELEASE_TAG}-src.tar.gz"
+          if jq -e --arg n "$SRC_NAME" 'any(.assets[]; .name == $n)' release.json > /dev/null; then
+            echo "$RELEASE_TAG already has $SRC_NAME, assuming it was announced already"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
-          {
-            echo 'commit_message<<AETHER_EOF'
-            git log -1 --pretty=%B
-            echo AETHER_EOF
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Download Release JAR
-        id: jar
-        run: |
-          set -euo pipefail
           JAR_NAME=$(jq -r '[.assets[].name | select(endswith(".jar"))
             | select(contains("sources") | not)
             | select(contains("-dev") | not)] | first // empty' release.json)
@@ -69,27 +77,34 @@ jobs:
             exit 1
           fi
 
-          gh release download "$RELEASE_TAG" --pattern "$JAR_NAME" --dir .
+          BASE_URL="https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG"
+          {
+            echo "skip=false"
+            echo "name=$(jq -r '.name // .tagName' release.json)"
+            echo "url=$(jq -r '.url' release.json)"
+            echo "jar_name=$JAR_NAME"
+            echo "jar_url=$BASE_URL/$JAR_NAME"
+            echo "src_name=$SRC_NAME"
+            echo "src_url=$BASE_URL/$SRC_NAME"
+          } >> "$GITHUB_OUTPUT"
 
-          echo "name=$JAR_NAME" >> "$GITHUB_OUTPUT"
-          echo "url=https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/$JAR_NAME" >> "$GITHUB_OUTPUT"
+          {
+            echo 'commit_message<<AETHER_EOF'
+            git log -1 --pretty=%B
+            echo AETHER_EOF
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Package Source Archive
-        id: src
-        run: |
-          set -euo pipefail
-          SRC_NAME="aether-${RELEASE_TAG}-src.tar.gz"
-          git archive --format=tar.gz --prefix="aether-${RELEASE_TAG}/" -o "$SRC_NAME" "$RELEASE_TAG"
-
-          echo "name=$SRC_NAME" >> "$GITHUB_OUTPUT"
-          echo "url=https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/$SRC_NAME" >> "$GITHUB_OUTPUT"
-
-      - name: Compute Checksums
+      - name: Package Sources And Compute Checksums
         id: sums
+        if: steps.release.outputs.skip == 'false'
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          JAR_NAME: ${{ steps.release.outputs.jar_name }}
+          SRC_NAME: ${{ steps.release.outputs.src_name }}
         run: |
           set -euo pipefail
-          JAR_NAME="${{ steps.jar.outputs.name }}"
-          SRC_NAME="${{ steps.src.outputs.name }}"
+          gh release download "$RELEASE_TAG" --pattern "$JAR_NAME" --dir .
+          git archive --format=tar.gz --prefix="aether-${RELEASE_TAG}/" -o "$SRC_NAME" "$RELEASE_TAG"
 
           sha256sum "$JAR_NAME" > "$JAR_NAME.sha256"
           sha256sum "$SRC_NAME" > "$SRC_NAME.sha256"
@@ -100,19 +115,21 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Attach Source Archive And Checksums
+        if: steps.release.outputs.skip == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.RELEASE_TAG }}
+          tag_name: ${{ steps.tag.outputs.tag }}
           files: |
-            ${{ steps.src.outputs.name }}
-            ${{ steps.src.outputs.name }}.sha256
-            ${{ steps.jar.outputs.name }}.sha256
+            ${{ steps.release.outputs.src_name }}
+            ${{ steps.release.outputs.src_name }}.sha256
+            ${{ steps.release.outputs.jar_name }}.sha256
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Send Discord Webhook
+        if: steps.release.outputs.skip == 'false'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           COMMIT_MESSAGE: ${{ steps.release.outputs.commit_message }}
@@ -129,11 +146,11 @@ jobs:
             --arg title "New Beta Release: ${{ steps.release.outputs.name }}" \
             --arg desc "$DESCRIPTION" \
             --arg url "${{ steps.release.outputs.url }}" \
-            --arg jar_name "${{ steps.jar.outputs.name }}" \
-            --arg jar_url "${{ steps.jar.outputs.url }}" \
+            --arg jar_name "${{ steps.release.outputs.jar_name }}" \
+            --arg jar_url "${{ steps.release.outputs.jar_url }}" \
             --arg jar_sha "${{ steps.sums.outputs.jar }}" \
-            --arg src_name "${{ steps.src.outputs.name }}" \
-            --arg src_url "${{ steps.src.outputs.url }}" \
+            --arg src_name "${{ steps.release.outputs.src_name }}" \
+            --arg src_url "${{ steps.release.outputs.src_url }}" \
             --arg src_sha "${{ steps.sums.outputs.src }}" \
             '{
               embeds: [{
