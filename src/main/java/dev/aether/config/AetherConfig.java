@@ -497,7 +497,7 @@ public final class AetherConfig {
         public static final IntEntry VISITOR_THRESHOLD = Config.integer("visitorThreshold", 5).range(1, 25);
         public static final BooleanEntry AUTO_VISITOR = Config.bool("autoVisitor", false);
         public static final ListEntry<String> VISITOR_ignore = Config.list("visitorignore",
-                        Arrays.asList("Spaceman", "Rhino", "Taylor"), String.class);
+                        Arrays.asList("Spaceman", "Ravenous Rhino", "Taylor", "Vinyl Collector"), String.class);
         public static final ListEntry<String> VISITOR_REJECT = Config.list("visitorReject",
                         Collections.emptyList(), String.class);
         public static final BooleanEntry EQUIP_VISITOR_CUSTOM_ITEM = Config.bool("equipVisitorCustomItem", false);
