@@ -1,0 +1,172 @@
+# Release announcements + checksums. Kept out of build.yml on purpose so that
+# upstream merges of the build workflow never conflict with fork-only logic.
+#
+# Required repo secrets:
+#   DISCORD_WEBHOOK_URL    - primary Discord webhook (optional, skipped when empty)
+#   DISCORD_WEBHOOK_URL_2  - secondary Discord webhook (optional, skipped when empty)
+#
+# Note: releases created with the default GITHUB_TOKEN do not trigger the
+# `release: published` event. For this to fire automatically, build.yml's
+# "Create Release" step must authenticate with a PAT (e.g. secrets.RELEASE_PAT).
+# Otherwise run this workflow manually with the release tag.
+name: Discord Release Notify
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to announce"
+        required: true
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    env:
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout Release Tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
+          fetch-depth: 0
+
+      - name: Resolve Release Metadata
+        id: release
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" --json name,tagName,url,assets > release.json
+
+          RELEASE_NAME=$(jq -r '.name // .tagName' release.json)
+          RELEASE_URL=$(jq -r '.url' release.json)
+
+          {
+            echo "name=$RELEASE_NAME"
+            echo "url=$RELEASE_URL"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo 'commit_message<<AETHER_EOF'
+            git log -1 --pretty=%B
+            echo AETHER_EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Download Release JAR
+        id: jar
+        run: |
+          set -euo pipefail
+          JAR_NAME=$(jq -r '[.assets[].name | select(endswith(".jar"))
+            | select(contains("sources") | not)
+            | select(contains("-dev") | not)] | first // empty' release.json)
+
+          if [ -z "$JAR_NAME" ]; then
+            echo "No release jar asset found on $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          gh release download "$RELEASE_TAG" --pattern "$JAR_NAME" --dir .
+
+          echo "name=$JAR_NAME" >> "$GITHUB_OUTPUT"
+          echo "url=https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/$JAR_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Package Source Archive
+        id: src
+        run: |
+          set -euo pipefail
+          SRC_NAME="aether-${RELEASE_TAG}-src.tar.gz"
+          git archive --format=tar.gz --prefix="aether-${RELEASE_TAG}/" -o "$SRC_NAME" "$RELEASE_TAG"
+
+          echo "name=$SRC_NAME" >> "$GITHUB_OUTPUT"
+          echo "url=https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG/$SRC_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Compute Checksums
+        id: sums
+        run: |
+          set -euo pipefail
+          JAR_NAME="${{ steps.jar.outputs.name }}"
+          SRC_NAME="${{ steps.src.outputs.name }}"
+
+          sha256sum "$JAR_NAME" > "$JAR_NAME.sha256"
+          sha256sum "$SRC_NAME" > "$SRC_NAME.sha256"
+
+          {
+            echo "jar=$(cut -d' ' -f1 < "$JAR_NAME.sha256")"
+            echo "src=$(cut -d' ' -f1 < "$SRC_NAME.sha256")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Attach Source Archive And Checksums
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: |
+            ${{ steps.src.outputs.name }}
+            ${{ steps.src.outputs.name }}.sha256
+            ${{ steps.jar.outputs.name }}.sha256
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send Discord Webhooks
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL_2: ${{ secrets.DISCORD_WEBHOOK_URL_2 }}
+          COMMIT_MESSAGE: ${{ steps.release.outputs.commit_message }}
+        run: |
+          set -euo pipefail
+          printf -v DESCRIPTION "A new build has been released! :rocket:\n\n**Commit Message:**\n%s" "$COMMIT_MESSAGE"
+
+          jq -n \
+            --arg title "New Release: ${{ steps.release.outputs.name }}" \
+            --arg desc "$DESCRIPTION" \
+            --arg url "${{ steps.release.outputs.url }}" \
+            --arg jar_name "${{ steps.jar.outputs.name }}" \
+            --arg jar_url "${{ steps.jar.outputs.url }}" \
+            --arg jar_sha "${{ steps.sums.outputs.jar }}" \
+            --arg src_name "${{ steps.src.outputs.name }}" \
+            --arg src_url "${{ steps.src.outputs.url }}" \
+            --arg src_sha "${{ steps.sums.outputs.src }}" \
+            '{
+              embeds: [{
+                title: $title,
+                description: $desc,
+                url: $url,
+                color: 5814783,
+                fields: [
+                  {
+                    name: "Release Page",
+                    value: "[View Release](\($url))",
+                    inline: false
+                  },
+                  {
+                    name: "JAR",
+                    value: "[\($jar_name)](\($jar_url))\n`\($jar_sha)`",
+                    inline: false
+                  },
+                  {
+                    name: "Source Archive",
+                    value: "[\($src_name)](\($src_url))\n`\($src_sha)`",
+                    inline: false
+                  }
+                ]
+              }]
+            }' > payload.json
+
+          POSTED=0
+          for WEBHOOK in "$DISCORD_WEBHOOK_URL" "$DISCORD_WEBHOOK_URL_2"; do
+            if [ -z "$WEBHOOK" ]; then
+              continue
+            fi
+            curl -sS -f -H "Content-Type: application/json" -d @payload.json "$WEBHOOK"
+            POSTED=$((POSTED + 1))
+          done
+
+          if [ "$POSTED" -eq 0 ]; then
+            echo "Skipping Discord notify: neither DISCORD_WEBHOOK_URL nor DISCORD_WEBHOOK_URL_2 is set"
+          fi
