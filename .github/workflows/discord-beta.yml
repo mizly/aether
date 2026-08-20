@@ -160,11 +160,6 @@ jobs:
                 color: 5814783,
                 fields: [
                   {
-                    name: "Release Page",
-                    value: "[View Release](\($url))",
-                    inline: false
-                  },
-                  {
                     name: "JAR",
                     value: "[\($jar_name)](\($jar_url))\n`\($jar_sha)`",
                     inline: false
