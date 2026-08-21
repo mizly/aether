@@ -79,7 +79,8 @@ public final class PestLifecycleManager {
 
         boolean manualMode = AetherConfig.MANUAL_PEST_MODE.get();
         stage = Stage.PRE;
-        ClientUtils.sendDebugMessage("Pest lifecycle: waiting for /setspawn while farming continues.");
+        FarmingMacroManager.disable(client);
+        ClientUtils.sendDebugMessage("Pest lifecycle: farming stopped; waiting for /setspawn.");
         MacroWorkerThread.getInstance().submit("PestSetSpawn-" + plot, () -> {
             for (int attempt = 0; attempt < SETSPAWN_MAX_ATTEMPTS && isSetSpawnRetryPending(client, sessionId);
                     attempt++) {
@@ -88,11 +89,13 @@ public final class PestLifecycleManager {
                     return;
                 }
                 if (attempt + 1 < SETSPAWN_MAX_ATTEMPTS) {
-                    ClientUtils.sendDebugMessage("Pest lifecycle: /setspawn not confirmed; farming and retrying once.");
+                    ClientUtils.sendDebugMessage("Pest lifecycle: /setspawn not confirmed; retrying once.");
                 }
             }
             if (isSetSpawnRetryPending(client, sessionId)) {
                 ClientUtils.sendDebugMessage("Pest lifecycle: /setspawn failed twice; continuing farming.");
+                client.execute(() -> FarmingMacroManager.enable(
+                        client, FarmingMacroManager.createMacroFromConfig()));
                 PestManager.startPestReentryCooldown();
             }
             cancelPendingStart(sessionId);
@@ -108,7 +111,6 @@ public final class PestLifecycleManager {
         }
 
         ClientUtils.sendDebugMessage("Pest lifecycle: /setspawn confirmed; entering PRE stage for plot " + plot + ".");
-        FarmingMacroManager.disable(client);
         PestManager.setCleaningInProgress(true);
         PestManager.clearCleaningTriggerPending();
         LoadoutManager.shouldRestartFarmingAfterSwap = false;
