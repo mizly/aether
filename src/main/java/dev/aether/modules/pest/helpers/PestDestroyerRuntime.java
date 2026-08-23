@@ -1,6 +1,7 @@
 package dev.aether.modules.pest.helpers;
 
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -57,6 +58,13 @@ final class PestDestroyerRuntime {
     long huntLandingWaitStartedAt = 0L;
     double huntTargetY = Double.NaN;
     volatile boolean huntCaughtSignal = false;
+    Entity huntFocus = null;
+    Entity huntPendingFocus = null;
+    long huntPendingFocusSince = 0L;
+    int huntAimFocusId = -1;
+    Vec3 huntLastAimPoint = null;
+    Vec3 huntAimBlendOffset = null;
+    long huntAimBlendStartedAt = 0L;
     boolean currentTargetUsesLasso = false;
 
     int aotvSlot = -1;
@@ -210,5 +218,16 @@ final class PestDestroyerRuntime {
         huntLandingWaitStartedAt = 0L;
         huntTargetY = Double.NaN;
         huntCaughtSignal = false;
+        resetHuntAimState();
+    }
+
+    void resetHuntAimState() {
+        huntFocus = null;
+        huntPendingFocus = null;
+        huntPendingFocusSince = 0L;
+        huntAimFocusId = -1;
+        huntLastAimPoint = null;
+        huntAimBlendOffset = null;
+        huntAimBlendStartedAt = 0L;
     }
 }

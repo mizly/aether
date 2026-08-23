@@ -51,6 +51,14 @@ final class PestHuntingController {
     private static final long DETACH_CONFIRM_MS = 2_500L;
     private static final float THROW_AIM_TOLERANCE_DEGREES = 10.0f;
     private static final float REEL_AIM_TOLERANCE_DEGREES = 25.0f;
+    // Stays under REEL_AIM_TOLERANCE_DEGREES so the crosshair is corrected before
+    // the reel click gate starts refusing, but not so tight that a landed lasso
+    // buys a visible correction the reel never needed.
+    private static final float ATTACHED_AIM_TOLERANCE_DEGREES = 18.0f;
+    // The focus flips between a pest and its marker stand, which sit blocks
+    // apart; decay that step instead of handing the tracker an instant error.
+    private static final long AIM_BLEND_MS = 420L;
+    private static final long FOCUS_SWITCH_DEBOUNCE_MS = 200L;
     private static final long THROW_AIM_DURATION_MS = 60L;
     private static final long REEL_RESPONSE_WAIT_MS = 500L;
     private static final long REEL_OVERLAY_SIGNAL_GRACE_MS = 300L;
@@ -131,6 +139,7 @@ final class PestHuntingController {
         runtime.huntLandingWaitStartedAt = 0L;
         runtime.huntTargetY = Double.NaN;
         runtime.huntCaughtSignal = false;
+        runtime.resetHuntAimState();
         runtime.lassoSlot = PestLoadoutHelper.findLassoHotbarSlot(client);
     }
 
@@ -160,6 +169,7 @@ final class PestHuntingController {
         runtime.huntLandingWaitStartedAt = 0L;
         runtime.huntTargetY = Double.NaN;
         runtime.huntCaughtSignal = false;
+        runtime.resetHuntAimState();
         runtime.lassoSlot = -1;
         if (client != null && client.options != null) {
             ClientUtils.setKeyMappingState(client.options.keyUse, false);
@@ -244,7 +254,9 @@ final class PestHuntingController {
         // The thrown lasso flies on our leash too, so it counts as attached
         // while it is still in the air. That is fine for the stage machine, but
         // aiming at it made the camera follow the web out of the player's hand.
-        Entity focus = isPestMob(target) ? target : lassoed != null ? lassoed : target;
+        Entity focus = resolveFocus(
+                runtime, isPestMob(target) ? target : lassoed != null ? lassoed : target, now);
+        updateAimBlend(client, runtime, focus, now);
 
         // An overlay received before the previous click belongs to the previous
         // reel stage. Letting its grace window spill into the next stage can
@@ -291,7 +303,7 @@ final class PestHuntingController {
         probeCatchState(client, runtime, focus, lassoed, now);
         // The reel prompt lasts only a moment, so stay aimed for the whole leash
         // instead of starting to turn once it is already up.
-        maintainAim(client, runtime, focus);
+        maintainAim(client, runtime, focus, huntAimTolerance(attached, runtime.huntStage), now);
         // Attack is never ours here, and a swing knocks the pest off the lasso.
         // The farming latch has to go first: MixinMinecraftAttackInput reports the
         // key as held while it is set, so releasing the key alone does nothing.
@@ -566,7 +578,11 @@ final class PestHuntingController {
     // -- Aim, movement, detection --------------------------------------------
 
     private static void maintainAim(
-            Minecraft client, PestDestroyerRuntime runtime, Entity target) {
+            Minecraft client,
+            PestDestroyerRuntime runtime,
+            Entity target,
+            float tolerance,
+            long now) {
         if (FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
             return;
         }
@@ -575,11 +591,95 @@ final class PestHuntingController {
         if (distance < MIN_AIM_DISTANCE) {
             return;
         }
+        if (PestTargetController.isLookingAt(client, aim, tolerance)) {
+            return;
+        }
         // smoothForceRotation re-targets every tick, which is what tracking a moving
         // pest needs; initiateRotation would keep aiming where it used to be.
-        if (!PestTargetController.isLookingAt(client, aim, THROW_AIM_TOLERANCE_DEGREES)) {
-            RotationManager.smoothForceRotation(client, aim, THROW_AIM_DURATION_MS);
+        RotationManager.smoothForceRotation(
+                client, steerPoint(runtime, aim, now), THROW_AIM_DURATION_MS);
+    }
+
+    /**
+     * The reel only needs REEL_AIM_TOLERANCE_DEGREES, so a landed lasso must not
+     * buy the tight throw correction that made the catch snap on camera.
+     */
+    static float huntAimTolerance(boolean attached, Stage stage) {
+        return attached || stage == Stage.REEL
+                ? ATTACHED_AIM_TOLERANCE_DEGREES
+                : THROW_AIM_TOLERANCE_DEGREES;
+    }
+
+    /**
+     * Holds the previous focus briefly so a leash that reads on and off for a
+     * tick cannot bounce the camera between the pest and its marker stand.
+     */
+    private static Entity resolveFocus(
+            PestDestroyerRuntime runtime, Entity next, long now) {
+        Entity held = runtime.huntFocus;
+        if (next == null || next == held) {
+            runtime.huntPendingFocus = null;
+            runtime.huntPendingFocusSince = 0L;
+            return next == null ? held : next;
         }
+        if (runtime.huntPendingFocus != next) {
+            runtime.huntPendingFocus = next;
+            runtime.huntPendingFocusSince = now;
+        }
+        if (!adoptsPendingFocus(held != null && !isGone(held), runtime.huntPendingFocusSince, now)) {
+            return held;
+        }
+        runtime.huntFocus = next;
+        runtime.huntPendingFocus = null;
+        runtime.huntPendingFocusSince = 0L;
+        return next;
+    }
+
+    static boolean adoptsPendingFocus(boolean heldUsable, long pendingSince, long now) {
+        return !heldUsable
+                || (pendingSince != 0L && now - pendingSince >= FOCUS_SWITCH_DEBOUNCE_MS);
+    }
+
+    private static void updateAimBlend(
+            Minecraft client, PestDestroyerRuntime runtime, Entity focus, long now) {
+        if (focus == null) {
+            return;
+        }
+        Vec3 point = aimPoint(client, runtime, focus);
+        if (runtime.huntAimFocusId != focus.getId()) {
+            if (runtime.huntAimFocusId != -1 && runtime.huntLastAimPoint != null) {
+                runtime.huntAimBlendOffset = runtime.huntLastAimPoint.subtract(point);
+                runtime.huntAimBlendStartedAt = now;
+            }
+            runtime.huntAimFocusId = focus.getId();
+        }
+        runtime.huntLastAimPoint = point;
+    }
+
+    /**
+     * Where the camera is steered: the live aim point plus the decaying remainder
+     * of the jump the focus change introduced. Click gates keep using the real
+     * point, so nothing fires while the blend still has the crosshair short.
+     */
+    private static Vec3 steerPoint(PestDestroyerRuntime runtime, Vec3 aim, long now) {
+        if (runtime.huntAimBlendStartedAt == 0L || runtime.huntAimBlendOffset == null) {
+            return aim;
+        }
+        double remaining = aimBlendRemaining(now - runtime.huntAimBlendStartedAt);
+        if (remaining <= 0.0) {
+            runtime.huntAimBlendOffset = null;
+            runtime.huntAimBlendStartedAt = 0L;
+            return aim;
+        }
+        return aim.add(runtime.huntAimBlendOffset.scale(remaining));
+    }
+
+    static double aimBlendRemaining(long elapsedMs) {
+        if (elapsedMs >= AIM_BLEND_MS) {
+            return 0.0;
+        }
+        double t = Math.max(0.0, (double) elapsedMs / AIM_BLEND_MS);
+        return 1.0 - t * t * (3.0 - 2.0 * t);
     }
 
     private static Vec3 aimPoint(

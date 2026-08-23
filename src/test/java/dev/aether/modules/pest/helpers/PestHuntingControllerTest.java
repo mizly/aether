@@ -33,6 +33,36 @@ class PestHuntingControllerTest {
     }
 
     @Test
+    void aLandedLassoStopsBuyingTheTightThrowCorrection() {
+        assertEquals(10.0f, PestHuntingController.huntAimTolerance(
+                false, PestHuntingController.Stage.THROW));
+        assertEquals(18.0f, PestHuntingController.huntAimTolerance(
+                true, PestHuntingController.Stage.THROW));
+        assertEquals(18.0f, PestHuntingController.huntAimTolerance(
+                false, PestHuntingController.Stage.REEL));
+    }
+
+    @Test
+    void theAimBlendStartsOnTheOldPointAndDecaysToNothing() {
+        assertEquals(1.0, PestHuntingController.aimBlendRemaining(0L));
+        assertTrue(PestHuntingController.aimBlendRemaining(210L) > 0.4);
+        assertTrue(PestHuntingController.aimBlendRemaining(210L) < 0.6);
+        assertEquals(0.0, PestHuntingController.aimBlendRemaining(420L));
+        assertEquals(0.0, PestHuntingController.aimBlendRemaining(5_000L));
+    }
+
+    @Test
+    void aFocusFlickerHasToPersistBeforeItMovesTheCamera() {
+        assertFalse(PestHuntingController.adoptsPendingFocus(true, 1_000L, 1_150L));
+        assertTrue(PestHuntingController.adoptsPendingFocus(true, 1_000L, 1_200L));
+    }
+
+    @Test
+    void aLostFocusIsReplacedWithoutWaitingOutTheDebounce() {
+        assertTrue(PestHuntingController.adoptsPendingFocus(false, 1_000L, 1_000L));
+    }
+
+    @Test
     void followMovementHoldsWhileAnInteractionIsReady() {
         assertEquals(0, PestHuntingController.followDirection(20.0, 6.0, false, false));
     }
