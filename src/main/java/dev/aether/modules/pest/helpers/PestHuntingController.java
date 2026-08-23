@@ -38,6 +38,9 @@ final class PestHuntingController {
     private static final double MARKER_MAX_HEIGHT_ABOVE = 3.5;
     private static final double MARKER_MAX_HEIGHT_BELOW = 1.0;
     private static final int VACUUM_SETTLE_TICKS = 1;
+    // A single tap is consumed before the suction registers, so the pest is
+    // routinely unstunned by the time the lasso goes out. Hold the vacuum.
+    private static final long STUN_VACUUM_HOLD_MS = 500L;
     private static final int MIN_VACUUM_SWAP_TICKS = 1;
     private static final int MAX_VACUUM_SWAP_TICKS = 5;
     // The swap back after a miss is on the critical path, so vary it only enough to hide the tick.
@@ -135,6 +138,7 @@ final class PestHuntingController {
         runtime.huntSwapReadyTick = 0;
         runtime.huntDelayBeforeStunSwap = false;
         runtime.huntStunDelivered = false;
+        runtime.huntStunHoldStartedAt = 0L;
         runtime.huntStageEnteredTick = 0;
         runtime.huntLandingWaitStartedAt = 0L;
         runtime.huntTargetY = Double.NaN;
@@ -165,6 +169,7 @@ final class PestHuntingController {
         runtime.huntSwapReadyTick = 0;
         runtime.huntDelayBeforeStunSwap = false;
         runtime.huntStunDelivered = false;
+        runtime.huntStunHoldStartedAt = 0L;
         runtime.huntStageEnteredTick = 0;
         runtime.huntLandingWaitStartedAt = 0L;
         runtime.huntTargetY = Double.NaN;
@@ -256,7 +261,6 @@ final class PestHuntingController {
         // aiming at it made the camera follow the web out of the player's hand.
         Entity focus = resolveFocus(
                 runtime, isPestMob(target) ? target : lassoed != null ? lassoed : target, now);
-        updateAimBlend(client, runtime, focus, now);
 
         // An overlay received before the previous click belongs to the previous
         // reel stage. Letting its grace window spill into the next stage can
@@ -300,6 +304,9 @@ final class PestHuntingController {
                 && runtime.huntReelPromptTicks >= REEL_PROMPT_CONFIRM_TICKS
                 && runtime.huntReelPromptArmed
                 && !runtime.huntReelPromptLatched;
+        // Only smoothed after the throw: before it, the stun and throw gates want
+        // the crosshair on the real point now, and a blend there costs the stun.
+        updateAimBlend(client, runtime, focus, attached || runtime.huntStage == Stage.REEL, now);
         probeCatchState(client, runtime, focus, lassoed, now);
         // The reel prompt lasts only a moment, so stay aimed for the whole leash
         // instead of starting to turn once it is already up.
@@ -377,6 +384,7 @@ final class PestHuntingController {
             int tick) {
         // A leash that landed late must not eat a stun tap; the tap knocks it back off.
         if (attached) {
+            releaseStunVacuum(runtime);
             advance(runtime, Stage.SWAP_TO_LASSO, now, tick);
             return;
         }
@@ -408,16 +416,26 @@ final class PestHuntingController {
         }
 
         if (runtime.huntSwapReadyTick == 0) {
-            if (waitForLanding(runtime, target, now)
-                    || !isAimedAtTarget(client, runtime, target, THROW_AIM_TOLERANCE_DEGREES)) {
+            if (runtime.huntStunHoldStartedAt == 0L) {
+                if (waitForLanding(runtime, target, now)
+                        || !isAimedAtTarget(client, runtime, target, THROW_AIM_TOLERANCE_DEGREES)) {
+                    return;
+                }
+                ClientUtils.beginUseHoldNow();
+                runtime.huntStunHoldStartedAt = now;
                 return;
             }
-            ClientUtils.performUseClickInstant();
+            if (now - runtime.huntStunHoldStartedAt < STUN_VACUUM_HOLD_MS) {
+                return;
+            }
+            long heldFor = now - runtime.huntStunHoldStartedAt;
+            releaseStunVacuum(runtime);
             runtime.huntStunDelivered = true;
-            // Keep the stun click immediate, then vary the hotbar swap by
-            // 1-5 ticks so it does not have a fixed one-tick signature.
+            // Vary the hotbar swap by 1-5 ticks so the release into the swap
+            // does not have a fixed one-tick signature.
             runtime.huntSwapReadyTick = tick + nextVacuumSwapDelayTicks();
-            ClientUtils.sendDebugMessage("[PestHunting] Stunned with vacuum.");
+            ClientUtils.sendDebugMessage(
+                    "[PestHunting] Stunned with vacuum (" + heldFor + "ms hold).");
             return;
         }
         if (tick >= runtime.huntSwapReadyTick) {
@@ -427,6 +445,7 @@ final class PestHuntingController {
 
     private static void handleSwapToLasso(
             Minecraft client, PestDestroyerRuntime runtime, long now, int tick) {
+        releaseStunVacuum(runtime);
         AccessorInventory inventory = (AccessorInventory) client.player.getInventory();
         if (inventory.getSelected() != runtime.lassoSlot) {
             client.execute(() -> FailsafeManager.selectHotbarSlot(client, runtime.lassoSlot));
@@ -500,6 +519,7 @@ final class PestHuntingController {
             runtime.huntReelPromptLatched = false;
             runtime.huntSwapReadyTick = 0;
             runtime.huntStunDelivered = false;
+            runtime.huntStunHoldStartedAt = 0L;
             runtime.huntDelayBeforeStunSwap = true;
             advance(runtime, Stage.STUN, now, tick);
             return;
@@ -641,13 +661,21 @@ final class PestHuntingController {
     }
 
     private static void updateAimBlend(
-            Minecraft client, PestDestroyerRuntime runtime, Entity focus, long now) {
+            Minecraft client,
+            PestDestroyerRuntime runtime,
+            Entity focus,
+            boolean armed,
+            long now) {
         if (focus == null) {
             return;
         }
+        if (!armed) {
+            runtime.huntAimBlendOffset = null;
+            runtime.huntAimBlendStartedAt = 0L;
+        }
         Vec3 point = aimPoint(client, runtime, focus);
         if (runtime.huntAimFocusId != focus.getId()) {
-            if (runtime.huntAimFocusId != -1 && runtime.huntLastAimPoint != null) {
+            if (armed && runtime.huntAimFocusId != -1 && runtime.huntLastAimPoint != null) {
                 runtime.huntAimBlendOffset = runtime.huntLastAimPoint.subtract(point);
                 runtime.huntAimBlendStartedAt = now;
             }
@@ -868,6 +896,14 @@ final class PestHuntingController {
     private static boolean holdsOurLeash(Minecraft client, Entity entity) {
         return entity instanceof Leashable leashable
                 && leashable.getLeashHolder() == client.player;
+    }
+
+    private static void releaseStunVacuum(PestDestroyerRuntime runtime) {
+        if (runtime.huntStunHoldStartedAt == 0L) {
+            return;
+        }
+        runtime.huntStunHoldStartedAt = 0L;
+        ClientUtils.endUseHold();
     }
 
     private static void holdLassoPosition(Minecraft client) {

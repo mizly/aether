@@ -773,6 +773,35 @@ public class ClientUtils {
         });
     }
 
+    /**
+     * Starts a sustained use hold and queues one click so the first use fires on
+     * this tick instead of waiting out Minecraft's rightClickDelay. The caller
+     * owns the release.
+     */
+    public static void beginUseHoldNow() {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.options == null) {
+            return;
+        }
+        USE_CLICK_SEQUENCE.incrementAndGet();
+        client.execute(() -> {
+            setKeyMappingState(client.options.keyUse, true);
+            clickKeyMapping(client.options.keyUse);
+        });
+    }
+
+    public static void endUseHold() {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.options == null) {
+            return;
+        }
+        USE_CLICK_SEQUENCE.incrementAndGet();
+        client.execute(() -> {
+            setKeyMappingState(client.options.keyUse, false);
+            discardQueuedClicks(client.options.keyUse);
+        });
+    }
+
     public static void performAttackClickDirect() {
         Minecraft client = Minecraft.getInstance();
         if (client == null) return;
