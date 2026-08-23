@@ -1,6 +1,10 @@
 # Beta release announcement -> #beta-releases (DISCORD_WEBHOOK_URL).
-# Posts jar + source archive + sha256 checksums, and attaches the source
+# Uploads the jar and source archive to Discord as real attachments (the repo
+# is private, so release links are useless to members), and attaches the source
 # archive and .sha256 sidecars to the release itself.
+#
+# Discord caps a single message at 10 MiB, so the jar and the source archive go
+# out as two separate messages.
 #
 # Deliberately separate from build.yml: build.yml is shared with upstream, so
 # keeping fork-only logic here means upstream merges never conflict with it.
@@ -59,7 +63,7 @@ jobs:
           RELEASE_TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -euo pipefail
-          gh release view "$RELEASE_TAG" --json name,tagName,url,assets > release.json
+          gh release view "$RELEASE_TAG" --json name,tagName,assets > release.json
 
           SRC_NAME="aether-${RELEASE_TAG}-src.tar.gz"
           if jq -e --arg n "$SRC_NAME" 'any(.assets[]; .name == $n)' release.json > /dev/null; then
@@ -77,15 +81,11 @@ jobs:
             exit 1
           fi
 
-          BASE_URL="https://github.com/${{ github.repository }}/releases/download/$RELEASE_TAG"
           {
             echo "skip=false"
             echo "name=$(jq -r '.name // .tagName' release.json)"
-            echo "url=$(jq -r '.url' release.json)"
             echo "jar_name=$JAR_NAME"
-            echo "jar_url=$BASE_URL/$JAR_NAME"
             echo "src_name=$SRC_NAME"
-            echo "src_url=$BASE_URL/$SRC_NAME"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -133,6 +133,11 @@ jobs:
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           COMMIT_MESSAGE: ${{ steps.release.outputs.commit_message }}
+          RELEASE_NAME: ${{ steps.release.outputs.name }}
+          JAR_NAME: ${{ steps.release.outputs.jar_name }}
+          JAR_SHA: ${{ steps.sums.outputs.jar }}
+          SRC_NAME: ${{ steps.release.outputs.src_name }}
+          SRC_SHA: ${{ steps.sums.outputs.src }}
         run: |
           set -euo pipefail
           if [ -z "$DISCORD_WEBHOOK_URL" ]; then
@@ -140,37 +145,62 @@ jobs:
             exit 0
           fi
 
+          DISCORD_MAX_BYTES=$((10 * 1024 * 1024))
+
+          fits() {
+            local size
+            size=$(stat -c %s "$1")
+            if [ "$size" -gt "$DISCORD_MAX_BYTES" ]; then
+              echo "$1 is ${size}B, over Discord's ${DISCORD_MAX_BYTES}B limit; posting checksum only" >&2
+              return 1
+            fi
+          }
+
           printf -v DESCRIPTION "A new beta build has been released! :rocket:\n\n**Commit Message:**\n%s" "$COMMIT_MESSAGE"
 
           jq -n \
-            --arg title "New Beta Release: ${{ steps.release.outputs.name }}" \
+            --arg title "New Beta Release: $RELEASE_NAME" \
             --arg desc "$DESCRIPTION" \
-            --arg url "${{ steps.release.outputs.url }}" \
-            --arg jar_name "${{ steps.release.outputs.jar_name }}" \
-            --arg jar_url "${{ steps.release.outputs.jar_url }}" \
-            --arg jar_sha "${{ steps.sums.outputs.jar }}" \
-            --arg src_name "${{ steps.release.outputs.src_name }}" \
-            --arg src_url "${{ steps.release.outputs.src_url }}" \
-            --arg src_sha "${{ steps.sums.outputs.src }}" \
+            --arg jar_name "$JAR_NAME" \
+            --arg jar_sha "$JAR_SHA" \
+            --arg src_name "$SRC_NAME" \
+            --arg src_sha "$SRC_SHA" \
             '{
               embeds: [{
                 title: $title,
                 description: $desc,
-                url: $url,
                 color: 5814783,
                 fields: [
                   {
                     name: "JAR",
-                    value: "[\($jar_name)](\($jar_url))\n`\($jar_sha)`",
+                    value: "\($jar_name)\n`\($jar_sha)`",
                     inline: false
                   },
                   {
                     name: "Source Archive",
-                    value: "[\($src_name)](\($src_url))\n`\($src_sha)`",
+                    value: "\($src_name)\n`\($src_sha)`",
                     inline: false
                   }
                 ]
               }]
             }' > payload.json
 
-          curl -sS -f -H "Content-Type: application/json" -d @payload.json "$DISCORD_WEBHOOK_URL"
+          if fits "$JAR_NAME"; then
+            curl -sS -f -X POST \
+              -F "payload_json=<payload.json" \
+              -F "files[0]=@$JAR_NAME" \
+              "$DISCORD_WEBHOOK_URL"
+          else
+            curl -sS -f -X POST \
+              -H "Content-Type: application/json" \
+              -d @payload.json \
+              "$DISCORD_WEBHOOK_URL"
+          fi
+
+          if fits "$SRC_NAME"; then
+            jq -n --arg src_name "$SRC_NAME" '{content: "Source for `\($src_name)`:"}' > src-payload.json
+            curl -sS -f -X POST \
+              -F "payload_json=<src-payload.json" \
+              -F "files[0]=@$SRC_NAME" \
+              "$DISCORD_WEBHOOK_URL"
+          fi
