@@ -10,6 +10,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 final class PestNavigationState {
+    private static final long TRUSTED_PLOT_TTL_MS = 120_000L;
+
     Vec3 fireworkFirstPos = null;
     Vec3 fireworkLastPos = null;
     int fireworkParticleCount = 0;
@@ -30,6 +32,13 @@ final class PestNavigationState {
     String lastTargetPlot = null;
     String trustedPlot = null;
     long trustedPlotExpiresAt = 0;
+
+    // The sidebar lags a couple of seconds behind a plot teleport, so a confirmed arrival
+    // is trusted over it for a while to avoid re-teleporting to a plot we're already on.
+    void trustPlot(String plot, long now) {
+        trustedPlot = plot;
+        trustedPlotExpiresAt = now + TRUSTED_PLOT_TTL_MS;
+    }
 
     void resetForRun() {
         fireworkFirstPos = null;

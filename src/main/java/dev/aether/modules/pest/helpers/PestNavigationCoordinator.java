@@ -270,8 +270,7 @@ final class PestNavigationCoordinator {
             Context context,
             String plot
     ) {
-        navigationState.trustedPlot = plot;
-        navigationState.trustedPlotExpiresAt = System.currentTimeMillis() + 120_000;
+        navigationState.trustPlot(plot, System.currentTimeMillis());
         navigationState.plotTpSent = false;
         navigationState.plotTpWindow = null;
         if (PestManager.isBallsackShredderActiveForCurrentCycle()) {
