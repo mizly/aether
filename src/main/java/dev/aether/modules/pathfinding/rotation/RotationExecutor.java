@@ -87,16 +87,8 @@ public final class RotationExecutor {
     private static boolean hasExternalRotation(LocalPlayer player) {
         if (!hasLastApplied) return false;
 
-        // The pest cleaner rotates through RotationManager. Measuring drift against
-        // only our own last write makes the two systems report each other as external.
-        float baseYaw = lastAppliedYaw;
-        float basePitch = lastAppliedPitch;
-        if (FailsafeManager.isExpectedRotationSet()) {
-            baseYaw = FailsafeManager.getExpectedYaw();
-            basePitch = FailsafeManager.getExpectedPitch();
-        }
-        float yawDrift   = Math.abs(AngleUtils.getRotationDelta(baseYaw, player.getYRot()));
-        float pitchDrift = Math.abs(player.getXRot() - basePitch);
+        float yawDrift   = Math.abs(AngleUtils.getRotationDelta(lastAppliedYaw, player.getYRot()));
+        float pitchDrift = Math.abs(player.getXRot() - lastAppliedPitch);
         return yawDrift > EXTERNAL_ROTATION_TOLERANCE_DEGREES
                 || pitchDrift > EXTERNAL_ROTATION_TOLERANCE_DEGREES;
     }

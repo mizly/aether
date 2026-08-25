@@ -27,6 +27,7 @@ import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.pest.helpers.PestPrepSwapManager;
+import dev.aether.modules.pest.helpers.PestLifecycleManager;
 import dev.aether.modules.pest.helpers.PestReturnManager;
 import dev.aether.modules.profit.ProfitManager;
 
@@ -90,8 +91,9 @@ public class VisitorManager {
                     return;
                 ClientUtils.sendDebugMessage("Warping to garden...");
                 CommandUtils.warpGarden();
+                PestLifecycleManager.restorePendingSunsetPestsNight(client);
                 VisitorsMacro.reenableCompactorsIfPending(client);
-        PestReturnManager.setReturningFromPestVisitor(true);
+                PestReturnManager.setReturningFromPestVisitor(true);
                 if (MacroWorkerThread.shouldAbortTask(client))
                     return;
                 ClientUtils.sendDebugMessage("Finalizing return to farm...");

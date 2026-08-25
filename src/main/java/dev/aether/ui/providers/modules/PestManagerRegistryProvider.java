@@ -143,13 +143,6 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()))
                 .add(FarmingSettingsFactory.aotvBetweenPestsDelaySetting()
                         .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()))
-                .add(new SliderSetting("Pest Rotation Speed", 0.5f, 4.0f,
-                        AetherConfig.PEST_ROTATION_SPEED::get,
-                        v -> {
-                            AetherConfig.PEST_ROTATION_SPEED.set(v);
-                            AetherConfig.save();
-                        })
-                        .withDecimals(1).withSuffix("x"))
                 .add(FarmingSettingsFactory.pestFovRangeSetting())
                 .add(FarmingSettingsFactory.pestAboveAimPitchRangeSetting()));
         groups.add(SettingGroup.of(

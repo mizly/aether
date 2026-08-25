@@ -134,11 +134,6 @@ public final class FailsafeManager {
         RotationFailsafe.reportExternalRotation();
     }
 
-    /** The last rotation any of our own systems applied, shared so they don't report each other. */
-    public static boolean isExpectedRotationSet() {
-        return RotationFailsafe.isExpectedRotationSet();
-    }
-
     public static void addRotationGracePeriod(long durationMs) {
         RotationFailsafe.addGracePeriod(durationMs);
     }

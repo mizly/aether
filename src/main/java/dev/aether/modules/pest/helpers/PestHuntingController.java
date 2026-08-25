@@ -614,9 +614,9 @@ final class PestHuntingController {
         if (PestTargetController.isLookingAt(client, aim, tolerance)) {
             return;
         }
-        // smoothForceRotation re-targets every tick, which is what tracking a moving
+        // forceRotation re-targets every tick, which is what tracking a moving
         // pest needs; initiateRotation would keep aiming where it used to be.
-        RotationManager.smoothForceRotation(
+        RotationManager.forceRotation(
                 client, steerPoint(runtime, aim, now), THROW_AIM_DURATION_MS);
     }
 

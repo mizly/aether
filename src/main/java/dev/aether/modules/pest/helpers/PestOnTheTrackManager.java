@@ -179,7 +179,7 @@ public final class PestOnTheTrackManager {
 			ClientUtils.setKeyMappingState(client.options.keyUse, false); // stop RCing
 			return;
 		}
-		RotationManager.smoothForceRotation(client, aimTarget, AIM_REFRESH_MS);
+		RotationManager.forceRotation(client, aimTarget, AIM_REFRESH_MS);
 		ClientUtils.setKeyMappingState(client.options.keyUse, true);
 	}
 	

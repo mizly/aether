@@ -101,6 +101,11 @@ public class PestDestroyer {
         if (PestPlotId.isUsable(initialPlot)) {
             runtime.navigation.plotQueue.add(initialPlot);
             runtime.navigation.lastTargetPlot = initialPlot;
+            // The PRE stage has just run /plottp here and climbed onto the roof. Asking the
+            // (lagging) sidebar would send us back down to the plot spawn and strand us in a loop.
+            if (CommandUtils.isFreshKnownPlotChat(initialPlot)) {
+                runtime.navigation.trustPlot(initialPlot, System.currentTimeMillis());
+            }
         }
 
         if (infested != null && !infested.isEmpty()) {
@@ -125,9 +130,11 @@ public class PestDestroyer {
         if (!runtime.navigation.plotQueue.isEmpty()) {
             String currentPlot = getEffectivePlot(client);
             String firstPlot = runtime.navigation.plotQueue.get(0);
+            // A fresh chat confirmation means the PRE stage already did the forced /plottp;
+            // doing it again here would drop us off the roof it just climbed.
             boolean forceCurrentPlotTeleport = plotsEqual(firstPlot, currentPlot)
                             && AetherConfig.PEST_PLOT_TP_FOR_CURRENT_PLOT.get()
-                            && !CommandUtils.isFreshKnownPlotChat(firstPlot, 3000L);
+                            && !CommandUtils.isFreshKnownPlotChat(firstPlot);
             if (forceCurrentPlotTeleport) {
                 runtime.state = State.TELEPORT_TO_PLOT;
                 return;

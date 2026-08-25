@@ -342,7 +342,7 @@ final class PestTargetController {
         }
         Vec3 targetEye = PestCombatCoordinator.buildCombatAimTarget(client, target);
         if (!isLookingAt(client, targetEye, AetherConfig.PEST_FOV_RANGE.get())) {
-            RotationManager.initiatePestRotation(
+            RotationManager.initiateRotation(
                     client,
                     targetEye,
                     TARGET_SWITCH_ROTATION_MS,

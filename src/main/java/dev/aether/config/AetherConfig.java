@@ -465,9 +465,6 @@ public final class AetherConfig {
         public static final IntEntry PEST_AOTV_DELAY_MIN = Config.integer("pestAotvDelayMin", 150).range(100, 250);
         public static final IntEntry PEST_AOTV_DELAY_MAX = Config.integer("pestAotvDelayMax", 250).range(100, 250);
         public static final FloatEntry PEST_FOV_RANGE = Config.floatVal("pestFovRange", 20.0f).range(0.0f, 90.0f);
-        /** Multiplier applied only to live pest-target tracking rotations. */
-        public static final FloatEntry PEST_ROTATION_SPEED =
-                        Config.floatVal("pestRotationSpeed", 1.5f).range(0.5f, 4.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MIN = Config.floatVal("pestAboveTargetPitchMin", 25.0f)
                         .range(20.0f, 40.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MAX = Config.floatVal("pestAboveTargetPitchMax", 40.0f)

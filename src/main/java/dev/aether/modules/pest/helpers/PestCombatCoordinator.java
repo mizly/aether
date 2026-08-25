@@ -174,7 +174,7 @@ final class PestCombatCoordinator {
                 && !FailsafeManager.shouldSuppressPestCleanerRotation(client)
                 && shouldRotateForCombatAim(context, client, currentTarget)) {
             Vec3 targetEye = buildCombatAimTarget(client, currentTarget);
-            RotationManager.smoothForceRotation(client, targetEye, 120);
+            RotationManager.forceRotation(client, targetEye, 120);
         }
 
         if (dist <= terminalRange) {
@@ -227,7 +227,7 @@ final class PestCombatCoordinator {
             PathfindingManager.stop();
             context.setTargetWithoutSkullTicks(0);
             if (!FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
-                RotationManager.smoothForceRotation(client, buildCombatAimTarget(client, currentTarget), 120);
+                RotationManager.forceRotation(client, buildCombatAimTarget(client, currentTarget), 120);
             }
             ClientUtils.sendDebugMessage("[PestDestroyer] Target moved behind forward cone. Turning to reacquire.");
             return;
@@ -256,7 +256,7 @@ final class PestCombatCoordinator {
             if (!FailsafeManager.shouldSuppressPestCleanerRotation(client)
                     && shouldRotateForCombatAim(context, client, currentTarget)) {
                 Vec3 targetEye = buildCombatAimTarget(client, currentTarget);
-                RotationManager.smoothForceRotation(client, targetEye, 120);
+                RotationManager.forceRotation(client, targetEye, 120);
             }
 
             double speed = Math.abs(client.player.getDeltaMovement().x)
@@ -386,7 +386,7 @@ final class PestCombatCoordinator {
             }
             // A one-shot rotation lands where the pest was and has to restart, which is
             // what froze the hop chain staring at the pest. Retarget every tick instead.
-            RotationManager.smoothForceRotation(client, aimPos, AOTV_AIM_TRACK_MS);
+            RotationManager.forceRotation(client, aimPos, AOTV_AIM_TRACK_MS);
 
             float tolerance = now - context.getAotvAimStartedAt() > AOTV_AIM_SETTLE_TIMEOUT_MS
                     ? AOTV_AIM_FALLBACK_TOLERANCE_DEGREES
