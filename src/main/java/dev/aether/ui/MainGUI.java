@@ -2238,6 +2238,7 @@ public class MainGUI extends NVGScreen {
         // own coordinate space under the cursor and run the value away to max.
         if (dragSetting == null && dragRangeSetting == null) {
             uiScale = Theme.UI_SCALE;
+            uiTextScale = Theme.TEXT_SCALE;
         }
         boolean sizeChanged = context.layout.lastWidth != width
                 || context.layout.lastHeight != height

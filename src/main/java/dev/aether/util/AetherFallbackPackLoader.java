@@ -46,7 +46,7 @@ public final class AetherFallbackPackLoader {
         try {
             Files.createDirectories(PACK_DIR);
             try (HttpClient client = HttpClient.newHttpClient()) {
-                if (!downloadPack(client) && !Files.exists(PACK_FILE)) {
+                if (shouldDownload() && !downloadPack(client) && shouldDownload()) {
                     loadBundledFallbackPack();
                 }
             }
@@ -54,6 +54,10 @@ public final class AetherFallbackPackLoader {
         } catch (Exception exception) {
             throw new IllegalStateException("Failed to prepare Aether fallback resource pack", exception);
         }
+    }
+
+    static boolean shouldDownload() {
+        return !Files.isRegularFile(AetherFallbackPackLoader.PACK_FILE);
     }
 
     private static boolean downloadPack(HttpClient client) {
