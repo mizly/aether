@@ -65,7 +65,11 @@ final class PestHuntingController {
     // apart; decay that step instead of handing the tracker an instant error.
     private static final long AIM_BLEND_MS = 420L;
     private static final long FOCUS_SWITCH_DEBOUNCE_MS = 200L;
-    private static final long THROW_AIM_DURATION_MS = 60L;
+    // The stun and throw windows are a tick or two wide, so the hunt tracks with
+    // a shorter time constant and a higher ceiling than the cleaner's aim: enough
+    // smoothing to read as a hand, not so much that the pest walks out of it.
+    private static final float HUNT_AIM_SMOOTHING_MS = 90.0f;
+    private static final float HUNT_AIM_MAX_TURN_SPEED = 700.0f;
     private static final long REEL_RESPONSE_WAIT_MS = 500L;
     private static final long REEL_OVERLAY_SIGNAL_GRACE_MS = 300L;
     private static final long LANDING_WAIT_TIMEOUT_MS = 250L;
@@ -321,15 +325,16 @@ final class PestHuntingController {
         ProgrammaticAttackTracker.setHeld(client.options.keyAttack, false);
         ClientUtils.setKeyMappingState(client.options.keyAttack, false);
         ClientUtils.discardQueuedClicks(client.options.keyAttack);
-        // Stop translating as soon as the crosshair is ready for an interaction.
-        // Continuing to fly while swapping/clicking was carrying the player past
-        // the pest, turning an accurate stun into a late or missed lasso throw.
+        // Stop translating once the crosshair is ready for an interaction AND the
+        // pest is in reach. Holding still merely because the aim landed parked the
+        // hunter at the edge of its range, where a pest that keeps walking is out
+        // of the vacuum before the stun hold finishes.
         double horizontal = horizontalDistanceTo(client, focus);
         // Outside this the stage machine is skipped below, so holding still on
         // aim leaves the hunter frozen and staring until the catch times out.
         boolean withinActionRange = horizontal <= AetherConfig.PEST_HUNTING_MAX_DISTANCE.get();
         boolean clickWindow = clickPending
-                || (withinActionRange
+                || (horizontal <= LASSO_INTERACTION_RANGE
                         && !attached
                         && runtime.huntStage != Stage.REEL
                         && isAimedAtTarget(
@@ -632,13 +637,13 @@ final class PestHuntingController {
         if (PestTargetController.isLookingAt(client, aim, tolerance)) {
             return;
         }
-        // forceRotation re-targets every tick, which is what tracking a moving
-        // pest needs; initiateRotation would keep aiming where it used to be.
-        // Deliberately uncapped: the stun and throw gates open for a tick or two
-        // before the pest recovers, and a rate-limited turn spends that window
-        // travelling instead of firing.
-        RotationManager.forceRotation(
-                client, steerPoint(runtime, aim, now), THROW_AIM_DURATION_MS);
+        // Tracking re-targets every tick, which is what following a moving pest
+        // needs; initiateRotation would keep aiming where it used to be.
+        RotationManager.trackRotation(
+                client,
+                steerPoint(runtime, aim, now),
+                HUNT_AIM_SMOOTHING_MS,
+                HUNT_AIM_MAX_TURN_SPEED);
     }
 
     /**
