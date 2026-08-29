@@ -10,6 +10,7 @@ import dev.aether.util.ProgrammaticAttackTracker;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.Leashable;
@@ -109,6 +110,12 @@ final class PestHuntingController {
     // Ordinary flight tops out under a fleeing pest. Sprint only once the gap is
     // wide enough that the catch-up cannot turn into overshoot and orbiting.
     private static final double SPRINT_GAP = 2.0;
+    private static final double FOLLOW_BAND = 0.75;
+    // Flight goes where the camera points, so translating at an angle to a moving
+    // pest traces a curve around it. Turn first and fly straight instead: yaw
+    // only, since altitude is the jump/shift keys' job and the aim sits above the
+    // pest, which would eat most of a 3D cone at this range.
+    private static final double FOLLOW_YAW_CONE_DEGREES = 25.0;
     // The follow band stops closing at LASSO_INTERACTION_RANGE horizontally, so
     // the throw gate carries the height slack that band still leaves.
     private static final double THROW_RANGE = LASSO_INTERACTION_RANGE + 0.25;
@@ -383,12 +390,15 @@ final class PestHuntingController {
             // break it, which put the hunt back to chasing an unstunned pest.
             if (clickPending) {
                 holdLassoPosition(client);
+                runtime.huntFollowMove = 0;
             } else {
-                maintainFollowDistance(client, focus, LEASHED_FOLLOW_DISTANCE, true, true);
+                maintainFollowDistance(
+                        client, runtime, focus, LEASHED_FOLLOW_DISTANCE, true, true);
             }
         } else {
             maintainFollowDistance(
                     client,
+                    runtime,
                     focus,
                     stunPhase ? STUN_FOLLOW_DISTANCE : AetherConfig.PEST_HUNTING_FOLLOW_DISTANCE.get(),
                     !clickWindow,
@@ -829,6 +839,7 @@ final class PestHuntingController {
 
     private static void maintainFollowDistance(
             Minecraft client,
+            PestDestroyerRuntime runtime,
             Entity target,
             double followDistance,
             boolean allowTranslation,
@@ -836,9 +847,10 @@ final class PestHuntingController {
         double horizontal = horizontalDistanceTo(client, target);
         double follow = Math.min(followDistance, LASSO_INTERACTION_RANGE - 0.75);
 
-        boolean behindCone =
-                PestCombatCoordinator.isOutsideForwardCone(client, target, 90.0);
-        int followDirection = followDirection(horizontal, follow, behindCone, allowTranslation);
+        boolean offAxis = !facesTarget(client, target, FOLLOW_YAW_CONE_DEGREES);
+        int followDirection = followDirection(
+                horizontal, follow, offAxis, allowTranslation, runtime.huntFollowMove);
+        runtime.huntFollowMove = followDirection;
         ClientUtils.setKeyMappingState(client.options.keyUp, followDirection > 0);
         ClientUtils.setKeyMappingState(client.options.keyDown, followDirection < 0);
         ClientUtils.setKeyMappingState(client.options.keyLeft, false);
@@ -855,23 +867,46 @@ final class PestHuntingController {
     }
 
     /**
-     * Returns 1 for forward, -1 for a short braking/back-off input, and 0 for
-     * hold. The dead band prevents the old forward/stop oscillation, while the
-     * near bound recovers a safe lasso distance without adding A/D orbiting.
+     * Returns 1 for forward, -1 for a braking/back-off input, and 0 for hold.
+     * Latched on {@code previous}: a dead band is narrower than flight's stopping
+     * distance, so on its own it answers every overshoot with the opposite key and
+     * the hunter pumps forward and back. Once moving, run to the follow distance
+     * and stop there, and only start again a full band away from it.
      */
     static int followDirection(
             double horizontal,
             double follow,
-            boolean behindCone,
-            boolean allowTranslation) {
-        if (!allowTranslation || behindCone) {
+            boolean offAxis,
+            boolean allowTranslation,
+            int previous) {
+        if (!allowTranslation || offAxis) {
             return 0;
         }
-        if (horizontal > follow + 0.75) {
+        if (previous > 0) {
+            return horizontal > follow ? 1 : 0;
+        }
+        if (previous < 0) {
+            return horizontal < follow ? -1 : 0;
+        }
+        if (horizontal > follow + FOLLOW_BAND) {
             return 1;
         }
-        double backOffThreshold = Math.max(MIN_AIM_DISTANCE + 0.25, follow - 0.75);
+        double backOffThreshold = Math.max(MIN_AIM_DISTANCE + 0.25, follow - FOLLOW_BAND);
         return horizontal < backOffThreshold ? -1 : 0;
+    }
+
+    /**
+     * Yaw only: pitch is the altitude keys' problem, and the aim deliberately
+     * sits above the pest, which a 3D cone would read as being off target.
+     */
+    private static boolean facesTarget(Minecraft client, Entity target, double maxYawError) {
+        double dx = target.getX() - client.player.getX();
+        double dz = target.getZ() - client.player.getZ();
+        if (dx * dx + dz * dz < 1.0e-4) {
+            return true;
+        }
+        float desiredYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+        return Math.abs(Mth.wrapDegrees(desiredYaw - client.player.getYRot())) <= maxYawError;
     }
 
     private static double horizontalDistanceTo(Minecraft client, Entity target) {

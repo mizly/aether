@@ -64,14 +64,27 @@ class PestHuntingControllerTest {
 
     @Test
     void followMovementHoldsWhileAnInteractionIsReady() {
-        assertEquals(0, PestHuntingController.followDirection(20.0, 6.0, false, false));
+        assertEquals(0, PestHuntingController.followDirection(20.0, 6.0, false, false, 0));
     }
 
     @Test
     void followMovementApproachesAndBacksOffWithoutStrafing() {
-        assertEquals(1, PestHuntingController.followDirection(8.0, 6.0, false, true));
-        assertEquals(0, PestHuntingController.followDirection(6.0, 6.0, false, true));
-        assertEquals(-1, PestHuntingController.followDirection(4.0, 6.0, false, true));
-        assertEquals(0, PestHuntingController.followDirection(8.0, 6.0, true, true));
+        assertEquals(1, PestHuntingController.followDirection(8.0, 6.0, false, true, 0));
+        assertEquals(0, PestHuntingController.followDirection(6.0, 6.0, false, true, 0));
+        assertEquals(-1, PestHuntingController.followDirection(4.0, 6.0, false, true, 0));
+        assertEquals(0, PestHuntingController.followDirection(8.0, 6.0, true, true, 0));
+    }
+
+    @Test
+    void aMoveInProgressRunsToTheFollowDistanceInsteadOfTheBandEdge() {
+        assertEquals(1, PestHuntingController.followDirection(6.5, 6.0, false, true, 1));
+        assertEquals(0, PestHuntingController.followDirection(5.9, 6.0, false, true, 1));
+        assertEquals(-1, PestHuntingController.followDirection(5.5, 6.0, false, true, -1));
+        assertEquals(0, PestHuntingController.followDirection(6.1, 6.0, false, true, -1));
+    }
+
+    @Test
+    void anOvershootPastTheFollowDistanceDoesNotAnswerWithTheOppositeKey() {
+        assertEquals(0, PestHuntingController.followDirection(5.5, 6.0, false, true, 0));
     }
 }
