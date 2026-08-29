@@ -102,7 +102,11 @@ final class PestHuntingController {
     // of the leash range gave the pest the whole 500ms hold to walk out of it,
     // and the lasso then went out at an unstunned pest.
     private static final double STUN_RANGE = 3.5;
-    private static final double STUN_FOLLOW_DISTANCE = 2.5;
+    // One standoff for the whole unhooked hunt. The throw used to fall back to
+    // the configured follow distance, which is further out than the stun closed
+    // to, so the hunter reversed away from the pest the moment the lasso left its
+    // hand and was several blocks out by the time the leash landed.
+    private static final double HUNT_FOLLOW_DISTANCE = 2.5;
     // A leashed pest keeps walking and the line snaps within a few blocks, so
     // ride along instead of holding position. Riding closer than this had the
     // hunter pumping forward and back: flight momentum overshoots any band
@@ -371,8 +375,10 @@ final class PestHuntingController {
 
         if (attached) {
             if (!runtime.huntEverAttached) {
-                ClientUtils.sendDebugMessage("[PestHunting] Lasso on ("
-                        + (lassoed != null ? "leash" : "reel prompt") + ").");
+                ClientUtils.sendDebugMessage(String.format(
+                        "[PestHunting] Lasso on (%s) at %.1f blocks.",
+                        lassoed != null ? "leash" : "reel prompt",
+                        horizontalDistanceTo(client, focus)));
             }
             runtime.huntEverAttached = true;
             runtime.huntLastAttachedAt = now;
@@ -460,10 +466,13 @@ final class PestHuntingController {
                     client,
                     runtime,
                     focus,
-                    stunPhase ? STUN_FOLLOW_DISTANCE : AetherConfig.PEST_HUNTING_FOLLOW_DISTANCE.get(),
+                    Math.min(AetherConfig.PEST_HUNTING_FOLLOW_DISTANCE.get(), HUNT_FOLLOW_DISTANCE),
                     !clickWindow,
                     !clickWindow,
-                    true);
+                    // Never reverse away from a lasso already in the air: the
+                    // leash lands a good half second after the throw, and by then
+                    // the retreat has stretched it past breaking.
+                    runtime.huntThrownAt == 0L);
         }
 
         if (runtime.huntStage != Stage.REEL && !attached) {
@@ -707,7 +716,10 @@ final class PestHuntingController {
                 abandonCatch(client, context, runtime, target);
                 return;
             }
-            ClientUtils.sendDebugMessage("[PestHunting] Lasso off. Re-stunning.");
+            ClientUtils.sendDebugMessage(String.format(
+                    "[PestHunting] Lasso off at %.1f blocks. Re-stunning.",
+                    horizontalDistanceTo(client, target)));
+            runtime.huntThrownAt = 0L;
             runtime.huntReelPromptLatched = false;
             runtime.huntSwapReadyTick = 0;
             runtime.huntStunDelivered = false;
