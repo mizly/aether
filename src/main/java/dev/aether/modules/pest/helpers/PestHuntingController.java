@@ -44,6 +44,10 @@ final class PestHuntingController {
     // A stun that will not land must not hold the catch hostage: the lasso works
     // without it, and standing aimed for the whole catch timeout reads as a macro.
     private static final long STUN_STAGE_TIMEOUT_MS = 3_000L;
+    // Chasing a pest that never lets us inside stun range still has to end in a
+    // throw, and a throw we can never close on has to end in giving the pest up.
+    private static final long STUN_APPROACH_TIMEOUT_MS = 6_000L;
+    private static final long THROW_APPROACH_TIMEOUT_MS = 6_000L;
     private static final int MIN_VACUUM_SWAP_TICKS = 1;
     private static final int MAX_VACUUM_SWAP_TICKS = 5;
     // The swap back after a miss is on the critical path, so vary it only enough to hide the tick.
@@ -79,6 +83,14 @@ final class PestHuntingController {
     // not gate the stun/throw on reaching it: a moving pest can escape during
     // that wait. The hunter closes distance while the immediate sequence runs.
     private static final double LASSO_INTERACTION_RANGE = 4.75;
+    // The vacuum has to be delivered from properly close. Stunning from the edge
+    // of the leash range gave the pest the whole 500ms hold to walk out of it,
+    // and the lasso then went out at an unstunned pest.
+    private static final double STUN_RANGE = 3.5;
+    private static final double STUN_FOLLOW_DISTANCE = 2.5;
+    // The follow band stops closing at LASSO_INTERACTION_RANGE horizontally, so
+    // the throw gate carries the height slack that band still leaves.
+    private static final double THROW_RANGE = LASSO_INTERACTION_RANGE + 0.25;
     private static final double HANDOFF_SLACK = 2.0;
     private static final double REPATH_DISTANCE = 16.0;
     private static final double VERTICAL_ALIGN_TOLERANCE = 1.0;
@@ -146,6 +158,7 @@ final class PestHuntingController {
         runtime.huntDelayBeforeStunSwap = false;
         runtime.huntStunDelivered = false;
         runtime.huntStunHoldStartedAt = 0L;
+        runtime.huntStunRangeSince = 0L;
         runtime.huntStageEnteredTick = 0;
         runtime.huntLandingWaitStartedAt = 0L;
         runtime.huntTargetY = Double.NaN;
@@ -178,6 +191,7 @@ final class PestHuntingController {
         runtime.huntDelayBeforeStunSwap = false;
         runtime.huntStunDelivered = false;
         runtime.huntStunHoldStartedAt = 0L;
+        runtime.huntStunRangeSince = 0L;
         runtime.huntStageEnteredTick = 0;
         runtime.huntLandingWaitStartedAt = 0L;
         runtime.huntTargetY = Double.NaN;
@@ -325,16 +339,16 @@ final class PestHuntingController {
         ProgrammaticAttackTracker.setHeld(client.options.keyAttack, false);
         ClientUtils.setKeyMappingState(client.options.keyAttack, false);
         ClientUtils.discardQueuedClicks(client.options.keyAttack);
-        // Stop translating once the crosshair is ready for an interaction AND the
-        // pest is in reach. Holding still merely because the aim landed parked the
-        // hunter at the edge of its range, where a pest that keeps walking is out
-        // of the vacuum before the stun hold finishes.
+        // Stop translating once the crosshair is ready AND the pest is inside the
+        // range this stage acts from. Holding still merely because the aim landed
+        // parked the hunter out at the leash range, where the stun cannot reach.
         double horizontal = horizontalDistanceTo(client, focus);
         // Outside this the stage machine is skipped below, so holding still on
         // aim leaves the hunter frozen and staring until the catch times out.
-        boolean withinActionRange = horizontal <= AetherConfig.PEST_HUNTING_MAX_DISTANCE.get();
+        boolean withinLeashRange = horizontal <= AetherConfig.PEST_HUNTING_MAX_DISTANCE.get();
+        boolean stunPhase = !attached && usesVacuumAim(runtime);
         boolean clickWindow = clickPending
-                || (horizontal <= LASSO_INTERACTION_RANGE
+                || (client.player.distanceTo(focus) <= (stunPhase ? STUN_RANGE : THROW_RANGE)
                         && !attached
                         && runtime.huntStage != Stage.REEL
                         && isAimedAtTarget(
@@ -348,7 +362,12 @@ final class PestHuntingController {
             // position until the server accepts the reel click.
             holdLassoPosition(client);
         } else {
-            maintainFollowDistance(client, focus, !clickWindow, !clickWindow);
+            maintainFollowDistance(
+                    client,
+                    focus,
+                    stunPhase ? STUN_FOLLOW_DISTANCE : AetherConfig.PEST_HUNTING_FOLLOW_DISTANCE.get(),
+                    !clickWindow,
+                    !clickWindow);
         }
 
         if (runtime.huntStage != Stage.REEL && !attached) {
@@ -360,7 +379,7 @@ final class PestHuntingController {
                 context.setState(PestDestroyer.State.FLY_TO_PEST);
                 return;
             }
-            if (!withinActionRange) {
+            if (!withinLeashRange) {
                 // No stage runs this tick, so a hold started in range would stay
                 // pressed for the whole approach back.
                 releaseStunVacuum(runtime);
@@ -408,12 +427,25 @@ final class PestHuntingController {
             advance(runtime, Stage.SWAP_TO_LASSO, now, tick);
             return;
         }
-        if (runtime.huntStunHoldStartedAt == 0L
-                && !runtime.huntStunDelivered
-                && now - runtime.huntStageEnteredAt > STUN_STAGE_TIMEOUT_MS) {
-            ClientUtils.sendDebugMessage("[PestHunting] Stun did not land. Throwing without it.");
-            advance(runtime, Stage.SWAP_TO_LASSO, now, tick);
-            return;
+        boolean inStunRange = client.player.distanceTo(target) <= STUN_RANGE;
+        if (runtime.huntStunHoldStartedAt == 0L && !runtime.huntStunDelivered) {
+            if (!inStunRange) {
+                runtime.huntStunRangeSince = 0L;
+            } else if (runtime.huntStunRangeSince == 0L) {
+                runtime.huntStunRangeSince = now;
+            }
+            // Separate clocks: one for a stun that will not fire from in range,
+            // one for a pest that never lets us get there.
+            boolean stalled = runtime.huntStunRangeSince != 0L
+                    && now - runtime.huntStunRangeSince > STUN_STAGE_TIMEOUT_MS;
+            boolean chasedTooLong = now - runtime.huntStageEnteredAt > STUN_APPROACH_TIMEOUT_MS;
+            if (stalled || chasedTooLong) {
+                ClientUtils.sendDebugMessage("[PestHunting] Stun did not land ("
+                        + (stalled ? "stalled in range" : "never in range")
+                        + "). Throwing without it.");
+                advance(runtime, Stage.SWAP_TO_LASSO, now, tick);
+                return;
+            }
         }
 
         // A missed throw returns here, so vary the hotbar change instead of always same-tick.
@@ -440,7 +472,8 @@ final class PestHuntingController {
 
         if (runtime.huntSwapReadyTick == 0) {
             if (runtime.huntStunHoldStartedAt == 0L) {
-                if (waitForLanding(runtime, target, now)
+                if (!inStunRange
+                        || waitForLanding(runtime, target, now)
                         || !isAimedAtTarget(client, runtime, target, THROW_AIM_TOLERANCE_DEGREES)) {
                     return;
                 }
@@ -496,6 +529,14 @@ final class PestHuntingController {
         }
         // Throwing in the same tick as the hotbar swap can still use the vacuum.
         if (tick - runtime.huntStageEnteredTick < LASSO_SETTLE_TICKS) {
+            return;
+        }
+        // A lasso thrown from out of reach cannot attach and still burns a throw.
+        if (client.player.distanceTo(target) > THROW_RANGE) {
+            if (now - runtime.huntStageEnteredAt > THROW_APPROACH_TIMEOUT_MS) {
+                ClientUtils.sendDebugMessage("[PestHunting] Could not close on the pest. Moving on.");
+                abandonCatch(client, context, runtime, target);
+            }
             return;
         }
         if (waitForLanding(runtime, target, now)
@@ -764,12 +805,11 @@ final class PestHuntingController {
     private static void maintainFollowDistance(
             Minecraft client,
             Entity target,
+            double followDistance,
             boolean allowTranslation,
             boolean adjustAltitude) {
         double horizontal = horizontalDistanceTo(client, target);
-        double follow = Math.min(
-                AetherConfig.PEST_HUNTING_FOLLOW_DISTANCE.get(),
-                LASSO_INTERACTION_RANGE - 0.75);
+        double follow = Math.min(followDistance, LASSO_INTERACTION_RANGE - 0.75);
 
         boolean behindCone =
                 PestCombatCoordinator.isOutsideForwardCone(client, target, 90.0);
