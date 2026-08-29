@@ -577,6 +577,12 @@ public class PestDestroyer {
         }
     }
 
+    public static void onLassoEscapeMessage(String message) {
+        if (isCatchInProgress()) {
+            PestHuntingController.onEscapeMessage(runtime, message);
+        }
+    }
+
     public static boolean isCatchInProgress() {
         return runtime.active && runtime.state == State.HUNT_PEST;
     }

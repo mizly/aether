@@ -61,6 +61,7 @@ final class PestDestroyerRuntime {
     long huntLandingWaitStartedAt = 0L;
     double huntTargetY = Double.NaN;
     volatile boolean huntCaughtSignal = false;
+    volatile boolean huntEscapeSignal = false;
     Entity huntFocus = null;
     Entity huntPendingFocus = null;
     long huntPendingFocusSince = 0L;
@@ -227,6 +228,7 @@ final class PestDestroyerRuntime {
         huntLandingWaitStartedAt = 0L;
         huntTargetY = Double.NaN;
         huntCaughtSignal = false;
+        huntEscapeSignal = false;
         resetHuntAimState();
     }
 

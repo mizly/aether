@@ -123,6 +123,9 @@ public final class AetherChatEvents {
         if (isPestCatchMessage(lowerPlainText)) {
             PestDestroyer.onPestCaught();
         }
+        // Hypixel puts the escape on the overlay, but route the chat copy too:
+        // reacting a tick sooner is the difference between a re-stun and a chase.
+        PestDestroyer.onLassoEscapeMessage(lowerPlainText);
     }
 
     /** Recognizes both the generic and typed/count shard catch messages. */

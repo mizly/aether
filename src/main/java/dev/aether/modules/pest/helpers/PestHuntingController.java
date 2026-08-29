@@ -28,6 +28,7 @@ import java.util.concurrent.ThreadLocalRandom;
 /** Stuns, lassos and reels in a pest for its shard, in place of vacuuming it. */
 final class PestHuntingController {
     private static final String REEL_PROMPT = "REEL";
+    private static final String ESCAPE_PROMPT = "ESCAPED";
     private static final double MARKER_SEARCH_SIZE = 6.0;
     private static final double MARKER_SEARCH_HEIGHT_OFFSET = 1.5;
     private static final double MARKER_MAX_HORIZONTAL = 2.0;
@@ -191,6 +192,7 @@ final class PestHuntingController {
         runtime.huntLandingWaitStartedAt = 0L;
         runtime.huntTargetY = Double.NaN;
         runtime.huntCaughtSignal = false;
+        runtime.huntEscapeSignal = false;
         runtime.resetHuntAimState();
         runtime.lassoSlot = PestLoadoutHelper.findLassoHotbarSlot(client);
     }
@@ -224,6 +226,7 @@ final class PestHuntingController {
         runtime.huntLandingWaitStartedAt = 0L;
         runtime.huntTargetY = Double.NaN;
         runtime.huntCaughtSignal = false;
+        runtime.huntEscapeSignal = false;
         runtime.resetHuntAimState();
         runtime.lassoSlot = -1;
         if (client != null && client.options != null) {
@@ -242,9 +245,29 @@ final class PestHuntingController {
     }
 
     static void onOverlayMessage(PestDestroyerRuntime runtime, String message) {
-        if (message != null && isReelPrompt(stripFormatting(message))) {
+        if (message == null) {
+            return;
+        }
+        String plain = stripFormatting(message);
+        if (isReelPrompt(plain)) {
             runtime.huntReelSignalAt = System.currentTimeMillis();
         }
+        if (isEscapeMessage(plain)) {
+            runtime.huntEscapeSignal = true;
+        }
+    }
+
+    static void onEscapeMessage(PestDestroyerRuntime runtime, String message) {
+        if (message != null && isEscapeMessage(stripFormatting(message))) {
+            runtime.huntEscapeSignal = true;
+        }
+    }
+
+    /** "You didn't reel! Beetle escaped!" - the lasso is off and the pest is loose. */
+    static boolean isEscapeMessage(String plainName) {
+        String upper = plainName.toUpperCase(Locale.ROOT);
+        return upper.contains(ESCAPE_PROMPT)
+                && (upper.contains(REEL_PROMPT) || upper.contains("LASSO"));
     }
 
     static void handleHuntPest(Minecraft client, Context context) {
@@ -297,6 +320,9 @@ final class PestHuntingController {
         }
 
         long now = System.currentTimeMillis();
+        if (runtime.huntEscapeSignal) {
+            restartAfterEscape(client, runtime, now);
+        }
         // Being attached is not a completion signal. Measure the configured
         // timeout from the start so a stuck leash cannot keep this state alive
         // forever merely by remaining attached.
@@ -392,8 +418,11 @@ final class PestHuntingController {
                 holdLassoPosition(client);
                 runtime.huntFollowMove = 0;
             } else {
+                // Forward only: a reel yanks the pest towards us, and answering
+                // that by backing off both pumps the keys and stretches the line
+                // we are trying to keep short.
                 maintainFollowDistance(
-                        client, runtime, focus, LEASHED_FOLLOW_DISTANCE, true, true);
+                        client, runtime, focus, LEASHED_FOLLOW_DISTANCE, true, true, false);
             }
         } else {
             maintainFollowDistance(
@@ -402,7 +431,8 @@ final class PestHuntingController {
                     focus,
                     stunPhase ? STUN_FOLLOW_DISTANCE : AetherConfig.PEST_HUNTING_FOLLOW_DISTANCE.get(),
                     !clickWindow,
-                    !clickWindow);
+                    !clickWindow,
+                    true);
         }
 
         if (runtime.huntStage != Stage.REEL && !attached) {
@@ -441,6 +471,34 @@ final class PestHuntingController {
                 return;
             }
         }
+    }
+
+    /**
+     * The server has just told us the lasso came off and the pest is loose. The
+     * retry beat exists so a re-stun does not race a pest that is still sitting
+     * where it was; this one is already running, so skip it and stun now.
+     */
+    private static void restartAfterEscape(
+            Minecraft client, PestDestroyerRuntime runtime, long now) {
+        runtime.huntEscapeSignal = false;
+        releaseStunVacuum(runtime);
+        runtime.huntThrownAt = 0L;
+        runtime.huntLastAttachedAt = 0L;
+        runtime.huntAttachedSince = 0L;
+        runtime.huntEverAttached = false;
+        runtime.huntReelSignalAt = 0L;
+        runtime.huntReelPromptLatched = false;
+        runtime.huntReelPromptTicks = 0;
+        runtime.huntReelPromptClearTicks = 0;
+        runtime.huntReelPromptArmed = true;
+        runtime.huntReelAwaitingResponseUntil = 0L;
+        runtime.huntSwapReadyTick = 0;
+        runtime.huntDelayBeforeStunSwap = false;
+        runtime.huntStunDelivered = false;
+        runtime.huntStunRangeSince = 0L;
+        runtime.huntLandingWaitStartedAt = 0L;
+        advance(runtime, Stage.STUN, now, client.player.tickCount);
+        ClientUtils.sendDebugMessage("[PestHunting] Pest escaped the lasso. Re-stunning immediately.");
     }
 
     // -- Stages ---------------------------------------------------------------
@@ -498,8 +556,12 @@ final class PestHuntingController {
         AccessorInventory inventory = (AccessorInventory) client.player.getInventory();
         if (inventory.getSelected() != runtime.stunVacuumSlot) {
             client.execute(() -> FailsafeManager.selectHotbarSlot(client, runtime.stunVacuumSlot));
-            runtime.huntStageEnteredTick = tick;
-            return;
+            // Dispatched on the client thread, so it has already applied; re-reading
+            // spends the settle tick on the swap instead of waiting for the next one.
+            if (inventory.getSelected() != runtime.stunVacuumSlot) {
+                runtime.huntStageEnteredTick = tick;
+                return;
+            }
         }
         if (tick - runtime.huntStageEnteredTick < VACUUM_SETTLE_TICKS) {
             return;
@@ -843,13 +905,14 @@ final class PestHuntingController {
             Entity target,
             double followDistance,
             boolean allowTranslation,
-            boolean adjustAltitude) {
+            boolean adjustAltitude,
+            boolean allowBackOff) {
         double horizontal = horizontalDistanceTo(client, target);
         double follow = Math.min(followDistance, LASSO_INTERACTION_RANGE - 0.75);
 
         boolean offAxis = !facesTarget(client, target, FOLLOW_YAW_CONE_DEGREES);
         int followDirection = followDirection(
-                horizontal, follow, offAxis, allowTranslation, runtime.huntFollowMove);
+                horizontal, follow, offAxis, allowTranslation, allowBackOff, runtime.huntFollowMove);
         runtime.huntFollowMove = followDirection;
         ClientUtils.setKeyMappingState(client.options.keyUp, followDirection > 0);
         ClientUtils.setKeyMappingState(client.options.keyDown, followDirection < 0);
@@ -878,6 +941,7 @@ final class PestHuntingController {
             double follow,
             boolean offAxis,
             boolean allowTranslation,
+            boolean allowBackOff,
             int previous) {
         if (!allowTranslation || offAxis) {
             return 0;
@@ -886,13 +950,13 @@ final class PestHuntingController {
             return horizontal > follow ? 1 : 0;
         }
         if (previous < 0) {
-            return horizontal < follow ? -1 : 0;
+            return allowBackOff && horizontal < follow ? -1 : 0;
         }
         if (horizontal > follow + FOLLOW_BAND) {
             return 1;
         }
         double backOffThreshold = Math.max(MIN_AIM_DISTANCE + 0.25, follow - FOLLOW_BAND);
-        return horizontal < backOffThreshold ? -1 : 0;
+        return allowBackOff && horizontal < backOffThreshold ? -1 : 0;
     }
 
     /**
