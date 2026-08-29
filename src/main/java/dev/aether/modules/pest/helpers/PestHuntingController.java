@@ -634,11 +634,11 @@ final class PestHuntingController {
         }
         // forceRotation re-targets every tick, which is what tracking a moving
         // pest needs; initiateRotation would keep aiming where it used to be.
+        // Deliberately uncapped: the stun and throw gates open for a tick or two
+        // before the pest recovers, and a rate-limited turn spends that window
+        // travelling instead of firing.
         RotationManager.forceRotation(
-                client,
-                steerPoint(runtime, aim, now),
-                THROW_AIM_DURATION_MS,
-                AetherConfig.PEST_MAX_TURN_SPEED.get());
+                client, steerPoint(runtime, aim, now), THROW_AIM_DURATION_MS);
     }
 
     /**
