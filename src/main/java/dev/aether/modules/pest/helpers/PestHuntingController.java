@@ -117,6 +117,12 @@ final class PestHuntingController {
     // only, since altitude is the jump/shift keys' job and the aim sits above the
     // pest, which would eat most of a 3D cone at this range.
     private static final double FOLLOW_YAW_CONE_DEGREES = 25.0;
+    // A leashed pest swings around while it is dragged. Dashing at every swing is
+    // what has the hunter circling it, so only close on a stretch that lasts.
+    private static final long LEASH_CLOSE_DEBOUNCE_MS = 250L;
+    // Drift the steer point by a fraction of whatever tolerance the stage clicks
+    // at: never pinned on the pest, never far enough off to cost a click.
+    private static final double AIM_WANDER_FRACTION = 0.3;
     // The follow band stops closing at LASSO_INTERACTION_RANGE horizontally, so
     // the throw gate carries the height slack that band still leaves.
     private static final double THROW_RANGE = LASSO_INTERACTION_RANGE + 0.25;
@@ -417,12 +423,14 @@ final class PestHuntingController {
             if (clickPending) {
                 holdLassoPosition(client);
                 runtime.huntFollowMove = 0;
+                runtime.huntLeashStretchSince = 0L;
             } else {
                 // Forward only: a reel yanks the pest towards us, and answering
                 // that by backing off both pumps the keys and stretches the line
                 // we are trying to keep short.
                 maintainFollowDistance(
-                        client, runtime, focus, LEASHED_FOLLOW_DISTANCE, true, true, false);
+                        client, runtime, focus, LEASHED_FOLLOW_DISTANCE,
+                        leashNeedsClosing(runtime, horizontal, now), true, false);
             }
         } else {
             maintainFollowDistance(
@@ -712,6 +720,24 @@ final class PestHuntingController {
         ClientUtils.sendDebugMessage("[PestHunting] Reeled (" + runtime.huntReelCount + ").");
     }
 
+    /**
+     * True once the line has been stretched long enough to be worth closing, and
+     * for as long as that approach is still running. A swing that comes back on
+     * its own is left alone rather than answered with a dash at the pest.
+     */
+    private static boolean leashNeedsClosing(
+            PestDestroyerRuntime runtime, double horizontal, long now) {
+        if (horizontal <= LEASHED_FOLLOW_DISTANCE + FOLLOW_BAND) {
+            runtime.huntLeashStretchSince = 0L;
+            return runtime.huntFollowMove > 0;
+        }
+        if (runtime.huntLeashStretchSince == 0L) {
+            runtime.huntLeashStretchSince = now;
+        }
+        return runtime.huntFollowMove > 0
+                || now - runtime.huntLeashStretchSince >= LEASH_CLOSE_DEBOUNCE_MS;
+    }
+
     // -- Catch completion -----------------------------------------------------
 
     private static void finishCatch(
@@ -772,14 +798,15 @@ final class PestHuntingController {
         if (distance < MIN_AIM_DISTANCE) {
             return;
         }
-        if (PestTargetController.isLookingAt(client, aim, tolerance)) {
-            return;
-        }
+        // Steered even when the crosshair is already inside tolerance. Stopping
+        // there parks it dead on the pest for the rest of the catch, which is the
+        // locked-on look; the drift keeps it alive, and the click gates read the
+        // true point, so a couple of degrees of it costs nothing.
         // Tracking re-targets every tick, which is what following a moving pest
         // needs; initiateRotation would keep aiming where it used to be.
         RotationManager.trackRotation(
                 client,
-                steerPoint(runtime, aim, now),
+                wander(client, steerPoint(runtime, aim, now), tolerance * AIM_WANDER_FRACTION, now),
                 HUNT_AIM_SMOOTHING_MS,
                 HUNT_AIM_MAX_TURN_SPEED);
     }
@@ -872,6 +899,29 @@ final class PestHuntingController {
         }
         double t = Math.max(0.0, (double) elapsedMs / AIM_BLEND_MS);
         return 1.0 - t * t * (3.0 - 2.0 * t);
+    }
+
+    /**
+     * Slow drift around the steer point. Upward only in pitch, so it can never put
+     * the crosshair back onto the hitbox the aim clearance just cleared.
+     */
+    private static Vec3 wander(Minecraft client, Vec3 point, double degrees, long now) {
+        Vec3 toPoint = point.subtract(client.player.getEyePosition());
+        double distance = toPoint.length();
+        if (degrees <= 0.0 || distance < 1.0e-3) {
+            return point;
+        }
+        double seconds = now / 1000.0;
+        double reach = distance * Math.tan(Math.toRadians(degrees));
+        double lateral = reach
+                * (Math.sin(seconds * 1.30) * 0.6 + Math.sin(seconds * 0.47) * 0.4);
+        double vertical = reach * (Math.sin(seconds * 0.83) + 1.0) * 0.5;
+        double horizontal = Math.sqrt(toPoint.x * toPoint.x + toPoint.z * toPoint.z);
+        if (horizontal < 1.0e-3) {
+            return point.add(0, vertical, 0);
+        }
+        Vec3 right = new Vec3(-toPoint.z / horizontal, 0.0, toPoint.x / horizontal);
+        return point.add(right.scale(lateral)).add(0.0, vertical, 0.0);
     }
 
     private static Vec3 aimPoint(

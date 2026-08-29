@@ -57,6 +57,7 @@ final class PestDestroyerRuntime {
     long huntStunHoldStartedAt = 0L;
     long huntStunRangeSince = 0L;
     int huntFollowMove = 0;
+    long huntLeashStretchSince = 0L;
     int huntStageEnteredTick = 0;
     long huntLandingWaitStartedAt = 0L;
     double huntTargetY = Double.NaN;
@@ -224,6 +225,7 @@ final class PestDestroyerRuntime {
         huntStunHoldStartedAt = 0L;
         huntStunRangeSince = 0L;
         huntFollowMove = 0;
+        huntLeashStretchSince = 0L;
         huntStageEnteredTick = 0;
         huntLandingWaitStartedAt = 0L;
         huntTargetY = Double.NaN;
