@@ -79,9 +79,16 @@ final class PestHuntingController {
     private static final long REEL_OVERLAY_SIGNAL_GRACE_MS = 300L;
     private static final long LANDING_WAIT_TIMEOUT_MS = 250L;
     private static final double LANDING_Y_EPSILON = 0.05;
-    // Doubles as the closest the follow band will sit (see followDirection): the
-    // leash has to be ridden from a block or so, and the aim still has to work there.
+    // Doubles as the closest the follow band will sit (see followDirection), so
+    // it keeps the ride wide enough to absorb an overshoot without braking.
     private static final double MIN_AIM_DISTANCE = 1.0;
+    // Right-clicking the pest itself is an entity interaction and the server
+    // spends the click on that instead of the lasso, so aim over its head.
+    // Deterministic per pest: the steer and the click gate have to agree tick to
+    // tick, and one fixed offset for every pest would be its own tell.
+    private static final double MIN_AIM_ABOVE_PEST = 1.0;
+    private static final double MAX_AIM_ABOVE_PEST = 2.0;
+    private static final int AIM_ABOVE_BUCKETS = 5;
     // Keep the approach inside the server's dependable lasso hit range, but do
     // not gate the stun/throw on reaching it: a moving pest can escape during
     // that wait. The hunter closes distance while the immediate sequence runs.
@@ -92,8 +99,10 @@ final class PestHuntingController {
     private static final double STUN_RANGE = 3.5;
     private static final double STUN_FOLLOW_DISTANCE = 2.5;
     // A leashed pest keeps walking and the line snaps within a few blocks, so
-    // ride it as close as the aim tolerates instead of holding position.
-    private static final double LEASHED_FOLLOW_DISTANCE = 1.25;
+    // ride along instead of holding position. Riding closer than this had the
+    // hunter pumping forward and back: flight momentum overshoots any band
+    // narrower than its stopping distance.
+    private static final double LEASHED_FOLLOW_DISTANCE = 2.0;
     // Ordinary flight tops out under a fleeing pest. Sprint only once the gap is
     // wide enough that the catch-up cannot turn into overshoot and orbiting.
     private static final double SPRINT_GAP = 2.0;
@@ -1069,10 +1078,20 @@ final class PestHuntingController {
      */
     private static Vec3 huntAimPoint(Minecraft client, Entity pest) {
         if (pest instanceof Bat || pest instanceof Silverfish) {
-            return eyePosition(pest);
+            return abovePest(pest);
         }
         ArmorStand healthBar = findMarker(client, pest, false);
-        return healthBar != null ? healthBar.position() : eyePosition(pest);
+        return healthBar != null ? healthBar.position() : abovePest(pest);
+    }
+
+    static double aimHeightAbovePest(int entityId) {
+        double span = MAX_AIM_ABOVE_PEST - MIN_AIM_ABOVE_PEST;
+        int bucket = Math.floorMod(entityId, AIM_ABOVE_BUCKETS);
+        return MIN_AIM_ABOVE_PEST + span * bucket / (AIM_ABOVE_BUCKETS - 1);
+    }
+
+    private static Vec3 abovePest(Entity pest) {
+        return pest.position().add(0, aimHeightAbovePest(pest.getId()), 0);
     }
 
     private static ArmorStand findMarker(Minecraft client, Entity pest, boolean reelPrompt) {
@@ -1117,10 +1136,6 @@ final class PestHuntingController {
         return dx * dx + dz * dz <= maxHorizontal * maxHorizontal
                 && dy >= -MARKER_MAX_HEIGHT_BELOW
                 && dy <= MARKER_MAX_HEIGHT_ABOVE;
-    }
-
-    private static Vec3 eyePosition(Entity entity) {
-        return entity.position().add(0, entity.getEyeHeight(entity.getPose()), 0);
     }
 
     private static void advance(
