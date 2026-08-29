@@ -21,15 +21,17 @@ final class PestCombatCoordinator {
     private static final double AOTV_CONFIRM_DISTANCE = 2.0;
     private static final double AOTV_CONFIRM_DISTANCE_SQ = AOTV_CONFIRM_DISTANCE * AOTV_CONFIRM_DISTANCE;
     private static final float AOTV_AIM_TOLERANCE_DEGREES = 2.0f;
-    // A pest that never settles inside the tight tolerance must not stall the hop chain.
-    private static final long AOTV_AIM_SETTLE_TIMEOUT_MS = 1_000L;
+    // A pest that never settles inside the tight tolerance must not stall the hop
+    // chain. Held just past the aim's own worst case (a half turn, ~280ms) so a
+    // normal hop still gets the tight tolerance and a stubborn one gives up fast.
+    private static final long AOTV_AIM_SETTLE_TIMEOUT_MS = 400L;
     private static final float AOTV_AIM_FALLBACK_TOLERANCE_DEGREES = 6.0f;
     // The hop aim is not a chase: it points at a spot and warps, and every extra
     // millisecond here lands on top of the configured AOTV delay. Kept fast
     // enough that settling inside AOTV_AIM_TOLERANCE_DEGREES stays in the same
     // ballpark as that delay even from a half-turn away.
-    private static final float AOTV_AIM_SMOOTHING_MS = 50.0f;
-    private static final float AOTV_AIM_MAX_TURN_SPEED = 800.0f;
+    private static final float AOTV_AIM_SMOOTHING_MS = 40.0f;
+    private static final float AOTV_AIM_MAX_TURN_SPEED = 900.0f;
     // Slower than the hunt's: nothing here closes in a two-tick window, so the
     // cleaner can take a human beat to swing between targets.
     private static final float COMBAT_AIM_SMOOTHING_MS = 150.0f;
@@ -415,6 +417,9 @@ final class PestCombatCoordinator {
             if (!context.isLookingAt(client, aimPos, tolerance)) {
                 return;
             }
+            ClientUtils.sendDebugMessage("[PestDestroyer] AOTV aim settled in "
+                    + (now - context.getAotvAimStartedAt()) + "ms (tolerance "
+                    + String.format("%.0f", tolerance) + "\u00B0).");
             context.setAotvAimStartedAt(0L);
         }
 

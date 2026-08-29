@@ -1256,6 +1256,8 @@ public final class PathfindingManager {
         long elapsedMs = System.currentTimeMillis() - startMs;
         double pathBlocks = computePathLength(nodes);
 
+        ClientUtils.sendDebugMessage("fly path built: " + smoothed.size() + " waypoint(s), "
+                + exploredCount + " explored, " + elapsedMs + "ms search");
         if (mc.player != null) {
             ClientUtils.sendMessage("\u00A7eFly path result: " + resultTypeStr
                             + "\u00A7e | explored: " + exploredCount
