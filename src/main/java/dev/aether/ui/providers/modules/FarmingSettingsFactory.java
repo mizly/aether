@@ -236,6 +236,16 @@ final class FarmingSettingsFactory {
                 .withDecimals(1).withSuffix("\u00B0");
     }
 
+    static SliderSetting pestMaxTurnSpeedSetting() {
+        return new SliderSetting("Pest Turn Speed Limit", 60, 1200,
+                () -> AetherConfig.PEST_MAX_TURN_SPEED.get(),
+                v -> {
+                    AetherConfig.PEST_MAX_TURN_SPEED.set(v);
+                    AetherConfig.save();
+                })
+                .withDecimals(0).withSuffix("\u00B0/s");
+    }
+
     static SliderSetting visitorFovRangeSetting() {
         return new SliderSetting("Visitor FOV Range", 0, 30,
                 () -> AetherConfig.VISITOR_FOV_RANGE.get(),

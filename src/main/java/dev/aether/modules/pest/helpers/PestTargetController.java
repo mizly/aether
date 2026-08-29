@@ -346,7 +346,8 @@ final class PestTargetController {
                     client,
                     targetEye,
                     TARGET_SWITCH_ROTATION_MS,
-                    AetherConfig.PEST_FOV_RANGE.get());
+                    AetherConfig.PEST_FOV_RANGE.get(),
+                    AetherConfig.PEST_MAX_TURN_SPEED.get());
         }
     }
 

@@ -13,6 +13,9 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class RotationManager {
     private static final float EXTERNAL_ROTATION_TOLERANCE_DEGREES = 5.0f;
+    // A long frame gap (lag spike, alt-tab) must not hand a speed-capped
+    // rotation a whole turn's worth of budget in a single step.
+    private static final long MAX_TURN_STEP_MS = 60L;
 
     private static boolean isRotating = false;
     private static RotationUtils.Rotation startRot;
@@ -24,6 +27,8 @@ public class RotationManager {
     private static float lastAppliedYaw = 0.0f;
     private static float lastAppliedPitch = 0.0f;
     private static boolean hasLastApplied = false;
+    private static float maxDegreesPerSecond = 0.0f;
+    private static long lastUpdateAt = 0L;
 
     public static boolean isRotating() {
         return isRotating;
@@ -38,6 +43,7 @@ public class RotationManager {
         applyTrackingNoise = false;
         rotationGcd = Double.NaN;
         hasLastApplied = false;
+        maxDegreesPerSecond = 0.0f;
     }
 
     public static void initiateRotation(Minecraft mc, Vec3 targetPos, long minDuration) {
@@ -45,6 +51,15 @@ public class RotationManager {
     }
 
     public static void initiateRotation(Minecraft mc, Vec3 targetPos, long minDuration, float humanizeRange) {
+        initiateRotation(mc, targetPos, minDuration, humanizeRange, 0.0f);
+    }
+
+    /**
+     * {@code turnSpeedLimit} in degrees per second caps how fast the camera may
+     * travel, whatever the duration works out to; 0 leaves it uncapped.
+     */
+    public static void initiateRotation(
+            Minecraft mc, Vec3 targetPos, long minDuration, float humanizeRange, float turnSpeedLimit) {
         if (mc.player == null)
             return;
 
@@ -71,6 +86,7 @@ public class RotationManager {
         applyTrackingNoise = false;
         rotationGcd = computeGcd(mc);
         hasLastApplied = false;
+        maxDegreesPerSecond = Math.max(0.0f, turnSpeedLimit);
         isRotating = true;
     }
 
@@ -94,6 +110,7 @@ public class RotationManager {
         applyTrackingNoise = false;
         rotationGcd = computeGcd(mc);
         hasLastApplied = false;
+        maxDegreesPerSecond = 0.0f;
         isRotating = true;
     }
 
@@ -102,6 +119,17 @@ public class RotationManager {
      * Used by pathfinding, which needs to update the target every tick.
      */
     public static void forceRotation(Minecraft mc, Vec3 targetPos, long durationMs) {
+        forceRotation(mc, targetPos, durationMs, 0.0f);
+    }
+
+    /**
+     * {@code turnSpeedLimit} in degrees per second caps how fast the camera may
+     * travel. A re-targeted tracking rotation covers its whole angle in
+     * {@code durationMs} no matter how large that angle is, which is what turns
+     * a close-range target switch into a snap; 0 leaves it uncapped.
+     */
+    public static void forceRotation(
+            Minecraft mc, Vec3 targetPos, long durationMs, float turnSpeedLimit) {
         if (mc.player == null) return;
         if (FailsafeManager.shouldSuppressPestCleanerRotation(mc)) return;
         startRot = new RotationUtils.Rotation(mc.player.getYRot(), mc.player.getXRot());
@@ -112,6 +140,7 @@ public class RotationManager {
         applyTrackingNoise = true;
         rotationGcd = computeGcd(mc);
         hasLastApplied = false;
+        maxDegreesPerSecond = Math.max(0.0f, turnSpeedLimit);
         isRotating = true;
     }
 
@@ -120,6 +149,10 @@ public class RotationManager {
         if (mc.player == null)
             return;
 
+        long updateAt = System.currentTimeMillis();
+        long sinceLastUpdate = lastUpdateAt == 0L ? 0L : updateAt - lastUpdateAt;
+        lastUpdateAt = updateAt;
+
         if (isRotating && startRot != null && targetRot != null) {
             if (hasExternalRotation(mc)) {
                 FailsafeManager.reportExternalRotation();
@@ -127,7 +160,7 @@ public class RotationManager {
                 return;
             }
 
-            long currentTime = System.currentTimeMillis();
+            long currentTime = updateAt;
             long elapsed = currentTime - rotationStartTime;
             float t = (float) elapsed / (float) rotationDuration;
 
@@ -160,6 +193,23 @@ public class RotationManager {
             }
 
             currentPitch = Mth.clamp(currentPitch, -90.0f, 90.0f);
+
+            if (maxDegreesPerSecond > 0.0f) {
+                float budget = maxDegreesPerSecond
+                        * Math.min(sinceLastUpdate, MAX_TURN_STEP_MS) / 1000.0f;
+                float yawStep = Mth.wrapDegrees(currentYaw - mc.player.getYRot());
+                float pitchStep = currentPitch - mc.player.getXRot();
+                float step = (float) Math.sqrt(yawStep * yawStep + pitchStep * pitchStep);
+                if (step > budget) {
+                    float scale = budget / step;
+                    currentYaw = mc.player.getYRot() + yawStep * scale;
+                    currentPitch = Mth.clamp(mc.player.getXRot() + pitchStep * scale, -90.0f, 90.0f);
+                    // The eased curve is done but the camera is not there yet;
+                    // ending here would leave it short of the target.
+                    isRotating = true;
+                }
+            }
+
             currentYaw = applyGcd(currentYaw, mc.player.getYRot());
             currentPitch = applyGcd(currentPitch, mc.player.getXRot(), -90.0f, 90.0f);
 

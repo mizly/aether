@@ -121,6 +121,7 @@ public final class HumanizationRegistryProvider extends AbstractModulesRegistryP
                 .add(FarmingSettingsFactory.farmingYawRangeSetting())
                 .add(FarmingSettingsFactory.pestFovRangeSetting())
                 .add(FarmingSettingsFactory.pestAboveAimPitchRangeSetting())
+                .add(FarmingSettingsFactory.pestMaxTurnSpeedSetting())
                 .add(FarmingSettingsFactory.visitorFovRangeSetting())
                 .add(FarmingSettingsFactory.pestExchangeFovRangeSetting()));
 

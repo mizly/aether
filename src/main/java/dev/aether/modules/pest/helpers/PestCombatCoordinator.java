@@ -174,7 +174,7 @@ final class PestCombatCoordinator {
                 && !FailsafeManager.shouldSuppressPestCleanerRotation(client)
                 && shouldRotateForCombatAim(context, client, currentTarget)) {
             Vec3 targetEye = buildCombatAimTarget(client, currentTarget);
-            RotationManager.forceRotation(client, targetEye, 120);
+            RotationManager.forceRotation(client, targetEye, 120, AetherConfig.PEST_MAX_TURN_SPEED.get());
         }
 
         if (dist <= terminalRange) {
@@ -227,7 +227,11 @@ final class PestCombatCoordinator {
             PathfindingManager.stop();
             context.setTargetWithoutSkullTicks(0);
             if (!FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
-                RotationManager.forceRotation(client, buildCombatAimTarget(client, currentTarget), 120);
+                RotationManager.forceRotation(
+                        client,
+                        buildCombatAimTarget(client, currentTarget),
+                        120,
+                        AetherConfig.PEST_MAX_TURN_SPEED.get());
             }
             ClientUtils.sendDebugMessage("[PestDestroyer] Target moved behind forward cone. Turning to reacquire.");
             return;
@@ -256,7 +260,8 @@ final class PestCombatCoordinator {
             if (!FailsafeManager.shouldSuppressPestCleanerRotation(client)
                     && shouldRotateForCombatAim(context, client, currentTarget)) {
                 Vec3 targetEye = buildCombatAimTarget(client, currentTarget);
-                RotationManager.forceRotation(client, targetEye, 120);
+                RotationManager.forceRotation(
+                        client, targetEye, 120, AetherConfig.PEST_MAX_TURN_SPEED.get());
             }
 
             double speed = Math.abs(client.player.getDeltaMovement().x)
@@ -386,7 +391,8 @@ final class PestCombatCoordinator {
             }
             // A one-shot rotation lands where the pest was and has to restart, which is
             // what froze the hop chain staring at the pest. Retarget every tick instead.
-            RotationManager.forceRotation(client, aimPos, AOTV_AIM_TRACK_MS);
+            RotationManager.forceRotation(
+                    client, aimPos, AOTV_AIM_TRACK_MS, AetherConfig.PEST_MAX_TURN_SPEED.get());
 
             float tolerance = now - context.getAotvAimStartedAt() > AOTV_AIM_SETTLE_TIMEOUT_MS
                     ? AOTV_AIM_FALLBACK_TOLERANCE_DEGREES

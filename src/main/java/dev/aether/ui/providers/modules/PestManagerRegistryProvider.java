@@ -144,7 +144,8 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                 .add(FarmingSettingsFactory.aotvBetweenPestsDelaySetting()
                         .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()))
                 .add(FarmingSettingsFactory.pestFovRangeSetting())
-                .add(FarmingSettingsFactory.pestAboveAimPitchRangeSetting()));
+                .add(FarmingSettingsFactory.pestAboveAimPitchRangeSetting())
+                .add(FarmingSettingsFactory.pestMaxTurnSpeedSetting()));
         groups.add(SettingGroup.of(
                         "Pest Hunting",
                         "Lassos pests for guaranteed shards instead of vacuuming them (needs a lasso in your hotbar)",
