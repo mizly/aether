@@ -123,6 +123,12 @@ final class PestHuntingController {
     // Drift the steer point by a fraction of whatever tolerance the stage clicks
     // at: never pinned on the pest, never far enough off to cost a click.
     private static final double AIM_WANDER_FRACTION = 0.3;
+    private static final double MAX_AIM_WANDER_DEGREES = 3.0;
+    // Away from the click the crosshair only has to be pointed at the pest, not
+    // welded to it. Let the pest's own movement carry the aim this far off, then
+    // put it back; correcting every tick is the thing that reads as an aimbot.
+    private static final float LOOSE_AIM_TRIGGER_DEGREES = 12.0f;
+    private static final float LOOSE_AIM_SETTLE_DEGREES = 6.0f;
     // The follow band stops closing at LASSO_INTERACTION_RANGE horizontally, so
     // the throw gate carries the height slack that band still leaves.
     private static final double THROW_RANGE = LASSO_INTERACTION_RANGE + 0.25;
@@ -390,9 +396,20 @@ final class PestHuntingController {
         // the crosshair on the real point now, and a blend there costs the stun.
         updateAimBlend(client, runtime, focus, attached || runtime.huntStage == Stage.REEL, now);
         probeCatchState(client, runtime, focus, lassoed, now);
-        // The reel prompt lasts only a moment, so stay aimed for the whole leash
-        // instead of starting to turn once it is already up.
-        maintainAim(client, runtime, focus, huntAimTolerance(attached, runtime.huntStage), now);
+        double horizontal = horizontalDistanceTo(client, focus);
+        boolean stunPhase = !attached && usesVacuumAim(runtime);
+        boolean inActionRange =
+                client.player.distanceTo(focus) <= (stunPhase ? STUN_RANGE : THROW_RANGE);
+        // Precise only where a click is imminent. Flying in and riding a leash are
+        // both minutes-long by comparison, and holding a locked crosshair through
+        // them is what looks inhuman.
+        maintainAim(
+                client,
+                runtime,
+                focus,
+                huntAimTolerance(attached, runtime.huntStage),
+                !attached && inActionRange,
+                now);
         // Attack is never ours here, and a swing knocks the pest off the lasso.
         // The farming latch has to go first: MixinMinecraftAttackInput reports the
         // key as held while it is set, so releasing the key alone does nothing.
@@ -402,13 +419,11 @@ final class PestHuntingController {
         // Stop translating once the crosshair is ready AND the pest is inside the
         // range this stage acts from. Holding still merely because the aim landed
         // parked the hunter out at the leash range, where the stun cannot reach.
-        double horizontal = horizontalDistanceTo(client, focus);
         // Outside this the stage machine is skipped below, so holding still on
         // aim leaves the hunter frozen and staring until the catch times out.
         boolean withinLeashRange = horizontal <= AetherConfig.PEST_HUNTING_MAX_DISTANCE.get();
-        boolean stunPhase = !attached && usesVacuumAim(runtime);
         boolean clickWindow = clickPending
-                || (client.player.distanceTo(focus) <= (stunPhase ? STUN_RANGE : THROW_RANGE)
+                || (inActionRange
                         && !attached
                         && runtime.huntStage != Stage.REEL
                         && isAimedAtTarget(
@@ -789,6 +804,7 @@ final class PestHuntingController {
             PestDestroyerRuntime runtime,
             Entity target,
             float tolerance,
+            boolean precise,
             long now) {
         if (FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
             return;
@@ -796,6 +812,9 @@ final class PestHuntingController {
         Vec3 aim = aimPoint(client, runtime, target);
         double distance = client.player.getEyePosition().distanceTo(aim);
         if (distance < MIN_AIM_DISTANCE) {
+            return;
+        }
+        if (!precise && !needsLooseCorrection(client, runtime, aim)) {
             return;
         }
         // Steered even when the crosshair is already inside tolerance. Stopping
@@ -806,9 +825,35 @@ final class PestHuntingController {
         // needs; initiateRotation would keep aiming where it used to be.
         RotationManager.trackRotation(
                 client,
-                wander(client, steerPoint(runtime, aim, now), tolerance * AIM_WANDER_FRACTION, now),
+                wander(client, steerPoint(runtime, aim, now), wanderDegrees(tolerance), now),
                 HUNT_AIM_SMOOTHING_MS,
                 HUNT_AIM_MAX_TURN_SPEED);
+    }
+
+    private static double wanderDegrees(float tolerance) {
+        return Math.min(tolerance * AIM_WANDER_FRACTION, MAX_AIM_WANDER_DEGREES);
+    }
+
+    /**
+     * Loose tracking: let the pest carry the crosshair off by
+     * LOOSE_AIM_TRIGGER_DEGREES, put it back to within LOOSE_AIM_SETTLE_DEGREES,
+     * then leave it alone again. The settle stays clear of the drift so a
+     * correction can finish instead of turning back into continuous tracking.
+     */
+    private static boolean needsLooseCorrection(
+            Minecraft client, PestDestroyerRuntime runtime, Vec3 aim) {
+        if (runtime.huntAimCorrecting) {
+            if (!PestTargetController.isLookingAt(client, aim, LOOSE_AIM_SETTLE_DEGREES)) {
+                return true;
+            }
+            runtime.huntAimCorrecting = false;
+            return false;
+        }
+        if (PestTargetController.isLookingAt(client, aim, LOOSE_AIM_TRIGGER_DEGREES)) {
+            return false;
+        }
+        runtime.huntAimCorrecting = true;
+        return true;
     }
 
     /**
