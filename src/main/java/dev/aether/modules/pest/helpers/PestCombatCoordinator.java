@@ -24,7 +24,12 @@ final class PestCombatCoordinator {
     // A pest that never settles inside the tight tolerance must not stall the hop chain.
     private static final long AOTV_AIM_SETTLE_TIMEOUT_MS = 1_000L;
     private static final float AOTV_AIM_FALLBACK_TOLERANCE_DEGREES = 6.0f;
-    private static final float AOTV_AIM_SMOOTHING_MS = 110.0f;
+    // The hop aim is not a chase: it points at a spot and warps, and every extra
+    // millisecond here lands on top of the configured AOTV delay. Kept fast
+    // enough that settling inside AOTV_AIM_TOLERANCE_DEGREES stays in the same
+    // ballpark as that delay even from a half-turn away.
+    private static final float AOTV_AIM_SMOOTHING_MS = 50.0f;
+    private static final float AOTV_AIM_MAX_TURN_SPEED = 800.0f;
     // Slower than the hunt's: nothing here closes in a two-tick window, so the
     // cleaner can take a human beat to swing between targets.
     private static final float COMBAT_AIM_SMOOTHING_MS = 150.0f;
@@ -402,7 +407,7 @@ final class PestCombatCoordinator {
             // A one-shot rotation lands where the pest was and has to restart, which is
             // what froze the hop chain staring at the pest. Retarget every tick instead.
             RotationManager.trackRotation(
-                    client, aimPos, AOTV_AIM_SMOOTHING_MS, AetherConfig.PEST_MAX_TURN_SPEED.get());
+                    client, aimPos, AOTV_AIM_SMOOTHING_MS, AOTV_AIM_MAX_TURN_SPEED);
 
             float tolerance = now - context.getAotvAimStartedAt() > AOTV_AIM_SETTLE_TIMEOUT_MS
                     ? AOTV_AIM_FALLBACK_TOLERANCE_DEGREES

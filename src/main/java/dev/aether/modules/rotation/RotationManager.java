@@ -252,6 +252,16 @@ public class RotationManager {
             currentYaw = applyGcd(currentYaw, mc.player.getYRot());
             currentPitch = applyGcd(currentPitch, mc.player.getXRot(), -90.0f, 90.0f);
 
+            // A tracking rotation closes a fraction of what is left, so the last
+            // fraction of a degree rounds to nothing on the mouse GCD and the
+            // rotation never reports finished. Every isRotating() wait in the mod
+            // hangs on that, so treat a step the GCD cannot express as arrival.
+            if (trackingMode && stepMs > 0
+                    && currentYaw == mc.player.getYRot()
+                    && currentPitch == mc.player.getXRot()) {
+                isRotating = false;
+            }
+
             mc.player.setYRot(currentYaw);
             mc.player.setXRot(currentPitch);
             mc.player.yRotO = currentYaw;

@@ -83,12 +83,15 @@ final class PestHuntingController {
     // it keeps the ride wide enough to absorb an overshoot without braking.
     private static final double MIN_AIM_DISTANCE = 1.0;
     // Right-clicking the pest itself is an entity interaction and the server
-    // spends the click on that instead of the lasso, so aim over its head.
+    // spends the click on that instead of the lasso, so clear the top of its
+    // hitbox. Measured off the hitbox rather than the ground: a flat offset that
+    // clears a bat has the crosshair way above a silverfish, which is what had
+    // the hunter craning upwards over the pest it was reeling in.
     // Deterministic per pest: the steer and the click gate have to agree tick to
-    // tick, and one fixed offset for every pest would be its own tell.
-    private static final double MIN_AIM_ABOVE_PEST = 1.0;
-    private static final double MAX_AIM_ABOVE_PEST = 2.0;
-    private static final int AIM_ABOVE_BUCKETS = 5;
+    // tick, and one fixed clearance for every pest would be its own tell.
+    private static final double MIN_AIM_CLEARANCE = 0.15;
+    private static final double MAX_AIM_CLEARANCE = 0.35;
+    private static final int AIM_CLEARANCE_BUCKETS = 5;
     // Keep the approach inside the server's dependable lasso hit range, but do
     // not gate the stun/throw on reaching it: a moving pest can escape during
     // that wait. The hunter closes distance while the immediate sequence runs.
@@ -1084,14 +1087,14 @@ final class PestHuntingController {
         return healthBar != null ? healthBar.position() : abovePest(pest);
     }
 
-    static double aimHeightAbovePest(int entityId) {
-        double span = MAX_AIM_ABOVE_PEST - MIN_AIM_ABOVE_PEST;
-        int bucket = Math.floorMod(entityId, AIM_ABOVE_BUCKETS);
-        return MIN_AIM_ABOVE_PEST + span * bucket / (AIM_ABOVE_BUCKETS - 1);
+    static double aimClearance(int entityId) {
+        double span = MAX_AIM_CLEARANCE - MIN_AIM_CLEARANCE;
+        int bucket = Math.floorMod(entityId, AIM_CLEARANCE_BUCKETS);
+        return MIN_AIM_CLEARANCE + span * bucket / (AIM_CLEARANCE_BUCKETS - 1);
     }
 
     private static Vec3 abovePest(Entity pest) {
-        return pest.position().add(0, aimHeightAbovePest(pest.getId()), 0);
+        return pest.position().add(0, pest.getBbHeight() + aimClearance(pest.getId()), 0);
     }
 
     private static ArmorStand findMarker(Minecraft client, Entity pest, boolean reelPrompt) {
