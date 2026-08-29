@@ -195,6 +195,9 @@ final class PestDestroyerRuntime {
     }
 
     void resetHuntState() {
+        // A state change out from under a stun leaves the vacuum key held; the
+        // hunt's own exits clear it, everything else lands here.
+        PestHuntingController.releaseStunVacuum(this);
         lassoSlot = -1;
         huntStage = PestHuntingController.Stage.STUN;
         huntStartedAt = 0L;

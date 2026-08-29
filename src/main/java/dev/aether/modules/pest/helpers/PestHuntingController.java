@@ -41,6 +41,9 @@ final class PestHuntingController {
     // A single tap is consumed before the suction registers, so the pest is
     // routinely unstunned by the time the lasso goes out. Hold the vacuum.
     private static final long STUN_VACUUM_HOLD_MS = 500L;
+    // A stun that will not land must not hold the catch hostage: the lasso works
+    // without it, and standing aimed for the whole catch timeout reads as a macro.
+    private static final long STUN_STAGE_TIMEOUT_MS = 3_000L;
     private static final int MIN_VACUUM_SWAP_TICKS = 1;
     private static final int MAX_VACUUM_SWAP_TICKS = 5;
     // The swap back after a miss is on the critical path, so vary it only enough to hide the tick.
@@ -150,6 +153,7 @@ final class PestHuntingController {
     static void clearHunt(Minecraft client, PestDestroyerRuntime runtime) {
         // A moving-target rotation must not survive the catch and own the camera afterwards.
         RotationManager.cancelRotation();
+        releaseStunVacuum(runtime);
         runtime.huntStage = Stage.STUN;
         runtime.huntStartedAt = 0L;
         runtime.huntStageEnteredAt = 0L;
@@ -321,8 +325,12 @@ final class PestHuntingController {
         // Continuing to fly while swapping/clicking was carrying the player past
         // the pest, turning an accurate stun into a late or missed lasso throw.
         double horizontal = horizontalDistanceTo(client, focus);
+        // Outside this the stage machine is skipped below, so holding still on
+        // aim leaves the hunter frozen and staring until the catch times out.
+        boolean withinActionRange = horizontal <= AetherConfig.PEST_HUNTING_MAX_DISTANCE.get();
         boolean clickWindow = clickPending
-                || (!attached
+                || (withinActionRange
+                        && !attached
                         && runtime.huntStage != Stage.REEL
                         && isAimedAtTarget(
                                 client,
@@ -347,7 +355,10 @@ final class PestHuntingController {
                 context.setState(PestDestroyer.State.FLY_TO_PEST);
                 return;
             }
-            if (horizontal > AetherConfig.PEST_HUNTING_MAX_DISTANCE.get()) {
+            if (!withinActionRange) {
+                // No stage runs this tick, so a hold started in range would stay
+                // pressed for the whole approach back.
+                releaseStunVacuum(runtime);
                 return;
             }
         }
@@ -389,6 +400,13 @@ final class PestHuntingController {
             return;
         }
         if (!AetherConfig.PEST_HUNTING_VACUUM_STUN.get() || runtime.stunVacuumSlot < 0) {
+            advance(runtime, Stage.SWAP_TO_LASSO, now, tick);
+            return;
+        }
+        if (runtime.huntStunHoldStartedAt == 0L
+                && !runtime.huntStunDelivered
+                && now - runtime.huntStageEnteredAt > STUN_STAGE_TIMEOUT_MS) {
+            ClientUtils.sendDebugMessage("[PestHunting] Stun did not land. Throwing without it.");
             advance(runtime, Stage.SWAP_TO_LASSO, now, tick);
             return;
         }
@@ -617,7 +635,10 @@ final class PestHuntingController {
         // forceRotation re-targets every tick, which is what tracking a moving
         // pest needs; initiateRotation would keep aiming where it used to be.
         RotationManager.forceRotation(
-                client, steerPoint(runtime, aim, now), THROW_AIM_DURATION_MS);
+                client,
+                steerPoint(runtime, aim, now),
+                THROW_AIM_DURATION_MS,
+                AetherConfig.PEST_MAX_TURN_SPEED.get());
     }
 
     /**
@@ -898,7 +919,7 @@ final class PestHuntingController {
                 && leashable.getLeashHolder() == client.player;
     }
 
-    private static void releaseStunVacuum(PestDestroyerRuntime runtime) {
+    static void releaseStunVacuum(PestDestroyerRuntime runtime) {
         if (runtime.huntStunHoldStartedAt == 0L) {
             return;
         }
