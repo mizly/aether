@@ -64,30 +64,38 @@ class PestHuntingControllerTest {
 
     @Test
     void followMovementHoldsWhileAnInteractionIsReady() {
-        assertEquals(0, PestHuntingController.followDirection(20.0, 6.0, false, false, true, 0));
+        assertEquals(0, PestHuntingController.followDirection(20.0, 20.0, 6.0, false, false, true, 0));
     }
 
     @Test
     void followMovementApproachesAndBacksOffWithoutStrafing() {
-        assertEquals(1, PestHuntingController.followDirection(8.0, 6.0, false, true, true, 0));
-        assertEquals(0, PestHuntingController.followDirection(6.0, 6.0, false, true, true, 0));
-        assertEquals(-1, PestHuntingController.followDirection(4.0, 6.0, false, true, true, 0));
-        assertEquals(0, PestHuntingController.followDirection(8.0, 6.0, true, true, true, 0));
+        assertEquals(1, PestHuntingController.followDirection(8.0, 8.0, 6.0, false, true, true, 0));
+        assertEquals(0, PestHuntingController.followDirection(6.0, 6.0, 6.0, false, true, true, 0));
+        assertEquals(-1, PestHuntingController.followDirection(4.0, 4.0, 6.0, false, true, true, 0));
+        assertEquals(0, PestHuntingController.followDirection(8.0, 8.0, 6.0, true, true, true, 0));
     }
 
     @Test
     void aMoveInProgressRunsToTheFollowDistanceInsteadOfTheBandEdge() {
-        assertEquals(1, PestHuntingController.followDirection(6.5, 6.0, false, true, true, 1));
-        assertEquals(0, PestHuntingController.followDirection(5.9, 6.0, false, true, true, 1));
-        assertEquals(-1, PestHuntingController.followDirection(5.5, 6.0, false, true, true, -1));
-        assertEquals(0, PestHuntingController.followDirection(6.1, 6.0, false, true, true, -1));
+        assertEquals(1, PestHuntingController.followDirection(6.5, 6.5, 6.0, false, true, true, 1));
+        assertEquals(0, PestHuntingController.followDirection(5.9, 5.9, 6.0, false, true, true, 1));
+        assertEquals(-1, PestHuntingController.followDirection(5.5, 5.5, 6.0, false, true, true, -1));
+        assertEquals(0, PestHuntingController.followDirection(6.1, 6.1, 6.0, false, true, true, -1));
+    }
+
+    @Test
+    void closingStopsForWhereTheCoastLandsNotWhereWeAre() {
+        // 4 blocks out but carrying enough speed to arrive: no more forward.
+        assertEquals(0, PestHuntingController.followDirection(4.0, 1.8, 2.0, false, true, true, 1));
+        // Same distance from a standstill still closes.
+        assertEquals(1, PestHuntingController.followDirection(4.0, 4.0, 2.0, false, true, true, 1));
     }
 
     @Test
     void aLiveLeashNeverBrakes() {
-        assertEquals(0, PestHuntingController.followDirection(1.0, 2.0, false, true, false, 0));
-        assertEquals(0, PestHuntingController.followDirection(1.0, 2.0, false, true, false, -1));
-        assertEquals(1, PestHuntingController.followDirection(3.0, 2.0, false, true, false, 0));
+        assertEquals(0, PestHuntingController.followDirection(1.0, 1.0, 2.0, false, true, false, 0));
+        assertEquals(0, PestHuntingController.followDirection(1.0, 1.0, 2.0, false, true, false, -1));
+        assertEquals(1, PestHuntingController.followDirection(3.0, 3.0, 2.0, false, true, false, 0));
     }
 
     @Test
@@ -99,6 +107,6 @@ class PestHuntingControllerTest {
 
     @Test
     void anOvershootPastTheFollowDistanceDoesNotAnswerWithTheOppositeKey() {
-        assertEquals(0, PestHuntingController.followDirection(5.5, 6.0, false, true, true, 0));
+        assertEquals(0, PestHuntingController.followDirection(5.5, 5.5, 6.0, false, true, true, 0));
     }
 }

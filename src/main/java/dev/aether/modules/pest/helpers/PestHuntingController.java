@@ -112,6 +112,11 @@ final class PestHuntingController {
     // wide enough that the catch-up cannot turn into overshoot and orbiting.
     private static final double SPRINT_GAP = 2.0;
     private static final double FOLLOW_BAND = 0.75;
+    // Flight keeps 0.91 of its speed per tick after the key comes up, so it coasts
+    // roughly ten ticks - a couple of blocks at fly speed, more with sprint. Stop
+    // for where that lands us, not for where we are, or the hunter sails through
+    // the pest, turns around, and shuttles back and forth across it.
+    private static final double COAST_DRAG_TICKS = 9.0;
     // Flight goes where the camera points, so translating at an angle to a moving
     // pest traces a curve around it. Turn first and fly straight instead: yaw
     // only, since altitude is the jump/shift keys' job and the aim sits above the
@@ -1004,17 +1009,18 @@ final class PestHuntingController {
             boolean allowBackOff) {
         double horizontal = horizontalDistanceTo(client, target);
         double follow = Math.min(followDistance, LASSO_INTERACTION_RANGE - 0.75);
+        double projected = horizontal - closingSpeed(client, target) * COAST_DRAG_TICKS;
 
         boolean offAxis = !facesTarget(client, target, FOLLOW_YAW_CONE_DEGREES);
-        int followDirection = followDirection(
-                horizontal, follow, offAxis, allowTranslation, allowBackOff, runtime.huntFollowMove);
+        int followDirection = followDirection(horizontal, projected, follow,
+                offAxis, allowTranslation, allowBackOff, runtime.huntFollowMove);
         runtime.huntFollowMove = followDirection;
         ClientUtils.setKeyMappingState(client.options.keyUp, followDirection > 0);
         ClientUtils.setKeyMappingState(client.options.keyDown, followDirection < 0);
         ClientUtils.setKeyMappingState(client.options.keyLeft, false);
         ClientUtils.setKeyMappingState(client.options.keyRight, false);
         ClientUtils.setKeyMappingState(client.options.keySprint,
-                followDirection > 0 && horizontal > follow + SPRINT_GAP);
+                followDirection > 0 && projected > follow + SPRINT_GAP);
 
         double heightGap = target.getY() - client.player.getY();
         boolean flying = client.player.getAbilities().flying;
@@ -1033,6 +1039,7 @@ final class PestHuntingController {
      */
     static int followDirection(
             double horizontal,
+            double projected,
             double follow,
             boolean offAxis,
             boolean allowTranslation,
@@ -1041,17 +1048,32 @@ final class PestHuntingController {
         if (!allowTranslation || offAxis) {
             return 0;
         }
+        // Closing reads the coast-adjusted distance so it stops in time; backing
+        // off reads the real one, or a fast approach would answer its own
+        // momentum with the brake and go back to pumping the keys.
         if (previous > 0) {
-            return horizontal > follow ? 1 : 0;
+            return projected > follow ? 1 : 0;
         }
         if (previous < 0) {
             return allowBackOff && horizontal < follow ? -1 : 0;
         }
-        if (horizontal > follow + FOLLOW_BAND) {
+        if (projected > follow + FOLLOW_BAND) {
             return 1;
         }
         double backOffThreshold = Math.max(MIN_AIM_DISTANCE + 0.25, follow - FOLLOW_BAND);
         return allowBackOff && horizontal < backOffThreshold ? -1 : 0;
+    }
+
+    /** Horizontal speed towards the target; negative closing counts as zero. */
+    private static double closingSpeed(Minecraft client, Entity target) {
+        double dx = target.getX() - client.player.getX();
+        double dz = target.getZ() - client.player.getZ();
+        double length = Math.sqrt(dx * dx + dz * dz);
+        if (length < 1.0e-3) {
+            return 0.0;
+        }
+        Vec3 velocity = client.player.getDeltaMovement();
+        return Math.max(0.0, (velocity.x * dx + velocity.z * dz) / length);
     }
 
     /**
