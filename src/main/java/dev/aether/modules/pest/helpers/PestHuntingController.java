@@ -117,6 +117,8 @@ final class PestHuntingController {
     // for where that lands us, not for where we are, or the hunter sails through
     // the pest, turns around, and shuttles back and forth across it.
     private static final double COAST_DRAG_TICKS = 9.0;
+    private static final double MAX_CLOSING_SAMPLE = 1.0;
+    private static final double CLOSING_RATE_SMOOTHING = 0.6;
     // Flight goes where the camera points, so translating at an angle to a moving
     // pest traces a curve around it. Turn first and fly straight instead: yaw
     // only, since altitude is the jump/shift keys' job and the aim sits above the
@@ -402,6 +404,7 @@ final class PestHuntingController {
         updateAimBlend(client, runtime, focus, attached || runtime.huntStage == Stage.REEL, now);
         probeCatchState(client, runtime, focus, lassoed, now);
         double horizontal = horizontalDistanceTo(client, focus);
+        updateClosingRate(runtime, focus, horizontal);
         boolean stunPhase = !attached && usesVacuumAim(runtime);
         boolean inActionRange =
                 client.player.distanceTo(focus) <= (stunPhase ? STUN_RANGE : THROW_RANGE);
@@ -1009,7 +1012,7 @@ final class PestHuntingController {
             boolean allowBackOff) {
         double horizontal = horizontalDistanceTo(client, target);
         double follow = Math.min(followDistance, LASSO_INTERACTION_RANGE - 0.75);
-        double projected = horizontal - closingSpeed(client, target) * COAST_DRAG_TICKS;
+        double projected = horizontal - Math.max(0.0, runtime.huntCloseRate) * COAST_DRAG_TICKS;
 
         boolean offAxis = !facesTarget(client, target, FOLLOW_YAW_CONE_DEGREES);
         int followDirection = followDirection(horizontal, projected, follow,
@@ -1064,16 +1067,26 @@ final class PestHuntingController {
         return allowBackOff && horizontal < backOffThreshold ? -1 : 0;
     }
 
-    /** Horizontal speed towards the target; negative closing counts as zero. */
-    private static double closingSpeed(Minecraft client, Entity target) {
-        double dx = target.getX() - client.player.getX();
-        double dz = target.getZ() - client.player.getZ();
-        double length = Math.sqrt(dx * dx + dz * dz);
-        if (length < 1.0e-3) {
-            return 0.0;
+    /**
+     * How fast the gap is actually shrinking, in blocks per tick, rather than how
+     * fast we are flying. A pest walking away eats most of the approach, so
+     * treating our own speed as progress had the hunter releasing forward while
+     * still out of reach and creeping after it until the stun timed out.
+     */
+    private static void updateClosingRate(
+            PestDestroyerRuntime runtime, Entity target, double horizontal) {
+        if (runtime.huntCloseRateTargetId != target.getId()
+                || Double.isNaN(runtime.huntLastHorizontal)) {
+            runtime.huntCloseRateTargetId = target.getId();
+            runtime.huntLastHorizontal = horizontal;
+            runtime.huntCloseRate = 0.0;
+            return;
         }
-        Vec3 velocity = client.player.getDeltaMovement();
-        return Math.max(0.0, (velocity.x * dx + velocity.z * dz) / length);
+        double sample = Mth.clamp(
+                runtime.huntLastHorizontal - horizontal, -MAX_CLOSING_SAMPLE, MAX_CLOSING_SAMPLE);
+        runtime.huntLastHorizontal = horizontal;
+        runtime.huntCloseRate = runtime.huntCloseRate * CLOSING_RATE_SMOOTHING
+                + sample * (1.0 - CLOSING_RATE_SMOOTHING);
     }
 
     /**

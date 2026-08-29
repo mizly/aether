@@ -59,6 +59,9 @@ final class PestDestroyerRuntime {
     int huntFollowMove = 0;
     long huntLeashStretchSince = 0L;
     boolean huntAimCorrecting = false;
+    double huntCloseRate = 0.0;
+    double huntLastHorizontal = Double.NaN;
+    int huntCloseRateTargetId = -1;
     int huntStageEnteredTick = 0;
     long huntLandingWaitStartedAt = 0L;
     double huntTargetY = Double.NaN;
@@ -228,6 +231,9 @@ final class PestDestroyerRuntime {
         huntFollowMove = 0;
         huntLeashStretchSince = 0L;
         huntAimCorrecting = false;
+        huntCloseRate = 0.0;
+        huntLastHorizontal = Double.NaN;
+        huntCloseRateTargetId = -1;
         huntStageEnteredTick = 0;
         huntLandingWaitStartedAt = 0L;
         huntTargetY = Double.NaN;
