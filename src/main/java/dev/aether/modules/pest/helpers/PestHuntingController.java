@@ -50,9 +50,10 @@ final class PestHuntingController {
     private static final long THROW_APPROACH_TIMEOUT_MS = 6_000L;
     private static final int MIN_VACUUM_SWAP_TICKS = 1;
     private static final int MAX_VACUUM_SWAP_TICKS = 5;
-    // The swap back after a miss is on the critical path, so vary it only enough to hide the tick.
-    private static final int MIN_RETRY_SWAP_TICKS = 1;
-    private static final int MAX_RETRY_SWAP_TICKS = 2;
+    // The re-stun no longer races the pest from where it stood: it has to be
+    // chased down again first, so take a visible beat before swapping back.
+    private static final int MIN_RETRY_SWAP_TICKS = 4;
+    private static final int MAX_RETRY_SWAP_TICKS = 8;
     private static final int LASSO_SETTLE_TICKS = 0;
     // Has to cover the web's flight plus the server's attach round trip. Too
     // short and a landed lasso is retried, which knocks the pest back off.
@@ -78,7 +79,9 @@ final class PestHuntingController {
     private static final long REEL_OVERLAY_SIGNAL_GRACE_MS = 300L;
     private static final long LANDING_WAIT_TIMEOUT_MS = 250L;
     private static final double LANDING_Y_EPSILON = 0.05;
-    private static final double MIN_AIM_DISTANCE = 1.5;
+    // Doubles as the closest the follow band will sit (see followDirection): the
+    // leash has to be ridden from a block or so, and the aim still has to work there.
+    private static final double MIN_AIM_DISTANCE = 1.0;
     // Keep the approach inside the server's dependable lasso hit range, but do
     // not gate the stun/throw on reaching it: a moving pest can escape during
     // that wait. The hunter closes distance while the immediate sequence runs.
@@ -88,6 +91,12 @@ final class PestHuntingController {
     // and the lasso then went out at an unstunned pest.
     private static final double STUN_RANGE = 3.5;
     private static final double STUN_FOLLOW_DISTANCE = 2.5;
+    // A leashed pest keeps walking and the line snaps within a few blocks, so
+    // ride it as close as the aim tolerates instead of holding position.
+    private static final double LEASHED_FOLLOW_DISTANCE = 1.25;
+    // Ordinary flight tops out under a fleeing pest. Sprint only once the gap is
+    // wide enough that the catch-up cannot turn into overshoot and orbiting.
+    private static final double SPRINT_GAP = 2.0;
     // The follow band stops closing at LASSO_INTERACTION_RANGE horizontally, so
     // the throw gate carries the height slack that band still leaves.
     private static final double THROW_RANGE = LASSO_INTERACTION_RANGE + 0.25;
@@ -357,10 +366,14 @@ final class PestHuntingController {
                                 focus,
                                 THROW_AIM_TOLERANCE_DEGREES));
         if (attached) {
-            // Once the leash is live, walking toward the pest makes the player
-            // orbit it and can move the crosshair off the reel marker. Hold
-            // position until the server accepts the reel click.
-            holdLassoPosition(client);
+            // Only the reel click itself needs a still camera. Holding position
+            // for the whole leash let the pest walk to the end of the line and
+            // break it, which put the hunt back to chasing an unstunned pest.
+            if (clickPending) {
+                holdLassoPosition(client);
+            } else {
+                maintainFollowDistance(client, focus, LEASHED_FOLLOW_DISTANCE, true, true);
+            }
         } else {
             maintainFollowDistance(
                     client,
@@ -816,10 +829,10 @@ final class PestHuntingController {
         int followDirection = followDirection(horizontal, follow, behindCone, allowTranslation);
         ClientUtils.setKeyMappingState(client.options.keyUp, followDirection > 0);
         ClientUtils.setKeyMappingState(client.options.keyDown, followDirection < 0);
-        // The path handoff already places us close to the pest. Sprinting while
-        // tracking a moving target causes repeated overshoot/orbit corrections;
-        // keep a small buffer and use ordinary forward movement only.
-        ClientUtils.setKeyMappingState(client.options.keySprint, false);
+        ClientUtils.setKeyMappingState(client.options.keyLeft, false);
+        ClientUtils.setKeyMappingState(client.options.keyRight, false);
+        ClientUtils.setKeyMappingState(client.options.keySprint,
+                followDirection > 0 && horizontal > follow + SPRINT_GAP);
 
         double heightGap = target.getY() - client.player.getY();
         boolean flying = client.player.getAbilities().flying;
