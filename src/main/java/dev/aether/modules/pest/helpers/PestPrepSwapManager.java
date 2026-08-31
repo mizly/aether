@@ -38,7 +38,8 @@ public class PestPrepSwapManager {
 
     public static void updatePrepSwapFlag(int cooldownSeconds, boolean isCleaningInProgress,
             boolean thresholdMet) {
-        if (cooldownSeconds > getPrepSwapResetCooldownSeconds()
+        if ((AetherConfig.NORMAL_FARMING_PEST_HANDLING.get()
+                || cooldownSeconds > getPrepSwapResetCooldownSeconds())
                 && prepSwappedForCurrentPestCycle
                 && !isCleaningInProgress) {
             if (thresholdMet) {
@@ -51,6 +52,9 @@ public class PestPrepSwapManager {
 
     public static boolean shouldTriggerPrepSwap(MacroState.State currentState, int cooldownSeconds,
             boolean isCleaningInProgress, boolean isReturnToLocationActive) {
+        if (AetherConfig.NORMAL_FARMING_PEST_HANDLING.get()) {
+            return false;
+        }
         if (currentState != MacroState.State.FARMING) {
             return false;
         }
