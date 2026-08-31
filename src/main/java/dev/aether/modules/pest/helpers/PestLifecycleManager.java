@@ -77,7 +77,7 @@ public final class PestLifecycleManager {
             return false;
         }
 
-        boolean manualMode = AetherConfig.MANUAL_PEST_MODE.get();
+        boolean manualMode = ManualPestManager.isManualModeEnabled();
         stage = Stage.PRE;
         ClientUtils.sendDebugMessage("Pest lifecycle: waiting for /setspawn while farming continues.");
         MacroWorkerThread.getInstance().submit("PestSetSpawn-" + plot, () -> {

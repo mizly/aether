@@ -3,6 +3,7 @@ package dev.aether.ui.providers.modules;
 import dev.aether.bootstrap.AetherKeybindRegistry;
 import dev.aether.config.AetherConfig;
 import dev.aether.modules.failsafe.FailsafeSoundManager;
+import dev.aether.modules.pest.ManualPestManager;
 import dev.aether.notification.NotificationManager;
 import dev.aether.ui.MainGUIRegistry;
 import dev.aether.ui.providers.base.AbstractModulesRegistryProvider;
@@ -146,6 +147,21 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                 .add(FarmingSettingsFactory.pestFovRangeSetting())
                 .add(FarmingSettingsFactory.pestAboveAimPitchRangeSetting())
                 .add(FarmingSettingsFactory.pestMaxTurnSpeedSetting()));
+        groups.add(SettingGroup.of(
+                        "Normal Farming Pest Handling",
+                        "Farms normally through pest cooldowns without swapping to the pest spawn loadout. Pests are handled only once the Pest Threshold is reached",
+                        () -> AetherConfig.NORMAL_FARMING_PEST_HANDLING.get(),
+                        v -> {
+                            AetherConfig.NORMAL_FARMING_PEST_HANDLING.set(v);
+                            AetherConfig.save();
+                        })
+                .add(new ToggleSetting("Manual Pest Kill Mode",
+                        () -> AetherConfig.NORMAL_FARMING_MANUAL_KILL.get(),
+                        v -> {
+                            AetherConfig.NORMAL_FARMING_MANUAL_KILL.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(() -> AetherConfig.NORMAL_FARMING_PEST_HANDLING.get())));
         groups.add(SettingGroup.of(
                         "Pest Hunting",
                         "Lassos pests for guaranteed shards instead of vacuuming them (needs a lasso in your hotbar)",
@@ -298,14 +314,14 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.VACCUM_WHEN_START.set(v);
                             AetherConfig.save();
                         })
-                        .visibleWhen(() -> AetherConfig.MANUAL_PEST_MODE.get()))
+                        .visibleWhen(() -> ManualPestManager.isManualModeEnabled()))
                 .add(new ToggleSetting("Auto Alt-Tab",
                         () -> AetherConfig.FAILSAFE_AUTO_ALT_TAB.get(),
                         v -> {
                             AetherConfig.FAILSAFE_AUTO_ALT_TAB.set(v);
                             AetherConfig.save();
                         })
-                        .visibleWhen(() -> AetherConfig.MANUAL_PEST_MODE.get()))
+                        .visibleWhen(() -> ManualPestManager.isManualModeEnabled()))
                 .add(new DropdownSetting("Manual Pest Sound", manualPestSoundOptions,
                         () -> getSoundIndex(manualPestSoundOptions, AetherConfig.MANUAL_PEST_SOUND_FILE.get()),
                         i -> {

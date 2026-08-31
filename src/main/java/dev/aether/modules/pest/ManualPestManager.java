@@ -30,6 +30,12 @@ public final class ManualPestManager {
     private ManualPestManager() {
     }
 
+    public static boolean isManualModeEnabled() {
+        return AetherConfig.MANUAL_PEST_MODE.get()
+                || (AetherConfig.NORMAL_FARMING_PEST_HANDLING.get()
+                        && AetherConfig.NORMAL_FARMING_MANUAL_KILL.get());
+    }
+
     public static void reset() {
         phase = Phase.IDLE;
         waitingStartedAt = 0L;
@@ -44,7 +50,7 @@ public final class ManualPestManager {
     public static void requestEarlyFinish(Minecraft client) {
         if (client == null
                 || phase != Phase.WAITING
-                || !AetherConfig.MANUAL_PEST_MODE.get()
+                || !isManualModeEnabled()
                 || MacroStateManager.getCurrentState() != MacroState.State.CLEANING
                 || !PestManager.isCleaningInProgress()) {
             return;
@@ -55,7 +61,7 @@ public final class ManualPestManager {
     }
 
     public static boolean startCleaningStage(Minecraft client, int count) {
-        if (!AetherConfig.MANUAL_PEST_MODE.get() || phase != Phase.IDLE) {
+        if (!isManualModeEnabled() || phase != Phase.IDLE) {
             return false;
         }
         if (client == null || client.player == null || client.getConnection() == null) {
@@ -74,7 +80,7 @@ public final class ManualPestManager {
         if (client == null || client.player == null || client.getConnection() == null) {
             return;
         }
-        if (!AetherConfig.MANUAL_PEST_MODE.get()) {
+        if (!isManualModeEnabled()) {
             if (phase != Phase.IDLE) {
                 phase = Phase.IDLE;
                 waitingStartedAt = 0L;
