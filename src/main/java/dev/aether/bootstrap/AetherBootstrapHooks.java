@@ -17,6 +17,10 @@ import java.io.File;
 
 public final class AetherBootstrapHooks {
     public interface FeatureHooks {
+        default boolean isAttackSuppressed() {
+            return false;
+        }
+
         default void onConfigProfileLoaded(File profileFile) {
         }
 
@@ -204,6 +208,10 @@ public final class AetherBootstrapHooks {
 
     public static void reset() {
         hooks = NOOP;
+    }
+
+    public static boolean isAttackSuppressed() {
+        return hooks.isAttackSuppressed();
     }
 
     public static void onUnexpectedDisconnect() {

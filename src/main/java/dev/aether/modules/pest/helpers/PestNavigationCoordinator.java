@@ -1,11 +1,8 @@
 package dev.aether.modules.pest.helpers;
 
 import dev.aether.config.AetherConfig;
-import dev.aether.mixin.AccessorInventory;
-import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.pest.PestManager;
-import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.CommandUtils;
 
@@ -14,8 +11,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
 final class PestNavigationCoordinator {
-    private static final long HINT_PITCH_WAIT_TIMEOUT_MS = 3000L;
-
     interface Context {
         PestDestroyerRuntime runtime();
         default long getStateEnteredAt() { return runtime().stateEnteredAt; }
@@ -29,7 +24,6 @@ final class PestNavigationCoordinator {
         void setState(PestDestroyer.State state);
         Entity findClosestPest(Minecraft client);
         void engagePestTarget(Minecraft client, Entity pest);
-        int countVisiblePestSkulls(Minecraft client);
         boolean tryNextPlot(Minecraft client);
         boolean tryLeaveOneOnCurrentWhitelistedPlot(Minecraft client);
         void startRoofAotv(Minecraft client, String plot);
@@ -102,13 +96,10 @@ final class PestNavigationCoordinator {
             Minecraft client,
             PestNavigationState navigationState,
             Context context,
-            int maxGetLocationAttempts,
-            int maxWaypointCycles,
-            long fireworkCaptureDurationMs,
-            double fireworkExtrapolateDistance
+            int maxPlotSweeps,
+            int maxScanWaypoints
     ) {
-        long now = System.currentTimeMillis();
-        long elapsed = now - context.getStateEnteredAt();
+        long elapsed = System.currentTimeMillis() - context.getStateEnteredAt();
 
         if (!client.player.getAbilities().flying && client.player.getAbilities().mayfly) {
             long flyElapsed = elapsed % 250;
@@ -131,80 +122,58 @@ final class PestNavigationCoordinator {
             return;
         }
 
-        if (!navigationState.isCapturingFirework) {
-            if (context.getVacuumSlot() == -1) {
-                context.setVacuumSlot(context.findVacuumHotbarSlot(client));
-            }
-            if (context.getVacuumSlot() != -1
-                    && ((AccessorInventory) client.player.getInventory()).getSelected() != context.getVacuumSlot()) {
-                client.execute(() -> FailsafeManager.selectHotbarSlot(client, context.getVacuumSlot()));
-            }
-            boolean pitchTimedOut = elapsed > HINT_PITCH_WAIT_TIMEOUT_MS;
-            if (pitchTimedOut) {
-                if (RotationManager.isRotating()) {
-                    RotationManager.cancelRotation();
-                }
-                ClientUtils.sendDebugMessage("PestDestroyer: hint pitch did not settle; probing vacuum anyway.");
-            } else if (!ensureHintPitchReady(client, context)) {
-                ClientUtils.setKeyMappingState(client.options.keyAttack, false);
-                return;
-            }
-
-            client.execute(() -> {
-                ClientUtils.setKeyMappingState(client.options.keyAttack, true);
-                ClientUtils.clickKeyMapping(client.options.keyAttack);
-            });
-            navigationState.isCapturingFirework = true;
-            navigationState.fireworkCaptureStartedAt = now;
-            navigationState.fireworkFirstPos = null;
-            navigationState.fireworkLastPos = null;
-            navigationState.fireworkParticleCount = 0;
-            return;
-        }
-
-        long captureElapsed = now - navigationState.fireworkCaptureStartedAt;
-        if (captureElapsed < fireworkCaptureDurationMs) {
-            ClientUtils.setKeyMappingState(client.options.keyAttack, false);
-            return;
-        }
-
-        navigationState.isCapturingFirework = false;
-        navigationState.fireworkCaptureStartedAt = 0L;
         ClientUtils.setKeyMappingState(client.options.keyAttack, false);
 
-        Vec3 waypoint = PestPlotNavigator.calculateWaypoint(navigationState, fireworkExtrapolateDistance);
-        if (waypoint != null) {
-            navigationState.waypointCycleCount++;
-            navigationState.calculatedWaypoint = waypoint;
-            ClientUtils.sendDebugMessage("[PestDestroyer] Firework trail: " + navigationState.fireworkParticleCount
-                            + " particles. Waypoint: "
-                            + String.format("%.0f, %.0f, %.0f", waypoint.x, waypoint.y, waypoint.z)
-                            + " (cycle " + navigationState.waypointCycleCount + "/" + maxWaypointCycles + ")");
+        // Same detection the pest ESP draws: loaded pest mobs and their skull markers.
+        Entity pest = context.findClosestPest(client);
+        if (pest != null) {
+            navigationState.scanPointIdx = 0;
+            context.engagePestTarget(client, pest);
+            return;
+        }
 
-            if (navigationState.waypointCycleCount > maxWaypointCycles) {
-                navigationState.waypointCycleCount = 0;
-                ClientUtils.sendDebugMessage("[PestDestroyer] Max waypoint cycles reached without finding pest entity.");
+        // Nothing is loaded here, so the remaining pests are outside entity tracking range.
+        Vec3 waypoint = PestPlotNavigator.nextScanWaypoint(client, navigationState);
+        if (waypoint == null) {
+            navigationState.scanPointIdx = 0;
+            // Having covered the plot and found nothing, a pest we timed out on
+            // is the best remaining lead: retry it rather than fly another lap.
+            if (context.runtime().deferredTargets.releaseRetryable()) {
+                ClientUtils.sendDebugMessage(
+                        "[PestDestroyer] Plot sweep found nothing. Retrying timed-out pest(s).");
+                context.setState(PestDestroyer.State.CHECK_NEXT);
+                return;
+            }
+            navigationState.getLocationAttempts++;
+            ClientUtils.sendDebugMessage("[PestDestroyer] Plot sweep found no pests (sweep "
+                    + navigationState.getLocationAttempts + "/" + maxPlotSweeps + ")");
+            if (navigationState.getLocationAttempts >= maxPlotSweeps) {
+                navigationState.getLocationAttempts = 0;
                 if (!context.tryNextPlot(client)) {
+                    ClientUtils.sendDebugMessage("[PestDestroyer] No more plots to check. Finishing.");
                     context.setState(PestDestroyer.State.FINISH);
                 }
-            } else {
-                context.setState(PestDestroyer.State.FLY_TO_WAYPOINT);
             }
             return;
         }
 
-        navigationState.getLocationAttempts++;
-        ClientUtils.sendDebugMessage("[PestDestroyer] No firework trail detected (attempt "
-                        + navigationState.getLocationAttempts + "/" + maxGetLocationAttempts + ")");
-
-        if (navigationState.getLocationAttempts >= maxGetLocationAttempts) {
+        navigationState.waypointCycleCount++;
+        if (navigationState.waypointCycleCount > maxScanWaypoints) {
+            navigationState.waypointCycleCount = 0;
+            navigationState.scanPointIdx = 0;
+            ClientUtils.sendDebugMessage("[PestDestroyer] Scan waypoint budget spent without finding a pest.");
             if (!context.tryNextPlot(client)) {
-                ClientUtils.sendDebugMessage("[PestDestroyer] No more plots to check. Finishing.");
                 context.setState(PestDestroyer.State.FINISH);
             }
-        } else {
-            context.setState(PestDestroyer.State.GET_LOCATION);
+            return;
         }
+
+        navigationState.calculatedWaypoint = waypoint;
+        ClientUtils.sendDebugMessage("[PestDestroyer] No pests loaded. Sweeping to "
+                + String.format("%.0f, %.0f, %.0f", waypoint.x, waypoint.y, waypoint.z)
+                + " (point " + navigationState.scanPointIdx + "/" + PestPlotNavigator.scanPointCount()
+                + ", waypoint " + navigationState.waypointCycleCount + "/" + maxScanWaypoints + ")");
+        context.setState(PestDestroyer.State.FLY_TO_WAYPOINT);
     }
 
     static void handleFlyToWaypoint(
@@ -273,6 +242,10 @@ final class PestNavigationCoordinator {
         navigationState.trustPlot(plot, System.currentTimeMillis());
         navigationState.plotTpSent = false;
         navigationState.plotTpWindow = null;
+        // Re-anchor the sweep grid on the first scan, once the TP has actually landed.
+        navigationState.plotAnchor = null;
+        navigationState.scanPointIdx = 0;
+        navigationState.getLocationAttempts = 0;
         if (PestManager.isBallsackShredderActiveForCurrentCycle()) {
             context.startBallsackShredder(client, plot);
             return;
@@ -305,36 +278,6 @@ final class PestNavigationCoordinator {
             return;
         }
 
-        if (context.countVisiblePestSkulls(client) == 0
-                && ((AccessorInventory) client.player.getInventory()).getSelected() == context.getVacuumSlot()) {
-            ClientUtils.performUseClick();
-            ClientUtils.sendDebugMessage("[PestDestroyer] No skulls visible. Probing vacuum.");
-        }
-
         context.setState(PestDestroyer.State.CHECK_NEXT);
-    }
-
-    private static boolean ensureHintPitchReady(Minecraft client, Context context) {
-        if (client.player == null) {
-            return false;
-        }
-
-        PestPitchRange pitchRange = PestPitchRange.configured();
-        float currentPitch = client.player.getXRot();
-        if (pitchRange.contains(currentPitch) && !RotationManager.isRotating()) {
-            return true;
-        }
-
-        if (RotationManager.isRotating()) {
-            return false;
-        }
-
-        float targetPitch = pitchRange.clamp(currentPitch);
-        RotationManager.rotateToYawPitch(
-                client,
-                client.player.getYRot(),
-                targetPitch,
-                AetherConfig.ROTATION_TIME.get());
-        return false;
     }
 }

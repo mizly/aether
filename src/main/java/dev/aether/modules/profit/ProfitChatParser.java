@@ -29,7 +29,11 @@ final class ProfitChatParser {
             "OVERFLOW!\\s+.*?\\s+has\\s+just\\s+dropped\\s+(?:an?\\s+)?(?:(\\d+)x\\s+)?(.+?)(?=\\s*\\(!|!|$)",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern PEST_SHARD_PATTERN = Pattern.compile(
-            "charmed\\s+a\\s+Pest\\s+and\\s+captured\\s+(?:its\\s+Shard|(\\d+)\\s+Shards)",
+            "(?:caught|captured|received|obtained|got|charmed)[^.!\\n]{0,100}?"
+                    + "(?:(\\d+)\\s*[x×]?\\s*)?"
+                    + "(?:(Fly|Cricket|Locust|Rat|Mosquito|Earthworm|Mite|Moth|Slug|Beetle|"
+                    + "Firefly|Dragonfly|Praying Mantis)\\s+)?"
+                    + "(?:its\\s+)?(?:a\\s+)?(?:Pest(?:'s)?\\s+)?Shards?",
             Pattern.CASE_INSENSITIVE);
     private static final Pattern BAZAAR_BUY_PATTERN = Pattern.compile(
             "\\[Bazaar\\] Bought (\\d+)x (.+?) for [\\d,]+ coins!",
@@ -82,6 +86,18 @@ final class ProfitChatParser {
         }
 
         String plainText = TablistUtils.stripColors(text).trim();
+
+        Matcher shardMatcher = PEST_SHARD_PATTERN.matcher(plainText);
+        if (shardMatcher.find()) {
+            try {
+                String countStr = shardMatcher.group(1);
+                int count = countStr != null ? Integer.parseInt(countStr) : 1;
+                String type = shardMatcher.group(2);
+                sink.addDrop(type == null ? "Pest Shard" : type + " Shard", count);
+                return;
+            } catch (NumberFormatException ignored) {
+            }
+        }
 
         if (MacroStateManager.getCurrentState() != MacroState.State.VISITING) {
             trackingVisitorRewards = false;
@@ -138,16 +154,6 @@ final class ProfitChatParser {
                 String countStr = rareMatcher.group(1);
                 int count = countStr != null ? Integer.parseInt(countStr) : 1;
                 sink.addDrop(rareMatcher.group(2).trim(), count);
-            } catch (Exception ignored) {
-            }
-        }
-
-        Matcher shardMatcher = PEST_SHARD_PATTERN.matcher(plainText);
-        if (shardMatcher.find()) {
-            try {
-                String countStr = shardMatcher.group(1);
-                int count = countStr != null ? Integer.parseInt(countStr) : 1;
-                sink.addDrop("Pest Shard", count);
             } catch (Exception ignored) {
             }
         }

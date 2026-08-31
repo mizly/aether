@@ -50,11 +50,12 @@ public final class PestTargetTracker {
     static Entity peekNextQueuedPest(
             Minecraft client,
             Deque<Entity> pestTargetQueue,
-            Collection<Entity> killedEntities
+            Collection<Entity> killedEntities,
+            Predicate<Entity> eligible
     ) {
         while (!pestTargetQueue.isEmpty()) {
             Entity next = pestTargetQueue.peekFirst();
-            if (isUnavailable(client, next, killedEntities)) {
+            if (isUnavailable(client, next, killedEntities) || !eligible.test(next)) {
                 pestTargetQueue.pollFirst();
                 continue;
             }
@@ -66,11 +67,12 @@ public final class PestTargetTracker {
     static Entity getNextQueuedPest(
             Minecraft client,
             Deque<Entity> pestTargetQueue,
-            Collection<Entity> killedEntities
+            Collection<Entity> killedEntities,
+            Predicate<Entity> eligible
     ) {
         while (!pestTargetQueue.isEmpty()) {
             Entity next = pestTargetQueue.pollFirst();
-            if (!isUnavailable(client, next, killedEntities)) {
+            if (!isUnavailable(client, next, killedEntities) && eligible.test(next)) {
                 return next;
             }
         }
@@ -81,9 +83,10 @@ public final class PestTargetTracker {
             Minecraft client,
             Deque<Entity> pestTargetQueue,
             Collection<Entity> killedEntities,
-            int reservedEntityId
+            int reservedEntityId,
+            Predicate<Entity> eligible
     ) {
-        List<Entity> pests = availableTargets(client, killedEntities);
+        List<Entity> pests = availableTargets(client, killedEntities, eligible);
         if (reservedEntityId != -1) {
             Map<Entity, Double> nearestNeighborDistances = new IdentityHashMap<>();
             List<Vec3> positions = pests.stream().map(Entity::position).toList();
@@ -108,11 +111,12 @@ public final class PestTargetTracker {
     static Entity findClosestPest(
             Minecraft client,
             Collection<Entity> killedEntities,
-            int reservedEntityId) {
+            int reservedEntityId,
+            Predicate<Entity> eligible) {
         if (client == null || client.player == null) {
             return null;
         }
-        List<Entity> targets = availableTargets(client, killedEntities);
+        List<Entity> targets = availableTargets(client, killedEntities, eligible);
         Entity closest = targets.stream()
                 .filter(target -> target.getId() != reservedEntityId)
                 .min(Comparator.comparingDouble(client.player::distanceToSqr))
@@ -124,8 +128,11 @@ public final class PestTargetTracker {
         return closest;
     }
 
-    static Entity findMostIsolatedPest(Minecraft client, Collection<Entity> killedEntities) {
-        List<Entity> pests = availableTargets(client, killedEntities);
+    static Entity findMostIsolatedPest(
+            Minecraft client,
+            Collection<Entity> killedEntities,
+            Predicate<Entity> eligible) {
+        List<Entity> pests = availableTargets(client, killedEntities, eligible);
         if (pests.size() < 2) {
             return null;
         }
@@ -136,8 +143,9 @@ public final class PestTargetTracker {
     static boolean isAvailablePest(
             Minecraft client,
             Collection<Entity> killedEntities,
-            int entityId) {
-        return availableTargets(client, killedEntities).stream()
+            int entityId,
+            Predicate<Entity> eligible) {
+        return availableTargets(client, killedEntities, eligible).stream()
                 .anyMatch(pest -> pest.getId() == entityId);
     }
 
@@ -171,10 +179,6 @@ public final class PestTargetTracker {
         }
         return snapshot(client).markers().stream()
                 .anyMatch(marker -> !marker.isRemoved() && marker.distanceToSqr(targetEntity) <= 4.0);
-    }
-
-    static int countVisiblePestSkulls(Minecraft client) {
-        return snapshot(client).markers().size();
     }
 
     static boolean hasPestSkullMarkerForTarget(Minecraft client, Entity target) {
@@ -228,10 +232,13 @@ public final class PestTargetTracker {
                 .toList();
     }
 
-    private static List<Entity> availableTargets(Minecraft client, Collection<Entity> killedEntities) {
+    private static List<Entity> availableTargets(
+            Minecraft client,
+            Collection<Entity> killedEntities,
+            Predicate<Entity> eligible) {
         List<Entity> available = new ArrayList<>();
         for (Entity target : snapshot(client).targets()) {
-            if (!isUnavailable(client, target, killedEntities)) {
+            if (!isUnavailable(client, target, killedEntities) && eligible.test(target)) {
                 available.add(target);
             }
         }

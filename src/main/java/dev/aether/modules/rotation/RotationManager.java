@@ -13,6 +13,11 @@ import java.util.concurrent.ThreadLocalRandom;
 
 public class RotationManager {
     private static final float EXTERNAL_ROTATION_TOLERANCE_DEGREES = 5.0f;
+    // A long frame gap (lag spike, alt-tab) must not hand a rotation a whole
+    // turn's worth of travel in a single step.
+    private static final long MAX_TURN_STEP_MS = 60L;
+    private static final float MIN_TRACKING_SMOOTHING_MS = 1.0f;
+    private static final float TRACKING_ARRIVAL_DEGREES = 0.25f;
 
     private static boolean isRotating = false;
     private static RotationUtils.Rotation startRot;
@@ -24,6 +29,10 @@ public class RotationManager {
     private static float lastAppliedYaw = 0.0f;
     private static float lastAppliedPitch = 0.0f;
     private static boolean hasLastApplied = false;
+    private static float maxDegreesPerSecond = 0.0f;
+    private static long lastUpdateAt = 0L;
+    private static boolean trackingMode = false;
+    private static float trackingSmoothingMs = 0.0f;
 
     public static boolean isRotating() {
         return isRotating;
@@ -38,6 +47,8 @@ public class RotationManager {
         applyTrackingNoise = false;
         rotationGcd = Double.NaN;
         hasLastApplied = false;
+        maxDegreesPerSecond = 0.0f;
+        trackingMode = false;
     }
 
     public static void initiateRotation(Minecraft mc, Vec3 targetPos, long minDuration) {
@@ -45,6 +56,15 @@ public class RotationManager {
     }
 
     public static void initiateRotation(Minecraft mc, Vec3 targetPos, long minDuration, float humanizeRange) {
+        initiateRotation(mc, targetPos, minDuration, humanizeRange, 0.0f);
+    }
+
+    /**
+     * {@code turnSpeedLimit} in degrees per second caps how fast the camera may
+     * travel, whatever the duration works out to; 0 leaves it uncapped.
+     */
+    public static void initiateRotation(
+            Minecraft mc, Vec3 targetPos, long minDuration, float humanizeRange, float turnSpeedLimit) {
         if (mc.player == null)
             return;
 
@@ -71,6 +91,8 @@ public class RotationManager {
         applyTrackingNoise = false;
         rotationGcd = computeGcd(mc);
         hasLastApplied = false;
+        maxDegreesPerSecond = Math.max(0.0f, turnSpeedLimit);
+        trackingMode = false;
         isRotating = true;
     }
 
@@ -94,6 +116,8 @@ public class RotationManager {
         applyTrackingNoise = false;
         rotationGcd = computeGcd(mc);
         hasLastApplied = false;
+        maxDegreesPerSecond = 0.0f;
+        trackingMode = false;
         isRotating = true;
     }
 
@@ -112,6 +136,36 @@ public class RotationManager {
         applyTrackingNoise = true;
         rotationGcd = computeGcd(mc);
         hasLastApplied = false;
+        maxDegreesPerSecond = 0.0f;
+        trackingMode = false;
+        isRotating = true;
+    }
+
+    /**
+     * Follows a moving target: every update closes a fraction of whatever angle
+     * is left, so the camera leads in fast, decelerates and settles. Re-issuing
+     * a duration-based rotation each tick instead replays an eased curve from
+     * scratch every time, which lands the whole correction inside one tick and
+     * is what reads as an aimbot. Call this every tick while tracking.
+     *
+     * @param smoothingMs   time constant; larger is smoother and slower to close
+     * @param turnSpeedLimit degrees-per-second ceiling, 0 for none
+     */
+    public static void trackRotation(
+            Minecraft mc, Vec3 targetPos, float smoothingMs, float turnSpeedLimit) {
+        if (mc.player == null) return;
+        if (FailsafeManager.shouldSuppressPestCleanerRotation(mc)) return;
+        startRot = new RotationUtils.Rotation(mc.player.getYRot(), mc.player.getXRot());
+        targetRot = RotationUtils.getAdjustedEnd(
+                startRot, RotationUtils.calculateLookAt(mc.player.getEyePosition(), targetPos));
+        rotationStartTime = System.currentTimeMillis();
+        rotationDuration = 1L;
+        applyTrackingNoise = true;
+        rotationGcd = computeGcd(mc);
+        hasLastApplied = false;
+        maxDegreesPerSecond = Math.max(0.0f, turnSpeedLimit);
+        trackingSmoothingMs = Math.max(MIN_TRACKING_SMOOTHING_MS, smoothingMs);
+        trackingMode = true;
         isRotating = true;
     }
 
@@ -120,6 +174,10 @@ public class RotationManager {
         if (mc.player == null)
             return;
 
+        long updateAt = System.currentTimeMillis();
+        long sinceLastUpdate = lastUpdateAt == 0L ? 0L : updateAt - lastUpdateAt;
+        lastUpdateAt = updateAt;
+
         if (isRotating && startRot != null && targetRot != null) {
             if (hasExternalRotation(mc)) {
                 FailsafeManager.reportExternalRotation();
@@ -127,19 +185,34 @@ public class RotationManager {
                 return;
             }
 
-            long currentTime = System.currentTimeMillis();
-            long elapsed = currentTime - rotationStartTime;
-            float t = (float) elapsed / (float) rotationDuration;
+            long stepMs = Math.min(sinceLastUpdate, MAX_TURN_STEP_MS);
+            float currentYaw;
+            float currentPitch;
 
-            if (t >= 1.0f) {
-                t = 1.0f;
-                isRotating = false;
+            if (trackingMode) {
+                float remainingYaw = Mth.wrapDegrees(targetRot.yaw - mc.player.getYRot());
+                float remainingPitch = targetRot.pitch - mc.player.getXRot();
+                if (Math.abs(remainingYaw) < TRACKING_ARRIVAL_DEGREES
+                        && Math.abs(remainingPitch) < TRACKING_ARRIVAL_DEGREES) {
+                    isRotating = false;
+                }
+                float closed = 1.0f - (float) Math.exp(-stepMs / trackingSmoothingMs);
+                currentYaw = mc.player.getYRot() + remainingYaw * closed;
+                currentPitch = mc.player.getXRot() + remainingPitch * closed;
+            } else {
+                long elapsed = updateAt - rotationStartTime;
+                float t = (float) elapsed / (float) rotationDuration;
+
+                if (t >= 1.0f) {
+                    t = 1.0f;
+                    isRotating = false;
+                }
+
+                float easedT = applyEasing(t);
+
+                currentYaw = startRot.yaw + (targetRot.yaw - startRot.yaw) * easedT;
+                currentPitch = startRot.pitch + (targetRot.pitch - startRot.pitch) * easedT;
             }
-
-            float easedT = applyEasing(t);
-
-            float currentYaw = startRot.yaw + (targetRot.yaw - startRot.yaw) * easedT;
-            float currentPitch = startRot.pitch + (targetRot.pitch - startRot.pitch) * easedT;
 
             if (applyTrackingNoise) {
                 float noiseMin = AetherConfig.ROTATION_TRACKING_NOISE_MIN.get();
@@ -160,8 +233,34 @@ public class RotationManager {
             }
 
             currentPitch = Mth.clamp(currentPitch, -90.0f, 90.0f);
+
+            if (maxDegreesPerSecond > 0.0f) {
+                float budget = maxDegreesPerSecond * stepMs / 1000.0f;
+                float yawStep = Mth.wrapDegrees(currentYaw - mc.player.getYRot());
+                float pitchStep = currentPitch - mc.player.getXRot();
+                float step = (float) Math.sqrt(yawStep * yawStep + pitchStep * pitchStep);
+                if (step > budget) {
+                    float scale = budget / step;
+                    currentYaw = mc.player.getYRot() + yawStep * scale;
+                    currentPitch = Mth.clamp(mc.player.getXRot() + pitchStep * scale, -90.0f, 90.0f);
+                    // The curve is done but the camera is not there yet;
+                    // ending here would leave it short of the target.
+                    isRotating = true;
+                }
+            }
+
             currentYaw = applyGcd(currentYaw, mc.player.getYRot());
             currentPitch = applyGcd(currentPitch, mc.player.getXRot(), -90.0f, 90.0f);
+
+            // A tracking rotation closes a fraction of what is left, so the last
+            // fraction of a degree rounds to nothing on the mouse GCD and the
+            // rotation never reports finished. Every isRotating() wait in the mod
+            // hangs on that, so treat a step the GCD cannot express as arrival.
+            if (trackingMode && stepMs > 0
+                    && currentYaw == mc.player.getYRot()
+                    && currentPitch == mc.player.getXRot()) {
+                isRotating = false;
+            }
 
             mc.player.setYRot(currentYaw);
             mc.player.setXRot(currentPitch);

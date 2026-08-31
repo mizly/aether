@@ -1,0 +1,206 @@
+# Beta release announcement -> #beta-releases (DISCORD_WEBHOOK_URL).
+# Uploads the jar and source archive to Discord as real attachments (the repo
+# is private, so release links are useless to members), and attaches the source
+# archive and .sha256 sidecars to the release itself.
+#
+# Discord caps a single message at 10 MiB, so the jar and the source archive go
+# out as two separate messages.
+#
+# Deliberately separate from build.yml: build.yml is shared with upstream, so
+# keeping fork-only logic here means upstream merges never conflict with it.
+#
+# Runs off build.yml finishing rather than `release: published`, because a
+# release created with the default GITHUB_TOKEN does not fire release events.
+#
+# Required repo secret: DISCORD_WEBHOOK_URL   (skipped when empty)
+name: Discord Beta Release
+
+on:
+  workflow_run:
+    workflows: ["Build and Release"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to announce (defaults to latest release)"
+        required: false
+
+jobs:
+  notify:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      contains(fromJSON('["push","workflow_dispatch"]'), github.event.workflow_run.event) &&
+      contains(fromJSON('["main","master"]'), github.event.workflow_run.head_branch))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+
+    steps:
+      - name: Resolve Release Tag
+        id: tag
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG=$(gh release view --json tagName -q .tagName)
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Release Tag
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+          fetch-depth: 0
+
+      - name: Resolve Release Metadata
+        id: release
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release view "$RELEASE_TAG" --json name,tagName,assets > release.json
+
+          SRC_NAME="aether-${RELEASE_TAG}-src.tar.gz"
+          if jq -e --arg n "$SRC_NAME" 'any(.assets[]; .name == $n)' release.json > /dev/null; then
+            echo "$RELEASE_TAG already has $SRC_NAME, assuming it was announced already"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          JAR_NAME=$(jq -r '[.assets[].name | select(endswith(".jar"))
+            | select(contains("sources") | not)
+            | select(contains("-dev") | not)] | first // empty' release.json)
+
+          if [ -z "$JAR_NAME" ]; then
+            echo "No release jar asset found on $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          {
+            echo "skip=false"
+            echo "name=$(jq -r '.name // .tagName' release.json)"
+            echo "jar_name=$JAR_NAME"
+            echo "src_name=$SRC_NAME"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo 'commit_message<<AETHER_EOF'
+            git log -1 --pretty=%B
+            echo AETHER_EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Package Sources And Compute Checksums
+        id: sums
+        if: steps.release.outputs.skip == 'false'
+        env:
+          RELEASE_TAG: ${{ steps.tag.outputs.tag }}
+          JAR_NAME: ${{ steps.release.outputs.jar_name }}
+          SRC_NAME: ${{ steps.release.outputs.src_name }}
+        run: |
+          set -euo pipefail
+          gh release download "$RELEASE_TAG" --pattern "$JAR_NAME" --dir .
+          git archive --format=tar.gz --prefix="aether-${RELEASE_TAG}/" -o "$SRC_NAME" "$RELEASE_TAG"
+
+          sha256sum "$JAR_NAME" > "$JAR_NAME.sha256"
+          sha256sum "$SRC_NAME" > "$SRC_NAME.sha256"
+
+          {
+            echo "jar=$(cut -d' ' -f1 < "$JAR_NAME.sha256")"
+            echo "src=$(cut -d' ' -f1 < "$SRC_NAME.sha256")"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Attach Source Archive And Checksums
+        if: steps.release.outputs.skip == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          files: |
+            ${{ steps.release.outputs.src_name }}
+            ${{ steps.release.outputs.src_name }}.sha256
+            ${{ steps.release.outputs.jar_name }}.sha256
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send Discord Webhook
+        if: steps.release.outputs.skip == 'false'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          COMMIT_MESSAGE: ${{ steps.release.outputs.commit_message }}
+          RELEASE_NAME: ${{ steps.release.outputs.name }}
+          JAR_NAME: ${{ steps.release.outputs.jar_name }}
+          JAR_SHA: ${{ steps.sums.outputs.jar }}
+          SRC_NAME: ${{ steps.release.outputs.src_name }}
+          SRC_SHA: ${{ steps.sums.outputs.src }}
+        run: |
+          set -euo pipefail
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "Skipping beta notify: DISCORD_WEBHOOK_URL is not set"
+            exit 0
+          fi
+
+          DISCORD_MAX_BYTES=$((10 * 1024 * 1024))
+
+          fits() {
+            local size
+            size=$(stat -c %s "$1")
+            if [ "$size" -gt "$DISCORD_MAX_BYTES" ]; then
+              echo "$1 is ${size}B, over Discord's ${DISCORD_MAX_BYTES}B limit; posting checksum only" >&2
+              return 1
+            fi
+          }
+
+          printf -v DESCRIPTION "A new beta build has been released! :rocket:\n\n**Commit Message:**\n%s" "$COMMIT_MESSAGE"
+
+          jq -n \
+            --arg title "New Beta Release: $RELEASE_NAME" \
+            --arg desc "$DESCRIPTION" \
+            --arg jar_name "$JAR_NAME" \
+            --arg jar_sha "$JAR_SHA" \
+            --arg src_name "$SRC_NAME" \
+            --arg src_sha "$SRC_SHA" \
+            '{
+              embeds: [{
+                title: $title,
+                description: $desc,
+                color: 5814783,
+                fields: [
+                  {
+                    name: "JAR",
+                    value: "\($jar_name)\n`\($jar_sha)`",
+                    inline: false
+                  },
+                  {
+                    name: "Source Archive",
+                    value: "\($src_name)\n`\($src_sha)`",
+                    inline: false
+                  }
+                ]
+              }]
+            }' > payload.json
+
+          if fits "$JAR_NAME"; then
+            curl -sS -f -X POST \
+              -F "payload_json=<payload.json" \
+              -F "files[0]=@$JAR_NAME" \
+              "$DISCORD_WEBHOOK_URL"
+          else
+            curl -sS -f -X POST \
+              -H "Content-Type: application/json" \
+              -d @payload.json \
+              "$DISCORD_WEBHOOK_URL"
+          fi
+
+          if fits "$SRC_NAME"; then
+            jq -n --arg src_name "$SRC_NAME" '{content: "Source for `\($src_name)`:"}' > src-payload.json
+            curl -sS -f -X POST \
+              -F "payload_json=<src-payload.json" \
+              -F "files[0]=@$SRC_NAME" \
+              "$DISCORD_WEBHOOK_URL"
+          fi
