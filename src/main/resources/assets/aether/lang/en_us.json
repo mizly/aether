@@ -460,6 +460,8 @@
   "text.aether.budget_autopet": "Budget Autopet",
   "text.aether.chat_filtering": "Chat Filtering",
   "text.aether.check_for_auto_update_pre_launch": "Check for auto update pre-launch",
+  "text.aether.update_notifications": "Update Notifications",
+  "text.aether.checks_for_new_github_releases_and_shows_a_notification_without_downloading_or_installing": "Checks for new GitHub releases and shows a notification without downloading or installing",
   "text.aether.choose_a_version_of_the_mod_to_load": "Choose a version of the mod to load",
   "text.aether.cleans_pests_once_past_the_threshold": "Cleans pests once past the threshold",
   "text.aether.clears_and_refills_pest_traps": "Clears and refills pest traps",

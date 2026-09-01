@@ -50,6 +50,7 @@ public final class ClientFeatureBootstrap {
         FailsafeSoundManager.init();
         Theme.loadTheme();
         MainGUI.uiScale = Theme.UI_SCALE; // apply persisted GUI scale (Theme is the source of truth)
+        MainGUI.uiTextScale = Theme.TEXT_SCALE; // apply persisted text scale before the first frame
         ProfitManager.loadLifetime();
         ProfitManager.loadDaily();
         MacroStateManager.syncFromConfig();

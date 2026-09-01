@@ -324,11 +324,11 @@ public final class NanoVGManager {
             String winDir = System.getenv("WINDIR");
             String fontDir = (winDir == null || winDir.isBlank()) ? "C:\\Windows\\Fonts" : winDir + "\\Fonts";
             return new String[] {
-                    fontDir + "\\YuGothR.ttc",
-                    fontDir + "\\msgothic.ttc",
                     fontDir + "\\msyh.ttc",
                     fontDir + "\\msjh.ttc",
                     fontDir + "\\simsun.ttc",
+                    fontDir + "\\YuGothR.ttc",
+                    fontDir + "\\msgothic.ttc",
                     fontDir + "\\malgun.ttf",
                     fontDir + "\\seguisym.ttf",
                     fontDir + "\\seguiemj.ttf",
