@@ -19,8 +19,29 @@ final class PestEquipmentController {
             Minecraft client,
             PestDestroyerRuntime runtime,
             Context context) {
-        int slot = PestLoadoutHelper.findVacuumHotbarSlot(client);
+        boolean hunting = PestHuntingController.isEnabled();
+        boolean hasLasso = false;
+        if (hunting) {
+            runtime.lassoSlot = PestLoadoutHelper.findLassoHotbarSlot(client);
+            hasLasso = runtime.lassoSlot != -1;
+            if (!hasLasso) {
+                ClientUtils.sendMessage(
+                        "\u00A7cNo lasso found in hotbar. Lasso-routed pests will be left untouched.", false);
+            }
+        }
+
+        int[] vacuumSlots = PestLoadoutHelper.findAutomaticVacuumSlots(client);
+        runtime.stunVacuumSlot = vacuumSlots[0];
+        int slot = vacuumSlots[1];
         if (slot == -1) {
+            // Hunting only taps the vacuum to stun, so it can run without one.
+            if (hunting && hasLasso) {
+                ClientUtils.sendDebugMessage(
+                        "[PestHunting] No vacuum in hotbar. Skipping the stun tap.");
+                runtime.vacuumSlot = -1;
+                enterFlightOrFinish(client, context);
+                return;
+            }
             ClientUtils.sendMessage(
                     "\u00A7cNo vacuum found in hotbar. Aborting pest destroyer.", false);
             context.finish(client);
@@ -28,6 +49,7 @@ final class PestEquipmentController {
         }
 
         runtime.vacuumSlot = slot;
+        runtime.killVacuumSlot = slot;
         runtime.vacuumRange = PestLoadoutHelper.detectVacuumRange(client, slot);
         client.execute(
                 () -> FailsafeManager.selectHotbarSlot(client, runtime.vacuumSlot));
@@ -38,6 +60,10 @@ final class PestEquipmentController {
                         + runtime.vacuumRange
                         + ")");
 
+        enterFlightOrFinish(client, context);
+    }
+
+    private static void enterFlightOrFinish(Minecraft client, Context context) {
         if (!client.player.getAbilities().flying
                 && client.player.getAbilities().mayfly) {
             context.setState(PestDestroyer.State.FLY_UP);

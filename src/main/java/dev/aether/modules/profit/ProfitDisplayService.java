@@ -82,6 +82,7 @@ final class ProfitDisplayService {
         Map<String, Long> normalizedCounts = normalizeCounts(counts);
         Map<String, Long> compact = new LinkedHashMap<>();
         compact.put("Crops", 0L);
+        compact.put("Shards", 0L);
         compact.put("Pest Items", 0L);
         compact.put("Pets", 0L);
         compact.put("Feast", 0L);
@@ -97,6 +98,8 @@ final class ProfitDisplayService {
 
             if (pricing.isCrop(name)) {
                 compact.put("Crops", compact.get("Crops") + profit);
+            } else if (pricing.isShard(name)) {
+                compact.put("Shards", compact.get("Shards") + profit);
             } else if (pricing.isPestItem(name)) {
                 compact.put("Pest Items", compact.get("Pest Items") + profit);
             } else if (pricing.isPet(name)) {

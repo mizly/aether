@@ -120,7 +120,6 @@ public final class AetherTelemetryService {
             wasActive = serverActive;
             serverActive = false;
             sessionToken = playtimeSessionToken;
-            playtimeSessionToken = "";
             generation++;
             cancelHeartbeat();
         }

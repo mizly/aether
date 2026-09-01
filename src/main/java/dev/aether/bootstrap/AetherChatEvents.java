@@ -51,6 +51,10 @@ public final class AetherChatEvents {
 
             MetalDetectorSolver.onGameMessage(Minecraft.getInstance(), plainText, overlay);
 
+            if (overlay) {
+                PestDestroyer.onLassoOverlayMessage(plainText);
+            }
+
             if (plainText.contains("Teleported you to The Barn!")) {
                 dev.aether.modules.visitor.VisitorsMacro.hasBarnTeleportMessage = true;
             }
@@ -77,6 +81,7 @@ public final class AetherChatEvents {
                 AutoCarnivalManager.handleChatMessage(Minecraft.getInstance(), message, plainText);
                 handleVisitorAcceptance(plainText);
                 handlePestDestroyerNoPests(lowerPlainText);
+                handlePestCaught(lowerPlainText);
                 handleAutoSellNpcCoinLimit(plainText);
                 if (handleProxyRestartMessage(text, plainText)) {
                     return;
@@ -112,6 +117,26 @@ public final class AetherChatEvents {
         if (acceptedVisitorName != null) {
             VisitorManager.onOfferAccepted(acceptedVisitorName);
         }
+    }
+
+    private static void handlePestCaught(String lowerPlainText) {
+        if (isPestCatchMessage(lowerPlainText)) {
+            PestDestroyer.onPestCaught();
+        }
+        // Hypixel puts the escape on the overlay, but route the chat copy too:
+        // reacting a tick sooner is the difference between a re-stun and a chase.
+        PestDestroyer.onLassoEscapeMessage(lowerPlainText);
+    }
+
+    /** Recognizes both the generic and typed/count shard catch messages. */
+    static boolean isPestCatchMessage(String lowerPlainText) {
+        if (lowerPlainText == null || !lowerPlainText.contains("shard")) {
+            return false;
+        }
+        return lowerPlainText.contains("you caught ")
+                || lowerPlainText.contains("you charmed ")
+                || lowerPlainText.contains("captured its shard")
+                || lowerPlainText.contains("captured a shard");
     }
 
     private static void handlePestDestroyerNoPests(String lowerPlainText) {
@@ -263,4 +288,3 @@ public final class AetherChatEvents {
     }
 
 }
-

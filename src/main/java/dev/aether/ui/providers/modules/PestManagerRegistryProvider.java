@@ -10,6 +10,7 @@ import dev.aether.ui.settings.ColorSetting;
 import dev.aether.ui.settings.DropdownSetting;
 import dev.aether.ui.settings.KeybindSetting;
 import dev.aether.ui.settings.ListSetting;
+import dev.aether.ui.settings.MultiDropdownSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.PositionSetting;
 import dev.aether.ui.settings.SettingGroup;
@@ -143,7 +144,59 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                 .add(FarmingSettingsFactory.aotvBetweenPestsDelaySetting()
                         .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()))
                 .add(FarmingSettingsFactory.pestFovRangeSetting())
-                .add(FarmingSettingsFactory.pestAboveAimPitchRangeSetting()));
+                .add(FarmingSettingsFactory.pestAboveAimPitchRangeSetting())
+                .add(FarmingSettingsFactory.pestMaxTurnSpeedSetting()));
+        groups.add(SettingGroup.of(
+                        "Pest Hunting",
+                        "Lassos pests for guaranteed shards instead of vacuuming them (needs a lasso in your hotbar)",
+                        AetherConfig.PEST_HUNTING::get,
+                        v -> {
+                            AetherConfig.PEST_HUNTING.set(v);
+                            AetherConfig.save();
+                        })
+                .add(new ToggleSetting("Vacuum Stun Before Lasso",
+                        AetherConfig.PEST_HUNTING_VACUUM_STUN::get,
+                        v -> {
+                            AetherConfig.PEST_HUNTING_VACUUM_STUN.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(new MultiDropdownSetting("Vacuum Pest Blacklist",
+                        List.of("Fly", "Cricket", "Locust", "Rat", "Mosquito", "Earthworm",
+                                "Mite", "Moth", "Slug", "Beetle", "Firefly", "Dragonfly", "Praying Mantis"),
+                        () -> AetherConfig.PEST_HUNTING_VACUUM_PEST_MASK.get(),
+                        v -> {
+                            AetherConfig.PEST_HUNTING_VACUUM_PEST_MASK.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(new SliderSetting("Follow Distance", 1, 8,
+                        AetherConfig.PEST_HUNTING_FOLLOW_DISTANCE::get,
+                        v -> {
+                            AetherConfig.PEST_HUNTING_FOLLOW_DISTANCE.set(v);
+                            AetherConfig.save();
+                        })
+                        .withDecimals(1))
+                .add(new SliderSetting("Max Leash Distance", 4, 10,
+                        AetherConfig.PEST_HUNTING_MAX_DISTANCE::get,
+                        v -> {
+                            AetherConfig.PEST_HUNTING_MAX_DISTANCE.set(v);
+                            AetherConfig.save();
+                        })
+                        .withDecimals(1))
+                .add(new SliderSetting("Max Lasso Throws", 1, 15,
+                        () -> (float) AetherConfig.PEST_HUNTING_MAX_THROWS.get(),
+                        v -> {
+                            AetherConfig.PEST_HUNTING_MAX_THROWS.set(Math.round(v));
+                            AetherConfig.save();
+                        })
+                        .withDecimals(0))
+                .add(new SliderSetting("Catch Timeout", 10000, 120000,
+                        () -> (float) AetherConfig.PEST_HUNTING_TIMEOUT_MS.get(),
+                        v -> {
+                            AetherConfig.PEST_HUNTING_TIMEOUT_MS.set(Math.round(v));
+                            AetherConfig.save();
+                        })
+                        .withDecimals(0).withSuffix("ms")));
+
         groups.add(SettingGroup.of(
                         "Ballsack Shredder",
                         "Uses a dedicated AOTV sequence before pest cleaning",

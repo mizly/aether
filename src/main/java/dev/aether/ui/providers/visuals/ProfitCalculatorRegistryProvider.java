@@ -5,6 +5,7 @@ import dev.aether.config.PetInfo;
 import dev.aether.config.PetRarity;
 import dev.aether.modules.profit.ProfitManager;
 import dev.aether.modules.profit.ProfitPriceSource;
+import dev.aether.modules.profit.ShardPriceSource;
 import dev.aether.ui.MainGUIRegistry;
 import dev.aether.ui.providers.base.AbstractVisualsRegistryProvider;
 import dev.aether.ui.settings.ActionSetting;
@@ -85,6 +86,16 @@ public final class ProfitCalculatorRegistryProvider extends AbstractVisualsRegis
                             AetherConfig.PROFIT_PRICE_SOURCE.set(values[i].name());
                             AetherConfig.save();
                             ProfitManager.handlePriceSourceChanged();
+                        }))
+                .add(new DropdownSetting("Shard Price Source",
+                        java.util.Arrays.stream(ShardPriceSource.values()).map(ShardPriceSource::getLabel).toList(),
+                        () -> ShardPriceSource.fromConfig(AetherConfig.SHARD_PRICE_SOURCE.get()).ordinal(),
+                        i -> {
+                            ShardPriceSource[] values = ShardPriceSource.values();
+                            if (i < 0 || i >= values.length) return;
+                            AetherConfig.SHARD_PRICE_SOURCE.set(values[i].name());
+                            AetherConfig.save();
+                            ProfitManager.handleShardPriceSourceChanged();
                         }))
                 .add(new ActionSetting("Reset Session",
                         dev.aether.macro.MacroStateManager::resetSession))

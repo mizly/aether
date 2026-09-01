@@ -19,7 +19,6 @@ import net.minecraft.world.entity.Entity;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * State machine that walks a player along a pre-computed path using keyboard injection.
@@ -61,7 +60,11 @@ public final class PathExecutor {
     private static final double CAM_MAX_LATERAL_DEV = 2.5;
 
     // Reversible switch: set false to restore legacy keynode-driven camera targeting.
-    private static final boolean USE_CAMERA_RAIL = true;
+    // The rail used to be allowed to steer independently of the movement
+    // waypoint.  When its cursor lagged a fast player it could point behind
+    // the player, then the strafe controller chased that heading in a loop.
+    // Keep rotation and movement on the same path segment instead.
+    private static final boolean USE_CAMERA_RAIL = false;
     private static final double  CAMERA_RAIL_REACHED_DIST = 1.15;
     private static final double  CAMERA_RAIL_MAX_STEP_DIST = 3.0;
     private static final double  LEGACY_CAMERA_EYE_Y = 1.6;
@@ -415,10 +418,12 @@ public final class PathExecutor {
             float pitchDrift = Math.abs(AngleUtils.getRotationDelta(
                     RotationExecutor.getTargetPitch(), desiredRot.pitch));
 
-            if (yawDrift > 1.5f || pitchDrift > 2.5f) {
+            // Do not restart the eased rotation every tick for tiny rail changes;
+            // that creates visible twitching and makes the player weave on straight legs.
+            if ((!RotationExecutor.isRotating() && (yawDrift > 6.0f || pitchDrift > 6.0f))
+                    || yawDrift > 16.0f || pitchDrift > 14.0f) {
                 float turnMagnitude = Math.max(yawDrift, pitchDrift);
-                long durationMs = Math.round(Math.min(900f, 420f + turnMagnitude * 3f))
-                        + ThreadLocalRandom.current().nextLong(80L);
+                long durationMs = Math.round(Math.min(850f, 450f + turnMagnitude * 2.5f));
                 EasingType easing;
                 if (USE_CAMERA_RAIL && !cameraPath.isEmpty()) {
                     easing = EasingType.EASE_OUT_CUBIC;
@@ -541,16 +546,25 @@ public final class PathExecutor {
         float yawRad = (float) Math.toRadians(mc.player.getYRot());
         double forwardX = -Math.sin(yawRad);
         double forwardZ = Math.cos(yawRad);
-        double rightX = -Math.sin(yawRad + Math.PI / 2.0);
-        double rightZ = Math.cos(yawRad + Math.PI / 2.0);
+        // Minecraft's positive strafe direction is the player's right side.
+        // The old +PI/2 expression produced the left vector, so the executor
+        // fought its own turn and rapidly toggled A/D while travelling straight.
+        double rightX = Math.cos(yawRad);
+        double rightZ = Math.sin(yawRad);
 
         double forwardDot = desiredX * forwardX + desiredZ * forwardZ;
         double strafeDot = desiredX * rightX + desiredZ * rightZ;
 
-        boolean forward = forwardDot > WALK_FORWARD_DOT;
-        boolean backward = forwardDot < WALK_BACKWARD_DOT;
-        boolean right = strafeDot > WALK_STRAFE_DOT;
-        boolean left = strafeDot < -WALK_STRAFE_DOT;
+        // Keep straight-line travel on W. A/D is only allowed when the lateral
+        // error is clear; the old independent thresholds caused key chatter as
+        // the yaw eased through the target heading.
+        // Never strafe while a turn is being eased.  Strafing against an
+        // intermediate yaw is what made the player orbit the waypoint.
+        boolean lateral = !RotationExecutor.isRotating() && Math.abs(strafeDot) > 0.50;
+        boolean forward = !lateral && forwardDot > 0.05 || lateral && forwardDot > WALK_FORWARD_DOT;
+        boolean backward = !lateral && forwardDot < WALK_BACKWARD_DOT;
+        boolean right = lateral && strafeDot > 0.50;
+        boolean left = lateral && strafeDot < -0.50;
 
         ClientUtils.setKeyMappingState(mc.options.keyUp, forward);
         ClientUtils.setKeyMappingState(mc.options.keyDown, backward);

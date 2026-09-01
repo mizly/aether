@@ -40,7 +40,7 @@
 
 ## contributing
 contributions are welcome, so feel free to make a PR!
+if your PR adds a new feature, for example a new farm design or a new meta, please attach a video of the feature in your PR.
 
 To contribute to language packs, see https://github.com/iceangelsaint/aether-language-packs
 
----

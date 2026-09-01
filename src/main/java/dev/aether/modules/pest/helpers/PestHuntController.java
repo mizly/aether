@@ -40,6 +40,10 @@ final class PestHuntController {
             PestTargetController.rebuildQueue(client, runtime, targetContext);
             pest = PestTargetController.nextQueuedPest(client, runtime);
         }
+        if (pest == null && runtime.deferredTargets.releaseRetryable()) {
+            PestTargetController.rebuildQueue(client, runtime, targetContext);
+            pest = PestTargetController.nextQueuedPest(client, runtime);
+        }
         if (pest != null) {
             PestTargetController.engage(client, runtime, targetContext, pest);
             return;
@@ -99,7 +103,7 @@ final class PestHuntController {
         ClientUtils.sendDebugMessage(
                 "[PestDestroyer] No visible pests on Plot "
                         + firstPlot
-                        + ". Using firework tracker...");
+                        + ". Sweeping the plot...");
         context.setState(PestDestroyer.State.GET_LOCATION);
     }
 }

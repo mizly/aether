@@ -12,12 +12,9 @@ import java.util.concurrent.ConcurrentHashMap;
 final class PestNavigationState {
     private static final long TRUSTED_PLOT_TTL_MS = 120_000L;
 
-    Vec3 fireworkFirstPos = null;
-    Vec3 fireworkLastPos = null;
-    int fireworkParticleCount = 0;
-    boolean isCapturingFirework = false;
-    long fireworkCaptureStartedAt = 0L;
     Vec3 calculatedWaypoint = null;
+    Vec3 plotAnchor = null;
+    int scanPointIdx = 0;
     int getLocationAttempts = 0;
     int waypointCycleCount = 0;
     boolean plotTpSent = false;
@@ -41,12 +38,9 @@ final class PestNavigationState {
     }
 
     void resetForRun() {
-        fireworkFirstPos = null;
-        fireworkLastPos = null;
-        fireworkParticleCount = 0;
-        isCapturingFirework = false;
-        fireworkCaptureStartedAt = 0L;
         calculatedWaypoint = null;
+        plotAnchor = null;
+        scanPointIdx = 0;
         getLocationAttempts = 0;
         waypointCycleCount = 0;
         plotTpSent = false;

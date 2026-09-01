@@ -10,6 +10,7 @@ import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
+import dev.aether.util.GardenPlots;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -1750,30 +1751,12 @@ public final class BedrockPlotMaker {
         }
     }
 
-    /**
-     * Garden plot numbers as seen on the map from above: top row is north (-Z),
-     * left column is west (-X), 0 is the barn at grid (0, 0).
-     */
-    private static final int[][] PLOT_LAYOUT = {
-            {21, 13,  9, 14, 22},
-            {15,  5,  1,  6, 16},
-            {10,  2,  0,  3, 11},
-            {17,  7,  4,  8, 18},
-            {23, 19, 12, 20, 24},
-    };
-
     private static PlotBounds boundsForPlot(int plot) {
         if (plot <= 0) {
             return null;
         }
-        for (int row = 0; row < PLOT_LAYOUT.length; row++) {
-            for (int col = 0; col < PLOT_LAYOUT[row].length; col++) {
-                if (PLOT_LAYOUT[row][col] == plot) {
-                    return bounds(col - 2, row - 2);
-                }
-            }
-        }
-        return null;
+        int[] grid = GardenPlots.gridForPlot(plot);
+        return grid == null ? null : bounds(grid[0], grid[1]);
     }
 
     private static PlotBounds bounds(int gridX, int gridZ) {
