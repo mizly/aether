@@ -321,15 +321,6 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         AetherKeybindRegistry.getManualPestEarlyFinishKey())));
 
         groups.add(SettingGroup.of(
-                        "Normal Farming Pest Handling",
-                        "Farms normally through pest cooldowns without swapping to the pest spawn loadout. Pests are handled only once the Pest Threshold is reached, following your Manual Pest Mode / Pest Destroyer setting",
-                        () -> AetherConfig.NORMAL_FARMING_PEST_HANDLING.get(),
-                        v -> {
-                            AetherConfig.NORMAL_FARMING_PEST_HANDLING.set(v);
-                            AetherConfig.save();
-                        }));
-
-        groups.add(SettingGroup.of(
                         "Pest Traps",
                         "Clears and refills pest traps",
                         () -> AetherConfig.ENABLE_PEST_TRAPS.get(),
