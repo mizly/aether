@@ -33,10 +33,18 @@ public final class AutoUpdateRegistryProvider extends AbstractMiningRegistryProv
                                 ? AutoUpdateInstaller.getStatus()
                                 : "Disabled. Enable to automatically install the newest GitHub release.")
                         .multiline());
+        SettingGroup updateNotifications = SettingGroup.of(
+                "Update Notifications",
+                "Checks for new GitHub releases and shows a notification without downloading or installing",
+                () -> AetherConfig.CHECK_FOR_UPDATES.get(),
+                v -> {
+                    AetherConfig.CHECK_FOR_UPDATES.set(v);
+                    AetherConfig.save();
+                });
 
         return MainGUIRegistry.subTab(
                 "Auto Update",
                 "Fetches and installs the newest GitHub release automatically",
-                List.of(autoUpdate));
+                List.of(autoUpdate, updateNotifications));
     }
 }

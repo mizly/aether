@@ -23,11 +23,26 @@ public final class AetherUpdateTickHandler {
             }
 
             checkedForCurrentJoin = true;
-            if (AetherConfig.AUTO_UPDATE.get()) {
-                AutoUpdateInstaller.checkAndInstallLatest();
-            } else {
-                UpdateChecker.checkAndNotify();
+            switch (selectUpdateAction(AetherConfig.AUTO_UPDATE.get(), AetherConfig.CHECK_FOR_UPDATES.get())) {
+                case INSTALL -> AutoUpdateInstaller.checkAndInstallLatest();
+                case NOTIFY -> UpdateChecker.checkAndNotify();
+                case NONE -> {
+                    // Both update options are disabled.
+                }
             }
         });
+    }
+
+    static UpdateAction selectUpdateAction(boolean automaticInstallationEnabled, boolean notificationsEnabled) {
+        if (automaticInstallationEnabled) {
+            return UpdateAction.INSTALL;
+        }
+        return notificationsEnabled ? UpdateAction.NOTIFY : UpdateAction.NONE;
+    }
+
+    enum UpdateAction {
+        NONE,
+        NOTIFY,
+        INSTALL
     }
 }

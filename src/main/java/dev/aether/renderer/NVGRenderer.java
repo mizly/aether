@@ -659,7 +659,8 @@ public class NVGRenderer {
                               float size, int color) {
         float tw = textWidth(fontName, text, size);
         float tx = x + (w - tw) / 2f;
-        float ty = y + (h - size) / 2f;
+        float renderedSize = size * textScale;
+        float ty = y + (h - renderedSize) / 2f;
         text(fontName, text, tx, ty, size, color);
     }
 
@@ -700,7 +701,8 @@ public class NVGRenderer {
         int fontId = NanoVGManager.getFontId(fontName);
         if (fontId == -1) return 0f;
         nvgFontFaceId(vg, fontId);
-        nvgFontSize(vg, size / textScale);
+        // text() renders at size * textScale, so measure at the same effective size.
+        nvgFontSize(vg, size * textScale);
         float w = nvgTextBounds(vg, 0, 0, text, fontBounds);
         textWidthCache.put(key, w);
         lastTextKey = key;
