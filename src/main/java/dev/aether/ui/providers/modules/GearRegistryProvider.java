@@ -1,11 +1,13 @@
 package dev.aether.ui.providers.modules;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.ui.MainGUIRegistry;
 import dev.aether.ui.providers.base.AbstractModulesRegistryProvider;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
+import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,9 +61,17 @@ public final class GearRegistryProvider extends AbstractModulesRegistryProvider 
                         .withDecimals(0)
                         .withSuffix("s")));
 
-        return MainGUIRegistry.subTab(
+        return MainGUIRegistry.toggleSubTab(
                 "Auto Loadout",
                 "Automatically swaps loadouts",
+                () -> AetherConfig.AUTO_LOADOUT_ENABLED.get(),
+                enabled -> {
+                    AetherConfig.AUTO_LOADOUT_ENABLED.set(enabled);
+                    if (!enabled) {
+                        LoadoutManager.cancelIfDisabled(Minecraft.getInstance());
+                    }
+                    AetherConfig.save();
+                },
                 groups);
     }
 }

@@ -1,5 +1,6 @@
 package dev.aether.modules.gear.helpers;
 
+import dev.aether.config.AetherConfig;
 import dev.aether.macro.farming.FarmingMacroManager;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
@@ -50,6 +51,9 @@ public class LoadoutManager {
     }
 
     public static void triggerLoadoutSwap(Minecraft client, int slot) {
+        if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()) {
+            return;
+        }
         if (isSwappingLoadout && targetLoadoutSlot == slot) {
             ClientUtils.sendDebugMessage("Loadout swap to slot " + slot + " is already pending.");
             return;
@@ -108,6 +112,9 @@ public class LoadoutManager {
     }
 
     public static void ensureLoadoutSlot(Minecraft client, int slot) {
+        if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()) {
+            return;
+        }
         if (slot <= 0 || trackedLoadoutSlot == slot || (isSwappingLoadout && targetLoadoutSlot == slot)) {
             return;
         }
@@ -123,6 +130,17 @@ public class LoadoutManager {
         loadoutFirstClickDelayMs = 0;
         loadoutChatConfirmed = false;
         ClientUtils.sendCommand("/loadout");
+    }
+
+    /** Cancels an in-flight loadout operation after auto loadout is disabled. */
+    public static void cancelIfDisabled(Minecraft client) {
+        if (AetherConfig.AUTO_LOADOUT_ENABLED.get() || !isSwappingLoadout) {
+            return;
+        }
+
+        abortSwapForPriorityTask(client, "auto loadout being disabled");
+        targetLoadoutSlot = -1;
+        loadoutRequestId++;
     }
 
     public static void abortSwapForPriorityTask(Minecraft client, String taskName) {
@@ -151,6 +169,10 @@ public class LoadoutManager {
     }
 
     public static void handleLoadoutMenu(Minecraft client, AbstractContainerScreen<?> screen) {
+        if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()) {
+            cancelIfDisabled(client);
+            return;
+        }
         if (!isSwappingLoadout || targetLoadoutSlot == -1) {
             return;
         }

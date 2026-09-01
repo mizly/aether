@@ -392,7 +392,9 @@ public class PestReturnManager {
 
     static boolean restoreFarmingLoadout(Minecraft client) throws InterruptedException {
         int targetSlot = AetherConfig.LOADOUT_SLOT_FARMING.get();
-        if (targetSlot <= 0 || LoadoutManager.trackedLoadoutSlot == targetSlot) {
+        if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()
+                || targetSlot <= 0
+                || LoadoutManager.trackedLoadoutSlot == targetSlot) {
             return true;
         }
 

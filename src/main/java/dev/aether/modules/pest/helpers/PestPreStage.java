@@ -118,7 +118,9 @@ final class PestPreStage {
 
     private static boolean swapToPestLoadout(Minecraft client, int sessionId) throws InterruptedException {
         int targetSlot = AetherConfig.LOADOUT_SLOT_PEST_KILL.get();
-        if (targetSlot <= 0 || LoadoutManager.trackedLoadoutSlot == targetSlot) {
+        if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()
+                || targetSlot <= 0
+                || LoadoutManager.trackedLoadoutSlot == targetSlot) {
             return !shouldAbort(client, sessionId);
         }
 

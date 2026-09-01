@@ -1151,7 +1151,8 @@ public class VisitorsMacro {
     }
 
     private static boolean ensureVisitorLoadout(Minecraft client) {
-        if (AetherConfig.LOADOUT_SLOT_VISITOR.get() > 0
+        if (AetherConfig.AUTO_LOADOUT_ENABLED.get()
+                && AetherConfig.LOADOUT_SLOT_VISITOR.get() > 0
                 && LoadoutManager.trackedLoadoutSlot != AetherConfig.LOADOUT_SLOT_VISITOR
                         .get()) {
             msg(client, "\u00A7eSwapping to visitor loadout (Slot " + AetherConfig.LOADOUT_SLOT_VISITOR.get()

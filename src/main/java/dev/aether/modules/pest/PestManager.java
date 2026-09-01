@@ -386,7 +386,7 @@ public class PestManager {
         boolean useBallsackTriggerFlow = spawnedMessage && shouldUseBallsackShredderForSpawn(plot);
         long selectedDelayMs = useBallsackTriggerFlow ? ballsackDelayMs : delayMs;
         boolean requestedBallsackLoadout = false;
-        if (useBallsackTriggerFlow) {
+        if (useBallsackTriggerFlow && AetherConfig.AUTO_LOADOUT_ENABLED.get()) {
             int farmingSlot = AetherConfig.LOADOUT_SLOT_FARMING.get();
             if (farmingSlot > 0
                     && LoadoutManager.trackedLoadoutSlot != farmingSlot
@@ -427,17 +427,20 @@ public class PestManager {
             return false;
         }
         if (pendingChatTriggerWaitsForLoadout) {
-            if (LoadoutManager.isSwappingLoadout
+            if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()) {
+                pendingChatTriggerWaitsForLoadout = false;
+                pendingChatTriggerDelayAfterLoadoutMs = 0L;
+            } else if (LoadoutManager.isSwappingLoadout
                     || !LoadoutManager.loadoutGuiCloseComplete
                     || currentState != MacroState.State.FARMING) {
                 return false;
+            } else {
+                pendingChatTrigger = new PendingChatTrigger(pending.plot, pending.spawnedCount,
+                        System.currentTimeMillis() + pendingChatTriggerDelayAfterLoadoutMs);
+                pendingChatTriggerWaitsForLoadout = false;
+                pendingChatTriggerDelayAfterLoadoutMs = 0L;
+                return false;
             }
-
-            pendingChatTrigger = new PendingChatTrigger(pending.plot, pending.spawnedCount,
-                    System.currentTimeMillis() + pendingChatTriggerDelayAfterLoadoutMs);
-            pendingChatTriggerWaitsForLoadout = false;
-            pendingChatTriggerDelayAfterLoadoutMs = 0L;
-            return false;
         }
         if (currentState != MacroState.State.FARMING) {
             if (pendingChatTriggerUsesBallsack && LoadoutManager.isSwappingLoadout) {
