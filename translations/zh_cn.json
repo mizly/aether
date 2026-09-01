@@ -614,6 +614,8 @@
   "text.aether.automatically_swaps_loadouts": "Automatically swaps loadouts",
   "text.aether.boundary_axis": "Boundary Axis",
   "text.aether.bot_token": "Bot Token",
+  "text.aether.update_notifications": "Update Notifications",
+  "text.aether.checks_for_new_github_releases_and_shows_a_notification_without_downloading_or_installing": "Checks for new GitHub releases and shows a notification without downloading or installing",
   "text.aether.command_prefix": "Command Prefix",
   "text.aether.configure_discord_webhook_and_remote_control_integrations": "Configure Discord webhook and remote control integrations",
   "text.aether.configure_discord_bot_access_for_remote_aether_commands": "Configure Discord bot access for remote Aether commands",
