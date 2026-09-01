@@ -91,6 +91,9 @@ public class GearManager {
     }
 
     public static boolean hasAnyGearSwapTasksEnabled() {
+        if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()) {
+            return false;
+        }
         int farmingSlot = AetherConfig.LOADOUT_SLOT_FARMING.get();
         return AetherConfig.LOADOUT_SLOT_PEST.get() != farmingSlot
                 || AetherConfig.LOADOUT_SLOT_PEST_KILL.get() != farmingSlot
@@ -342,6 +345,7 @@ public class GearManager {
 
     public static void cleanupTick() {
         Minecraft client = Minecraft.getInstance();
+        LoadoutManager.cancelIfDisabled(client);
         if (LoadoutManager.loadoutCleanupTicks > 0) {
             LoadoutManager.loadoutCleanupTicks--;
             if (client.player != null) {

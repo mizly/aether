@@ -31,23 +31,23 @@ public class Theme {
     // BACKGROUND COLORS (mutable for theming)
     // ============================================================
 
-    public static int BG_PRIMARY    = 0xFF141414;
-    public static int BG_SECONDARY  = 0xFF1C1C1C;
-    public static int BG_TERTIARY   = 0xFF111111;
-    public static int BG_HOVER      = 0xFF252525;
-    public static int BG_ACTIVE     = 0xFF222222;
-    public static int BG_FIELD      = 0xFF1A1A1A;
+    public static int BG_PRIMARY    = 0xFF20252B;
+    public static int BG_SECONDARY  = 0xFF2A3038;
+    public static int BG_TERTIARY   = 0xFF171B21;
+    public static int BG_HOVER      = 0xFF38414D;
+    public static int BG_ACTIVE     = 0xFF414B58;
+    public static int BG_FIELD      = 0xFF323A45;
 
     /** Main panel background. */
-    public static int PANEL_BG      = 0xFF0E0E0F;
+    public static int PANEL_BG      = 0xFF20262D;
     /** Sidebar background. */
-    public static int SIDEBAR_BG    = 0xFF111114;
+    public static int SIDEBAR_BG    = 0xFF171C23;
     /** Setting-row and module-card background. */
-    public static int CARD_BG       = 0xFF161619;
+    public static int CARD_BG       = 0xFF2B333D;
     /** Element background - slider value box, dropdown button, action button. */
-    public static int ELEMENT_BG    = 0xFF1C1C20;
+    public static int ELEMENT_BG    = 0xFF36404B;
     /** Separator / divider line color. */
-    public static int SEPARATOR     = 0xFF1B1B1D;
+    public static int SEPARATOR     = 0xFF4A5563;
 
     // ============================================================
     // ACCENT COLORS (mutable for theming)
@@ -55,8 +55,8 @@ public class Theme {
 
     public static int ACCENT_PRIMARY   = 0xFFD32F2F;
     public static int ACCENT_SECONDARY = 0xFFB71C1C;
-    public static int ACCENT_DIM       = 0x40D32F2F;
-    public static int ACCENT_GLOW      = 0x80D32F2F;
+    public static int ACCENT_DIM       = 0x55D32F2F;
+    public static int ACCENT_GLOW      = 0x99D32F2F;
     public static int ACCENT_ENABLED   = 0xFF4CAF50;
     public static int ACCENT_WARNING   = 0xFFF59E0B;
     public static int ACCENT_ERROR     = 0xFFEF4444;
@@ -69,8 +69,8 @@ public class Theme {
     // BORDER COLORS (mutable for theming)
     // ============================================================
 
-    public static int BORDER_DEFAULT = 0xFF2A2A2A;
-    public static int BORDER_HOVER   = 0xFF3A3A3A;
+    public static int BORDER_DEFAULT = 0xFF667383;
+    public static int BORDER_HOVER   = 0xFF8795A5;
     public static int BORDER_ACTIVE  = 0xFFD32F2F;
     public static int BORDER_ACCENT  = 0xFFD32F2F;
     public static final int BORDER_DRAG   = 0xFFAAAAFF;
@@ -80,21 +80,21 @@ public class Theme {
     // TEXT COLORS (mutable for theming)
     // ============================================================
 
-    public static int TEXT_PRIMARY   = 0xFFEEEEEE;
-    public static int TEXT_SECONDARY = 0xFF888888;
+    public static int TEXT_PRIMARY   = 0xFFF5F7FA;
+    public static int TEXT_SECONDARY = 0xFFC3CBD5;
     public static final int TEXT_TERTIARY  = 0xFF6B7280;
-    public static int TEXT_DIM       = 0xFF6B7280;
+    public static int TEXT_DIM       = 0xFFB0BAC6;
     public static final int TEXT_DISABLED  = 0xFF4B5563;
     public static final int TEXT_ACCENT    = 0xFF6366F1;
 
     /** Muted / inactive text - unselected tabs, descriptions, dim labels. */
-    public static int TEXT_MUTED     = 0xFF44444C;
+    public static int TEXT_MUTED     = 0xFF9AA6B2;
     /** Setting-row label text. */
-    public static int TEXT_LABEL     = 0xFFE8E8EC;
+    public static int TEXT_LABEL     = 0xFFF0F3F6;
     /** Secondary value text - slider value, dropdown value, action button default. */
-    public static int TEXT_VALUE     = 0xFF7C7C88;
+    public static int TEXT_VALUE     = 0xFFD2D9E1;
     /** Enabled group label color in flat (Colors/Settings) view. */
-    public static int GROUP_ACTIVE   = 0xFF9090B8;
+    public static int GROUP_ACTIVE   = 0xFFB8C4D1;
 
     // ============================================================
     // PER-SETTING-TYPE COLORS (mutable for theming)
@@ -102,20 +102,20 @@ public class Theme {
 
     // Toggle pill
     /** Off-state track background for toggle pill. */
-    public static int PILL_TRACK     = 0xFF222226;
+    public static int PILL_TRACK     = 0xFF46515E;
     /** Off-state knob color for toggle pill. */
-    public static int PILL_KNOB_OFF  = 0xFF44444C;
+    public static int PILL_KNOB_OFF  = 0xFFB4BEC9;
 
     // Slider
     /** Left/start color of slider gradient fill. */
-    public static int SLIDER_LEFT    = 0xFF5C3FD4;
+    public static int SLIDER_LEFT    = 0xFF4FA3D1;
 
     // Dropdown
-    public static int DROPDOWN_BTN_BG       = 0xFF1A1A1A;
+    public static int DROPDOWN_BTN_BG       = 0xFF36404B;
 
     // Action button
-    public static int ACTION_BTN_BG    = 0xFF1A1A1A;
-    public static int ACTION_BTN_HOVER = 0xFF252525;
+    public static int ACTION_BTN_BG    = 0xFF36404B;
+    public static int ACTION_BTN_HOVER = 0xFF46515E;
 
     // ============================================================
     // LAYOUT CONSTANTS
@@ -150,14 +150,14 @@ public class Theme {
     // HUD COLORS (independent from GUI theme)
     // ============================================================
 
-    public static int HUD_BG     = 0xFF141424;
-    public static int HUD_BORDER = 0xFF6464B4;
+    public static int HUD_BG     = 0xFF1F2730;
+    public static int HUD_BORDER = 0xFF7E9AB2;
     public static int HUD_TITLE  = 0xFFFFFFFF;
-    public static int HUD_LABEL  = 0xFFAAAAAA;
+    public static int HUD_LABEL  = 0xFFC3CBD5;
     public static int HUD_VALUE  = 0xFFFFFFFF;
-    public static int HUD_ACCENT = 0xFF6464B4;
-    public static int HUD_SEP    = 0xFF4A4A88;
-    public static int HUD_BAR_BG = 0xFF1A1A32;
+    public static int HUD_ACCENT = 0xFF70B7D9;
+    public static int HUD_SEP    = 0xFF5D7182;
+    public static int HUD_BAR_BG = 0xFF2F3A45;
 
     // ============================================================
     // ANIMATION SPEED / SPACING
@@ -172,6 +172,11 @@ public class Theme {
     public static final float UI_SCALE_MAX = 3.0f;
     /** Global scale of the /aether GUI panel (1.0 = pixel-perfect). Mirrored into MainGUI.uiScale at load. */
     public static float UI_SCALE = 1.5f;
+
+    public static final float TEXT_SCALE_MIN = 0.75f;
+    public static final float TEXT_SCALE_MAX = 2.0f;
+    /** Independent text multiplier applied inside the /aether GUI. */
+    public static float TEXT_SCALE = 1.0f;
 
     /** Extra vertical spacing between settings within a module card (px). */
     public static int SETTING_SPACING = 4;
@@ -257,6 +262,13 @@ public class Theme {
         entry("HUD Bar BG",     () -> HUD_BAR_BG,  v -> HUD_BAR_BG  = v)
     );
 
+    private static final int[] DEFAULT_MENU_COLORS = ENTRIES.stream()
+            .mapToInt(entry -> entry.getter.get())
+            .toArray();
+    private static final int[] DEFAULT_HUD_COLORS = HUD_ENTRIES.stream()
+            .mapToInt(entry -> entry.getter.get())
+            .toArray();
+
     // ============================================================
     // SAVE / LOAD
     // ============================================================
@@ -276,6 +288,7 @@ public class Theme {
         obj.addProperty("animSpeed", ANIM_TIME_MS);
         obj.addProperty("settingSpacing", SETTING_SPACING);
         obj.addProperty("uiScale", UI_SCALE);
+        obj.addProperty("textScale", TEXT_SCALE);
         JsonArray rainbowArr = new JsonArray();
         for (String s : rainbowEntries) rainbowArr.add(s);
         obj.add("rainbowEntries", rainbowArr);
@@ -305,6 +318,7 @@ public class Theme {
             if (obj.has("animSpeed"))     ANIM_TIME_MS    = parseAnimationTime(obj.get("animSpeed").getAsFloat());
             if (obj.has("settingSpacing")) SETTING_SPACING = obj.get("settingSpacing").getAsInt();
             if (obj.has("uiScale"))       UI_SCALE        = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, obj.get("uiScale").getAsFloat()));
+            if (obj.has("textScale"))     TEXT_SCALE      = Math.max(TEXT_SCALE_MIN, Math.min(TEXT_SCALE_MAX, obj.get("textScale").getAsFloat()));
             rainbowEntries.clear();
             if (obj.has("rainbowEntries")) {
                 obj.get("rainbowEntries").getAsJsonArray()
@@ -328,6 +342,7 @@ public class Theme {
         obj.addProperty("animSpeed", ANIM_TIME_MS);
         obj.addProperty("settingSpacing", SETTING_SPACING);
         obj.addProperty("uiScale", UI_SCALE);
+        obj.addProperty("textScale", TEXT_SCALE);
         JsonArray rainbowArr2 = new JsonArray();
         for (String s : rainbowEntries) rainbowArr2.add(s);
         obj.add("rainbowEntries", rainbowArr2);
@@ -352,6 +367,7 @@ public class Theme {
             if (obj.has("animSpeed"))     ANIM_TIME_MS    = parseAnimationTime(obj.get("animSpeed").getAsFloat());
             if (obj.has("settingSpacing")) SETTING_SPACING = obj.get("settingSpacing").getAsInt();
             if (obj.has("uiScale"))       UI_SCALE        = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, obj.get("uiScale").getAsFloat()));
+            if (obj.has("textScale"))     TEXT_SCALE      = Math.max(TEXT_SCALE_MIN, Math.min(TEXT_SCALE_MAX, obj.get("textScale").getAsFloat()));
             rainbowEntries.clear();
             if (obj.has("rainbowEntries")) {
                 obj.get("rainbowEntries").getAsJsonArray()
@@ -362,6 +378,21 @@ public class Theme {
         } catch (Exception ex) {
             ex.printStackTrace();
         }
+    }
+
+    /** Restores every user-editable theme value to the built-in defaults. */
+    public static void resetToDefaults() {
+        for (int i = 0; i < ENTRIES.size(); i++) {
+            ENTRIES.get(i).setter.accept(DEFAULT_MENU_COLORS[i]);
+        }
+        for (int i = 0; i < HUD_ENTRIES.size(); i++) {
+            HUD_ENTRIES.get(i).setter.accept(DEFAULT_HUD_COLORS[i]);
+        }
+        ANIM_TIME_MS = 250f;
+        SETTING_SPACING = 4;
+        UI_SCALE = 1.5f;
+        TEXT_SCALE = 1.0f;
+        rainbowEntries.clear();
     }
 
     // ============================================================

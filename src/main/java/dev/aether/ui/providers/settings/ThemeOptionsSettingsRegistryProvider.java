@@ -40,6 +40,20 @@ public final class ThemeOptionsSettingsRegistryProvider extends AbstractSettings
                             Theme.saveTheme();
                         })
                         .withDecimals(2).withSuffix("x"))
+                .add(new SliderSetting("Text Scale", Theme.TEXT_SCALE_MIN, Theme.TEXT_SCALE_MAX,
+                        () -> Theme.TEXT_SCALE,
+                        value -> {
+                            Theme.TEXT_SCALE = value;
+                            MainGUI.uiTextScale = value;
+                            Theme.saveTheme();
+                        })
+                        .withDecimals(2).withSuffix("x"))
+                .add(new ActionSetting("Reset Theme", () -> {
+                    Theme.resetToDefaults();
+                    MainGUI.uiScale = Theme.UI_SCALE;
+                    MainGUI.uiTextScale = Theme.TEXT_SCALE;
+                    Theme.saveTheme();
+                }))
                 .add(new ActionSetting("Export Theme (Copy)", () -> {
                     String json = Theme.exportJson();
                     Minecraft.getInstance().keyboardHandler.setClipboard(json);
@@ -49,6 +63,7 @@ public final class ThemeOptionsSettingsRegistryProvider extends AbstractSettings
                     if (json != null && !json.isBlank()) {
                         Theme.importJson(json);
                         MainGUI.uiScale = Theme.UI_SCALE; // apply imported scale to the live panel
+                        MainGUI.uiTextScale = Theme.TEXT_SCALE; // apply imported text scale immediately
                         Theme.saveTheme();
                     }
                 })));

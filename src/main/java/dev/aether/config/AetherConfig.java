@@ -197,6 +197,7 @@ public final class AetherConfig {
         // -- AUTHENTICATION --------------------------------------------------------
 
         public static final BooleanEntry AUTO_UPDATE = Config.bool("autoUpdate", false);
+        public static final BooleanEntry CHECK_FOR_UPDATES = Config.bool("checkForUpdates", false);
         public static final StringEntry LANGUAGE_CODE = Config.string("languageCode", "en_us");
         public static final BooleanEntry TABLIST_SETUP_COMPLETE = Config.bool("tablistSetupComplete", false);
 
@@ -341,8 +342,9 @@ public final class AetherConfig {
         private static boolean migrateLegacyLoadoutKeys(JsonObject root) {
                 boolean updated = false;
 
-                // Loadout swapping is determined solely by the configured slots. Remove
-                // retired enable flags when rewriting legacy configs.
+                // The global toggle replaces the retired per-event enable flags. Remove
+                // those flags when rewriting legacy configs; missing global toggle keeps
+                // the new default (enabled).
                 if (root.has("autoLoadoutPest") || root.has("autoLoadoutVisitor")
                                 || root.has("autoWardrobePest") || root.has("autoWardrobeVisitor")) {
                         updated = true;
@@ -560,6 +562,7 @@ public final class AetherConfig {
 
         // -- AUTO LOADOUT ----------------------------------------------------------
 
+        public static final BooleanEntry AUTO_LOADOUT_ENABLED = Config.bool("autoLoadoutEnabled", true);
         public static final IntEntry LOADOUT_SLOT_FARMING = Config.integer("loadoutSlotFarming", 1).range(1, 12);
         public static final IntEntry LOADOUT_SLOT_PEST = Config.integer("loadoutSlotPest", 2).range(1, 12);
         public static final IntEntry LOADOUT_SLOT_PEST_KILL = Config.integer("loadoutSlotPestKill", 1).range(1, 12);
