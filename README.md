@@ -42,5 +42,17 @@
 contributions are welcome, so feel free to make a PR!
 if your PR adds a new feature, for example a new farm design or a new meta, please attach a video of the feature in your PR.
 
-To contribute to language packs, see https://github.com/iceangelsaint/aether-language-packs
+To contribute to language packs, see the [`translations/`](translations/) directory.
 
+<!-- translation-coverage:start -->
+## Translation Coverage
+
+| Locale | Covered | Percentage |
+| --- | ---: | ---: |
+| `jp_jp` | 303/667 | 45.4% |
+| `pr_us` | 253/667 | 37.9% |
+| `pt_pt` | 477/667 | 71.5% |
+| `ru_ru` | 492/667 | 73.8% |
+| `test` | 516/667 | 77.4% |
+| `zh_cn` | 508/667 | 76.2% |
+<!-- translation-coverage:end -->
