@@ -59,6 +59,12 @@ public final class MiscellaneousRegistryProvider extends AbstractModulesRegistry
                             AetherConfig.MACRO_UNGRAB_MOUSE.set(v);
                             AetherConfig.save();
                         }))
+                .add(new ToggleSetting("Auto Reconnect",
+                        () -> AetherConfig.AUTO_RECONNECT.get(),
+                        v -> {
+                            AetherConfig.AUTO_RECONNECT.set(v);
+                            AetherConfig.save();
+                        }))
                 .add(new ToggleSetting("Mute Game",
                         () -> AetherConfig.MUTE_GAME.get(),
                         v -> {

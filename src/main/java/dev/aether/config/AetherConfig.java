@@ -859,6 +859,8 @@ public final class AetherConfig {
         public static final StringEntry FARM_TYPE = Config.string("farmType", FarmType.S_SHAPE.name());
         /** Release the mouse cursor while the farming macro is running. */
         public static final BooleanEntry MACRO_UNGRAB_MOUSE = Config.bool("macroUngrabMouse", true);
+        /** Automatically reconnect after an unexpected server disconnect while the macro is running. */
+        public static final BooleanEntry AUTO_RECONNECT = Config.bool("autoReconnect", true);
         /** Use a fixed custom pitch when enabling the farming macro. */
         public static final BooleanEntry MACRO_USE_CUSTOM_PITCH = Config.bool("macroUseCustomPitch", false);
         /** Custom pitch angle (-90 = look straight up, 90 = look straight down). */

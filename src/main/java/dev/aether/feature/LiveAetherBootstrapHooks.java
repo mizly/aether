@@ -61,7 +61,11 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public void onUnexpectedDisconnect() {
-        if (MacroStateManager.isMacroRunning() && !MacroStateManager.isIntentionalDisconnect()) {
+        // Dynamic rests and proxy restarts mark their disconnect as intentional and
+        // schedule their own reconnect; this preference only controls unexpected loss.
+        if (AetherConfig.AUTO_RECONNECT.get()
+                && MacroStateManager.isMacroRunning()
+                && !MacroStateManager.isIntentionalDisconnect()) {
             long delay = 30 + (long) (Math.random() * 30);
             ReconnectScheduler.scheduleReconnect(delay, true);
         }
