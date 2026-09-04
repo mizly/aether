@@ -97,6 +97,11 @@ that services file** — it is not auto-discovered otherwise. `/aether` opens th
 
 ## Core Rules
 
+### Translations
+
+When making changes, update only the base `en_us.json` translation file. Do not run or
+update translations for other locales; those updates are handled on GitHub.
+
 ### Commits
 
 	•	Commit frequently. Small, focused commits over large batched ones.
