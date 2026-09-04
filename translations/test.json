@@ -667,5 +667,6 @@
   "text.aether.random_global": "Random (Global)",
   "text.aether.restoring_previous_equipment": "Restoring previous equipment...",
   "text.aether.update_notifications": "Update Notifications",
-  "text.aether.checks_for_new_github_releases_and_shows_a_notification_without_downloading_or_installing": "Checks for new GitHub releases and shows a notification without downloading or installing"
+  "text.aether.checks_for_new_github_releases_and_shows_a_notification_without_downloading_or_installing": "Checks for new GitHub releases and shows a notification without downloading or installing",
+  "text.aether.auto_reconnect": "Auto Reconnect"
 }

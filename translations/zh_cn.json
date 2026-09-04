@@ -667,5 +667,6 @@
   "text.aether.blank": "[blank]",
   "text.aether.random_local": "Random (Local)",
   "text.aether.random_global": "Random (Global)",
-  "text.aether.restoring_previous_equipment": "Restoring previous equipment..."
+  "text.aether.restoring_previous_equipment": "Restoring previous equipment...",
+  "text.aether.auto_reconnect": "Auto Reconnect"
 }

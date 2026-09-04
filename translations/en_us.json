@@ -258,6 +258,7 @@
   "text.aether.inventory_hud": "Inventory HUD",
   "text.aether.inventory_threshold": "Inventory Threshold",
   "text.aether.estimate_pest_destroyer_completion": "Estimate Pest Destroyer Completion",
+  "text.aether.auto_reconnect": "Auto Reconnect",
   "text.aether.npc_shop_coin_limit_reached_autosell_disabled": "NPC shop coin limit reached. AutoSell disabled.",
   "text.aether.items": "Items",
   "text.aether.junk_items": "Junk Items",
