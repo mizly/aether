@@ -70,8 +70,8 @@ public final class BedrockPlotMaker {
     private static final float PITCH_TOLERANCE = 2.0f;
     /** Exact center of the drop block one column east of the inclusive west edge. */
     private static final double STAND_EAST_OFFSET = 1.5;
-    /** Slightly left/north of center so the Builder drop stays aligned in the trench. */
-    private static final double STAND_Z_OFFSET = -0.7;
+    /** Centered on the south-interior block the downward crosshair aims at, so the ruler drops cleanly. */
+    private static final double STAND_Z_OFFSET = -0.5;
     private static final double TARGET_TOLERANCE = 0.08;
     private static final double BEDROCK_RAY_DISTANCE = 8.0;
     private static final Pattern REMOVED_BLOCKS =
@@ -353,7 +353,15 @@ public final class BedrockPlotMaker {
                 return;
             }
             if (!holdRulerUntilBedrock(client, dropCenter)) {
-                return;
+                if (shouldStop(client)) {
+                    return;
+                }
+                clearRotationLock();
+                releaseHeldKeysSync(client);
+                if (!descendToBedrock(client, dropCenter)) {
+                    ClientUtils.sendDebugMessage("Bedrock Plot Maker: failed to reach bedrock level.");
+                    return;
+                }
             }
             clearAcrossPlot(client, bounds);
         } finally {
@@ -518,6 +526,30 @@ public final class BedrockPlotMaker {
             client.execute(() -> PathfindingManager.stop(false));
             return false;
         }
+        return true;
+    }
+
+    private static final int BEDROCK_STANDING_Y = MIN_Y + 1;
+
+    private static boolean descendToBedrock(Minecraft client, Vec3 dropCenter) {
+        if (client.player == null || shouldStop(client)) {
+            return false;
+        }
+
+        int playerY = client.player.blockPosition().getY();
+        if (playerY <= BEDROCK_STANDING_Y) {
+            return true;
+        }
+
+        Vec3 playerPos = client.player.position();
+        Vec3 bedrockTarget = new Vec3(playerPos.x, BEDROCK_STANDING_Y, playerPos.z);
+        if (!walkToCommandPoint(client, bedrockTarget)) {
+            ClientUtils.sendDebugMessage(
+                    "Bedrock Plot Maker: pathfinding to bedrock level (Y=" + BEDROCK_STANDING_Y + ") failed.");
+            return false;
+        }
+
+        ClientUtils.sendDebugMessage("Bedrock Plot Maker: descended to bedrock at Y=" + BEDROCK_STANDING_Y + ".");
         return true;
     }
 
@@ -688,13 +720,15 @@ public final class BedrockPlotMaker {
                     ClientUtils.setKeyMappingState(client.options.keyUse, true);
                 }
             });
-            reachedBedrock = isCrosshairOnBedrock(client);
+            reachedBedrock = isCrosshairOnBedrock(client) && currentY <= BEDROCK_STANDING_Y;
             if (reachedBedrock && removedMessages.get() > 0) {
                 break;
             }
             MacroWorkerThread.sleep(50);
         }
         countingRemovals = false;
+        clearRotationLock();
+        releaseHeldKeysSync(client);
         if ((!reachedBedrock || removedMessages.get() == 0) && !shouldStop(client)) {
             ClientUtils.sendDebugMessage(
                     "Bedrock Plot Maker: stopped with bedrock=" + reachedBedrock
