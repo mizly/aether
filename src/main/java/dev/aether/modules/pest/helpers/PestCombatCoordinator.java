@@ -163,14 +163,9 @@ final class PestCombatCoordinator {
         // Tracking the moving pest here overwrote the path heading after only a
         // few movement ticks, making every stuck recovery forget its goal.
 
-        boolean lassoTarget = PestHuntingController.shouldLassoTarget(client, currentTarget);
-        boolean directApproach = !lassoTarget && context.runtime().flightController.canApproachDirectly(client, currentTarget, context.getVacuumRange());
-        if (directApproach || lassoTarget && dist <= targetReachDistance) {
+        if (dist <= targetReachDistance) {
             PathfindingManager.stop();
             context.setState(PestDestroyer.State.APPROACH_PEST);
-            if (directApproach) {
-                context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), true);
-            }
             return;
         }
 
@@ -236,19 +231,10 @@ final class PestCombatCoordinator {
 
         if (dist <= terminalRange) {
             context.beginTerminalState(client);
-            if (!lassoTarget) {
-                context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), true);
-            }
             return;
         }
 
-        if (directApproach) {
-            if (PathfindingManager.isNavigating()) {
-                PathfindingManager.stop();
-            }
-            context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), true);
-        } else if (!PathfindingManager.isNavigating()) {
-            RotationManager.cancelRotation();
+        if (!PathfindingManager.isNavigating()) {
             context.startPathToPest(client, currentTarget);
         }
 
@@ -274,9 +260,6 @@ final class PestCombatCoordinator {
             }
             if (currentTarget != null && (currentTarget.isRemoved() || (currentTarget instanceof LivingEntity le2 && le2.isDeadOrDying()))) {
                 if (context.recordTrackedPestKill(client, currentTarget)) {
-                    return;
-                }
-                if (context.switchToNextQueuedTarget(client)) {
                     return;
                 }
             }
@@ -367,7 +350,7 @@ final class PestCombatCoordinator {
             return;
         }
 
-        if (dist <= context.getVacuumRange() && directApproach) {
+        if (dist <= context.getVacuumRange()) {
             boolean retryingUse =
                     context.shouldTemporarilyReleaseKillVacuum(client, true, true);
             ClientUtils.setKeyMappingState(client.options.keyUse, !retryingUse);
@@ -467,6 +450,7 @@ final class PestCombatCoordinator {
             context.shouldTemporarilyReleaseKillVacuum(client, true, false);
             context.runtime().oneTapVacuumNearStartedAt = 0L;
             ClientUtils.setKeyMappingState(client.options.keyUse, false);
+            ClientUtils.setKeyMappingState(client.options.keyDown, false);
             context.setTargetWithoutSkullTicks(0);
             ClientUtils.setKeyMappingState(
                     client.options.keyUp,
@@ -1436,7 +1420,7 @@ final class PestCombatCoordinator {
         if (PestHuntingController.shouldLassoTarget(client, target)) {
             return target.position().add(0, target.getEyeHeight(target.getPose()), 0);
         }
-        return PestAimTracker.trackingAim(client, target);
+        return buildVacuumAimTarget(client, target);
     }
 
     /**

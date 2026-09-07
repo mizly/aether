@@ -485,6 +485,14 @@ public final class AetherConfig {
                         Config.floatVal("pestMaxTurnSpeed", 300.0f).range(60.0f, 1200.0f);
         public static final FloatEntry PEST_NEXT_TARGET_TURN_SPEED =
                         Config.floatVal("pestNextTargetTurnSpeed", 450.0f).range(60.0f, 1200.0f);
+        public static final FloatEntry PEST_VACUUM_FOLLOW_DISTANCE =
+                        Config.floatVal("pestVacuumFollowDistance", 5.0f).range(2.0f, 7.0f);
+        public static final BooleanEntry RESPECT_VACUUM_TRUE_RANGE = Config.bool("respectVacuumTrueRange", true);
+        public static final FloatEntry PEST_APPROACH_SPEED =
+                        Config.floatVal("pestApproachSpeed", 0.35f).range(0.15f, 0.8f);
+        public static final FloatEntry PEST_TRACKING_SMOOTHING_MS =
+                        Config.floatVal("pestTrackingSmoothingMs", 220.0f).range(100.0f, 500.0f);
+        public static final FloatEntry PEST_AIM_DRIFT = Config.floatVal("pestAimDrift", 1.0f).range(0.0f, 2.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MIN = Config.floatVal("pestAboveTargetPitchMin", 25.0f)
                         .range(20.0f, 40.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MAX = Config.floatVal("pestAboveTargetPitchMax", 40.0f)
@@ -1105,6 +1113,23 @@ public final class AetherConfig {
         public static final IntEntry PEST_ESP_TRACER_COLOR = Config.integer("pestEspTracerColor", 0xFFFF3030);
         public static final BooleanEntry PEST_ESP_OPTIMIZED_ROUTE = Config.bool("pestEspOptimizedRoute", false);
         public static final IntEntry PEST_ESP_OPTIMIZED_ROUTE_COLOR = Config.integer("pestEspOptimizedRouteColor", 0xFF00F0FF);
+        public static final BooleanEntry PEST_ESP_PATH = Config.bool("pestEspPath", false);
+        public static final IntEntry PEST_ESP_PATH_COLOR = Config.integer("pestEspPathColor", 0xFF30FF80);
+        public static final BooleanEntry PEST_ESP_HUNT = Config.bool("pestEspHunt", false);
+        public static final IntEntry PEST_ESP_HUNT_COLOR = Config.integer("pestEspHuntColor", 0xFFFFAA00);
+
+        // -- MANUAL PEST HUNTING (aim + reel assists for manual pest mode) --------
+        public static final BooleanEntry MANUAL_PEST_HUNTING = Config.bool("manualPestHunting", false);
+        public static final BooleanEntry MANUAL_HUNT_AUTOREEL = Config.bool("manualHuntAutoreel", false);
+        public static final IntEntry MANUAL_HUNT_REEL_DELAY_MIN = Config.integer("manualHuntReelDelayMin", 0).range(0, 2000);
+        public static final IntEntry MANUAL_HUNT_REEL_DELAY_MAX = Config.integer("manualHuntReelDelayMax", 0).range(0, 2000);
+        public static final BooleanEntry MANUAL_HUNT_AIM_ASSIST = Config.bool("manualHuntAimAssist", false);
+        public static final IntEntry MANUAL_HUNT_AIM_STRENGTH = Config.integer("manualHuntAimStrength", 5);
+        public static final IntEntry MANUAL_HUNT_ETHERWARP_ROTATION = Config.integer("manualHuntEtherwarpRotation", 5);
+        public static final BooleanEntry MANUAL_HUNT_AUTO_STUN = Config.bool("manualHuntAutoStun", false);
+        public static final IntEntry MANUAL_HUNT_STUN_STRENGTH = Config.integer("manualHuntStunStrength", 5);
+        public static final BooleanEntry MANUAL_HUNT_AUTO_LASSO = Config.bool("manualHuntAutoLasso", false);
+        public static final IntEntry MANUAL_HUNT_AIM_FOV = Config.integer("manualHuntAimFov", 90);
 
         // -- GREENHOUSE ------------------------------------------------------------
         public static final BooleanEntry AUTO_GREENHOUSE = Config.bool("autoGreenhouse", false);

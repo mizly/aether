@@ -164,7 +164,6 @@ final class PestTargetController {
             PestDestroyerRuntime runtime,
             PestLeaveOneController.Context context) {
         boolean lassoTarget = PestHuntingController.shouldLassoTarget(client, runtime.currentTarget);
-        PathfindingManager.stop();
         runtime.currentTargetUsesLasso = lassoTarget;
         runtime.resetOneTapTracking();
         if (!lassoTarget && AetherConfig.PEST_ONE_TAP_PESTS.get()) {
@@ -381,12 +380,7 @@ final class PestTargetController {
                 ClientUtils.setKeyMappingState(client.options.keyUse, false);
                 ClientUtils.setKeyMappingState(client.options.keyDown, false);
             }
-            PathfindingManager.stop();
-            // Bouncing off CHECK_NEXT costs a full tick parked on the corpse before
-            // the next pest is even picked; choose it here so the swing starts now.
-            if (!switchToNextQueuedTarget(client, runtime, context)) {
-                context.setState(PestDestroyer.State.CHECK_NEXT);
-            }
+            context.setState(PestDestroyer.State.CHECK_NEXT);
         }
         return true;
     }
@@ -408,7 +402,6 @@ final class PestTargetController {
         if (!runtime.claimKilledPestEntityId(entity.getId())) {
             return false;
         }
-        dev.aether.modules.visuals.PestDefeatEffects.onDefeat(entity);
         PestManager.decrementPredictedAliveCount(client);
         return PestLeaveOneController.recordTrackedKill(client, runtime, context)
                 || !runtime.active;
@@ -613,7 +606,7 @@ final class PestTargetController {
         }
         Vec3 targetEye = PestCombatCoordinator.buildCombatAimTarget(client, target);
         if (!isLookingAt(client, targetEye, AetherConfig.PEST_FOV_RANGE.get())) {
-            RotationManager.trackRotation(
+            RotationManager.initiateRotation(
                     client,
                     targetEye,
                     TARGET_SWITCH_ROTATION_MS,

@@ -68,7 +68,7 @@ final class PestAimTracker {
         Vec3 predictedEye = target.position()
                 .add(lead())
                 .add(0, target.getEyeHeight(target.getPose()), 0);
-        Vec3 aim = PestCombatCoordinator.buildVacuumAimTarget(client, target, predictedEye);
+        Vec3 aim = predictedEye;
         return applyDrift(client, target, aim, now);
     }
 

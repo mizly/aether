@@ -26,9 +26,6 @@ import java.util.List;
 /** Renders only currently loaded, confirmed pest entities in the Garden. */
 public final class PestEspManager {
     private static final float TRACER_EDGE_MARGIN = 20.0f;
-    private static final float TRACER_WIDTH = 2.0f;
-    // Half-extent of the block-sized cube drawn around a pest's visible body.
-    private static final double PEST_BODY_HALF = 0.5;
 
     private PestEspManager() {
     }
@@ -58,29 +55,6 @@ public final class PestEspManager {
             }
         }
 
-    }
-
-    private static List<Vec3> nearestNeighborRoute(Vec3 start, List<PestData> pests) {
-        List<Vec3> remaining = new ArrayList<>(pests.size());
-        for (PestData pest : pests) {
-            remaining.add(pest.position());
-        }
-        List<Vec3> route = new ArrayList<>(remaining.size());
-        Vec3 current = start;
-        while (!remaining.isEmpty()) {
-            int nearest = 0;
-            double nearestDist = current.distanceToSqr(remaining.get(0));
-            for (int i = 1; i < remaining.size(); i++) {
-                double dist = current.distanceToSqr(remaining.get(i));
-                if (dist < nearestDist) {
-                    nearestDist = dist;
-                    nearest = i;
-                }
-            }
-            current = remaining.remove(nearest);
-            route.add(current);
-        }
-        return route;
     }
 
     public static void renderTracerOverlay() {
@@ -213,39 +187,15 @@ public final class PestEspManager {
 
     private static List<PestData> getRenderablePests(Minecraft client) {
         List<PestData> pests = new ArrayList<>();
-        boolean classify = AetherConfig.PEST_ESP_HUNT.get();
         // Do not render the armor-stand skull-marker fallback used by the pest targeter. The
         // marker may remain loaded for a short time after its backing pest mob has died.
         for (Entity entity : PestTargetTracker.getLoadedPestMobs(client)) {
             if (entity == null || entity.isRemoved() || isDead(entity)) {
                 continue;
             }
-            float partialTick = client.getDeltaTracker().getGameTimeDeltaPartialTick(
-                    !client.level.tickRateManager().isEntityFrozen(entity));
-            Vec3 position = new Vec3(
-                    net.minecraft.util.Mth.lerp(partialTick, entity.xOld, entity.getX()),
-                    net.minecraft.util.Mth.lerp(partialTick, entity.yOld, entity.getY()),
-                    net.minecraft.util.Mth.lerp(partialTick, entity.zOld, entity.getZ()));
-            boolean vacuum = classify && PestHuntingPolicy.isVacuumTarget(client, entity);
-            pests.add(new PestData(position, pestBodyBox(entity, position), vacuum));
+            pests.add(new PestData(entity.position(), entity.getBoundingBox()));
         }
         return pests;
-    }
-
-    // The pest mob (Bat/Silverfish) has a tiny hitbox that does not cover the
-    // player-head model shown in-game, so wrap the whole visible body with a
-    // block-sized cube centred on the mob's rendered position.
-    private static AABB pestBodyBox(Entity entity, Vec3 renderPosition) {
-        Vec3 hitboxCenter = entity.getBoundingBox().getCenter();
-        double dx = renderPosition.x - entity.position().x;
-        double dy = renderPosition.y - entity.position().y;
-        double dz = renderPosition.z - entity.position().z;
-        double cx = hitboxCenter.x + dx;
-        double cy = hitboxCenter.y + dy;
-        double cz = hitboxCenter.z + dz;
-        return new AABB(
-                cx - PEST_BODY_HALF, cy - PEST_BODY_HALF, cz - PEST_BODY_HALF,
-                cx + PEST_BODY_HALF, cy + PEST_BODY_HALF, cz + PEST_BODY_HALF);
     }
 
     private static ScreenPoint projectToScreen(Vec3 position, Vec3 cameraPosition,
@@ -290,9 +240,26 @@ public final class PestEspManager {
         return ARGB.color(alpha, (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
     }
 
-    private record PestData(Vec3 position, AABB box, boolean vacuum) {
+    private record PestData(Vec3 position, AABB box) {
     }
 
     private record ScreenPoint(float x, float y) {
+    }
+
+    private static boolean usesGlow() {
+        return "GLOW".equalsIgnoreCase(AetherConfig.PEST_ESP_MODE.get());
+    }
+
+    public static int outlineColor(Entity entity) {
+        if (!usesGlow() || !hasVisibleHighlights() || !AetherConfig.PEST_ESP_HIGHLIGHT.get()
+                || StreamerModeManager.isEnabled()) return 0;
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.level == null || client.player == null) return 0;
+        for (var pest : PestDisplayTracker.getPests(client)) {
+            if (pest.skull() == entity && !entity.isRemoved()) {
+                return argb(255, pestColor(AetherConfig.PEST_ESP_HIGHLIGHT_COLOR.get()));
+            }
+        }
+        return 0;
     }
 }

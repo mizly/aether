@@ -303,7 +303,7 @@ final class FarmingSettingsFactory {
                     AetherConfig.PEST_NEXT_TARGET_TURN_SPEED.set(v);
                     AetherConfig.save();
                 })
-                .withDecimals(0).withSuffix("\u00B0/s");
+                .withDecimals(0).withSuffix("°/s");
     }
 
     static SliderSetting visitorFovRangeSetting() {

@@ -8,7 +8,6 @@ import dev.aether.ui.MainGUIRegistry;
 import dev.aether.ui.providers.base.AbstractModulesRegistryProvider;
 import dev.aether.ui.settings.ColorSetting;
 import dev.aether.ui.settings.DropdownSetting;
-import dev.aether.ui.settings.InfoSetting;
 import dev.aether.ui.settings.KeybindSetting;
 import dev.aether.ui.settings.ListSetting;
 import dev.aether.ui.settings.MultiDropdownSetting;
@@ -37,7 +36,6 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
         List<String> sprayMaterials = FarmingSettingsFactory.sprayMaterials();
         List<String> manualPestSoundOptions = getSoundOptions();
         List<SettingGroup> groups = new ArrayList<>();
-        // Gate for the manual pest hunting assists: the Pest Hunting sub-toggle.
         Supplier<Boolean> HUNTING = () -> AetherConfig.MANUAL_PEST_MODE.get()
                 && AetherConfig.MANUAL_PEST_HUNTING.get();
 
@@ -108,18 +106,6 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         })
                         .withDecimals(0))
                 .add(FarmingSettingsFactory.pestDestroyerTriggerDelaySetting())
-                .add(new ToggleSetting("Use Pest Tracker Ability",
-                        AetherConfig.USE_PEST_TRACKER_ABILITY::get,
-                        v -> {
-                            AetherConfig.USE_PEST_TRACKER_ABILITY.set(v);
-                            AetherConfig.save();
-                        }))
-                .add(new ToggleSetting("Draw Arc",
-                        AetherConfig.PEST_TRACKER_DRAW_ARC::get,
-                        v -> {
-                            AetherConfig.PEST_TRACKER_DRAW_ARC.set(v);
-                            AetherConfig.save();
-                        }))
                 .add(new ToggleSetting("Estimate Pest Destroyer Completion",
                         AetherConfig.ESTIMATE_PEST_DESTROYER_COMPLETION::get,
                         v -> {

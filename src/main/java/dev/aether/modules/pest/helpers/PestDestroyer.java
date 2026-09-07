@@ -90,7 +90,6 @@ public class PestDestroyer {
     public static void start(Minecraft client, String initialPlot) {
         if (runtime.active)
             return;
-        PestTrackerAbility.clear();
         int[] vacuumSlots = PestLoadoutHelper.findAutomaticVacuumSlots(client);
         runtime.beginRun(
                 vacuumSlots[1],
@@ -175,13 +174,9 @@ public class PestDestroyer {
         if (!runtime.active)
             return;
         PestHuntingController.clearHunt(client, runtime);
-        runtime.navigation.trackerSearch.stopLooking();
-        PestTrackerAbility.clear();
         runtime.stopRun();
         PathfindingManager.stop();
         PestAotvManager.resetState();
-        PestAimTracker.reset();
-        RotationManager.cancelRotation();
         if (client != null && client.options != null) {
             ClientUtils.setKeyMappingState(client.options.keyUse, false);
             ClientUtils.setKeyMappingState(client.options.keyAttack, false);
@@ -192,8 +187,6 @@ public class PestDestroyer {
     }
 
     public static void reset() {
-        runtime.navigation.trackerSearch.stopLooking();
-        PestTrackerAbility.clear();
         PestLeaveOneController.clearRememberedPlots(runtime);
         runtime.resetAll();
     }
@@ -206,15 +199,11 @@ public class PestDestroyer {
         if (!runtime.active || client.player == null || client.level == null)
             return;
 
-        int killSlot = runtime.killVacuumSlot >= 0 ? runtime.killVacuumSlot : runtime.vacuumSlot;
-        if (killSlot >= 0) runtime.vacuumRange = PestLoadoutHelper.detectVacuumRange(client, killSlot);
-
         if (FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
             RotationManager.cancelRotation();
         }
 
         if (ClientUtils.isInventoryScreenOpen()) {
-            runtime.navigation.trackerSearch.stopLooking();
             ClientUtils.forceReleaseMovementKeys();
             return;
         }
@@ -596,8 +585,6 @@ public class PestDestroyer {
     }
 
     public static void finish(Minecraft client) {
-        runtime.navigation.trackerSearch.stopLooking();
-        PestTrackerAbility.clear();
         ClientUtils.setKeyMappingState(client.options.keyUse, false);
         ClientUtils.setKeyMappingState(client.options.keyDown, false);
         ClientUtils.setKeyMappingState(client.options.keyAttack, false);
@@ -608,8 +595,6 @@ public class PestDestroyer {
         ClientUtils.sendMessage("\u00A7aPest destroyer finished. Tracked " + killed + " pest(s).", false);
         runtime.resetAll();
         PathfindingManager.stop();
-        PestAimTracker.reset();
-        RotationManager.cancelRotation();
 
         PestManager.handlePestCleaningFinished(client);
     }
@@ -696,8 +681,6 @@ public class PestDestroyer {
     }
 
     public static void setState(State newState) {
-        if (newState != State.GET_LOCATION) runtime.navigation.trackerSearch.stopLooking();
-        if (newState != State.GET_LOCATION && newState != State.FLY_TO_WAYPOINT) PestTrackerAbility.clear();
         runtime.transitionTo(newState, System.currentTimeMillis());
     }
 
