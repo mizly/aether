@@ -225,6 +225,10 @@ public final class PestTargetTracker {
         return snapshot(client).targets();
     }
 
+    public static List<ArmorStand> getLoadedPestMarkers(Minecraft client) {
+        return snapshot(client).markers();
+    }
+
     public static List<Entity> getLoadedPestMobs(Minecraft client) {
         return snapshot(client).targets().stream()
                 .filter(entity -> entity instanceof Bat || entity instanceof Silverfish)

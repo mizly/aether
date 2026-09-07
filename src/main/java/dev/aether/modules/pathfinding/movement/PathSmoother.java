@@ -23,6 +23,7 @@ public final class PathSmoother {
 
     public static List<Node> smooth(List<Node> raw, WalkabilityChecker checker) {
         if (raw == null || raw.size() <= 2) return raw;
+        raw = WalkingStepNormalizer.normalize(raw, checker);
 
         List<Node> result = new ArrayList<>();
         result.add(raw.get(0));

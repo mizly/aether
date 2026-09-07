@@ -59,7 +59,7 @@ public class MainGUI extends NVGScreen {
     private static final float GROUP_GAP   = 12f;
     static final float HEADER_H    = 46f;
     static final float HEADER_TO_FIRST_SETTING_GAP = 5f;
-    /** Height of the toggle pill bounding box. Track is 38x21 px. */
+    /** Height reserved for boolean controls. */
     static final float PILL_H      = 21f;
     /** Height of a compact group-section label row used in the flat Colors/Settings renderer. */
     static final float FLAT_LABEL_H = 32f;
@@ -276,13 +276,6 @@ public class MainGUI extends NVGScreen {
     private final IdentityHashMap<Object, Float> catHoverAnim = new IdentityHashMap<>();
     private final IdentityHashMap<Object, Float> subTabBarAnim = new IdentityHashMap<>();
     boolean suppressNestedContentScissor = false;
-    /** Animated Y position for the selected category bar. */
-    private float catBarAnimY = 0f;
-    private float catBarFromY = 0f;
-    private float catBarTargetY = 0f;
-    private float catBarAnimT = 1f;
-    private boolean catBarInited = false;
-    private long catBarStartNanos = 0L;
 
     // -- Panel drag ------------------------------------------------------------
 
@@ -336,7 +329,7 @@ public class MainGUI extends NVGScreen {
     @Override
     protected void initNVG() {
         Minecraft client = Minecraft.getInstance();
-        if (MacroStateManager.isMacroRunning()) {
+        if (MacroStateManager.isAutomationRunning()) {
             MacroStateManager.stopMacro(client, "MainGUI opened", false);
         }
         MainGUIRegistry.refresh();
@@ -933,34 +926,6 @@ public class MainGUI extends NVGScreen {
     }
 
 
-    private void syncCategoryBarAnimation(float targetY) {
-        if (!catBarInited) {
-            catBarAnimY = targetY;
-            catBarFromY = targetY;
-            catBarTargetY = targetY;
-            catBarAnimT = 1f;
-            catBarStartNanos = System.nanoTime();
-            catBarInited = true;
-            return;
-        }
-
-        if (Math.abs(catBarTargetY - targetY) > 0.5f) {
-            catBarFromY = catBarAnimY;
-            catBarTargetY = targetY;
-            catBarStartNanos = System.nanoTime();
-        }
-
-        float durationMs = Math.max(1f, Theme.ANIM_TIME_MS);
-        float elapsedMs = Math.max(0f, (System.nanoTime() - catBarStartNanos) / 1_000_000f);
-        float rawT = Math.max(0f, Math.min(1f, elapsedMs / durationMs));
-        catBarAnimT = rawT * rawT * (3f - 2f * rawT);
-        catBarAnimY = catBarFromY + (catBarTargetY - catBarFromY) * catBarAnimT;
-        if (rawT >= 1f) {
-            catBarFromY = catBarTargetY;
-            catBarAnimT = 1f;
-        }
-    }
-
     // -- Module card grid (View 1) ----------------------------------------------
 
     private void renderModuleGrid(NVGRenderer nvg, float mx, float my,
@@ -1045,11 +1010,9 @@ public class MainGUI extends NVGScreen {
                                    boolean interactive) {
         nvg.roundedRect(x, y, w, HEADER_H, 6f, Theme.BG_SECONDARY);
 
-        int stripe;
         float lerp = subTabBarAnimValue(group, (group.isEnabled() && !group.isAlwaysOn()) || (group.isAlwaysOn() && interactive));
-        stripe = Theme.blend(0xFFFFFFFF, Theme.ACCENT_PRIMARY, lerp);
-
-        nvg.rectOutlineVerticalSides(x, y, w, HEADER_H, 7f, 1f, Theme.withAlpha(stripe, 0.15f + 0.25f * lerp), lerp * 0.4f);
+        nvg.rectOutline(x, y, w, HEADER_H, 6f, 0.8f,
+                Theme.blend(Theme.SEPARATOR, Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.22f), lerp));
 
         int titleColor = interactive ? Theme.TEXT_PRIMARY : Theme.withAlpha(Theme.TEXT_DIM, 210);
         int descColor = interactive ? Theme.TEXT_SECONDARY : Theme.withAlpha(Theme.TEXT_DIM, 170);
@@ -1636,12 +1599,6 @@ public class MainGUI extends NVGScreen {
         context.animation.filterBarTargetW = filterBarTargetW;
         context.animation.filterBarInited = filterBarInited;
         context.animation.ddAnimAmt = ddAnimAmt;
-        context.animation.catBarAnimY = catBarAnimY;
-        context.animation.catBarFromY = catBarFromY;
-        context.animation.catBarTargetY = catBarTargetY;
-        context.animation.catBarAnimT = catBarAnimT;
-        context.animation.catBarInited = catBarInited;
-        context.animation.catBarStartNanos = catBarStartNanos;
 
         context.editor.activeSliderField = activeSliderField;
         context.editor.activeText = activeText;
@@ -2117,10 +2074,6 @@ public class MainGUI extends NVGScreen {
 
     int getActiveCategoryIndex() {
         return activeCategoryIdx;
-    }
-
-    void syncModuleCategoryBarAnimation(float targetY) {
-        syncCategoryBarAnimation(targetY);
     }
 
     Object moduleCategoryAnimationKey(SettingGroup group, boolean isAll) {
@@ -2715,7 +2668,7 @@ public class MainGUI extends NVGScreen {
 
     private void renderOptionalFeatureHud(NVGRenderer nvg, float dt) {
         AetherBootstrapHooks.renderConfigScreenOverlay(nvg, (float) width, (float) height, dt);
-        NotificationRenderer.render(nvg, (float) width, (float) height, dt);
+        NotificationRenderer.render(nvg, (float) width, (float) height);
     }
 
     private void openOptionalHudEditor(Minecraft minecraft) {
@@ -3142,4 +3095,3 @@ public class MainGUI extends NVGScreen {
         return cpHexH;
     }
 }
-

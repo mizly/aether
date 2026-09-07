@@ -33,7 +33,7 @@ public final class NotificationManager {
     public static long DEFAULT_DURATION = 4000;
 
     /** Animation duration for slide-in/out (ms). */
-    public static long ANIMATION_DURATION_MS = 250;
+    public static long ANIMATION_DURATION_MS = 320;
 
     /** Spacing between notifications (px). */
     public static float SPACING = 8f;
@@ -44,9 +44,6 @@ public final class NotificationManager {
     // -- State ------------------------------------------------------------------
 
     private static final List<Notification> notifications = new CopyOnWriteArrayList<>();
-
-    // Pre-calculated animation speed (progress per ms)
-    public static final float ANIM_SPEED = 1f / ANIMATION_DURATION_MS;
 
     // -- Public API -------------------------------------------------------------
 
@@ -77,7 +74,7 @@ public final class NotificationManager {
         }
 
         if (existing != null && notifications.contains(existing) && !existing.isExpired() && !existing.isDismissing()) {
-            existing.update(title, message, type);
+            existing.update(AetherLang.localize(title), message == null ? null : AetherLang.localize(message), type);
             return existing;
         }
 
@@ -170,8 +167,8 @@ public final class NotificationManager {
         if (notifications.isEmpty()) return;
 
         // Convert to ms for animation calculations
-        float deltaMs = deltaTime * 1000f;
-        float progressDelta = deltaMs * ANIM_SPEED;
+        float deltaMs = Math.max(0f, deltaTime) * 1000f;
+        float progressDelta = deltaMs / Math.max(1L, ANIMATION_DURATION_MS);
 
         // Use a list to collect items to remove (CopyOnWriteArrayList doesn't support iterator.remove)
         List<Notification> toRemove = new java.util.ArrayList<>();
@@ -206,81 +203,4 @@ public final class NotificationManager {
         }
     }
 
-    // -- Layout helpers (pre-calculated for performance) ------------------------
-
-    private static final float BASE_WIDTH = 280f;
-    private static final float BASE_HEIGHT = 48f;
-    private static final float MESSAGE_HEIGHT = 20f;
-    private static final float MESSAGE_LINE_STEP = 14f;
-    private static final float MAX_WIDTH = 350f;
-    private static final float PADDING_X = 14f;
-    private static final float ICON_SIZE = 18f;
-    private static final float ICON_MARGIN = 10f;
-    private static final float TEXT_LEFT_OFFSET = PADDING_X + ICON_SIZE + ICON_MARGIN;
-    private static final float TEXT_RIGHT_PADDING = PADDING_X;
-    private static final float MESSAGE_FONT_SIZE = 11f;
-
-    public static float calculateWidth(Notification n) {
-        if (n.hasMessage() && n.getMessage().length() > 30) {
-            return Math.min(MAX_WIDTH, BASE_WIDTH - 80f + n.getMessage().length() * 3f);
-        }
-        return BASE_WIDTH;
-    }
-
-    public static float calculateHeight(Notification n) {
-        if (!n.hasMessage()) {
-            return BASE_HEIGHT;
-        }
-
-        float width = calculateWidth(n);
-        float availableTextWidth = Math.max(0f, width - TEXT_LEFT_OFFSET - TEXT_RIGHT_PADDING);
-        int lineCount = estimateWrappedLineCount(n.getMessage(), availableTextWidth, MESSAGE_FONT_SIZE);
-        return BASE_HEIGHT + MESSAGE_HEIGHT + Math.max(0, lineCount - 1) * MESSAGE_LINE_STEP;
-    }
-
-    private static int estimateWrappedLineCount(String text, float maxWidth, float fontSize) {
-        if (text == null || text.isBlank() || maxWidth <= 0f) {
-            return 1;
-        }
-
-        float avgCharWidth = fontSize * 0.52f;
-        int maxChars = Math.max(1, (int) Math.floor(maxWidth / avgCharWidth));
-        int lines = 0;
-
-        for (String paragraph : text.split("\\R", -1)) {
-            if (paragraph.isBlank()) {
-                lines++;
-                continue;
-            }
-
-            int paragraphLines = 1;
-            int current = 0;
-            for (String word : paragraph.trim().split("\\s+")) {
-                int wordLength = word.length();
-                if (current == 0) {
-                    current = wordLength;
-                    paragraphLines += Math.max(0, (wordLength - 1) / maxChars);
-                    current = ((wordLength - 1) % maxChars) + 1;
-                } else if (current + 1 + wordLength <= maxChars) {
-                    current += 1 + wordLength;
-                } else {
-                    paragraphLines++;
-                    paragraphLines += Math.max(0, (wordLength - 1) / maxChars);
-                    current = ((wordLength - 1) % maxChars) + 1;
-                }
-            }
-
-            lines += paragraphLines;
-        }
-
-        return Math.max(1, lines);
-    }
-
-    // -- Easing function (optimized) ---------------------------------------------
-
-    /** Fast ease-out cubic for smooth animations */
-    public static float easeOutCubic(float t) {
-        float f = t - 1f;
-        return f * f * f + 1f;
-    }
 }

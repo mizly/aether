@@ -106,6 +106,7 @@ public final class NanoVGManager {
         loadFont("Inter-Regular", "/assets/aether/fonts/Inter-Regular.otf");
         loadFont("Inter-Bold",    "/assets/aether/fonts/Inter-Bold.otf");
         loadFont("Inter-Mono",    "/assets/aether/fonts/Inter-Mono.otf");
+        loadFont(Fonts.SCOREBOARD_BOLD, "/assets/aether/fonts/scoreboard/Inter-Bold.otf");
         loadUnicodeFallbackFont();
 
         initialized = true;
@@ -179,6 +180,7 @@ public final class NanoVGManager {
         savedSampler = GL33C.glGetInteger(GL33C.GL_SAMPLER_BINDING);
         GL33C.glBindSampler(0, 0);
 
+        renderer.beginMinecraftTextFrame();
         NanoVG.nvgBeginFrame(vg, width, height, pxRatio);
         NanoVG.nvgTextAlign(vg, NanoVG.NVG_ALIGN_LEFT | NanoVG.NVG_ALIGN_TOP);
         drawing = true;
@@ -193,7 +195,18 @@ public final class NanoVGManager {
     public static void endFrame() {
         if (!drawing) throw new IllegalStateException("[Aether] beginFrame() was not called before endFrame()");
 
-        NanoVG.nvgEndFrame(vg);
+        try {
+            NanoVG.nvgEndFrame(vg);
+        } finally {
+            try {
+                renderer.endMinecraftTextFrame();
+            } finally {
+                restoreFrameState();
+            }
+        }
+    }
+
+    private static void restoreFrameState() {
 
         // Restore GL state expected by Minecraft's rendering pipeline.
         // nvgEndFrame() internally calls glUseProgram(0) - restore MC's shader so
@@ -394,6 +407,7 @@ public final class NanoVGManager {
         addFallback(Fonts.REGULAR, fallbackId);
         addFallback(Fonts.BOLD, fallbackId);
         addFallback(Fonts.MONO, fallbackId);
+        addFallback(Fonts.SCOREBOARD_BOLD, fallbackId);
     }
 
     private static void addFallback(String baseFont, int fallbackId) {
@@ -403,4 +417,3 @@ public final class NanoVGManager {
         }
     }
 }
-

@@ -41,14 +41,62 @@ public final class MiscellaneousRegistryProvider extends AbstractModulesRegistry
                         v -> {
                             AetherConfig.PERSIST_SESSION_TIMER.set(v);
                             AetherConfig.save();
-                        }))
+                        })));
+
+        groups.add(SettingGroup.alwaysOn(
+                        "Pathfinder",
+                        "Tune obstacle jumps, camera tracking, sprinting and stuck recovery")
                 .add(new SliderSetting("Pathfinder Max Jump Height", 1, 6,
                         () -> (float) AetherConfig.PATHFINDER_MAX_JUMP_HEIGHT.get(),
                         v -> {
                             AetherConfig.PATHFINDER_MAX_JUMP_HEIGHT.set(Math.round(v));
                             AetherConfig.save();
                         })
-                        .withDecimals(0).withSuffix(" blocks")));
+                        .withDecimals(0).withSuffix(" blocks"))
+                .add(new ToggleSetting("Raycast Jump Detection",
+                        AetherConfig.PATHFINDER_RAYCAST_JUMP::get,
+                        v -> {
+                            AetherConfig.PATHFINDER_RAYCAST_JUMP.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(new SliderSetting("Jump Lookahead", 0, 5,
+                        AetherConfig.PATHFINDER_JUMP_LOOKAHEAD_TICKS::get,
+                        v -> {
+                            AetherConfig.PATHFINDER_JUMP_LOOKAHEAD_TICKS.set(v);
+                            AetherConfig.save();
+                        })
+                        .withDecimals(1).withSuffix(" ticks")
+                        .visibleWhen(AetherConfig.PATHFINDER_RAYCAST_JUMP::get))
+                .add(new SliderSetting("Aim Lookahead", 1, 8,
+                        AetherConfig.PATHFINDER_AIM_LOOKAHEAD::get,
+                        v -> {
+                            AetherConfig.PATHFINDER_AIM_LOOKAHEAD.set(v);
+                            AetherConfig.save();
+                        }).withDecimals(1).withSuffix(" blocks"))
+                .add(new SliderSetting("Camera Turn Speed", 60, 720,
+                        AetherConfig.PATHFINDER_TURN_SPEED::get,
+                        v -> {
+                            AetherConfig.PATHFINDER_TURN_SPEED.set(v);
+                            AetherConfig.save();
+                        }).withDecimals(0).withSuffix(" °/s"))
+                .add(new ToggleSetting("Pathfinder Sprint",
+                        AetherConfig.PATHFINDER_SPRINT::get,
+                        v -> {
+                            AetherConfig.PATHFINDER_SPRINT.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(new SliderSetting("Stuck Recovery Delay", 750, 5000,
+                        () -> (float) AetherConfig.PATHFINDER_STUCK_TIMEOUT_MS.get(),
+                        v -> {
+                            AetherConfig.PATHFINDER_STUCK_TIMEOUT_MS.set(Math.round(v));
+                            AetherConfig.save();
+                        }).withDecimals(0).withSuffix(" ms"))
+                .add(new SliderSetting("Flight Braking Lookahead", 0, 6,
+                        AetherConfig.FLY_BRAKING_LOOKAHEAD_TICKS::get,
+                        v -> {
+                            AetherConfig.FLY_BRAKING_LOOKAHEAD_TICKS.set(v);
+                            AetherConfig.save();
+                        }).withDecimals(1).withSuffix(" ticks")));
 
         groups.add(SettingGroup.alwaysOn(
                         "Macro Settings",

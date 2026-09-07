@@ -420,6 +420,8 @@ public final class AetherConfig {
         public static final BooleanEntry TRIGGER_PEST_ON_CHAT = Config.bool("triggerPestOnChat", true);
         public static final BooleanEntry ESTIMATE_PEST_DESTROYER_COMPLETION =
                         Config.bool("estimatePestDestroyerCompletion", true);
+        public static final BooleanEntry USE_PEST_TRACKER_ABILITY = Config.bool("usePestTrackerAbility", true);
+        public static final BooleanEntry PEST_TRACKER_DRAW_ARC = Config.bool("pestTrackerDrawArc", false);
         public static final BooleanEntry PEST_TRIGGER_ONLY_AFTER_REWARP = Config.bool("pestTriggerOnlyAfterRewarp", false);
         public static final IntEntry PEST_CHAT_TRIGGER_DELAY_MIN = Config.integer("pestChatTriggerDelayMin", 500)
                         .range(0, 5000);
@@ -469,6 +471,14 @@ public final class AetherConfig {
         public static final FloatEntry PEST_FOV_RANGE = Config.floatVal("pestFovRange", 20.0f).range(0.0f, 90.0f);
         public static final FloatEntry PEST_MAX_TURN_SPEED =
                         Config.floatVal("pestMaxTurnSpeed", 300.0f).range(60.0f, 1200.0f);
+        public static final FloatEntry PEST_VACUUM_FOLLOW_DISTANCE =
+                        Config.floatVal("pestVacuumFollowDistance", 5.0f).range(2.0f, 7.0f);
+        public static final BooleanEntry RESPECT_VACUUM_TRUE_RANGE = Config.bool("respectVacuumTrueRange", true);
+        public static final FloatEntry PEST_APPROACH_SPEED =
+                        Config.floatVal("pestApproachSpeed", 0.35f).range(0.15f, 0.8f);
+        public static final FloatEntry PEST_TRACKING_SMOOTHING_MS =
+                        Config.floatVal("pestTrackingSmoothingMs", 220.0f).range(100.0f, 500.0f);
+        public static final FloatEntry PEST_AIM_DRIFT = Config.floatVal("pestAimDrift", 1.0f).range(0.0f, 2.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MIN = Config.floatVal("pestAboveTargetPitchMin", 25.0f)
                         .range(20.0f, 40.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MAX = Config.floatVal("pestAboveTargetPitchMax", 40.0f)
@@ -477,6 +487,10 @@ public final class AetherConfig {
         // -- PEST HUNTING ----------------------------------------------------------
 
         public static final BooleanEntry PEST_HUNTING = Config.bool("pestHunting", false);
+        public static final FloatEntry PEST_HUNTING_TRACKING_SMOOTHING_MS =
+                        Config.floatVal("pestHuntingTrackingSmoothingMs", 90f).range(75f, 300f);
+        public static final FloatEntry PEST_HUNTING_MAX_TURN_SPEED =
+                        Config.floatVal("pestHuntingMaxTurnSpeed", 700f).range(180f, 900f);
         public static final BooleanEntry PEST_HUNTING_VACUUM_STUN = Config.bool("pestHuntingVacuumStun", true);
         /** Selected pest types use the vacuum instead of the lasso. */
         public static final IntEntry PEST_HUNTING_VACUUM_PEST_MASK =
@@ -763,6 +777,8 @@ public final class AetherConfig {
         public static final FloatEntry SESSION_PROFIT_HUD_SCALE = Config.floatVal("sessionProfitHudScale", 0.5f)
                         .range(0.5f, 3.0f);
         public static final BooleanEntry SHOW_SESSION_PROFIT_HUD = Config.bool("showSessionProfitHud", true);
+        public static final BooleanEntry SESSION_PROFIT_GRAPH = Config.bool("sessionProfitGraph", false);
+        public static final IntEntry SESSION_PROFIT_GRAPH_MINUTES = Config.integer("sessionProfitGraphMinutes", 5).range(1, 15);
 
         public static final IntEntry DAILY_HUD_X = Config.integer("dailyHudX", 10);
         public static final IntEntry DAILY_HUD_Y = Config.integer("dailyHudY", 290);
@@ -815,6 +831,13 @@ public final class AetherConfig {
         public static final IntEntry     MAIN_STATUS_GRADIENT_LEFT  = Config.integer("mainStatusGradientLeft",  0xFFD32F2F);
         public static final IntEntry     MAIN_STATUS_GRADIENT_RIGHT = Config.integer("mainStatusGradientRight", 0xFF7B4FFF);
 
+        public static final BooleanEntry CUSTOM_SCOREBOARD = Config.bool("customScoreboard", false);
+        public static final StringEntry SCOREBOARD_TITLE_TEXT = Config.string("scoreboardTitleText", "");
+        public static final StringEntry SCOREBOARD_SERVER_TEXT = Config.string("scoreboardServerText", "");
+        public static final IntEntry SCOREBOARD_HUD_X = Config.integer("scoreboardHudX", -1).range(-1, Integer.MAX_VALUE);
+        public static final IntEntry SCOREBOARD_HUD_Y = Config.integer("scoreboardHudY", -1).range(-1, Integer.MAX_VALUE);
+        public static final FloatEntry SCOREBOARD_HUD_SCALE = Config.floatVal("scoreboardHudScale", 1.0f).range(0.5f, 2.5f);
+
         public static final IntEntry INVENTORY_HUD_X = Config.integer("inventoryHudX", 10);
         public static final IntEntry INVENTORY_HUD_Y = Config.integer("inventoryHudY", 40);
         public static final FloatEntry INVENTORY_HUD_SCALE = Config.floatVal("inventoryHudScale", 1.0f).range(1.0f, 1.0f);
@@ -844,8 +867,20 @@ public final class AetherConfig {
         // Master volume applied while Mute Game is active, as a 0.0-1.0 fraction (0.0 = fully muted).
         public static final FloatEntry MUTE_GAME_VOLUME = Config.floatVal("muteGameVolume", 0.0f).range(0.0f, 1.0f);
         public static final BooleanEntry KEEP_FOCUS = Config.bool("keepFocus", true);
+        public static final FloatEntry FLY_BRAKING_LOOKAHEAD_TICKS =
+                        Config.floatVal("flyBrakingLookaheadTicks", 2.0f).range(0.0f, 6.0f);
         public static final IntEntry PATHFINDER_MAX_JUMP_HEIGHT = Config.integer("pathfinderMaxJumpHeight", 1)
                         .range(1, 6);
+        public static final BooleanEntry PATHFINDER_RAYCAST_JUMP = Config.bool("pathfinderRaycastJump", true);
+        public static final FloatEntry PATHFINDER_JUMP_LOOKAHEAD_TICKS =
+                        Config.floatVal("pathfinderJumpLookaheadTicks", 2.0f).range(0.0f, 5.0f);
+        public static final FloatEntry PATHFINDER_AIM_LOOKAHEAD =
+                        Config.floatVal("pathfinderAimLookahead", 3.5f).range(1.0f, 8.0f);
+        public static final FloatEntry PATHFINDER_TURN_SPEED =
+                        Config.floatVal("pathfinderTurnSpeed", 240.0f).range(60.0f, 720.0f);
+        public static final BooleanEntry PATHFINDER_SPRINT = Config.bool("pathfinderSprint", true);
+        public static final IntEntry PATHFINDER_STUCK_TIMEOUT_MS =
+                        Config.integer("pathfinderStuckTimeoutMs", 1800).range(750, 5000);
 
         // -- AUTO CARNIVAL ---------------------------------------------------------
 
@@ -1030,6 +1065,16 @@ public final class AetherConfig {
         public static final IntEntry HAT_VERTICES = Config.integer("hatVertices", 20).range(3, 30);
         public static final FloatEntry HAT_Y_OFFSET = Config.floatVal("hatYOffset", 0.2f).range(0.0f, 3.0f);
         public static final BooleanEntry FUNNY_DYNAMIC_REST = Config.bool("funnyDynamicRest", true);
+        public static final BooleanEntry PEST_DEFEAT_EFFECTS = Config.bool("pestDefeatEffects", false);
+        public static final IntEntry PEST_DEFEAT_STYLE = Config.integer("pestDefeatStyle", 0).range(0, 2);
+        public static final FloatEntry PEST_DEFEAT_SCALE = Config.floatVal("pestDefeatScale", 1f).range(0.5f, 2f);
+        public static final IntEntry PEST_DEFEAT_PARTICLES = Config.integer("pestDefeatParticles", 18).range(8, 24);
+        public static final BooleanEntry DRAGON_WINGS_ENABLED = Config.bool("dragonWingsEnabled", false);
+        public static final BooleanEntry DRAGON_WINGS_WIREFRAME = Config.bool("dragonWingsWireframe", false);
+        public static final FloatEntry DRAGON_WINGS_SCALE = Config.floatVal("dragonWingsScale", 0.85f).range(0.5f, 1.4f);
+        public static final FloatEntry DRAGON_WINGS_SPEED = Config.floatVal("dragonWingsSpeed", 1f).range(0.4f, 2f);
+        public static final IntEntry DRAGON_WINGS_COLOR = Config.integer("dragonWingsColor", 0xFFB080F5);
+        public static final BooleanEntry DRAGON_WINGS_GLOW = Config.bool("dragonWingsGlow", true);
         public static final BooleanEntry FREECAM_ENABLED = Config.bool("freecamEnabled", true);
         public static final FloatEntry FREECAM_SPEED = Config.floatVal("freecamSpeed", 0.45f).range(0.1f, 2.5f);
         public static final BooleanEntry FREELOOK_ENABLED = Config.bool("freelookEnabled", true);
@@ -1041,7 +1086,12 @@ public final class AetherConfig {
         public static final BooleanEntry PIP_ENABLE_ZOOM = Config.bool("pipEnableZoom", true);
 
         // -- PEST ESP -------------------------------------------------------------
+        public static final BooleanEntry SHOW_PEST_TARGET_HUD = Config.bool("showPestTargetHud", false);
+        public static final IntEntry PEST_TARGET_HUD_X = Config.integer("pestTargetHudX", -1);
+        public static final IntEntry PEST_TARGET_HUD_Y = Config.integer("pestTargetHudY", -1);
+        public static final FloatEntry PEST_TARGET_HUD_SCALE = Config.floatVal("pestTargetHudScale", 1f).range(0.5f, 2.5f);
         public static final BooleanEntry PEST_ESP_ENABLED = Config.bool("pestEspEnabled", false);
+        public static final StringEntry PEST_ESP_MODE = Config.string("pestEspMode", "BOX");
         public static final BooleanEntry PEST_ESP_HIGHLIGHT = Config.bool("pestEspHighlight", true);
         public static final IntEntry PEST_ESP_HIGHLIGHT_COLOR = Config.integer("pestEspHighlightColor", 0xFFFF3030);
         public static final BooleanEntry PEST_ESP_TRACER = Config.bool("pestEspTracer", true);

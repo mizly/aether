@@ -60,11 +60,21 @@ public class HudEditScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
         mouseX = mx; mouseY = my;
+        if (dev.aether.modules.visuals.StreamerModeManager.isEnabled()) return;
 
+        for (HudElement element : HudRegistry.ELEMENTS) {
+            if (element.isEnabled()) element.renderMinecraft(g, true);
+        }
+        AetherRenderQueue.enqueueBeforeGui(() -> renderQueued(true));
         AetherRenderQueue.enqueue(this::renderQueued);
     }
 
     private void renderQueued() {
+        renderQueued(false);
+    }
+
+    private void renderQueued(boolean background) {
+        if (dev.aether.modules.visuals.StreamerModeManager.isEnabled()) return;
         if (Minecraft.getInstance().screen != this) {
             return;
         }
@@ -72,7 +82,8 @@ public class HudEditScreen extends Screen {
         NanoVGManager.beginFrame(width, height);
         NVGRenderer nvg = NanoVGManager.getRenderer();
         try {
-            renderEditor(nvg);
+            if (background) renderEditorBackground(nvg);
+            else renderEditor(nvg);
         } finally {
             NanoVGManager.endFrame();
         }
@@ -82,7 +93,7 @@ public class HudEditScreen extends Screen {
     @Override
     public void extractBackground(GuiGraphicsExtractor g, int mx, int my, float delta) {}
 
-    private void renderEditor(NVGRenderer nvg) {
+    private void renderEditorBackground(NVGRenderer nvg) {
         // Semi-transparent dim
         nvg.rect(0, 0, width, height, Theme.withAlpha(0xFF000000, 0x55));
 
@@ -91,6 +102,17 @@ public class HudEditScreen extends Screen {
 
         // All HUD elements (edit mode = true)
         HudRegistry.renderEditMode(nvg);
+    }
+
+    private void renderEditor(NVGRenderer nvg) {
+        for (HudElement element : HudRegistry.ELEMENTS) {
+            if (!element.isEnabled()) continue;
+            nvg.save();
+            nvg.translate(element.getX(), element.getY());
+            nvg.scale(element.getScale(), element.getScale());
+            element.renderOverlay(nvg, true);
+            nvg.restore();
+        }
 
         // Element name labels above each panel
         renderElementLabels(nvg);
@@ -126,10 +148,10 @@ public class HudEditScreen extends Screen {
             if (ly < 4f) ly = ey + e.getHeight() * s + 4f;
 
             int pillColor = e.isInteracting()
-                    ? Theme.withAlpha(Theme.ACCENT_PRIMARY, 0xCC)
-                    : Theme.withAlpha(Theme.BG_SECONDARY, 0xCC);
+                    ? HudStyle.alpha(Theme.HUD_ACCENT, 0.8f)
+                    : HudStyle.alpha(Theme.HUD_BG, 0.8f);
             nvg.roundedRect(lx, ly, lw, 14f, 4f, pillColor);
-            nvg.textCentered(Fonts.REGULAR, lbl, lx, ly, lw, 14f, 9f, Theme.TEXT_PRIMARY);
+            nvg.textCentered(Fonts.REGULAR, lbl, lx, ly, lw, 14f, 9f, Theme.HUD_TITLE);
         }
     }
 
@@ -157,11 +179,9 @@ public class HudEditScreen extends Screen {
                 snapHov ? Theme.BG_HOVER : Theme.BG_FIELD);
         nvg.rectOutline(btnSnapX, btnBaseY, BTN_W, BTN_H, 5f, 1f,
                 snapOn ? Theme.ACCENT_PRIMARY : Theme.BORDER_DEFAULT);
-        // Small indicator dot
-        if (snapOn) nvg.circle(btnSnapX + 14f, btnBaseY + BTN_H / 2f, 4f, Theme.ACCENT_PRIMARY);
         nvg.textCentered(Fonts.REGULAR,
                 "Snap: " + (snapOn ? "ON" : "OFF"),
-                btnSnapX + 10f, btnBaseY, BTN_W - 10f, BTN_H, 11f,
+                btnSnapX, btnBaseY, BTN_W, BTN_H, 11f,
                 snapOn ? Theme.ACCENT_PRIMARY : Theme.TEXT_SECONDARY);
 
         // Done button

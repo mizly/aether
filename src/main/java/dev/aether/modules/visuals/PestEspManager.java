@@ -3,6 +3,7 @@ package dev.aether.modules.visuals;
 import dev.aether.config.AetherConfig;
 import dev.aether.macro.MacroState;
 import dev.aether.modules.pest.helpers.PestTargetTracker;
+import dev.aether.modules.pest.helpers.PestDisplayTracker;
 import dev.aether.renderer.NVGRenderer;
 import dev.aether.renderer.NanoVGManager;
 import dev.aether.util.ClientUtils;
@@ -44,7 +45,7 @@ public final class PestEspManager {
 
         for (PestData pest : getRenderablePests(client)) {
             int rgb = pestColor(AetherConfig.PEST_ESP_HIGHLIGHT_COLOR.get());
-            if (AetherConfig.PEST_ESP_HIGHLIGHT.get()) {
+            if (AetherConfig.PEST_ESP_HIGHLIGHT.get() && !usesGlow()) {
                 int stroke = argb(220, rgb);
                 int fill = argb(45, rgb);
                 Gizmos.cuboid(pest.box(), GizmoStyle.strokeAndFill(stroke, 2.0f, fill)).setAlwaysOnTop();
@@ -95,6 +96,23 @@ public final class PestEspManager {
         }
     }
 
+    private static boolean usesGlow() {
+        return "GLOW".equalsIgnoreCase(AetherConfig.PEST_ESP_MODE.get());
+    }
+
+    public static int outlineColor(Entity entity) {
+        if (!usesGlow() || !hasVisibleHighlights() || !AetherConfig.PEST_ESP_HIGHLIGHT.get()
+                || StreamerModeManager.isEnabled()) return 0;
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.level == null || client.player == null) return 0;
+        for (var pest : PestDisplayTracker.getPests(client)) {
+            if (pest.skull() == entity && !entity.isRemoved()) {
+                return argb(255, pestColor(AetherConfig.PEST_ESP_HIGHLIGHT_COLOR.get()));
+            }
+        }
+        return 0;
+    }
+
     private static List<PestData> getRenderablePests(Minecraft client) {
         List<PestData> pests = new ArrayList<>();
         // Do not render the armor-stand skull-marker fallback used by the pest targeter. The
@@ -103,7 +121,14 @@ public final class PestEspManager {
             if (entity == null || entity.isRemoved() || isDead(entity)) {
                 continue;
             }
-            pests.add(new PestData(entity.position(), entity.getBoundingBox()));
+            float partialTick = client.getDeltaTracker().getGameTimeDeltaPartialTick(
+                    !client.level.tickRateManager().isEntityFrozen(entity));
+            Vec3 position = new Vec3(
+                    net.minecraft.util.Mth.lerp(partialTick, entity.xOld, entity.getX()),
+                    net.minecraft.util.Mth.lerp(partialTick, entity.yOld, entity.getY()),
+                    net.minecraft.util.Mth.lerp(partialTick, entity.zOld, entity.getZ()));
+            AABB box = entity.getBoundingBox().move(position.subtract(entity.position()));
+            pests.add(new PestData(box.getCenter(), box));
         }
         return pests;
     }

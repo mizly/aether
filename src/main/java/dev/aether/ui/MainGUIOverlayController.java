@@ -55,14 +55,16 @@ final class MainGUIOverlayController {
             }
 
             if (selected) {
-                nvg.circle(owner.dropdownOverlayX() + 14f, itemY + MainGUI.DD_ITEM_H / 2f, 3f, Theme.ACCENT_PRIMARY);
-                nvg.text(Fonts.REGULAR, options.get(i), owner.dropdownOverlayX() + 24f,
-                        itemY + (MainGUI.DD_ITEM_H - 12.5f) / 2f, 12.5f, Theme.ACCENT_PRIMARY);
-            } else {
-                nvg.text(Fonts.REGULAR, options.get(i), owner.dropdownOverlayX() + 14f,
-                        itemY + (MainGUI.DD_ITEM_H - 12.5f) / 2f, 12.5f,
-                        hovered ? Theme.TEXT_LABEL : Theme.TEXT_VALUE);
+                float checkX = owner.dropdownOverlayX() + owner.dropdownOverlayW() - 22f;
+                float checkY = itemY + MainGUI.DD_ITEM_H / 2f;
+                nvg.line(checkX, checkY, checkX + 3f, checkY + 3f, 1.5f, Theme.ACCENT_PRIMARY);
+                nvg.line(checkX + 3f, checkY + 3f, checkX + 9f, checkY - 4f, 1.5f, Theme.ACCENT_PRIMARY);
             }
+            nvg.pushScissor(owner.dropdownOverlayX() + 14f, itemY, owner.dropdownOverlayW() - 44f, MainGUI.DD_ITEM_H);
+            nvg.text(Fonts.REGULAR, options.get(i), owner.dropdownOverlayX() + 14f,
+                    itemY + (MainGUI.DD_ITEM_H - 12.5f) / 2f, 12.5f,
+                    selected ? Theme.ACCENT_PRIMARY : hovered ? Theme.TEXT_LABEL : Theme.TEXT_VALUE);
+            nvg.popScissor();
             itemY += MainGUI.DD_ITEM_H;
         }
 

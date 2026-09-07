@@ -1,22 +1,16 @@
 package dev.aether.modules.pest.helpers;
 
+import dev.aether.config.AetherConfig;
 import dev.aether.mixin.AccessorInventory;
-
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 
 final class PestLoadoutHelper {
-    private static final List<Map.Entry<String, Float>> VACUUM_RANGES = List.of(
-        Map.entry("InfiniVacuum Hooverius", 15f),
-        Map.entry("InfiniVacuum", 12.5f),
-        Map.entry("Hyper Vacuum", 10f),
-        Map.entry("Turbo Vacuum", 7.5f),
-        Map.entry("Skymart Vacuum", 5f)
-    );
-
     private PestLoadoutHelper() {
     }
 
@@ -26,13 +20,13 @@ final class PestLoadoutHelper {
         }
 
         ItemStack current = client.player.getMainHandItem();
-        if (!current.isEmpty() && current.getHoverName().getString().toLowerCase().contains("vacuum")) {
+        if (!current.isEmpty() && current.getHoverName().getString().toLowerCase(Locale.ROOT).contains("vacuum")) {
             return ((AccessorInventory) client.player.getInventory()).getSelected();
         }
 
         for (int i = 0; i < 9; i++) {
             ItemStack stack = client.player.getInventory().getItem(i);
-            if (!stack.isEmpty() && stack.getHoverName().getString().toLowerCase().contains("vacuum")) {
+            if (!stack.isEmpty() && stack.getHoverName().getString().toLowerCase(Locale.ROOT).contains("vacuum")) {
                 return i;
             }
         }
@@ -56,18 +50,13 @@ final class PestLoadoutHelper {
         return new int[] {lowestSlot, highestSlot < 0 ? lowestSlot : highestSlot};
     }
 
-    private static boolean isVacuum(ItemStack stack) {
-        return stack.getHoverName().getString().toLowerCase().contains("vacuum");
+    static boolean isVacuum(ItemStack stack) {
+        return !stack.isEmpty() && stack.getHoverName().getString().toLowerCase(Locale.ROOT).contains("vacuum");
     }
 
     private static int vacuumQuality(ItemStack stack) {
-        String name = stack.getHoverName().getString().toLowerCase();
-        int tier = name.contains("hooverius") ? 5
-                : name.contains("infinivacuum") ? 4
-                : name.contains("hyper vacuum") ? 3
-                : name.contains("turbo vacuum") ? 2
-                : name.contains("skymart vacuum") ? 1 : 0;
-        return stack.getRarity().ordinal() * 100 + tier;
+        VacuumProfile profile = vacuumProfile(stack);
+        return (int) (profile.range() * 100) + profile.rarity();
     }
 
     static int findLassoHotbarSlot(Minecraft client) {
@@ -90,7 +79,7 @@ final class PestLoadoutHelper {
 
     private static boolean isLasso(ItemStack stack) {
         return !stack.isEmpty()
-                && stack.getHoverName().getString().toLowerCase().contains("lasso");
+                && stack.getHoverName().getString().toLowerCase(Locale.ROOT).contains("lasso");
     }
 
     static int findAotvHotbarSlot(Minecraft client) {
@@ -119,17 +108,17 @@ final class PestLoadoutHelper {
     }
 
     static float detectVacuumRange(Minecraft client, int slot) {
+        if (client.player == null || slot < 0 || slot >= 9) return 4.5f;
         ItemStack stack = client.player.getInventory().getItem(slot);
-        if (stack.isEmpty()) {
-            return 7.5f * 0.8f;
-        }
+        if (stack.isEmpty()) return 4.5f;
+        return vacuumProfile(stack).effectiveRange(AetherConfig.RESPECT_VACUUM_TRUE_RANGE.get());
+    }
 
-        String name = stack.getHoverName().getString().replaceAll("(?i)\\u00A7.", "").trim();
-        for (Map.Entry<String, Float> entry : VACUUM_RANGES) {
-            if (name.contains(entry.getKey())) {
-                return entry.getValue() * 0.9f;
-            }
-        }
-        return 7.5f * 0.8f;
+    private static VacuumProfile vacuumProfile(ItemStack stack) {
+        var lore = stack.get(DataComponents.LORE);
+        var custom = stack.get(DataComponents.CUSTOM_DATA);
+        boolean recombobulated = custom != null && custom.copyTag().getInt("rarity_upgrades").orElse(0) > 0;
+        return VacuumProfile.parse(stack.getHoverName().getString(),
+                lore == null ? List.of() : lore.lines().stream().map(Component::getString).toList(), recombobulated);
     }
 }

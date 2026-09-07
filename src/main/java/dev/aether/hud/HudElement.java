@@ -1,6 +1,7 @@
 package dev.aether.hud;
 
 import dev.aether.renderer.NVGRenderer;
+import dev.aether.ui.theme.Theme;
 
 /**
  * Abstract base for all NVG-rendered HUD panels.
@@ -13,11 +14,6 @@ import dev.aether.renderer.NVGRenderer;
  * so it does not need to be duplicated in each panel.</p>
  */
 public abstract class HudElement {
-
-    // -- Edit-mode border tints ------------------------------------------------
-
-    protected static final int BORDER_DRAG   = 0xFFAAAAFF;
-    protected static final int BORDER_RESIZE = 0xFFFFAA00;
 
     // -- Per-element drag / resize state --------------------------------------
 
@@ -64,6 +60,12 @@ public abstract class HudElement {
         // default no-op
     }
 
+    // Panels containing native items/entities must draw their themed surfaces before the GUI pass.
+    public boolean rendersBeforeMinecraft() { return false; }
+
+    // Some vanilla replacements queue gameplay drawing at their original HUD hook.
+    public boolean rendersWithHud() { return true; }
+
     /**
      * Override to render NVG content that must appear on top of
      * {@link #renderMinecraft} output (e.g. item counts, text overlays).
@@ -86,6 +88,10 @@ public abstract class HudElement {
         nvg.translate(getX(), getY());
         nvg.scale(getScale(), getScale());
         renderElement(nvg, editMode);
+        if (editMode) {
+            int border = isDragging() ? Theme.HUD_ACCENT : isResizing() ? Theme.HUD_WARNING : Theme.HUD_BORDER;
+            nvg.rectOutline(0, 0, getWidth(), getHeight(), HudStyle.RADIUS, 1f, border);
+        }
         nvg.restore();
     }
 

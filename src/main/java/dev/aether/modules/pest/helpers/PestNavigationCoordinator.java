@@ -132,8 +132,14 @@ final class PestNavigationCoordinator {
             return;
         }
 
-        // Nothing is loaded here, so the remaining pests are outside entity tracking range.
-        Vec3 waypoint = PestPlotNavigator.nextScanWaypoint(client, navigationState);
+        PestTrackerSearch trackerSearch = navigationState.trackerSearch;
+        if (trackerSearch.tick(client, context.runtime(), System.currentTimeMillis())) return;
+        Vec3 waypoint = trackerSearch.waypoint();
+        boolean tracked = waypoint != null;
+        if (!tracked) {
+            trackerSearch.onSweepWaypoint();
+            waypoint = PestPlotNavigator.nextScanWaypoint(client, navigationState);
+        }
         if (waypoint == null) {
             navigationState.scanPointIdx = 0;
             // Having covered the plot and found nothing, a pest we timed out on
@@ -169,7 +175,8 @@ final class PestNavigationCoordinator {
         }
 
         navigationState.calculatedWaypoint = waypoint;
-        ClientUtils.sendDebugMessage("[PestDestroyer] No pests loaded. Sweeping to "
+        ClientUtils.sendDebugMessage("[PestDestroyer] No pests loaded. "
+                + (tracked ? "Following Pest Tracker to " : "Sweeping to ")
                 + String.format("%.0f, %.0f, %.0f", waypoint.x, waypoint.y, waypoint.z)
                 + " (point " + navigationState.scanPointIdx + "/" + PestPlotNavigator.scanPointCount()
                 + ", waypoint " + navigationState.waypointCycleCount + "/" + maxScanWaypoints + ")");
@@ -244,6 +251,8 @@ final class PestNavigationCoordinator {
         navigationState.plotTpWindow = null;
         // Re-anchor the sweep grid on the first scan, once the TP has actually landed.
         navigationState.plotAnchor = null;
+        navigationState.trackerSearch.reset();
+        PestTrackerAbility.clear();
         navigationState.scanPointIdx = 0;
         navigationState.getLocationAttempts = 0;
         if (PestManager.isBallsackShredderActiveForCurrentCycle()) {

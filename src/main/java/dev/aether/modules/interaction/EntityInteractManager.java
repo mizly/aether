@@ -34,6 +34,7 @@ public final class EntityInteractManager {
     }
 
     private static void run(Minecraft client, String entityName) {
+        if (shouldAbort(client)) return;
         Entity target = EntityUtils.findEntity(client, entityName);
         if (target == null) {
             ClientUtils.sendMessage("\u00A7cCould not find entity: \u00A7e" + entityName, false);
@@ -54,13 +55,15 @@ public final class EntityInteractManager {
             int z = walkTarget.getZ();
             Entity pathTarget = target;
 
-            client.execute(() -> PathfindingManager.startPathfind(client, x, y, z, false, pathTarget));
+            MacroWorkerThread.runOnClient(client, () -> PathfindingManager.startPathfind(client, x, y, z, false, pathTarget));
             MacroWorkerThread.sleepRandom(255, 90);
 
             long deadline = System.currentTimeMillis() + PATH_TIMEOUT_MS;
-            while (PathfindingManager.isNavigating() && System.currentTimeMillis() < deadline) {
+            while (!shouldAbort(client) && PathfindingManager.isNavigating() && System.currentTimeMillis() < deadline) {
                 MacroWorkerThread.sleep(100);
             }
+
+            if (shouldAbort(client)) return;
 
             if (PathfindingManager.isNavigating()) {
                 PathfindingManager.stop();
@@ -69,6 +72,7 @@ public final class EntityInteractManager {
             }
         }
 
+        if (shouldAbort(client)) return;
         Entity refreshedTarget = EntityUtils.findEntity(client, entityName);
         if (refreshedTarget != null) {
             target = refreshedTarget;
@@ -80,12 +84,17 @@ public final class EntityInteractManager {
         ClientUtils.sendMessage("\u00A7eInteracting with \u00A7e" + target.getName().getString() + "\u00A76...", false);
 
         Vec3 targetPos = new Vec3(target.getX(), target.getEyeY(), target.getZ());
-        client.execute(() -> RotationManager.initiateRotation(client, targetPos, INTERACT_ROTATION_MS));
+        MacroWorkerThread.runOnClient(client, () -> RotationManager.initiateRotation(client, targetPos, INTERACT_ROTATION_MS));
         MacroWorkerThread.sleepRandom(INTERACT_ROTATION_MS + 60L, 30L);
 
-        ClientUtils.performUseClick();
+        if (shouldAbort(client)) return;
+        MacroWorkerThread.runOnClient(client, ClientUtils::performUseClick);
         MacroWorkerThread.sleepRandom(85, 30);
         ClientUtils.sendMessage("\u00A7aInteracted with \u00A7e" + target.getName().getString(), false);
+    }
+
+    private static boolean shouldAbort(Minecraft client) {
+        return client.player == null || MacroWorkerThread.getInstance().isCancelled();
     }
 
     private static void dumpNearbyEntityDebug(Minecraft client, String entityName, String phase) {

@@ -26,6 +26,12 @@ public class MixinMinecraftAttackInput {
         }
     }
 
+    @Inject(method = "startAttack", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/client/player/LocalPlayer;swing(Lnet/minecraft/world/InteractionHand;)V"))
+    private void aether$trackMousematUse(CallbackInfoReturnable<Boolean> cir) {
+        AetherBootstrapHooks.onAttack((Minecraft) (Object) this);
+    }
+
     @Inject(method = "continueAttack", at = @At("HEAD"), cancellable = true)
     private void aether$blockHeldAttackWhileLassoing(boolean holding, CallbackInfo ci) {
         if (AetherBootstrapHooks.isAttackSuppressed()) {

@@ -1,0 +1,26 @@
+allprojects {
+    afterEvaluate {
+        def testRoot = layout.buildDirectory.dir('pathfinding-client-test').get().asFile
+        loom.runs.getByName('client').runDir(new File(testRoot, 'run').absolutePath)
+
+        def compileClientTest = tasks.register('compilePathfindingClientTest', JavaCompile) {
+            dependsOn tasks.named('classes')
+            source fileTree('src/clientTest/java')
+            classpath = sourceSets.main.runtimeClasspath
+            destinationDirectory = new File(testRoot, 'classes')
+            options.release = 25
+        }
+        def clientTestJar = tasks.register('jarPathfindingClientTest', Jar) {
+            dependsOn compileClientTest
+            from new File(testRoot, 'classes')
+            from 'src/clientTest/resources'
+            archiveFileName = 'pathfinding-client-test.jar'
+            destinationDirectory = testRoot
+        }
+        tasks.named('runClient') {
+            dependsOn clientTestJar
+            jvmArgs "-Dfabric.addMods=${new File(testRoot, 'pathfinding-client-test.jar').absolutePath}",
+                    '-Dfabric.client.gametest', '-Dfabric.client.gametest.modid=aether_pathfinding_test'
+        }
+    }
+}

@@ -27,6 +27,7 @@ import dev.aether.modules.pest.helpers.AutoSprayonatorManager;
 import dev.aether.modules.pest.helpers.PestAotvManager;
 import dev.aether.modules.pest.helpers.PestBonusManager;
 import dev.aether.modules.pest.helpers.PestDestroyer;
+import dev.aether.modules.pest.helpers.PestTrackerAbility;
 import dev.aether.modules.pest.helpers.PestOnTheTrackManager;
 import dev.aether.modules.pest.helpers.PestReturnManager;
 import dev.aether.modules.pest.helpers.VacuumParticleDebug;
@@ -57,7 +58,8 @@ public final class AetherAutomationTickHandler {
 
     public static void register() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-                        if (client.player == null) {
+            PestTrackerAbility.tick(client);
+            if (client.player == null) {
                 return;
             }
 
@@ -65,8 +67,8 @@ public final class AetherAutomationTickHandler {
                     || client.screen instanceof ChatScreen
                     || AetherBootstrapHooks.isBootstrapConfigScreen(client.screen);
             if (automationStopScreen) {
-                if (MacroStateManager.isMacroRunning() && !ManualPestManager.isActive()) {
-                    MacroStateManager.stopMacro(client);
+                if (MacroStateManager.isAutomationRunning() && !ManualPestManager.isActive()) {
+                    MacroStateManager.stopMacro(client, "Automation interrupted by screen", false);
                 }
                 if (BedrockPlotMaker.isRunning()) {
                     BedrockPlotMaker.stop(client);

@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Singleton worker thread that serialises all macro tasks through a single
@@ -51,6 +52,8 @@ public final class MacroWorkerThread {
 
     /** Set to true when the current task should abort at its next check-point. */
     private volatile boolean cancelRequested = false;
+    private final AtomicLong cancellationGeneration = new AtomicLong();
+    private volatile long currentTaskGeneration;
 
     /** Name of the task that is currently executing (for debug messages). */
     private volatile String currentTaskName = "(idle)";
@@ -85,8 +88,11 @@ public final class MacroWorkerThread {
      * @param task     The work to do (may block freely).
      */
     public void submit(String taskName, Runnable task) {
+        long generation = Thread.currentThread() == workerThread
+                ? currentTaskGeneration : cancellationGeneration.get();
+        if (generation != cancellationGeneration.get()) return;
         debugLog("Queuing task: [" + taskName + "] (queue size before: " + queue.size() + ")");
-        queue.add(new TaskEntry(taskName, task));
+        queue.add(new TaskEntry(taskName, task, generation));
     }
 
     /**
@@ -95,6 +101,7 @@ public final class MacroWorkerThread {
      * Also drains all pending tasks from the queue.
      */
     public void cancelCurrent() {
+        cancellationGeneration.incrementAndGet();
         cancelRequested = true;
         int drained = queue.size();
         queue.clear();
@@ -121,7 +128,20 @@ public final class MacroWorkerThread {
      * </pre>
      */
     public boolean isCancelled() {
-        return cancelRequested;
+        return cancelRequested || (Thread.currentThread() == workerThread
+                && currentTaskGeneration != cancellationGeneration.get());
+    }
+
+    public Runnable cancellable(Runnable action) {
+        long generation = Thread.currentThread() == workerThread
+                ? currentTaskGeneration : cancellationGeneration.get();
+        return () -> {
+            if (generation == cancellationGeneration.get()) action.run();
+        };
+    }
+
+    public static void runOnClient(Minecraft client, Runnable action) {
+        client.execute(getInstance().cancellable(action));
     }
 
     /**
@@ -148,6 +168,11 @@ public final class MacroWorkerThread {
         return queue.size() > 0 || !currentTaskName.equals("(idle)");
     }
 
+    public boolean hasActiveWork() {
+        return !queue.isEmpty() || (!cancelRequested && !currentTaskName.equals("(idle)")
+                && currentTaskGeneration == cancellationGeneration.get());
+    }
+
     /** @return the name of the task currently executing, or {@code "(idle)"}. */
     public String getCurrentTaskName() {
         return currentTaskName;
@@ -160,6 +185,8 @@ public final class MacroWorkerThread {
         while (running.get()) {
             try {
                 TaskEntry entry = queue.take(); // blocks until a task is available
+                currentTaskGeneration = entry.generation;
+                if (currentTaskGeneration != cancellationGeneration.get()) continue;
                 cancelRequested = false;
                 currentTaskName = entry.name;
                 debugLog("Executing task: [" + entry.name + "] on thread: " + Thread.currentThread().getName());
@@ -214,10 +241,12 @@ public final class MacroWorkerThread {
     private static final class TaskEntry {
         final String name;
         final Runnable task;
+        final long generation;
 
-        TaskEntry(String name, Runnable task) {
+        TaskEntry(String name, Runnable task, long generation) {
             this.name = name;
             this.task = task;
+            this.generation = generation;
         }
     }
 }

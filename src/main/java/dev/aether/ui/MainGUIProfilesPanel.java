@@ -116,7 +116,7 @@ final class MainGUIProfilesPanel {
         float fieldH = 32f;
         boolean nameFocused = owner.isProfileNameFocused(isConfig);
         nvg.roundedRect(gx, y, fieldW, fieldH, 7f, Theme.BG_FIELD);
-        nvg.rectOutline(gx, y, fieldW, fieldH, 7f, 1f, nameFocused ? Theme.BORDER_ACTIVE : Theme.BORDER_DEFAULT);
+        nvg.rectOutline(gx, y, fieldW, fieldH, 7f, 1f, nameFocused ? Theme.ACCENT_PRIMARY : Theme.BORDER_DEFAULT);
         String nameDisp = owner.profileNameInput.isEmpty() && !nameFocused ? AetherLang.localize("Profile name...") : owner.profileNameInput;
         int nameColor = owner.profileNameInput.isEmpty() && !nameFocused ? Theme.TEXT_MUTED : Theme.TEXT_LABEL;
         boolean clipProfileName = owner.pushContentLocalScissor(nvg, gx + 10f, y + 1f, fieldW - 20f, fieldH - 2f);
@@ -195,7 +195,7 @@ final class MainGUIProfilesPanel {
                 boolean renaming = owner.isProfileRenameFocused(isConfig, profileName);
                 if (renaming) {
                     nvg.roundedRect(nameX, nameY, nameW, nameH, 5f, Theme.BG_FIELD);
-                    nvg.rectOutline(nameX, nameY, nameW, nameH, 5f, 1f, Theme.BORDER_ACTIVE);
+                    nvg.rectOutline(nameX, nameY, nameW, nameH, 5f, 1f, Theme.ACCENT_PRIMARY);
                     boolean clipRename = owner.pushContentLocalScissor(nvg, nameX + 8f, nameY, nameW - 16f, nameH);
                     nvg.text(Fonts.REGULAR, owner.profileRenameInput, nameX + 8f, rowY + (rowH - 12f) / 2f, 12f, Theme.TEXT_LABEL);
                     owner.popContentLocalScissor(nvg, clipRename);

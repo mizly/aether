@@ -116,12 +116,6 @@ final class MainGUIContext {
         float filterBarTargetW;
         boolean filterBarInited;
         float ddAnimAmt;
-        float catBarAnimY;
-        float catBarFromY;
-        float catBarTargetY;
-        float catBarAnimT;
-        boolean catBarInited;
-        long catBarStartNanos;
     }
 
     static final class EditorState {

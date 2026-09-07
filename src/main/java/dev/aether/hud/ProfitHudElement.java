@@ -18,19 +18,17 @@ public class ProfitHudElement extends HudElement {
 
     // -- Layout (at scale 1.0) -------------------------------------------------
 
-    public static final float W        = 280f;
-    private static final float PAD_H   = 8f;
-    private static final float PAD_V   = 6f;
-    private static final float TITLE_SZ = 12f;
+    public static final float W        = 300f;
+    private static final float PAD_H   = HudStyle.PAD;
     private static final float LABEL_SZ = 10f;
-    private static final float ROW_H   = 16f;
-    private static final float CORNER  = 6f;
+    private static final float ROW_H   = 18f;
     private static final String LONGEST_CATEGORY_TAG = "[VISITOR]";
     private static final float CATEGORY_TAG_GAP = 3f;
     private static final float FARM_BAR_H = 4f;
 
     /** Panel mode: {@code "session"}, {@code "lifetime"}, or {@code "daily"}. */
     private final String mode;
+    private final ProfitGraph graph = new ProfitGraph();
 
     public ProfitHudElement(String mode) { this.mode = mode; }
 
@@ -104,11 +102,8 @@ public class ProfitHudElement extends HudElement {
     // -- Height ----------------------------------------------------------------
 
     float computeHeight() {
-        boolean sleek = AetherConfig.HUD_THEME.get() == 2;
-        float h = PAD_V + TITLE_SZ + 3f;
-        if (!sleek) h += 1f;   // separator
-        h += 8f;               // gap after separator
-
+        float h = HudStyle.CONTENT_Y + 50f;
+        if (showGraph()) h += ProfitGraph.HEIGHT;
         int itemCount;
         if (AetherConfig.COMPACT_PROFIT_CALCULATOR.get()) {
             itemCount = (int) ProfitManager.getCompactDrops(mode).values()
@@ -117,12 +112,7 @@ public class ProfitHudElement extends HudElement {
             itemCount = ProfitManager.getActiveDrops(mode).size();
         }
 
-        if (itemCount > 0) {
-            h += itemCount * ROW_H + 4f + ROW_H;   // rows + separator + total
-            if (isSession()) h += ROW_H;            // coins-per-hour
-        } else {
-            h += ROW_H;
-        }
+        h += itemCount > 0 ? itemCount * ROW_H : 24f;
         if (showFarmingXp()) {
             int rows = 1; // header (level + overall progress to 60)
             if (AetherConfig.FARMING_HUD_XP_RATE.get()) rows++;
@@ -140,48 +130,51 @@ public class ProfitHudElement extends HudElement {
                 && dev.aether.modules.profit.helpers.FarmingXpTracker.hasData();
     }
 
+    private boolean showGraph() {
+        return isSession() && AetherConfig.SESSION_PROFIT_GRAPH.get();
+    }
+
     // -- Rendering -------------------------------------------------------------
 
     @Override
     protected void renderElement(NVGRenderer nvg, boolean editMode) {
         float ph = computeHeight();
-        boolean mod   = AetherConfig.HUD_THEME.get() == 1;
-        boolean sleek = AetherConfig.HUD_THEME.get() == 2;
-        int border = isDragging() ? BORDER_DRAG : isResizing() ? BORDER_RESIZE : Theme.HUD_BORDER;
-
-        if (sleek) {
-            nvg.roundedRect(0, 0, W, ph, CORNER, Theme.withAlpha(Theme.HUD_BG, 0xCC));
-            nvg.rectOutline(0, 0, W, ph, CORNER, 1f, Theme.HUD_BORDER);
-        } else if (mod) {
-            if (editMode) nvg.rect(-1, -1, W + 2, ph + 2, border);
-            nvg.rect(0, 0, W, ph, Theme.HUD_BG);
-            nvg.rect(0, 0, 3f, ph, Theme.HUD_ACCENT);
-        } else {
-            if (editMode) nvg.roundedRect(-1, -1, W + 2, ph + 2, CORNER + 1, border);
-            nvg.shadow(0, 0, W, ph, CORNER, 12f, Theme.withAlpha(0xFF000000, 0.5f));
-            nvg.roundedRect(0, 0, W, ph, CORNER, Theme.HUD_BG);
+        HudStyle.panel(nvg, W, ph);
+        HudStyle.header(nvg, W, title(), "COINS");
+        float ry = HudStyle.CONTENT_Y;
+        long total = ProfitManager.getTotalProfit(mode);
+        float contentWidth = W - PAD_H * 2;
+        nvg.roundedRect(PAD_H, ry, contentWidth, 41f, 5f, Theme.HUD_BAR_BG);
+        nvg.text(Fonts.REGULAR, "Total Profit", PAD_H + 8f, ry + 6f, 9f, Theme.HUD_LABEL);
+        float totalWidth = isSession() ? contentWidth * 0.53f : contentWidth - 16f;
+        HudStyle.text(nvg, Fonts.BOLD, fmt(total), PAD_H + 8f, ry + 19f, totalWidth - 8f, 15f,
+                total < 0 ? Theme.HUD_ERROR : Theme.HUD_VALUE);
+        if (isSession()) {
+            float rateX = PAD_H + contentWidth * 0.57f;
+            nvg.rect(rateX - 8f, ry + 8f, 0.7f, 25f, Theme.HUD_SEP);
+            long sessionMs = MacroStateManager.getSessionRunningTime();
+            long cph = sessionMs > 0 ? (long) (total / (sessionMs / 3_600_000.0)) : 0;
+            nvg.text(Fonts.REGULAR, "Coins per Hour", rateX, ry + 6f, 9f, Theme.HUD_LABEL);
+            HudStyle.text(nvg, Fonts.MONO, fmt(cph), rateX, ry + 21f,
+                    W - PAD_H - rateX - 8f, 12f, Theme.HUD_ACCENT);
         }
+        ry += 50f;
 
-        // Title
-        String title  = title();
-        float  titleX = (mod || sleek) ? PAD_H + 5f
-                : (W - nvg.textWidth(Fonts.BOLD, title, TITLE_SZ)) / 2f;
-        nvg.text(Fonts.BOLD, title, titleX, PAD_V, TITLE_SZ, Theme.HUD_TITLE);
-
-        float ry = PAD_V + TITLE_SZ + 3f;
-        if (!sleek) {
-            nvg.rect(PAD_H, ry, W - PAD_H * 2f, 1f, Theme.HUD_SEP);
+        if (showGraph()) {
+            long now = System.nanoTime();
+            graph.render(nvg, PAD_H, ry, contentWidth, ProfitManager.getSessionProfitHistory(now),
+                    AetherConfig.SESSION_PROFIT_GRAPH_MINUTES.get() * 60_000L, now);
+            ry += ProfitGraph.HEIGHT;
         }
-        ry += 8f;
 
         // Profit rows
         float startRy = ry;
         if (AetherConfig.COMPACT_PROFIT_CALCULATOR.get()) {
             for (Map.Entry<String, Long> e : ProfitManager.getCompactDrops(mode).entrySet()) {
                 if (e.getValue() != 0) {
-                    int vc = e.getKey().equals("Costs") ? 0xFFFF5555 : 0xFFFFFF55;
+                    int vc = e.getKey().equals("Costs") ? Theme.HUD_ERROR : Theme.HUD_VALUE;
                     row(nvg, ry, ProfitManager.getCompactCategoryLabel(e.getKey()),
-                            fmt(e.getValue()), vc, compactCategoryColor(e.getKey()));
+                            fmt(e.getValue()), vc);
                     ry += ROW_H;
                 }
             }
@@ -199,32 +192,16 @@ public class ProfitHudElement extends HudElement {
                 } else {
                     cDisp = "x" + String.format("%,d", count);
                 }
-                int vc;
-                if (item.equals("[Visitor] Visitor Cost") || item.equals("[Spray] Sprayonator")) {
-                    vc = 0xFFFF5555;
-                } else if (item.startsWith("[Visitor] ")) {
-                    vc = 0xFFFFFF55;
-                } else {
-                    vc = ProfitManager.isPredefinedTrackedItem(item) ? 0xFFFFFF55 : Theme.HUD_VALUE;
-                }
+                int vc = item.equals("[Visitor] Visitor Cost") || item.equals("[Spray] Sprayonator")
+                        ? Theme.HUD_ERROR : Theme.HUD_VALUE;
                 row(nvg, ry, cName + " (" + cDisp + ")", fmt(lineVal), vc);
                 ry += ROW_H;
             }
         }
 
-        // Total + CPH
-        if (ry > startRy) {
-            nvg.rect(PAD_H, ry + 1f, W - PAD_H * 2f, 1f, Theme.HUD_SEP);
-            ry += 10f;
-            long total = ProfitManager.getTotalProfit(mode);
-            row(nvg, ry, "Total Profit", fmt(total), 0xFFFFAA00);
-            ry += ROW_H;
-            if (isSession()) {
-                long sesMs = MacroStateManager.getSessionRunningTime();
-                long cph   = sesMs > 0 ? (long)(total / (sesMs / 3_600_000.0)) : 0;
-                row(nvg, ry, "Coins per Hour", fmt(cph), 0xFF55FFFF);
-                ry += ROW_H;
-            }
+        if (ry == startRy) {
+            nvg.text(Fonts.REGULAR, "No tracked drops yet", PAD_H, ry + 4f, LABEL_SZ, Theme.HUD_LABEL);
+            ry += 24f;
         }
 
         // Farming XP / progress to 60
@@ -238,27 +215,27 @@ public class ProfitHudElement extends HudElement {
 
             // Header: current level + overall progress to 60
             row(nvg, ry, "Farming " + level + " → 60",
-                    String.format("%.2f%%", prog * 100f), 0xFFFFFF55);
+                    String.format("%.2f%%", prog * 100f), Theme.HUD_VALUE);
             ry += ROW_H;
 
             if (AetherConfig.FARMING_HUD_XP_RATE.get()) {
                 long perHour = dev.aether.modules.profit.helpers.FarmingXpTracker.getXpPerHour();
                 String rateStr = maxed ? "MAX" : fmt(perHour);
-                row(nvg, ry, "Farming XP/hr", rateStr, 0xFF55FF55);
+                row(nvg, ry, "Farming XP/hr", rateStr, Theme.HUD_SUCCESS);
                 ry += ROW_H;
             }
 
             if (AetherConfig.FARMING_HUD_ETA_NEXT.get()) {
                 long etaNext = dev.aether.modules.profit.helpers.FarmingXpTracker.getEtaToNextLevelMs();
                 String s = maxed ? "done" : (etaNext < 0 ? "---" : formatEta(etaNext));
-                row(nvg, ry, "Next level (" + (level + 1) + ")", s, 0xFFFFAA00);
+                row(nvg, ry, "Next level (" + (level + 1) + ")", s, Theme.HUD_VALUE);
                 ry += ROW_H;
             }
 
             if (AetherConfig.FARMING_HUD_ETA_MAX.get()) {
                 long etaMax = dev.aether.modules.profit.helpers.FarmingXpTracker.getEtaToMaxMs();
                 String s = maxed ? "done" : (etaMax < 0 ? "---" : formatEta(etaMax));
-                row(nvg, ry, "Time to 60", s, 0xFF55FFFF);
+                row(nvg, ry, "Time to 60", s, Theme.HUD_VALUE);
                 ry += ROW_H;
             }
 
@@ -269,69 +246,25 @@ public class ProfitHudElement extends HudElement {
             ry += FARM_BAR_H + 4f;
         }
 
-        if (editMode) {
-            String hint = isDragging() ? "moving..."
-                        : isResizing() ? "resizing..."
-                        : "drag  \u2022  ctrl+drag to resize";
-            nvg.textCentered(Fonts.REGULAR, hint, 0, ry + 4f, W, 12f, 9f, Theme.HUD_LABEL);
+    }
+
+    private void row(NVGRenderer nvg, float y, String label, String value, int valueColor) {
+        float width = W - PAD_H * 2;
+        String fittedValue = HudStyle.fit(nvg, Fonts.MONO, value, LABEL_SZ, width * 0.45f);
+        float labelWidth = width - nvg.textWidth(Fonts.MONO, fittedValue, LABEL_SZ) - 10f;
+        if (label.startsWith("[") && label.indexOf(']') > 0) {
+            int close = label.indexOf(']');
+            String tag = label.substring(1, close);
+            float tagWidth = nvg.textWidth(Fonts.BOLD, LONGEST_CATEGORY_TAG, 8f) + 8f;
+            nvg.roundedRect(PAD_H, y - 1f, tagWidth, 13f, 3f, HudStyle.alpha(Theme.HUD_ACCENT, 0.12f));
+            nvg.textCentered(Fonts.BOLD, tag, PAD_H, y - 1f, tagWidth, 13f, 8f, Theme.HUD_ACCENT);
+            HudStyle.text(nvg, Fonts.REGULAR, label.substring(close + 1).stripLeading(),
+                    PAD_H + tagWidth + CATEGORY_TAG_GAP, y,
+                    labelWidth - tagWidth - CATEGORY_TAG_GAP, LABEL_SZ, Theme.HUD_LABEL);
+        } else {
+            HudStyle.text(nvg, Fonts.REGULAR, label, PAD_H, y, labelWidth, LABEL_SZ, Theme.HUD_LABEL);
         }
-    }
-
-    // -- Helpers ---------------------------------------------------------------
-
-    private void row(NVGRenderer nvg, float y, String label, String value, int vc) {
-        row(nvg, y, label, value, vc, Theme.HUD_LABEL);
-    }
-
-    private void row(NVGRenderer nvg, float y, String label, String value, int vc, int labelColor) {
-        drawCategoryLabel(nvg, label, PAD_H + 5f, y, labelColor);
-        nvg.textRight(Fonts.MONO, value, PAD_H, y, W - PAD_H * 2f, LABEL_SZ, vc);
-    }
-
-    private static int compactCategoryColor(String category) {
-        return switch (category) {
-            case "Crops" -> 0xFFFFFF55;
-            case "Shards" -> 0xFFAA55FF;
-            case "Pest Items" -> 0xFFFF5555;
-            case "Pets" -> 0xFFFFAA00;
-            case "Feast" -> 0xFFFFFF55;
-            case "Misc Drops" -> 0xFF55FFFF;
-            case "Visitor" -> 0xFFFF55FF;
-            case "Costs" -> 0xFFFF5555;
-            default -> Theme.HUD_LABEL;
-        };
-    }
-
-    private static int categoryTagColor(String tag) {
-        return switch (tag) {
-            case "[CROP]", "[FEAST]" -> 0xFFFFFF55;
-            case "[SHARD]" -> 0xFFAA55FF;
-            case "[PEST]", "[COST]" -> 0xFFFF5555;
-            case "[PET]" -> 0xFFFFAA00;
-            case "[MISC]" -> 0xFF55FFFF;
-            case "[VISITOR]" -> 0xFFFF55FF;
-            default -> Theme.HUD_LABEL;
-        };
-    }
-
-    private void drawCategoryLabel(NVGRenderer nvg, String label, float x, float y, int fallbackColor) {
-        if (!label.startsWith("[")) {
-            nvg.text(Fonts.REGULAR, label, x, y, LABEL_SZ, fallbackColor);
-            return;
-        }
-
-        int close = label.indexOf(']');
-        if (close <= 0) {
-            nvg.text(Fonts.REGULAR, label, x, y, LABEL_SZ, fallbackColor);
-            return;
-        }
-
-        String tag = label.substring(0, close + 1);
-        String rest = label.substring(close + 1);
-        int tagColor = categoryTagColor(tag);
-        nvg.text(Fonts.BOLD, tag, x, y, LABEL_SZ, tagColor);
-        float itemX = x + nvg.textWidth(Fonts.BOLD, LONGEST_CATEGORY_TAG, LABEL_SZ) + CATEGORY_TAG_GAP;
-        nvg.text(Fonts.REGULAR, rest, itemX, y, LABEL_SZ, fallbackColor);
+        nvg.textRight(Fonts.MONO, fittedValue, PAD_H, y, width, LABEL_SZ, valueColor);
     }
 
     private static String fmt(long amount) { return String.format("%,d", amount); }

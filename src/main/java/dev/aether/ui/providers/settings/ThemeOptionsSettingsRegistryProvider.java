@@ -8,6 +8,7 @@ import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.theme.Theme;
+import dev.aether.ui.theme.ThemePreset;
 import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
@@ -21,6 +22,18 @@ public final class ThemeOptionsSettingsRegistryProvider extends AbstractSettings
     @Override
     protected ModulesTab.SubTab createSubTab() {
         List<SettingGroup> groups = new ArrayList<>();
+        SettingGroup presets = SettingGroup.alwaysOn("Colour Presets", "Apply coordinated menu and HUD colours");
+        for (ThemePreset preset : ThemePreset.values()) {
+            presets.add(new ActionSetting(preset.label(), () -> {
+                preset.apply();
+                Theme.saveTheme();
+            }));
+        }
+        presets.add(new ActionSetting("Default Colours", () -> {
+            Theme.resetColorsToDefaults();
+            Theme.saveTheme();
+        }));
+        groups.add(presets);
         groups.add(SettingGroup.alwaysOn(
                         "Theme Options",
                         "Animation speed and theme presets")

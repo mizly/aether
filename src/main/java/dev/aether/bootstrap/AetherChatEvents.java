@@ -64,14 +64,13 @@ public final class AetherChatEvents {
             if (plainText.contains("You don't have anything to sell!")) {
                 BazaarUtils.detectedNoItemsToSell = true;
             }
+            if (!overlay) BazaarUtils.onBuyChatMessage(plainText);
             if (overlay || isHandlingMessage) {
                 return;
             }
 
             LoadoutManager.onChatMessage(plainText);
 
-            RecoveryManager.handleRecoveryCommandSuccess(lowerPlainText);
-            RecoveryManager.handleRecoveryCommandFailure(lowerPlainText);
             CommandUtils.onChatMessage(plainText);
 
             try {
@@ -121,6 +120,7 @@ public final class AetherChatEvents {
 
     private static void handlePestCaught(String lowerPlainText) {
         if (isPestCatchMessage(lowerPlainText)) {
+            dev.aether.modules.visuals.PestDefeatEffects.onCatchChat();
             PestDestroyer.onPestCaught();
         }
         // Hypixel puts the escape on the overlay, but route the chat copy too:
@@ -193,9 +193,7 @@ public final class AetherChatEvents {
         if (MacroStateManager.getCurrentState() != MacroState.State.OFF
                 && MacroStateManager.getCurrentState() != MacroState.State.RECOVERING) {
             ClientUtils.sendMessage("Disconnect detected! Starting recovery sequence...");
-            MacroStateManager.stopMacro(Minecraft.getInstance());
             RecoveryManager.beginLimboRecovery();
-            MacroStateManager.setCurrentState(MacroState.State.RECOVERING);
         }
         return true;
     }

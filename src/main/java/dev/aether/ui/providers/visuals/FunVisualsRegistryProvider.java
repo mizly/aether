@@ -7,6 +7,10 @@ import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.ToggleSetting;
+import dev.aether.ui.settings.ActionSetting;
+import dev.aether.ui.settings.ColorSetting;
+import dev.aether.ui.settings.DropdownSetting;
+import dev.aether.modules.visuals.PestDefeatEffects;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +23,31 @@ public final class FunVisualsRegistryProvider extends AbstractVisualsRegistryPro
     @Override
     protected ModulesTab.SubTab createSubTab() {
         List<SettingGroup> groups = new ArrayList<>();
+        groups.add(SettingGroup.of("Pest Defeat Effects", "Shader bursts when a pest is defeated or caught",
+                        AetherConfig.PEST_DEFEAT_EFFECTS::get,
+                        value -> { AetherConfig.PEST_DEFEAT_EFFECTS.set(value); AetherConfig.save(); })
+                .add(new DropdownSetting("Effect Style", List.of("Ender Rift", "Arcane Bloom", "Solar Flare"),
+                        AetherConfig.PEST_DEFEAT_STYLE::get,
+                        value -> { AetherConfig.PEST_DEFEAT_STYLE.set(value); AetherConfig.save(); }))
+                .add(new SliderSetting("Effect Size", 0.5f, 2f, AetherConfig.PEST_DEFEAT_SCALE::get,
+                        value -> { AetherConfig.PEST_DEFEAT_SCALE.set(value); AetherConfig.save(); }).withDecimals(1))
+                .add(new SliderSetting("Particle Count", 8, 24, () -> (float) AetherConfig.PEST_DEFEAT_PARTICLES.get(),
+                        value -> { AetherConfig.PEST_DEFEAT_PARTICLES.set(Math.round(value)); AetherConfig.save(); }).withDecimals(0))
+                .add(new ActionSetting("Preview Effect", PestDefeatEffects::preview)));
+        groups.add(SettingGroup.of("Dragon Wings", "Animated dragon wings on your back in third person",
+                        AetherConfig.DRAGON_WINGS_ENABLED::get,
+                        value -> { AetherConfig.DRAGON_WINGS_ENABLED.set(value); AetherConfig.save(); })
+                .add(new ToggleSetting("Wireframe", AetherConfig.DRAGON_WINGS_WIREFRAME::get,
+                        value -> { AetherConfig.DRAGON_WINGS_WIREFRAME.set(value); AetherConfig.save(); }))
+                .add(new SliderSetting("Wingspan", 0.5f, 1.4f, AetherConfig.DRAGON_WINGS_SCALE::get,
+                        value -> { AetherConfig.DRAGON_WINGS_SCALE.set(value); AetherConfig.save(); }).withDecimals(2))
+                .add(new SliderSetting("Wing Animation Speed", 0.4f, 2f, AetherConfig.DRAGON_WINGS_SPEED::get,
+                        value -> { AetherConfig.DRAGON_WINGS_SPEED.set(value); AetherConfig.save(); }).withDecimals(1))
+                .add(new ColorSetting("Wing Accent", AetherConfig.DRAGON_WINGS_COLOR::get,
+                        value -> { AetherConfig.DRAGON_WINGS_COLOR.set(value); AetherConfig.save(); }))
+                .add(new ToggleSetting("Membrane Glow", AetherConfig.DRAGON_WINGS_GLOW::get,
+                        value -> { AetherConfig.DRAGON_WINGS_GLOW.set(value); AetherConfig.save(); })
+                        .visibleWhen(() -> !AetherConfig.DRAGON_WINGS_WIREFRAME.get())));
         groups.add(SettingGroup.of(
                         "Hat",
                         "Renders a chroma pyramid above your head",

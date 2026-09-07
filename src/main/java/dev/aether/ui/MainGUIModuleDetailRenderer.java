@@ -12,6 +12,8 @@ import java.util.List;
 
 final class MainGUIModuleDetailRenderer {
     private final MainGUI owner;
+    private final SelectionAnimation categorySelection = new SelectionAnimation();
+    private ModulesTab.SubTab categorySubTab;
 
     MainGUIModuleDetailRenderer(MainGUI owner) {
         this.owner = owner;
@@ -73,8 +75,14 @@ final class MainGUIModuleDetailRenderer {
 
         int totalItems = skipAll ? groups.size() : groups.size() + 1;
         int selectedRow = skipAll ? Math.max(0, owner.getActiveCategoryIndex() - 1) : owner.getActiveCategoryIndex();
-        owner.syncModuleCategoryBarAnimation(itemsStart + selectedRow * itemHeight);
-        context = owner.context();
+        long nowNanos = System.nanoTime();
+        if (categorySubTab != activeSubTab) {
+            categorySelection.reset(selectedRow * itemHeight, nowNanos);
+            categorySubTab = activeSubTab;
+        }
+        float highlightY = categorySelection.update(selectedRow * itemHeight, Theme.ANIM_TIME_MS, nowNanos);
+        nvg.roundedRect(categoryX + 8f, itemsStart + highlightY + 3f, categoryW - 16f, 30f, 6f,
+                Theme.withAlpha(Theme.ACCENT_PRIMARY, subtabEnabled ? 0.12f : 0.06f));
 
         for (int i = 0; i < totalItems; i++) {
             boolean isAll = !skipAll && i == 0;
@@ -91,23 +99,17 @@ final class MainGUIModuleDetailRenderer {
             owner.setModuleCategoryHoverProgress(animKey, hover);
 
             if (selected) {
-                nvg.roundedRect(categoryX + 8f, itemY + 3f, categoryW - 16f, 30f, 6f,
-                        Theme.withAlpha(Theme.ACCENT_PRIMARY, subtabEnabled ? 0.15f : 0.07f));
-                nvg.text(Fonts.REGULAR, label, categoryX + 30f, itemY + 12f, 11f,
+                nvg.text(Fonts.BOLD, label, categoryX + 18f, itemY + 12f, 11f,
                         subtabEnabled ? Theme.TEXT_PRIMARY : Theme.withAlpha(Theme.TEXT_DIM, 190));
             } else {
                 if (hover > 0.01f) {
                     nvg.roundedRect(categoryX + 8f, itemY + 3f, categoryW - 16f, 30f, 6f,
                             Theme.withAlpha(0xFFFFFFFF, hover * 0.05f));
                 }
-                int dotColor = subtabEnabled
-                        ? (hover > 0.01f ? Theme.blend(Theme.SEPARATOR, Theme.TEXT_VALUE, hover) : Theme.SEPARATOR)
-                        : Theme.withAlpha(Theme.TEXT_DIM, 120);
                 int textColor = subtabEnabled
                         ? (hover > 0.01f ? Theme.blend(Theme.TEXT_MUTED, Theme.TEXT_VALUE, hover) : Theme.TEXT_MUTED)
                         : Theme.withAlpha(Theme.TEXT_DIM, 165);
-                nvg.circle(categoryX + 22f, itemY + 18f, 3f, dotColor);
-                nvg.text(Fonts.REGULAR, label, categoryX + 30f, itemY + 12f, 11f, textColor);
+                nvg.text(Fonts.REGULAR, label, categoryX + 18f, itemY + 12f, 11f, textColor);
             }
 
             if (subtabEnabled) {
@@ -117,14 +119,6 @@ final class MainGUIModuleDetailRenderer {
             }
         }
 
-        context = owner.context();
-        int barColor = Theme.blend(
-                Theme.withAlpha(Theme.TEXT_DIM, 160),
-                Theme.ACCENT_PRIMARY,
-                context.animation.catBarAnimT
-        );
-        nvg.roundedRect(categoryX + 8f, context.animation.catBarAnimY + 7f, 3f, 22f, 1.5f, barColor);
-        nvg.circle(categoryX + 22f, context.animation.catBarAnimY + 18f, 3f, barColor);
     }
 
     void renderSettingsPanel(NVGRenderer nvg, float mx, float my, float panelTop, float panelH) {

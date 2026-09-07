@@ -14,6 +14,7 @@ import dev.aether.modules.failsafe.FailsafeSoundManager;
 import dev.aether.modules.irc.IrcManager;
 import dev.aether.modules.misc.AutoCarnivalManager;
 import dev.aether.modules.pathfinding.debug.PathVisualizer;
+import dev.aether.modules.pest.helpers.PestTrackerAbility;
 import dev.aether.modules.performance.MuteManager;
 import dev.aether.modules.performance.PerformanceModeManager;
 import dev.aether.modules.profit.ProfitManager;
@@ -21,6 +22,7 @@ import dev.aether.modules.visuals.StreamerModeManager;
 import dev.aether.modules.visuals.PestEspManager;
 import dev.aether.notification.NotificationManager;
 import dev.aether.renderer.FunRenderer;
+import dev.aether.renderer.CosmeticWorldRenderer;
 import dev.aether.renderer.PositionHighlighter;
 import dev.aether.telemetry.AetherAuthService;
 import dev.aether.telemetry.AetherTelemetryService;
@@ -71,8 +73,9 @@ public final class ClientFeatureBootstrap {
             boolean drawPathVisualizer = PathVisualizer.shouldRender();
             boolean drawPositionHighlights = PositionHighlighter.hasVisibleHighlights();
             boolean drawPestEsp = PestEspManager.hasVisibleHighlights();
+            boolean drawPestTracker = PestTrackerAbility.hasVisibleArc();
             boolean drawFunEffects = FunRenderer.hasVisibleEffects();
-            if (!drawPathVisualizer && !drawPositionHighlights && !drawPestEsp && !drawFunEffects) {
+            if (!drawPathVisualizer && !drawPositionHighlights && !drawPestEsp && !drawPestTracker && !drawFunEffects) {
                 return;
             }
             if (drawPathVisualizer) {
@@ -83,7 +86,9 @@ public final class ClientFeatureBootstrap {
             }
             if (drawPestEsp) {
                 PestEspManager.renderWorld();
-                PestEspManager.renderTracerOverlay();
+            }
+            if (drawPestTracker) {
+                PestTrackerAbility.renderWorld();
             }
             if (drawFunEffects) {
                 FunRenderer.renderWorld(ctx);
@@ -91,6 +96,7 @@ public final class ClientFeatureBootstrap {
         });
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(PerformanceModeManager::stop);
+        ClientLifecycleEvents.CLIENT_STOPPING.register(client -> CosmeticWorldRenderer.close());
         ClientLifecycleEvents.CLIENT_STOPPING.register(client -> AetherConfig.flush());
 
         AetherScreenHooks.register();
@@ -115,6 +121,7 @@ public final class ClientFeatureBootstrap {
         NotificationManager.clearAll();
         HudRegistry.reset();
         PathVisualizer.clear();
+        CosmeticWorldRenderer.close();
         ReconnectScheduler.clearState();
         MacroWorkerThread.getInstance().cancelCurrent();
         MacroWorkerThread.getInstance().clearPendingTasks();
@@ -137,4 +144,3 @@ public final class ClientFeatureBootstrap {
     }
 
 }
-

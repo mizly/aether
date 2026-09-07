@@ -35,6 +35,7 @@ public class NVGRenderer {
     private final NVGColor c1   = NVGColor.malloc();
     private final NVGColor c2   = NVGColor.malloc();
     private final NVGPaint paint = NVGPaint.malloc();
+    private final MinecraftTextRenderer minecraftText;
 
     // Font measurement scratch buffer
     private final float[] fontBounds = new float[4];
@@ -42,7 +43,7 @@ public class NVGRenderer {
     // Scissor stack for nested clipping
     private ScissorRegion scissorStack = null;
 
-    // Per-font cached text width (key = fontName + "|" + text + "|" + size + "|" + textScale)
+    // Per-font cached text width at the effective render size.
     private static final int MAX_TEXT_WIDTH_CACHE = 512;
     private final Map<String, Float> textWidthCache = new LinkedHashMap<>(256, 0.75f, true) {
         @Override
@@ -56,6 +57,14 @@ public class NVGRenderer {
 
     NVGRenderer(long vg) {
         this.vg = vg;
+        this.minecraftText = new MinecraftTextRenderer(vg, paint);
+    }
+
+    void beginMinecraftTextFrame() { minecraftText.beginFrame(); }
+    void endMinecraftTextFrame() { minecraftText.endFrame(); }
+
+    public void minecraftText(net.minecraft.client.gui.Font.PreparedText text) {
+        text.visit(minecraftText);
     }
 
     // -- Basic shapes ----------------------------------------------------------
@@ -328,6 +337,17 @@ public class NVGRenderer {
         nvgBeginPath(vg);
         nvgMoveTo(vg, x1, y1);
         nvgLineTo(vg, x2, y2);
+        nvgStrokeWidth(vg, thickness);
+        color(color, c1);
+        nvgStrokeColor(vg, c1);
+        nvgStroke(vg);
+    }
+
+    public void polyline(float[] points, int count, float thickness, int color) {
+        if (count < 2) return;
+        nvgBeginPath(vg);
+        nvgMoveTo(vg, points[0], points[1]);
+        for (int i = 1; i < count; i++) nvgLineTo(vg, points[i * 2], points[i * 2 + 1]);
         nvgStrokeWidth(vg, thickness);
         color(color, c1);
         nvgStrokeColor(vg, c1);
@@ -633,11 +653,15 @@ public class NVGRenderer {
      * @param color    ARGB text color
      */
     public void text(String fontName, String text, float x, float y, float size, int color) {
-        text = AetherLang.localize(text);
+        textLiteral(fontName, AetherLang.localize(text), x, y, size * textScale, color);
+    }
+
+    // Server text must not be localized or inherit the settings menu's text scale.
+    public void textLiteral(String fontName, String text, float x, float y, float size, int color) {
         int fontId = NanoVGManager.getFontId(fontName);
         if (fontId == -1) return;
         nvgFontFaceId(vg, fontId);
-        nvgFontSize(vg, size * textScale);
+        nvgFontSize(vg, size);
         color(color, c1);
         nvgFillColor(vg, c1);
         nvgText(vg, x, y + 0.5f, text);
@@ -693,16 +717,18 @@ public class NVGRenderer {
      * @return width in pixels
      */
     public float textWidth(String fontName, String text, float size) {
-        text = AetherLang.localize(text);
-        String key = fontName + "|" + text + "|" + size + "|" + textScale;
+        return textWidthLiteral(fontName, AetherLang.localize(text), size * textScale);
+    }
+
+    public float textWidthLiteral(String fontName, String text, float size) {
+        String key = fontName + "|" + text + "|" + size;
         if (key.equals(lastTextKey)) {
             return textWidthCache.getOrDefault(key, 0f);
         }
         int fontId = NanoVGManager.getFontId(fontName);
         if (fontId == -1) return 0f;
         nvgFontFaceId(vg, fontId);
-        // text() renders at size * textScale, so measure at the same effective size.
-        nvgFontSize(vg, size * textScale);
+        nvgFontSize(vg, size);
         float w = nvgTextBounds(vg, 0, 0, text, fontBounds);
         textWidthCache.put(key, w);
         lastTextKey = key;
@@ -852,6 +878,8 @@ public class NVGRenderer {
      */
     public void scale(float sx, float sy) { nvgScale(vg, sx, sy); }
 
+    public void skewX(float radians) { nvgSkewX(vg, radians); }
+
     /**
      * Sets a global alpha multiplier applied to all subsequent draw calls.
      *
@@ -873,7 +901,7 @@ public class NVGRenderer {
      * Converts an ARGB int into the pre-allocated {@link NVGColor} structure.
      * The NVGColor is only valid until the next call to this method with the same slot.
      */
-    private void color(int argb, NVGColor out) {
+    static void color(int argb, NVGColor out) {
         nvgRGBA(
                 (byte) ((argb >> 16) & 0xFF),
                 (byte) ((argb >>  8) & 0xFF),

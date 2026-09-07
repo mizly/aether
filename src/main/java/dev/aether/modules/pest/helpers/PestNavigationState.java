@@ -13,6 +13,7 @@ final class PestNavigationState {
     private static final long TRUSTED_PLOT_TTL_MS = 120_000L;
 
     Vec3 calculatedWaypoint = null;
+    final PestTrackerSearch trackerSearch = new PestTrackerSearch();
     Vec3 plotAnchor = null;
     int scanPointIdx = 0;
     int getLocationAttempts = 0;
@@ -38,6 +39,7 @@ final class PestNavigationState {
     }
 
     void resetForRun() {
+        trackerSearch.reset();
         calculatedWaypoint = null;
         plotAnchor = null;
         scanPointIdx = 0;

@@ -10,6 +10,9 @@ import dev.aether.util.AetherLang;
 
 final class MainGUIChromeRenderer {
     private final MainGUI owner;
+    private final SelectionAnimation sidebarSelection = new SelectionAnimation();
+    private final SelectionAnimation filterPosition = new SelectionAnimation();
+    private final SelectionAnimation filterWidth = new SelectionAnimation();
 
     MainGUIChromeRenderer(MainGUI owner) {
         this.owner = owner;
@@ -58,6 +61,20 @@ final class MainGUIChromeRenderer {
         float[] tabIconW = { 16f, 16f, 14f };
         float[] tabIconH = { 19f, 16f, 18f };
         float tabsY = sepY + MainGUI.SB_SEP_GAP;
+        float profileTabY = context.layout.py + context.layout.ph - MainGUI.SB_BOT_PAD - 44f;
+        float settingsTabY = profileTabY - 44f - MainGUI.SB_SEP_GAP;
+        float keybindsTabY = settingsTabY - 44f;
+        float hudPositionsTabY = keybindsTabY - 44f;
+        float selectedY = switch (context.navigation.activeMain) {
+            case 3 -> keybindsTabY;
+            case 4 -> settingsTabY;
+            default -> tabsY + context.navigation.activeMain * 44f;
+        };
+        float highlightY = sidebarSelection.update(selectedY - context.layout.py,
+                Theme.ANIM_TIME_MS, System.nanoTime());
+        nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD,
+                context.layout.py + highlightY + MainGUI.SB_ROW_PAD, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
+                Theme.withAlpha(Theme.ACCENT_PRIMARY, 0x55));
 
         for (int i = 0; i < tabLabels.length; i++) {
             float tabY = tabsY + i * 44f;
@@ -67,10 +84,7 @@ final class MainGUIChromeRenderer {
                     && my >= tabY && my <= tabY + 44f;
             int color = selected ? Theme.ACCENT_PRIMARY : (hovered ? sidebarHoverColor : Theme.TEXT_MUTED);
 
-            if (selected) {
-                nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, pillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
-                        Theme.withAlpha(Theme.ACCENT_PRIMARY, 0x55));
-            } else if (hovered) {
+            if (hovered) {
                 nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, pillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
                         Theme.withAlpha(Theme.TEXT_MUTED, 0x33));
             }
@@ -89,10 +103,6 @@ final class MainGUIChromeRenderer {
             }
         }
 
-        float profileTabY = context.layout.py + context.layout.ph - MainGUI.SB_BOT_PAD - 44f;
-        float settingsTabY = profileTabY - 44f - MainGUI.SB_SEP_GAP;
-        float keybindsTabY = settingsTabY - 44f;
-        float hudPositionsTabY = keybindsTabY - 44f;
         nvg.rect(context.layout.px + MainGUI.SB_H_PAD, hudPositionsTabY - MainGUI.SB_SEP_GAP,
                 sbW - MainGUI.SB_H_PAD * 2f, 1f, Theme.SEPARATOR);
 
@@ -123,10 +133,7 @@ final class MainGUIChromeRenderer {
                 && my >= keybindsTabY && my <= keybindsTabY + 44f;
         int keybindsColor = keybindsSelected ? Theme.ACCENT_PRIMARY
                 : (keybindsHovered ? sidebarHoverColor : Theme.TEXT_MUTED);
-        if (keybindsSelected) {
-            nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, keybindsPillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
-                    Theme.withAlpha(Theme.ACCENT_PRIMARY, 0x55));
-        } else if (keybindsHovered) {
+        if (keybindsHovered) {
             nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, keybindsPillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
                     Theme.withAlpha(Theme.TEXT_MUTED, 0x33));
         }
@@ -149,10 +156,7 @@ final class MainGUIChromeRenderer {
                 && my >= settingsTabY && my <= settingsTabY + 44f;
         int settingsColor = settingsSelected ? Theme.ACCENT_PRIMARY
                 : (settingsHovered ? sidebarHoverColor : Theme.TEXT_MUTED);
-        if (settingsSelected) {
-            nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, settingsPillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
-                    Theme.withAlpha(Theme.ACCENT_PRIMARY, 0x55));
-        } else if (settingsHovered) {
+        if (settingsHovered) {
             nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, settingsPillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
                     Theme.withAlpha(Theme.TEXT_MUTED, 0x33));
         }
@@ -302,7 +306,6 @@ final class MainGUIChromeRenderer {
 
     void renderFilterBar(NVGRenderer nvg, float mx, float my) {
         MainGUIContext context = owner.context();
-        float animationStep = Math.min(1f, Theme.animationFactor() * 6f);
         String[] options = owner.currentTabFilters();
         int selectedIndex = Math.max(0, Math.min(context.navigation.activeFilter, options.length - 1));
 
@@ -324,17 +327,16 @@ final class MainGUIChromeRenderer {
         float targetW = nvg.textWidth(Fonts.REGULAR, options[selectedIndex], 12f);
         owner.setFilterBarTarget(targetX, targetW);
 
+        long nowNanos = System.nanoTime();
         if (!context.animation.filterBarInited) {
-            owner.setFilterBarAnimation(targetX, targetW);
+            filterPosition.reset(targetX - context.layout.contX, nowNanos);
+            filterWidth.reset(targetW, nowNanos);
             owner.setFilterBarInitialized(true);
-            context = owner.context();
-        } else {
-            owner.setFilterBarAnimation(
-                    context.animation.filterBarAnimX + (targetX - context.animation.filterBarAnimX) * animationStep,
-                    context.animation.filterBarAnimW + (targetW - context.animation.filterBarAnimW) * animationStep
-            );
-            context = owner.context();
         }
+        owner.setFilterBarAnimation(
+                context.layout.contX + filterPosition.update(targetX - context.layout.contX, Theme.ANIM_TIME_MS, nowNanos),
+                filterWidth.update(targetW, Theme.ANIM_TIME_MS, nowNanos));
+        context = owner.context();
 
         for (int i = 0; i < options.length; i++) {
             boolean selected = context.navigation.activeFilter == i;

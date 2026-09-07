@@ -27,6 +27,7 @@ public class ReconnectScheduler {
 
     private static ScheduledExecutorService scheduler;
     private static ScheduledFuture<?> pendingReconnect;
+    private static volatile long reconnectGeneration;
     private static boolean stateLoaded = false;
     private static long cachedReconnectAt = 0;
     private static boolean cachedShouldResume = false;
@@ -134,15 +135,19 @@ public class ReconnectScheduler {
         long reconnectAt = Instant.now().getEpochSecond() + delaySeconds;
         saveReconnectTime(reconnectAt, shouldResume, reconnectMode);
 
+        long generation = ++reconnectGeneration;
         pendingReconnect = scheduler.schedule(
-                ReconnectScheduler::doReconnect,
+                () -> doReconnect(generation),
                 delaySeconds,
                 TimeUnit.SECONDS);
     }
 
-    private static void doReconnect() {
+    private static void doReconnect(long generation) {
         Minecraft mc = Minecraft.getInstance();
         mc.execute(() -> {
+            if (generation != reconnectGeneration || mc.player != null || mc.getConnection() != null) {
+                return;
+            }
             ServerData serverData = new ServerData(
                     "Hypixel", "mc.hypixel.net", ServerData.Type.OTHER);
 
@@ -153,13 +158,11 @@ public class ReconnectScheduler {
                     serverData,
                     false,
                     null);
-
-            // Note: We no longer clear state here. AetherClient will clear it after
-            // re-joining.
         });
     }
 
     public static void cancel() {
+        reconnectGeneration++;
         if (pendingReconnect != null) {
             pendingReconnect.cancel(false);
         }

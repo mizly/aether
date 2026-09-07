@@ -32,16 +32,8 @@ final class PestCombatCoordinator {
     // ballpark as that delay even from a half-turn away.
     private static final float AOTV_AIM_SMOOTHING_MS = 40.0f;
     private static final float AOTV_AIM_MAX_TURN_SPEED = 900.0f;
-    // Slower than the hunt's: nothing here closes in a two-tick window, so the
-    // cleaner can take a human beat to swing between targets.
-    private static final float COMBAT_AIM_SMOOTHING_MS = 150.0f;
-    private static final double POST_AOTV_LOOK_DOWN_HORIZONTAL_DISTANCE = 3.0;
     private static final double VACUUM_REAPPROACH_BUFFER = 6.0;
     private static final double TARGET_REACQUIRE_CONE_DEGREES = 120.0;
-    private static final double S_BRAKE_ENTER_DISTANCE = 2.0;
-    private static final double S_BRAKE_EXIT_DISTANCE = 4.0;
-    private static final double S_BRAKE_MIN_SPEED = 0.20;
-    private static final double KILL_FORWARD_HOLD_DISTANCE = 5.0;
     interface Context {
         PestDestroyerRuntime runtime();
 
@@ -131,9 +123,14 @@ final class PestCombatCoordinator {
         // Tracking the moving pest here overwrote the path heading after only a
         // few movement ticks, making every stuck recovery forget its goal.
 
-        if (dist <= targetReachDistance) {
+        boolean lassoTarget = PestHuntingController.shouldLassoTarget(client, currentTarget);
+        boolean directApproach = !lassoTarget && context.runtime().flightController.canApproachDirectly(client, currentTarget, context.getVacuumRange());
+        if (directApproach || lassoTarget && dist <= targetReachDistance) {
             PathfindingManager.stop();
             context.setState(PestDestroyer.State.APPROACH_PEST);
+            if (directApproach) {
+                context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), true);
+            }
             return;
         }
 
@@ -177,26 +174,24 @@ final class PestCombatCoordinator {
         double dist = client.player.distanceTo(currentTarget);
         context.setApproachTicks(context.getApproachTicks() + 1);
 
-        double terminalRange = PestHuntingController.handoffRange(
-                client, currentTarget, targetReachDistance);
-        if (dist <= terminalRange
-                && !PestHuntingController.shouldLassoTarget(client, currentTarget)
-                && !FailsafeManager.shouldSuppressPestCleanerRotation(client)
-                && shouldRotateForCombatAim(context, client, currentTarget)) {
-            Vec3 targetEye = buildCombatAimTarget(client, currentTarget);
-            RotationManager.trackRotation(
-                    client,
-                    targetEye,
-                    COMBAT_AIM_SMOOTHING_MS,
-                    AetherConfig.PEST_MAX_TURN_SPEED.get());
-        }
-
-        if (dist <= terminalRange) {
+        boolean lassoTarget = PestHuntingController.shouldLassoTarget(client, currentTarget);
+        double terminalRange = PestHuntingController.handoffRange(client, currentTarget, context.getVacuumRange());
+        boolean directApproach = !lassoTarget && context.runtime().flightController.canApproachDirectly(client, currentTarget, context.getVacuumRange());
+        if (dist <= terminalRange && (lassoTarget || directApproach)) {
             context.beginTerminalState(client);
+            if (!lassoTarget) {
+                context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), true);
+            }
             return;
         }
 
-        if (!PathfindingManager.isNavigating()) {
+        if (directApproach) {
+            if (PathfindingManager.isNavigating()) {
+                PathfindingManager.stop();
+            }
+            context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), true);
+        } else if (!PathfindingManager.isNavigating()) {
+            RotationManager.cancelRotation();
             context.startPathToPest(client, currentTarget);
         }
 
@@ -217,8 +212,11 @@ final class PestCombatCoordinator {
         Entity currentTarget = context.getCurrentTarget();
         if (currentTarget == null || currentTarget.isRemoved() || (currentTarget instanceof LivingEntity le && le.isDeadOrDying())) {
             ClientUtils.setKeyMappingState(client.options.keyUse, false);
-            if (currentTarget != null && (currentTarget.isRemoved() || (currentTarget instanceof LivingEntity le2 && le2.isDeadOrDying()))) {
+            if (currentTarget != null) {
                 if (context.recordTrackedPestKill(client, currentTarget)) {
+                    return;
+                }
+                if (context.switchToNextQueuedTarget(client)) {
                     return;
                 }
             }
@@ -230,28 +228,12 @@ final class PestCombatCoordinator {
             return;
         }
 
-        // If we pass the pest, it can remain inside the vacuum re-approach
-        // buffer while sitting behind us. This is an orientation problem, not
-        // a navigation problem: a path to a nearby target can complete without
-        // moving and bounce KILL_PEST <-> APPROACH_PEST forever.
-        if (isOutsideForwardCone(client, currentTarget, TARGET_REACQUIRE_CONE_DEGREES)) {
-            ClientUtils.setKeyMappingState(client.options.keyUse, false);
-            ClientUtils.setKeyMappingState(client.options.keyDown, false);
-            ClientUtils.setKeyMappingState(client.options.keyUp, false);
-            PathfindingManager.stop();
-            context.setTargetWithoutSkullTicks(0);
-            if (!FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
-                RotationManager.trackRotation(
-                        client,
-                        buildCombatAimTarget(client, currentTarget),
-                        COMBAT_AIM_SMOOTHING_MS,
-                        AetherConfig.PEST_MAX_TURN_SPEED.get());
-            }
-            ClientUtils.sendDebugMessage("[PestDestroyer] Target moved behind forward cone. Turning to reacquire.");
-            return;
-        }
-
         double dist = client.player.distanceTo(currentTarget);
+        boolean directApproach = context.runtime().flightController.canApproachDirectly(client, currentTarget, context.getVacuumRange());
+        if (PathfindingManager.isNavigating()) {
+            PathfindingManager.stop();
+        }
+        context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), directApproach);
         if (context.getVacuumSlot() == -1) {
             context.setVacuumSlot(context.findVacuumHotbarSlot(client));
         }
@@ -261,32 +243,11 @@ final class PestCombatCoordinator {
             return;
         }
 
-        if (dist <= context.getVacuumRange()) {
+        if (dist <= context.getVacuumRange() && directApproach) {
             boolean retryingUse =
                     context.shouldTemporarilyReleaseKillVacuum(client, true, true);
-            ClientUtils.setKeyMappingState(client.options.keyUse, !retryingUse);
-            ClientUtils.setKeyMappingState(client.options.keyUp, dist > KILL_FORWARD_HOLD_DISTANCE);
-
-            if (PathfindingManager.isNavigating()) {
-                PathfindingManager.stop();
-            }
-
-            if (!FailsafeManager.shouldSuppressPestCleanerRotation(client)
-                    && shouldRotateForCombatAim(context, client, currentTarget)) {
-                Vec3 targetEye = buildCombatAimTarget(client, currentTarget);
-                RotationManager.trackRotation(
-                        client,
-                        targetEye,
-                        COMBAT_AIM_SMOOTHING_MS,
-                        AetherConfig.PEST_MAX_TURN_SPEED.get());
-            }
-
-            double speed = Math.abs(client.player.getDeltaMovement().x)
-                    + Math.abs(client.player.getDeltaMovement().z);
-            boolean braking = client.options.keyDown.isDown();
-            boolean shouldBrake = (braking ? dist < S_BRAKE_EXIT_DISTANCE : dist < S_BRAKE_ENTER_DISTANCE)
-                    && speed > S_BRAKE_MIN_SPEED;
-            ClientUtils.setKeyMappingState(client.options.keyDown, shouldBrake);
+            ClientUtils.setKeyMappingState(client.options.keyUse, !retryingUse
+                    && !isOutsideForwardCone(client, currentTarget, TARGET_REACQUIRE_CONE_DEGREES));
 
             if (!context.hasPestSkullMarkerForTarget(client, currentTarget)) {
                 context.setTargetWithoutSkullTicks(context.getTargetWithoutSkullTicks() + 1);
@@ -309,10 +270,9 @@ final class PestCombatCoordinator {
         } else {
             context.shouldTemporarilyReleaseKillVacuum(client, true, false);
             ClientUtils.setKeyMappingState(client.options.keyUse, false);
-            ClientUtils.setKeyMappingState(client.options.keyDown, false);
             context.setTargetWithoutSkullTicks(0);
-            ClientUtils.setKeyMappingState(client.options.keyUp, dist > KILL_FORWARD_HOLD_DISTANCE);
-            if (dist > context.getVacuumRange() + VACUUM_REAPPROACH_BUFFER) {
+            if (!directApproach || dist > context.getVacuumRange() + VACUUM_REAPPROACH_BUFFER) {
+                RotationManager.cancelRotation();
                 context.setState(PestDestroyer.State.APPROACH_PEST);
                 return;
             }
@@ -565,17 +525,6 @@ final class PestCombatCoordinator {
         return (dx * dx) + (dy * dy) + (dz * dz);
     }
 
-    private static boolean shouldRotateForCombatAim(Context context, Minecraft client, Entity target) {
-        if (!context.didArriveAtCurrentTargetViaAotv()) {
-            return true;
-        }
-
-        double dx = client.player.getX() - target.getX();
-        double dz = client.player.getZ() - target.getZ();
-        double horizontalDistance = Math.sqrt((dx * dx) + (dz * dz));
-        return horizontalDistance <= POST_AOTV_LOOK_DOWN_HORIZONTAL_DISTANCE;
-    }
-
     static Vec3 buildCombatAimTarget(Minecraft client, Entity target) {
         if (PestDestroyer.isCatchInProgress()) {
             return target.position().add(0, target.getEyeHeight(target.getPose()), 0);
@@ -583,13 +532,17 @@ final class PestCombatCoordinator {
         if (PestHuntingController.shouldLassoTarget(client, target)) {
             return target.position().add(0, target.getEyeHeight(target.getPose()), 0);
         }
-        return buildVacuumAimTarget(client, target);
+        return PestAimTracker.trackingAim(client, target);
     }
 
     /** Builds the high aim point that lets the vacuum beam connect from above. */
     static Vec3 buildVacuumAimTarget(Minecraft client, Entity target) {
+        return buildVacuumAimTarget(
+                client, target, getEntityEyePosition(target));
+    }
+
+    static Vec3 buildVacuumAimTarget(Minecraft client, Entity target, Vec3 targetEye) {
         Vec3 eyePos = client.player.getEyePosition();
-        Vec3 targetEye = target.position().add(0, target.getEyeHeight(target.getPose()), 0);
         if (eyePos.y > targetEye.y) {
             double horizontalDistance = Math.sqrt(
                     (targetEye.x - eyePos.x) * (targetEye.x - eyePos.x)

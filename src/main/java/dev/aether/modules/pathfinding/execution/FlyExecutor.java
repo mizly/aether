@@ -3,6 +3,7 @@ package dev.aether.modules.pathfinding.execution;
 import java.util.ArrayList;
 import java.util.List;
 
+import dev.aether.config.AetherConfig;
 import dev.aether.modules.pathfinding.Node;
 import dev.aether.modules.pathfinding.rotation.AngleUtils;
 import dev.aether.modules.pathfinding.rotation.EasingType;
@@ -167,7 +168,7 @@ public final class FlyExecutor {
             // Advance normally for intermediate waypoints
             double waypointReach = wpIndex == path.size() - 1 ? finalWaypointReach : REACH;
             boolean reached = distSq <= waypointReach * waypointReach;
-            if (!reached && wpIndex > 0) {
+            if (!reached && wpIndex > 0 && wpIndex < path.size() - 1) {
                 // Dot product check: if we've passed the plane of the waypoint
                 Vec3 toWp = new Vec3(dx, dy, dz);
                 Vec3 prevWp = new Vec3(
@@ -197,7 +198,7 @@ public final class FlyExecutor {
         double distToGoal = pos.distanceTo(goal);
 
         // Check if we should stop early based on momentum
-        if (shouldStopNow(mc, goal)) {
+        if (wpIndex >= path.size() - 1 && shouldStopNow(mc, goal)) {
             beginDecelerate(mc);
             return;
         }
@@ -214,12 +215,6 @@ public final class FlyExecutor {
         double dz = (wp.position.flooredZ() + 0.5) - pos.z;
         double dyWp = wp.position.flooredY() + 0.15;
 
-        // -- Deceleration check ---------------------------------------------
-        if (wpIndex >= path.size() - 2 && shouldStopNow(mc, goal)) {
-            beginDecelerate(mc);
-            return;
-        }
-
         // -- Rotation -------------------------------------------------------
         if (useLookTargetRotation && lookTarget != null) {
             rotateTowardLookTarget(mc, lookTarget);
@@ -230,8 +225,15 @@ public final class FlyExecutor {
         }
 
         // -- Forward movement -----------------------------------------------
-        applyStrafingMovement(mc, dx, dz);
-        ClientUtils.setKeyMappingState(mc.options.keySprint, distToGoal > 5.0);
+        double brakingRange = 3.0 + mc.player.getDeltaMovement().horizontalDistance()
+                * FlightMotion.coastTicks(AetherConfig.FLY_BRAKING_LOOKAHEAD_TICKS.get());
+        boolean finalApproach = wpIndex == path.size() - 1 && Math.hypot(dx, dz) <= Math.max(6.0, brakingRange);
+        if (finalApproach) {
+            applyArrivalMovement(mc, goal);
+        } else {
+            applyStrafingMovement(mc, dx, dz);
+            ClientUtils.setKeyMappingState(mc.options.keySprint, distToGoal > 5.0);
+        }
         adjustVerticalKeysWithRaycast(mc, pos, dyWp);
 
         // -- Stuck detection ------------------------------------------------
@@ -288,6 +290,7 @@ public final class FlyExecutor {
         state = State.DECELERATING;
         decelStartTime = System.currentTimeMillis();
         releaseAll(mc);
+        tickDecelerate(mc);
     }
 
     private void tickDecelerate(Minecraft mc) {
@@ -296,10 +299,31 @@ public final class FlyExecutor {
             return;
         }
         Vec3 vel = mc.player.getDeltaMovement();
-        boolean stopped = Math.abs(vel.x) < 0.05 && Math.abs(vel.z) < 0.05;
-        if (stopped || System.currentTimeMillis() - decelStartTime > DECELERATE_TIMEOUT_MS) {
+        Vec3 goal = new Vec3(goalX + 0.5, goalY + 0.15, goalZ + 0.5);
+        boolean arrived = mc.player.position().distanceToSqr(goal) <= finalWaypointReach * finalWaypointReach * 1.5;
+        boolean stopped = vel.horizontalDistance() < 0.08 && Math.abs(vel.y) < 0.05;
+        if (arrived && stopped) {
             finish(mc);
+            return;
         }
+        applyArrivalMovement(mc, goal);
+        adjustVerticalKeysWithRaycast(mc, mc.player.position(), goal.y);
+        if (!arrived && System.currentTimeMillis() - decelStartTime > DECELERATE_TIMEOUT_MS) {
+            // A coast prediction is not arrival; retry the endpoint if momentum left us short or wide.
+            wpIndex = Math.max(0, path.size() - 1);
+            state = State.FLYING;
+        }
+    }
+
+    private void applyArrivalMovement(Minecraft mc, Vec3 goal) {
+        Vec3 offset = goal.subtract(mc.player.position());
+        Vec3 desired = offset.horizontalDistance() <= goalStopThreshold ? Vec3.ZERO
+                : FlightMotion.approachVelocity(offset, Vec3.ZERO, 0.0, 0.6,
+                        AetherConfig.FLY_BRAKING_LOOKAHEAD_TICKS.get());
+        if (desired.horizontalDistance() > 0.0 && desired.horizontalDistance() < 0.08) {
+            desired = desired.normalize().scale(0.08);
+        }
+        FlightMotion.apply(mc, FlightMotion.horizontalInput(desired, mc.player.getDeltaMovement(), mc.player.getYRot()));
     }
 
     private void finish(Minecraft mc) {
@@ -353,8 +377,11 @@ public final class FlyExecutor {
                         && (yawDrift > YAW_ROTATION_THRESHOLD || pitchDrift > PITCH_ROTATION_THRESHOLD))
                 || yawDrift > 16.0f
                 || pitchDrift > 14.0f) {
+            float turn = Math.max(Math.abs(AngleUtils.getRotationDelta(mc.player.getYRot(), desiredRot.yaw)),
+                    Math.abs(desiredRot.pitch - mc.player.getXRot()));
+            long duration = Math.max(ROTATION_DURATION_MS, (long) (turn * 1000.0f / 180.0f));
             RotationExecutor.rotateTo(desiredRot,
-                    new TimedEaseStrategy(EasingType.EASE_OUT_CUBIC, ROTATION_DURATION_MS));
+                    new TimedEaseStrategy(EasingType.EASE_IN_OUT_CUBIC, duration));
         }
     }
 
@@ -371,7 +398,7 @@ public final class FlyExecutor {
         // route. Once the forward component is safely positive we can move
         // through the smooth turn instead of waiting stationary for it.
         if (RotationExecutor.isRotating()) {
-            ClientUtils.setKeyMappingState(mc.options.keyUp, dotF > 0.35);
+            ClientUtils.setKeyMappingState(mc.options.keyUp, dotF > Math.hypot(dx, dz) * 0.5);
             ClientUtils.setKeyMappingState(mc.options.keyDown, false);
             ClientUtils.setKeyMappingState(mc.options.keyRight, false);
             ClientUtils.setKeyMappingState(mc.options.keyLeft, false);
@@ -436,13 +463,15 @@ public final class FlyExecutor {
         double dy = waypointY - pos.y;
 
         // If waypoint is significantly above or below, prioritise that
-        if (dy > 0.75) {
-            ClientUtils.setKeyMappingState(mc.options.keyJump, true);
+        double verticalTolerance = Math.min(0.75, finalWaypointReach);
+        int vertical = FlightMotion.verticalInput(dy, mc.player.getDeltaMovement().y, verticalTolerance);
+        if (dy > verticalTolerance) {
+            ClientUtils.setKeyMappingState(mc.options.keyJump, vertical > 0);
             ClientUtils.setKeyMappingState(mc.options.keyShift, false);
             return;
         }
-        if (dy < -0.75 && mc.player.getAbilities().flying) {
-            ClientUtils.setKeyMappingState(mc.options.keyShift, true);
+        if (dy < -verticalTolerance && mc.player.getAbilities().flying) {
+            ClientUtils.setKeyMappingState(mc.options.keyShift, vertical < 0);
             ClientUtils.setKeyMappingState(mc.options.keyJump, false);
             return;
         }
@@ -482,29 +511,12 @@ public final class FlyExecutor {
         }
     }
 
-    /**
-     * Predicts whether we will drift within STOP_THRESH of the goal after
-     * releasing keys (simplified: checks if current velocity would carry us there).
-     */
     private boolean shouldStopNow(Minecraft mc, Vec3 goal) {
         if (mc.player == null)
             return false;
-        Vec3 vel = mc.player.getDeltaMovement();
-        // Creative flight decelerates roughly 0.09 per tick
-        // Predict where we'd be after coasting
-        double simX = mc.player.getX();
-        double simZ = mc.player.getZ();
-        double vx = vel.x, vz = vel.z;
-        for (int i = 0; i < 30; i++) {
-            simX += vx;
-            simZ += vz;
-            vx *= 0.91;
-            vz *= 0.91;
-            if (Math.abs(vx) < 0.01 && Math.abs(vz) < 0.01)
-                break;
-        }
-        double predictedDist = Math.sqrt(
-                (simX - goal.x) * (simX - goal.x) + (simZ - goal.z) * (simZ - goal.z));
-        return predictedDist < goalStopThreshold;
+        Vec3 offset = goal.subtract(mc.player.position());
+        return Math.abs(offset.y) <= finalWaypointReach
+                && FlightMotion.shouldCoast(offset, mc.player.getDeltaMovement(), goalStopThreshold,
+                        AetherConfig.FLY_BRAKING_LOOKAHEAD_TICKS.get());
     }
 }

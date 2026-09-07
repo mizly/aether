@@ -39,6 +39,7 @@ public final class SqueakyMousematManager {
     private static final Pattern SELECTED_PITCH_PATTERN = Pattern.compile(
             "Selected Pitch:\\s*(-?\\d+(?:\\.\\d+)?)",
             Pattern.CASE_INSENSITIVE);
+    private static final MousematCooldown COOLDOWN = new MousematCooldown(System::nanoTime);
     private static volatile boolean reapplyAttemptArmed = false;
 
     private SqueakyMousematManager() {
@@ -50,6 +51,12 @@ public final class SqueakyMousematManager {
 
     public static void clearReapplyAttempt() {
         reapplyAttemptArmed = false;
+    }
+
+    public static void onAttack(Minecraft client) {
+        if (client.player != null && isMousemat(client.player.getMainHandItem())) {
+            COOLDOWN.recordUse();
+        }
     }
 
     public static boolean shouldUseBeforeFarming(Minecraft client) {
@@ -80,11 +87,17 @@ public final class SqueakyMousematManager {
             return false;
         }
         if (!isCurrentRotationDifferent(client, snapshot)) {
-            return false;
+            return true;
         }
 
         client.execute(RotationManager::cancelRotation);
         for (int attempt = 1; attempt <= MAX_MOUSEMAT_ATTEMPTS; attempt++) {
+            if (!COOLDOWN.await(
+                    () -> MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING) || shouldSkipForPestExchange(),
+                    MacroWorkerThread::sleep)) {
+                restoreFarmingToolIfExchangeHasPriority(client);
+                return false;
+            }
             if (!selectHotbarSlotSync(client, snapshot.slot())) {
                 return false;
             }

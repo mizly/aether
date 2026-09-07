@@ -1,5 +1,7 @@
 package dev.aether.notification;
 
+import dev.aether.ui.theme.Theme;
+
 /**
  * Represents a single notification to be displayed.
  *
@@ -9,17 +11,24 @@ package dev.aether.notification;
 public class Notification {
 
     public enum Type {
-        INFO(0xFF6366F1, "/assets/aether/icons/info.svg"),
-        SUCCESS(0xFF10B981, "/assets/aether/icons/success.svg"),
-        WARNING(0xFFF59E0B, "/assets/aether/icons/warning.svg"),
-        ERROR(0xFFEF4444, "/assets/aether/icons/error.svg");
+        INFO("/assets/aether/icons/info.svg"),
+        SUCCESS("/assets/aether/icons/success.svg"),
+        WARNING("/assets/aether/icons/warning.svg"),
+        ERROR("/assets/aether/icons/error.svg");
 
-        public final int color;
         public final String iconPath;
 
-        Type(int color, String iconPath) {
-            this.color = color;
+        Type(String iconPath) {
             this.iconPath = iconPath;
+        }
+
+        public int color() {
+            return switch (this) {
+                case INFO -> Theme.HUD_ACCENT;
+                case SUCCESS -> Theme.HUD_SUCCESS;
+                case WARNING -> Theme.HUD_WARNING;
+                case ERROR -> Theme.HUD_ERROR;
+            };
         }
     }
 
@@ -77,7 +86,7 @@ public class Notification {
 
     // -- Animation state (single progress value for efficiency) ----------------
 
-    /** Returns animation progress (0-1 for entry, negative for dismiss) */
+    /** Returns visibility from 0 (hidden) to 1 (fully shown). */
     public float getAnimProgress() { return animProgress; }
     public void setAnimProgress(float progress) { this.animProgress = progress; }
 
@@ -105,7 +114,7 @@ public class Notification {
         }
     }
 
-    /** Updates the visible content in place without resetting the countdown. */
+    /** Updates the visible content in place and restarts the countdown. */
     public void update(String title, String message, Type type) {
         this.title = title;
         this.message = message;

@@ -19,8 +19,6 @@ public class NickHiderUtils {
     private static final Pattern SAWDUST_PATTERN = Pattern.compile("(?i)(S[oa]wdust:\\s*)(" + COLOR_PATTERN + "*?" + SCORE_NUMBER_PATTERN + ")(" + COLOR_PATTERN + "*?)([KMB]?)(.*)");
     // Farming exp: +7.8 Farming (426,756,875/0)
     private static final Pattern FARMING_EXP_PATTERN = Pattern.compile("(?i)(Farming\\s*\\()(" + COLOR_PATTERN + "*?" + SCORE_NUMBER_PATTERN + ")(.*)");
-    private static final Pattern SERVER_ID_PATTERN = Pattern.compile("(?i)(\\d{2}/\\d{2}/\\d{2}\\s+)(" + COLOR_PATTERN + "*?[a-z0-9]+)");
-    private static final Pattern SERVER_TAB_PATTERN = Pattern.compile("(?i)(Server:\\s+)(" + COLOR_PATTERN + "*?[a-z0-9]+)");
     private static final Pattern SB_LEVEL_PATTERN = Pattern.compile("\\[([0-9]+)\\]");
 
     private static final String[] WORDS = {
@@ -61,15 +59,10 @@ public class NickHiderUtils {
         }
 
         if (AetherConfig.HIDE_SERVER_ID.get()) {
-            String replacement = AetherConfig.CUSTOM_SERVER_ID.get();
-            Matcher m = SERVER_ID_PATTERN.matcher(text);
-            if (m.find()) {
-                text = m.replaceFirst(m.group(1) + Matcher.quoteReplacement(replacement));
-            }
-            Matcher mTab = SERVER_TAB_PATTERN.matcher(text);
-            if (mTab.find()) {
-                text = mTab.replaceFirst(mTab.group(1) + Matcher.quoteReplacement(replacement));
-            }
+            ColorCodeStripResult stripped = stripColorCodesWithMap(text);
+            java.util.List<ScoreTextReplacement> replacements = new java.util.ArrayList<>();
+            addServerIdReplacements(stripped.stripped(), stripped.origIndices(), replacements);
+            text = applyReplacements(text, replacements);
         }
 
         if (AetherConfig.COOP_HIDER_ENABLED.get()) {
@@ -157,19 +150,7 @@ public class NickHiderUtils {
         }
 
         if (AetherConfig.HIDE_SERVER_ID.get()) {
-            String replacement = AetherConfig.CUSTOM_SERVER_ID.get();
-            Matcher m = SERVER_ID_PATTERN.matcher(plainText);
-            if (m.find()) {
-                int origStart = map[m.start(2)];
-                int origEnd = map[m.end(2) - 1] + 1;
-                replacements.add(new ScoreTextReplacement(origStart, origEnd, replacement));
-            }
-            Matcher mTab = SERVER_TAB_PATTERN.matcher(plainText);
-            if (mTab.find()) {
-                int origStart = map[mTab.start(2)];
-                int origEnd = map[mTab.end(2) - 1] + 1;
-                replacements.add(new ScoreTextReplacement(origStart, origEnd, replacement));
-            }
+            addServerIdReplacements(plainText, map, replacements);
         }
 
         if (areSpoofValuesEnabled() && AetherConfig.CUSTOM_SB_LEVEL_ENABLED.get()) {
@@ -183,11 +164,10 @@ public class NickHiderUtils {
             }
         }
 
-        String username = Minecraft.getInstance().getUser().getName();
         String customNick = AetherConfig.CUSTOM_USERNAME.get();
 
         if (AetherConfig.NICK_HIDER_ENABLED.get() && !customNick.isEmpty()) {
-            addNameReplacement(plainText, map, username, customNick, replacements);
+            addNameReplacement(plainText, map, Minecraft.getInstance().getUser().getName(), customNick, replacements);
         }
 
         if (AetherConfig.COOP_HIDER_ENABLED.get()) {
@@ -213,6 +193,14 @@ public class NickHiderUtils {
 
     private static boolean areSpoofValuesEnabled() {
         return AetherConfig.SPOOF_VALUES_ENABLED.get();
+    }
+
+    private static void addServerIdReplacements(String plainText, int[] map,
+            java.util.List<ScoreTextReplacement> replacements) {
+        for (ServerIdHider.Span span : ServerIdHider.spans(plainText, AetherConfig.CUSTOM_SERVER_ID.get())) {
+            replacements.add(new ScoreTextReplacement(map[span.start()], map[span.end() - 1] + 1,
+                    AetherConfig.CUSTOM_SERVER_ID.get()));
+        }
     }
 
     // Strips color codes and returns both the stripped string and a mapping from

@@ -1,173 +1,125 @@
 package dev.aether.notification;
 
-import dev.aether.ui.util.Fonts;
+import dev.aether.hud.HudStyle;
 import dev.aether.renderer.NVGRenderer;
+import dev.aether.ui.theme.Theme;
+import dev.aether.ui.util.Fonts;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Renders all active notifications using NanoVG.
- *
- * <p>Notifications are rendered in the top-right corner of the screen with
- * smooth slide-in/out animations, shadows, and a progress bar for auto-dismiss.</p>
- *
- * <p>Optimized for FPS: minimal state changes, pre-calculated values, and
- * batched rendering where possible.</p>
- */
 public final class NotificationRenderer {
+    private static final float WIDTH = 320f;
+    private static final float ICON_SIZE = 16f;
+    private static final float TITLE_X = HudStyle.PAD + ICON_SIZE + 8f;
+    private static final float MESSAGE_SIZE = 11f;
+    private static final float LINE_STEP = 15f;
+    private static final Map<Notification, ToastLayout> layouts = new HashMap<>();
+    private static long lastFrameNanos;
 
     private NotificationRenderer() {}
 
-    // -- Layout constants  ---------------------
-
-    private static final float PADDING_X = 14f;
-    private static final float PADDING_Y = 10f;
-    private static final float CORNER_RADIUS = 8f;
-    private static final float ICON_SIZE = 18f;
-    private static final float ICON_MARGIN = 10f;
-    private static final float PROGRESS_BAR_HEIGHT = 2f;
-    private static final float ACCENT_WIDTH = 3f;
-
-    private static final float MESSAGE_FONT_SIZE = 11f;
-    private static final float MESSAGE_LINE_STEP = 14f;
-    private static final float TEXT_LEFT_OFFSET = PADDING_X + ICON_SIZE + ICON_MARGIN;
-
-    // -- Pre-calculated colors  --------------
-
-    private static final int BG_COLOR = 0xE6151515;
-    private static final int SHADOW_COLOR = 0x30000000;
-    private static final int TEXT_TITLE = 0xFFFFFFFF;
-    private static final int TEXT_MESSAGE = 0xB0FFFFFF;
-    private static final int PROGRESS_TRACK = 0x15FFFFFF;
-
-    // -- Animated Y positions for smooth repositioning --------------------------
-
-    private static final Map<Notification, Float> animatedYPositions = new HashMap<>();
-
-    // -- Rendering --------------------------------------------------------------
-
-    /**
-     * Renders all active notifications. Must be called within an active NanoVG frame.
-     *
-     * @param nvg          The active NVGRenderer
-     * @param screenWidth  Current screen width
-     * @param screenHeight Current screen height (unused but kept for API consistency)
-     * @param deltaTime    Frame delta time in seconds
-     */
-    public static void render(NVGRenderer nvg, float screenWidth, float screenHeight, float deltaTime) {
-        // Update animation states first
+    public static void render(NVGRenderer nvg, float screenWidth, float screenHeight) {
+        // Minecraft tick deltas and GUI partial ticks use different units; share one real-time clock.
+        long now = System.nanoTime();
+        float deltaTime = lastFrameNanos == 0L ? 0f
+                : Math.clamp((now - lastFrameNanos) / 1_000_000_000f, 0f, 0.1f);
+        lastFrameNanos = now;
         NotificationManager.update(deltaTime);
 
         List<Notification> notifications = NotificationManager.getNotifications();
         if (notifications.isEmpty()) {
-            animatedYPositions.clear();
+            layouts.clear();
+            lastFrameNanos = 0L;
             return;
         }
 
-        float startY = NotificationManager.MARGIN;
-        int visibleCount = 0;
-        int maxVisible = NotificationManager.MAX_VISIBLE;
-
-        // Calculate target Y positions and animate towards them
-        float currentY = startY;
-        for (Notification n : notifications) {
-            if (visibleCount >= maxVisible) break;
-
-            float height = NotificationManager.calculateHeight(n);
-            float targetY = currentY;
-            
-            // Get or initialize animated Y position
-            float animatedY = animatedYPositions.getOrDefault(n, targetY);
-            
-            // Smoothly interpolate towards target Y
-            float animSpeed = Math.min(1f, NotificationManager.ANIM_SPEED * 3f * deltaTime * 60f);
-            animatedY += (targetY - animatedY) * animSpeed;
-            animatedYPositions.put(n, animatedY);
-
-            renderNotification(nvg, n, animatedY, screenWidth);
-            
-            currentY += height + NotificationManager.SPACING;
-            visibleCount++;
+        float width = Math.min(WIDTH, screenWidth - NotificationManager.MARGIN * 2);
+        if (width <= TITLE_X + HudStyle.PAD) return;
+        float targetY = NotificationManager.MARGIN;
+        float follow = 1f - (float) Math.exp(-18f * deltaTime);
+        int visible = 0;
+        for (Notification notification : notifications) {
+            if (visible++ >= NotificationManager.MAX_VISIBLE) break;
+            ToastLayout layout = layouts.get(notification);
+            if (layout == null) {
+                layout = new ToastLayout(targetY);
+                layouts.put(notification, layout);
+            }
+            layout.measure(nvg, notification, width, screenHeight);
+            layout.y += (targetY - layout.y) * follow;
+            renderNotification(nvg, notification, layout, screenWidth);
+            targetY += layout.height + NotificationManager.SPACING;
         }
-
-        // Clean up old entries
-        animatedYPositions.keySet().removeIf(n -> !notifications.contains(n));
+        layouts.keySet().removeIf(n -> !notifications.contains(n));
     }
 
-    /**
-     * Renders a single notification with minimal state changes.
-     */
-    private static void renderNotification(NVGRenderer nvg, Notification n, float y, float screenWidth) {
-        float width = NotificationManager.calculateWidth(n);
-        float height = NotificationManager.calculateHeight(n);
-
-        // Calculate animation progress with easing
-        float animProgress = NotificationManager.easeOutCubic(n.getAnimProgress());
-
-        // Calculate position with slide animation
-        float x = screenWidth - NotificationManager.MARGIN - width;
-        float slideOffset = (1f - animProgress) * (width + NotificationManager.MARGIN);
-        x += slideOffset;
-
-        // Skip rendering if completely off-screen
-        if (animProgress <= 0f) return;
+    private static void renderNotification(NVGRenderer nvg, Notification notification,
+                                           ToastLayout layout, float screenWidth) {
+        float progress = Math.clamp(notification.getAnimProgress(), 0f, 1f);
+        float visibility = progress * progress * (3f - 2f * progress);
+        if (visibility <= 0f) return;
+        float x = screenWidth - NotificationManager.MARGIN - layout.width + (1f - visibility) * 28f;
+        int accent = notification.getType().color();
 
         nvg.save();
+        nvg.translate(x, layout.y);
+        nvg.globalAlpha(visibility);
+        HudStyle.panel(nvg, layout.width, layout.height);
+        HudStyle.accent(nvg, layout.width, accent, accent);
 
-        // Apply global alpha for fade effect
-        if (animProgress < 1f) {
-            nvg.globalAlpha(animProgress);
-        }
+        nvg.roundedRect(HudStyle.PAD - 3f, 9f, 22f, 22f, 5f, HudStyle.alpha(accent, 0.12f));
+        nvg.renderSVG(notification.getType().iconPath, HudStyle.PAD, 12f, ICON_SIZE, ICON_SIZE, accent);
+        HudStyle.text(nvg, Fonts.BOLD, layout.title, TITLE_X, 14f,
+                layout.width - TITLE_X - HudStyle.PAD, 12f, Theme.HUD_TITLE);
 
-        // -- Shadow (render first, underneath everything) ------------------------
-        nvg.shadow(x, y, width, height, CORNER_RADIUS, 10f, SHADOW_COLOR);
-
-        // -- Background (rounded) -------------------------------------------------
-        nvg.roundedRect(x, y, width, height, CORNER_RADIUS, BG_COLOR);
-
-        // -- Accent bar (left side, rounded on left corners only) -----------------
-        int accentColor = n.getType().color;
-        nvg.roundedRect(x, y + 10f, ACCENT_WIDTH, height - 20f, ACCENT_WIDTH / 2, accentColor);
-
-        // -- Icon (using SVG) -----------------------------------------------------
-        float iconX = x + PADDING_X;
-        float iconY = y + PADDING_Y;
-        nvg.renderSVG(n.getType().iconPath, iconX, iconY, ICON_SIZE, ICON_SIZE, accentColor);
-
-        // -- Title ----------------------------------------------------------------
-        float titleX = iconX + ICON_SIZE + ICON_MARGIN;
-        float titleY = y + PADDING_Y;
-        nvg.text(Fonts.BOLD, n.getTitle(), titleX, titleY, 13f, TEXT_TITLE);
-
-        // -- Message (if present) -------------------------------------------------
-        if (n.hasMessage()) {
-            float messageY = titleY + 18f;
-            float messageWidth = Math.max(0f, width - TEXT_LEFT_OFFSET - PADDING_X);
-            List<String> messageLines = nvg.wrapTextToWidth(Fonts.REGULAR, n.getMessage(), MESSAGE_FONT_SIZE, messageWidth);
-            for (int i = 0; i < messageLines.size(); i++) {
-                nvg.text(Fonts.REGULAR, messageLines.get(i), titleX, messageY + (i * MESSAGE_LINE_STEP), MESSAGE_FONT_SIZE, TEXT_MESSAGE);
+        if (!layout.lines.isEmpty()) {
+            nvg.rect(HudStyle.PAD, 38f, layout.width - HudStyle.PAD * 2, 0.7f, Theme.HUD_SEP);
+            for (int i = 0; i < layout.lines.size(); i++) {
+                HudStyle.text(nvg, Fonts.REGULAR, layout.lines.get(i), HudStyle.PAD, 47f + i * LINE_STEP,
+                        layout.width - HudStyle.PAD * 2, MESSAGE_SIZE, Theme.HUD_LABEL);
             }
         }
 
-        // -- Progress bar (for auto-dismiss) --------------------------------------
-        if (n.getDurationMs() > 0 && !n.isDismissing()) {
-            float progress = n.getLifetimeProgress();
-            float barY = y + height - PROGRESS_BAR_HEIGHT - 3f;
-            float barWidth = width - PADDING_X * 2;
-
-            // Background track
-            nvg.roundedRect(x + PADDING_X, barY, barWidth, PROGRESS_BAR_HEIGHT, 1f, PROGRESS_TRACK);
-
-            // Progress fill (shrinks from right to left)
-            float fillWidth = barWidth * (1f - progress);
-            if (fillWidth > 1f) {
-                int progressColor = (0x60 << 24) | (accentColor & 0x00FFFFFF);
-                nvg.roundedRect(x + PADDING_X, barY, fillWidth, PROGRESS_BAR_HEIGHT, 1f, progressColor);
-            }
+        if (notification.getDurationMs() > 0) {
+            float barWidth = layout.width - HudStyle.PAD * 2;
+            float barY = layout.height - 7f;
+            nvg.roundedRect(HudStyle.PAD, barY, barWidth, 2f, 1f, Theme.HUD_BAR_BG);
+            float filled = barWidth * (1f - notification.getLifetimeProgress());
+            if (filled > 0f) nvg.roundedRect(HudStyle.PAD, barY, filled, 2f, 1f, HudStyle.alpha(accent, 0.7f));
         }
-
         nvg.restore();
+    }
+
+    private static final class ToastLayout {
+        private float y;
+        private float width;
+        private float height;
+        private float screenHeight;
+        private String title;
+        private String message;
+        private List<String> lines = List.of();
+
+        private ToastLayout(float y) { this.y = y; }
+
+        private void measure(NVGRenderer nvg, Notification notification, float width, float screenHeight) {
+            if (this.width == width && this.screenHeight == screenHeight
+                    && java.util.Objects.equals(title, notification.getTitle())
+                    && java.util.Objects.equals(message, notification.getMessage())) return;
+            this.width = width;
+            this.screenHeight = screenHeight;
+            title = notification.getTitle();
+            message = notification.getMessage();
+            lines = notification.hasMessage()
+                    ? nvg.wrapTextToWidth(Fonts.REGULAR, message, MESSAGE_SIZE, width - HudStyle.PAD * 2)
+                    : List.of();
+            int maxLines = Math.max(1, (int) ((screenHeight - NotificationManager.MARGIN * 2 - 70f) / LINE_STEP) + 1);
+            if (lines.size() > maxLines) {
+                lines = new java.util.ArrayList<>(lines.subList(0, maxLines));
+                lines.set(maxLines - 1, lines.getLast() + "...");
+            }
+            height = lines.isEmpty() ? 44f : 70f + (lines.size() - 1) * LINE_STEP;
+        }
     }
 }

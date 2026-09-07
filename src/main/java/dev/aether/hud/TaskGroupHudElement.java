@@ -18,14 +18,11 @@ public class TaskGroupHudElement extends HudElement {
     }
 
     private static final float W = 300f;
-    private static final float PAD_H = 10f;
     private static final float PAD_V = 8f;
-    private static final float TITLE_SZ = 12f;
     private static final float LABEL_SZ = 10f;
     private static final float DETAIL_SZ = 9f;
-    private static final float ROW_H = 28f;
+    private static final float ROW_H = 36f;
     private static final float DETAIL_LINE_H = 10f;
-    private static final float CORNER = 6f;
 
     private final Group group;
 
@@ -156,72 +153,37 @@ public class TaskGroupHudElement extends HudElement {
 
     @Override
     protected void renderElement(NVGRenderer nvg, boolean editMode) {
-        List<TaskHudStatusProvider.TaskStatusRow> rows = getRows(Minecraft.getInstance());
-        float ph = computeHeight(rows);
-        boolean mod = AetherConfig.HUD_THEME.get() == 1;
-        boolean sleek = AetherConfig.HUD_THEME.get() == 2;
-        int border = isDragging() ? BORDER_DRAG : isResizing() ? BORDER_RESIZE : Theme.HUD_BORDER;
+        renderRows(nvg, getRows(Minecraft.getInstance()));
+    }
 
-        if (sleek) {
-            nvg.roundedRect(0, 0, W, ph, CORNER, Theme.withAlpha(Theme.HUD_BG, 0xCC));
-            nvg.rectOutline(0, 0, W, ph, CORNER, 1f, Theme.HUD_BORDER);
-        } else if (mod) {
-            if (editMode) {
-                nvg.rect(-1, -1, W + 2f, ph + 2f, border);
-            }
-            nvg.rect(0, 0, W, ph, Theme.HUD_BG);
-            nvg.rect(0, 0, 3f, ph, Theme.HUD_ACCENT);
-        } else {
-            if (editMode) {
-                nvg.roundedRect(-1, -1, W + 2f, ph + 2f, CORNER + 1f, border);
-            }
-            nvg.shadow(0, 0, W, ph, CORNER, 12f, Theme.withAlpha(0xFF000000, 0.5f));
-            nvg.roundedRect(0, 0, W, ph, CORNER, Theme.HUD_BG);
-        }
+    void renderRows(NVGRenderer nvg, List<TaskHudStatusProvider.TaskStatusRow> rows) {
+        float ph = computeHeight(rows);
+        HudStyle.panel(nvg, W, ph);
 
         String title = switch (group) {
             case INTERMEDIARIES -> "Intermediaries";
             case MID_FARMING_TASKS -> "Mid-Farming Tasks";
             case FAILSAFES -> "Failsafes";
         };
-        float titleX = (mod || sleek) ? PAD_H + 5f : (W - nvg.textWidth(Fonts.BOLD, title, TITLE_SZ)) / 2f;
-        nvg.text(Fonts.BOLD, title, titleX, PAD_V, TITLE_SZ, Theme.HUD_TITLE);
-
-        float y = PAD_V + TITLE_SZ + 4f;
-        if (!sleek) {
-            nvg.rect(PAD_H, y, W - PAD_H * 2f, 1f, Theme.HUD_SEP);
-            y += 8f;
-        } else {
-            y += 4f;
-        }
-
-        for (int i = 0; i < rows.size(); i++) {
-            TaskHudStatusProvider.TaskStatusRow row = rows.get(i);
-            float rowTop = y;
-            float baseline = rowTop;
-            nvg.circle(PAD_H + 4f, baseline + 5f, 3.5f, row.color);
-            nvg.text(Fonts.REGULAR, row.name, PAD_H + 13f, baseline, LABEL_SZ, Theme.HUD_VALUE);
-            nvg.textRight(Fonts.BOLD, row.badge, PAD_H, baseline, W - PAD_H * 2f, LABEL_SZ, row.color);
-            String[] detailLines = row.detailLines;
-            for (int lineIndex = 0; lineIndex < detailLines.length; lineIndex++) {
-                nvg.text(Fonts.REGULAR, detailLines[lineIndex], PAD_H + 13f,
-                        baseline + 11f + lineIndex * DETAIL_LINE_H, DETAIL_SZ, Theme.HUD_LABEL);
-            }
-
+        long enabled = rows.stream().filter(row -> !row.badge.equals("OFF")).count();
+        HudStyle.header(nvg, W, title, enabled + "/" + rows.size());
+        float y = HudStyle.CONTENT_Y;
+        for (TaskHudStatusProvider.TaskStatusRow row : rows) {
             float rowHeight = computeRowHeight(row);
-
-            if (i < rows.size() - 1) {
-                nvg.rect(PAD_H, rowTop + rowHeight - 5f, W - PAD_H * 2f, 1f, Theme.withAlpha(Theme.HUD_SEP, 90));
+            int color = row.color();
+            float badgeWidth = nvg.textWidth(Fonts.BOLD, row.badge, DETAIL_SZ) + 12f;
+            float badgeX = W - HudStyle.PAD - badgeWidth;
+            nvg.roundedRect(HudStyle.PAD, y - 2f, W - HudStyle.PAD * 2, rowHeight - 5f,
+                    5f, HudStyle.alpha(Theme.HUD_BAR_BG, 0.45f));
+            HudStyle.text(nvg, Fonts.BOLD, row.name, HudStyle.PAD + 8f, y + 1f,
+                    badgeX - HudStyle.PAD - 14f, LABEL_SZ, Theme.HUD_VALUE);
+            nvg.roundedRect(badgeX, y - 1f, badgeWidth, 15f, 4f, HudStyle.alpha(color, 0.14f));
+            nvg.textCentered(Fonts.BOLD, row.badge, badgeX, y - 1f, badgeWidth, 15f, DETAIL_SZ, color);
+            for (int i = 0; i < row.detailLines.length; i++) {
+                HudStyle.text(nvg, Fonts.REGULAR, row.detailLines[i], HudStyle.PAD + 8f,
+                        y + 16f + i * DETAIL_LINE_H, W - HudStyle.PAD * 2 - 14f, DETAIL_SZ, Theme.HUD_LABEL);
             }
             y += rowHeight;
-        }
-
-        if (editMode) {
-            float hintY = y + 2f;
-            String hint = isDragging() ? "moving..."
-                    : isResizing() ? "resizing..."
-                    : "drag | ctrl+drag to resize";
-            nvg.textCentered(Fonts.REGULAR, hint, 0, hintY, W, 12f, 9f, Theme.HUD_LABEL);
         }
     }
 
@@ -230,9 +192,7 @@ public class TaskGroupHudElement extends HudElement {
     }
 
     private float computeHeight(List<TaskHudStatusProvider.TaskStatusRow> rows) {
-        boolean sleek = AetherConfig.HUD_THEME.get() == 2;
-        float height = PAD_V + TITLE_SZ + 4f;
-        height += sleek ? 4f : 9f;
+        float height = HudStyle.CONTENT_Y;
         for (TaskHudStatusProvider.TaskStatusRow row : rows) {
             height += computeRowHeight(row);
         }

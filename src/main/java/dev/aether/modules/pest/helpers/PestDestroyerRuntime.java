@@ -16,6 +16,7 @@ final class PestDestroyerRuntime {
     Entity currentTarget = null;
     final List<Entity> killedEntities = new CopyOnWriteArrayList<>();
     final PestTargetDeferrals deferredTargets = new PestTargetDeferrals();
+    final PestFlightController flightController = new PestFlightController();
     final Deque<Entity> pestTargetQueue = new ArrayDeque<>();
     final Set<Integer> accountedKilledPestEntityIds = ConcurrentHashMap.newKeySet();
 
@@ -135,6 +136,7 @@ final class PestDestroyerRuntime {
     }
 
     void transitionTo(PestDestroyer.State newState, long now) {
+        if (newState == PestDestroyer.State.GET_LOCATION) navigation.trackerSearch.beginSearch();
         state = newState;
         stateEnteredAt = now;
         stuckTicks = 0;
@@ -144,6 +146,7 @@ final class PestDestroyerRuntime {
                 || newState == PestDestroyer.State.FINISH
                 || newState == PestDestroyer.State.IDLE) {
             arrivedAtCurrentTargetViaAotv = false;
+            flightController.reset();
         }
         if (newState != PestDestroyer.State.AOTV_BETWEEN_PESTS) {
             aotvLastUseAt = 0L;
@@ -176,6 +179,7 @@ final class PestDestroyerRuntime {
     }
 
     private void resetTransientState() {
+        flightController.reset();
         stuckTicks = 0;
         approachTicks = 0;
         zeroPestTabTicks = 0;

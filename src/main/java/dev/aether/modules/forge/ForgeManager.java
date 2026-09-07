@@ -97,7 +97,7 @@ public class ForgeManager {
         MacroWorkerThread.sleepRandom(255, 90);
 
         // Close the menu â€” we've confirmed it opened, nothing more to do yet
-        client.execute(() -> {
+        MacroWorkerThread.runOnClient(client, () -> {
             if (client.player != null) client.player.closeContainer();
         });
     }
@@ -106,7 +106,7 @@ public class ForgeManager {
         if (client.player == null) return false;
         Vec3 startPos = client.player.position();
 
-        client.execute(() -> ClientUtils.sendCommand("/warp forge"));
+        MacroWorkerThread.runOnClient(client, () -> ClientUtils.sendCommand("/warp forge"));
 
         long deadline = System.currentTimeMillis() + WARP_TIMEOUT_MS;
         while (System.currentTimeMillis() < deadline && isRunning) {
@@ -161,7 +161,7 @@ public class ForgeManager {
     }
 
     private static boolean walkToCoords(Minecraft client, int x, int y, int z) throws InterruptedException {
-        client.execute(() -> PathfindingManager.startPathfind(client, x, y, z, false));
+        MacroWorkerThread.runOnClient(client, () -> PathfindingManager.startPathfind(client, x, y, z, false));
         Thread.sleep(340 + (long)(Math.random() * 120));
 
         long deadline = System.currentTimeMillis() + PATHFIND_TIMEOUT_MS;
@@ -204,7 +204,7 @@ public class ForgeManager {
     }
 
     private static void faceEntity(Minecraft client, Entity entity) throws InterruptedException {
-        client.execute(() -> RotationManager.initiateRotation(
+        MacroWorkerThread.runOnClient(client, () -> RotationManager.initiateRotation(
                 client,
                 new Vec3(entity.getX(), entity.getEyeY(), entity.getZ()),
                 ROTATION_MS, 0f));

@@ -136,6 +136,7 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+    inputs.property('aetherTestOpenGl', providers.environmentVariable('AETHER_TEST_OPENGL').orElse('0'))
 }
 
 java {

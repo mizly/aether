@@ -10,6 +10,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(GuiRenderer.class)
 public class MixinGuiRenderer {
+    @Inject(method = "render", at = @At("HEAD"))
+    private void aether$flushHudBackgrounds(GpuBufferSlice fog, CallbackInfo ci) {
+        AetherRenderQueue.flushBeforeGui();
+    }
+
     @Inject(method = "render", at = @At("TAIL"))
     private void aether$flushQueuedNvg(GpuBufferSlice fog, CallbackInfo ci) {
         AetherRenderQueue.flush();

@@ -4,6 +4,7 @@
   "version": "${version}",
   "name": "Aether",
   "description": "lorem ipsum",
+  "icon": "assets/aether/textures/gui/logo.png",
   "authors": [],
   "contact": {},
   "environment": "client",

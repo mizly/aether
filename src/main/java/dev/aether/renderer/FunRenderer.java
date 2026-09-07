@@ -6,10 +6,11 @@ public final class FunRenderer {
     private FunRenderer() {}
 
     public static boolean hasVisibleEffects() {
-        return HatRenderer.hasVisibleEffect();
+        return HatRenderer.hasVisibleEffect() || CosmeticWorldRenderer.hasVisibleEffects();
     }
 
     public static void renderWorld(LevelRenderContext ctx) {
         HatRenderer.render(ctx);
+        CosmeticWorldRenderer.render();
     }
 }

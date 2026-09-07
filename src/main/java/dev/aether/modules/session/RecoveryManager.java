@@ -8,10 +8,11 @@ import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.rotation.RotationManager;
+import dev.aether.util.AetherLang;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.RotationUtils;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.PauseScreen;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
@@ -24,7 +25,6 @@ public class RecoveryManager {
     private enum WorldChangeRecoveryPhase {
         IDLE,
         COMMAND_SEQUENCE,
-        WAITING_FOR_GARDEN,
         WALK_PATH,
         PURE_ETHERWARP,
         WALK_ETHERWARP,
@@ -32,72 +32,59 @@ public class RecoveryManager {
         RESUME_DELAY
     }
 
-    private enum RecoveryCommandStage {
-        LOBBY("/lobby"),
-        SKYBLOCK("/skyblock"),
-        GARDEN("/warp garden");
-
-        private final String command;
-
-        RecoveryCommandStage(String command) {
-            this.command = command;
-        }
-    }
-
-    private static final long RECOVERY_COMMAND_DELAY_MS = 3_000L;
+    private static final RecoverySequence commandSequence = new RecoverySequence();
     private static final long WORLD_CHANGE_ALIGN_TIMEOUT_MS = 1200L;
     private static final long WORLD_CHANGE_RESUME_DELAY_MS = 1000L;
-    private static int recoveryFailedAttempts = 0;
     private static long lastRecoveryActionTime = 0;
     private static RecoveryMode recoveryMode = null;
-    private static long lastRecoveryCommandTime = 0L;
-    private static RecoveryCommandStage recoveryCommandStage = null;
-    private static boolean recoveryCommandSent = false;
-    private static boolean recoveryCommandFailed = false;
-    private static boolean recoveryComplete = false;
+    private static volatile boolean recoveryComplete = false;
     private static WorldChangeRecoveryPhase worldChangePhase = WorldChangeRecoveryPhase.IDLE;
     private static Vec3 worldChangeTargetPosition = null;
     private static long worldChangeWaitUntilMs = 0L;
     private static boolean worldChangeUsedWalkAssist = false;
     private static boolean worldChangeAlignClicked = false;
+    private static ClientLevel navigationWorld;
 
     public static void reset() {
-        recoveryFailedAttempts = 0;
+        commandSequence.reset(System.currentTimeMillis());
         lastRecoveryActionTime = 0;
         recoveryMode = null;
-        lastRecoveryCommandTime = 0L;
-        recoveryCommandStage = null;
-        recoveryCommandSent = false;
-        recoveryCommandFailed = false;
         recoveryComplete = false;
         worldChangePhase = WorldChangeRecoveryPhase.IDLE;
         worldChangeTargetPosition = null;
         worldChangeWaitUntilMs = 0L;
         worldChangeUsedWalkAssist = false;
         worldChangeAlignClicked = false;
+        navigationWorld = null;
     }
 
     public static void beginRecovery() {
-        reset();
-        beginCommandSequence(RecoveryCommandStage.SKYBLOCK);
-        ClientUtils.sendMessage("\u00A7eRecovery: waiting 3 seconds before /skyblock...", false);
+        prepareRecovery();
+        ClientUtils.sendMessage("\u00A7e" + AetherLang.localize(
+                "Recovery: waiting for SkyBlock and the Garden before resuming..."), false);
     }
 
     public static void beginLimboRecovery() {
-        reset();
+        prepareRecovery();
         recoveryMode = RecoveryMode.LIMBO;
-        beginCommandSequence(RecoveryCommandStage.LOBBY);
-        ClientUtils.sendMessage("\u00A7eLimbo recovery: waiting 3 seconds before /lobby...", false);
+        ClientUtils.sendMessage("\u00A7e" + AetherLang.localize(
+                "Limbo recovery: waiting for SkyBlock and the Garden before resuming..."), false);
     }
 
     public static void beginWorldChangeRecovery(Vec3 savedPosition) {
-        reset();
+        prepareRecovery();
         recoveryMode = RecoveryMode.WORLD_CHANGE;
         worldChangePhase = WorldChangeRecoveryPhase.COMMAND_SEQUENCE;
         worldChangeTargetPosition = savedPosition;
-        beginCommandSequence(RecoveryCommandStage.LOBBY);
-        worldChangeUsedWalkAssist = false;
-        worldChangeAlignClicked = false;
+    }
+
+    private static void prepareRecovery() {
+        MacroStateManager.stopMacro(Minecraft.getInstance(), "Preparing location-verified recovery", false);
+        MacroStateManager.setCurrentState(MacroState.State.RECOVERING);
+    }
+
+    public static boolean isResumeReady() {
+        return recoveryComplete;
     }
 
     public static boolean isWorldChangeRecoveryActive() {
@@ -106,134 +93,70 @@ public class RecoveryManager {
                 && worldChangeTargetPosition != null;
     }
 
-    public static void handleRecoveryCommandSuccess(String lowerText) {
-        if (recoveryCommandStage != RecoveryCommandStage.SKYBLOCK
-                || !recoveryCommandSent
-                || !lowerText.contains("you are already playing skyblock")) {
-            return;
-        }
-
-        recoveryCommandFailed = false;
-        ClientUtils.sendDebugMessage("Recovery: already in SkyBlock; continuing recovery sequence.");
-    }
-
-    public static void handleRecoveryCommandFailure(String lowerText) {
-        if (recoveryCommandStage == null || !recoveryCommandSent) {
-            return;
-        }
-
-        if (lowerText.contains("you are already playing skyblock")) {
-            return;
-        }
-
-        long elapsedMs = System.currentTimeMillis() - lastRecoveryCommandTime;
-        if (elapsedMs >= RECOVERY_COMMAND_DELAY_MS) {
-            return;
-        }
-
-        if (!lowerText.contains("you are sending commands too fast!")
-                && !lowerText.contains("cannot join skyblock")) {
-            return;
-        }
-
-        recoveryCommandFailed = true;
-        ClientUtils.sendDebugMessage("Recovery: " + recoveryCommandStage.command
-                + " failed; retrying after the command delay.");
-    }
-
     public static void update() {
         Minecraft client = Minecraft.getInstance();
-        if (recoveryMode == RecoveryMode.WORLD_CHANGE) {
-            updateWorldChangeRecovery(client);
+        if (MacroStateManager.getCurrentState() != MacroState.State.RECOVERING || recoveryComplete) {
             return;
         }
-
-        if (MacroStateManager.getCurrentState() != MacroState.State.RECOVERING
-                || client.screen instanceof PauseScreen || recoveryComplete) {
+        if (recoveryMode == RecoveryMode.WORLD_CHANGE) {
+            updateWorldChangeRecovery(client);
             return;
         }
 
         updateCommandSequence(client, false);
     }
 
-    private static void beginCommandSequence(RecoveryCommandStage firstStage) {
-        recoveryCommandStage = firstStage;
-        recoveryCommandSent = false;
-        recoveryCommandFailed = false;
-        lastRecoveryCommandTime = System.currentTimeMillis();
-    }
-
     private static void updateCommandSequence(Minecraft client, boolean worldChangeRecovery) {
-        if (recoveryCommandStage == null) {
-            return;
-        }
-
         long now = System.currentTimeMillis();
-        if (now - lastRecoveryCommandTime < RECOVERY_COMMAND_DELAY_MS) {
-            return;
-        }
-
-        if (!recoveryCommandSent || recoveryCommandFailed) {
-            sendRecoveryCommand(now);
-            return;
-        }
-
-        switch (recoveryCommandStage) {
-            case LOBBY -> {
-                recoveryCommandStage = RecoveryCommandStage.SKYBLOCK;
-                sendRecoveryCommand(now);
+        RecoverySequence.Action action = commandSequence.update(now, client == null ? null : client.level,
+                ClientUtils.getCurrentLocation(), isClientReady(client));
+        if (action == RecoverySequence.Action.RESUME) {
+            if (worldChangeRecovery) {
+                navigationWorld = client.level;
+                startWorldChangePrimaryRecovery(client);
+            } else {
+                completeRecovery(client);
             }
-            case SKYBLOCK -> {
-                recoveryCommandStage = RecoveryCommandStage.GARDEN;
-                sendRecoveryCommand(now);
-            }
-            case GARDEN -> finishCommandSequence(client, worldChangeRecovery, now);
+        } else if (action.command != null) {
+            ClientUtils.sendMessage("\u00A7e" + String.format(AetherLang.localize(
+                    "Recovery: running %s, waiting for the destination to load..."), action.command), false);
+            ClientUtils.sendCommand(action.command);
         }
     }
 
-    private static void sendRecoveryCommand(long now) {
-        recoveryCommandSent = true;
-        recoveryCommandFailed = false;
-        lastRecoveryCommandTime = now;
-        ClientUtils.sendMessage("\u00A7eRecovery: running " + recoveryCommandStage.command
-                + ", waiting 3 seconds for a response...", false);
-        ClientUtils.sendCommand(recoveryCommandStage.command);
+    private static boolean isClientReady(Minecraft client) {
+        return client != null && client.player != null && client.level != null && client.getConnection() != null
+                && client.screen == null && client.player.isAlive()
+                && client.level.hasChunkAt(client.player.blockPosition());
     }
 
-    private static void finishCommandSequence(Minecraft client, boolean worldChangeRecovery, long now) {
-        recoveryCommandStage = null;
-        recoveryCommandSent = false;
-        recoveryCommandFailed = false;
-        if (worldChangeRecovery) {
-            worldChangePhase = WorldChangeRecoveryPhase.WAITING_FOR_GARDEN;
-            lastRecoveryActionTime = now;
-            return;
-        }
-
-        completeRecovery(client);
+    private static boolean canResumeFarming(Minecraft client) {
+        return MacroStateManager.getCurrentState() == MacroState.State.RECOVERING
+                && isClientReady(client) && ClientUtils.getCurrentLocation() == MacroState.Location.GARDEN;
     }
 
     private static void completeRecovery(Minecraft client) {
+        if (!canResumeFarming(client)) {
+            return;
+        }
         recoveryComplete = true;
         recoveryMode = null;
         ClientUtils.sendMessage("\u00A7aRecovery successful. Resuming farming...", false);
-        recoveryFailedAttempts = 0;
-        ClientUtils.sendDebugMessage("Starting farming macro after fixed recovery sequence");
+        ClientUtils.sendDebugMessage("Starting farming macro after confirming SkyBlock and Garden arrival");
         DynamicRestManager.scheduleNextRest();
-        client.execute(() -> {
-            if (MacroStateManager.getCurrentState() != MacroState.State.RECOVERING) {
-                return;
-            }
-
-            FailsafeManager.syncSelectedSlotFromClient(client);
-            GearManager.swapToFarmingTool(client);
-            FailsafeManager.syncSelectedSlotFromClient(client);
-            MacroStateManager.setCurrentState(MacroState.State.FARMING);
-            SqueakyMousematManager.armReapplyAttempt();
-            FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig());
-            FailsafeManager.syncSelectedSlotFromClient(client);
-        });
+        resumeFarming(client);
     }
+
+    private static void resumeFarming(Minecraft client) {
+        FailsafeManager.syncSelectedSlotFromClient(client);
+        GearManager.swapToFarmingTool(client);
+        FailsafeManager.syncSelectedSlotFromClient(client);
+        MacroStateManager.setCurrentState(MacroState.State.FARMING);
+        SqueakyMousematManager.armReapplyAttempt();
+        FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig());
+        FailsafeManager.syncSelectedSlotFromClient(client);
+    }
+
     private static void updateWorldChangeRecovery(Minecraft client) {
         if (client == null || client.player == null || client.level == null) {
             return;
@@ -250,13 +173,14 @@ public class RecoveryManager {
             return;
         }
 
-        if (worldChangePhase == WorldChangeRecoveryPhase.WAITING_FOR_GARDEN) {
-            MacroState.Location location = ClientUtils.getCurrentLocation();
-            if (location == MacroState.Location.GARDEN) {
-                startWorldChangePrimaryRecovery(client);
-                return;
-            }
-
+        if (client.level != navigationWorld || !canResumeFarming(client)) {
+            worldChangePhase = WorldChangeRecoveryPhase.COMMAND_SEQUENCE;
+            PathfindingManager.stop();
+            RotationManager.cancelRotation();
+            ClientUtils.forceReleaseKeys();
+            worldChangeUsedWalkAssist = false;
+            worldChangeAlignClicked = false;
+            commandSequence.reset(System.currentTimeMillis());
             return;
         }
 
@@ -406,28 +330,20 @@ public class RecoveryManager {
     }
 
     private static void completeWorldChangeRecovery(Minecraft client) {
-        recoveryFailedAttempts = 0;
+        if (!canResumeFarming(client) || client.level != navigationWorld) {
+            return;
+        }
+        recoveryComplete = true;
         recoveryMode = null;
         worldChangePhase = WorldChangeRecoveryPhase.IDLE;
         worldChangeTargetPosition = null;
         worldChangeWaitUntilMs = 0L;
         worldChangeUsedWalkAssist = false;
         worldChangeAlignClicked = false;
+        navigationWorld = null;
         DynamicRestManager.scheduleNextRest();
         ClientUtils.sendMessage("\u00A7aWorld change recovery complete. Resuming farming...", false);
-        client.execute(() -> {
-            if (MacroStateManager.getCurrentState() != MacroState.State.RECOVERING) {
-                return;
-            }
-
-            FailsafeManager.syncSelectedSlotFromClient(client);
-            GearManager.swapToFarmingTool(client);
-            FailsafeManager.syncSelectedSlotFromClient(client);
-            MacroStateManager.setCurrentState(MacroState.State.FARMING);
-            SqueakyMousematManager.armReapplyAttempt();
-            FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig());
-            FailsafeManager.syncSelectedSlotFromClient(client);
-        });
+        resumeFarming(client);
     }
 
 }

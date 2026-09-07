@@ -331,7 +331,7 @@ public class ClientUtils {
     }
 
     private static MacroState.Location getCurrentLocation(Minecraft client) {
-        if (client.level == null || client.player == null)
+        if (client == null || client.level == null || client.player == null || client.getConnection() == null)
             return MacroState.Location.UNKNOWN;
 
         if (!client.isSameThread()) {
@@ -366,20 +366,8 @@ public class ClientUtils {
             }
         }
 
-        if (hasLobbyItems) {
-            return MacroState.Location.LOBBY;
-        }
-
-        String areaLine = TablistUtils.findLine(client, "Area:");
-        if (areaLine != null) {
-            if (areaLine.contains("Area: Garden"))
-                return MacroState.Location.GARDEN;
-            if (areaLine.contains("Area: Crystal Hollows"))
-                return MacroState.Location.CRYSTAL_HOLLOWS;
-            return MacroState.Location.HUB;
-        }
-
-        return MacroState.Location.HUB;
+        return SkyblockLocation.resolve(sidebar.getDisplayName().getString(), hasLobbyItems,
+                TablistUtils.findLine(client, "Area:"));
     }
 
     public static boolean isSupportedHudArea() {

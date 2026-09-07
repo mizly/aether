@@ -147,7 +147,7 @@ final class MainGUIPetTrackerPanel {
         float fieldY = compactFieldBodyY(y);
         float fieldH = compactFieldBodyH(h);
         nvg.roundedRect(x, fieldY, w, fieldH, 4f, Theme.BG_FIELD);
-        nvg.rectOutline(x, fieldY, w, fieldH, 4f, 1f, active ? Theme.BORDER_ACTIVE : Theme.BORDER_DEFAULT);
+        nvg.rectOutline(x, fieldY, w, fieldH, 4f, 1f, active ? Theme.ACCENT_PRIMARY : Theme.BORDER_DEFAULT);
         if (active) {
             owner.setEditorBounds(x, fieldY, w, fieldH);
         }
@@ -188,7 +188,7 @@ final class MainGUIPetTrackerPanel {
         float fieldY = compactFieldBodyY(y);
         float fieldH = compactFieldBodyH(h);
         nvg.roundedRect(x, fieldY, w, fieldH, 4f, Theme.BG_FIELD);
-        nvg.rectOutline(x, fieldY, w, fieldH, 4f, 1f, open ? Theme.BORDER_ACTIVE : Theme.BORDER_DEFAULT);
+        nvg.rectOutline(x, fieldY, w, fieldH, 4f, 1f, open ? Theme.ACCENT_PRIMARY : Theme.BORDER_DEFAULT);
         boolean clipped = owner.pushContentLocalScissor(nvg, x + 7f, fieldY, w - 24f, fieldH);
         nvg.text(Fonts.REGULAR, AetherLang.localize(setting.getSelectedOption()), x + 7f, fieldY + (fieldH - 13f) / 2f, 12f, Theme.TEXT_PRIMARY);
         owner.popContentLocalScissor(nvg, clipped);

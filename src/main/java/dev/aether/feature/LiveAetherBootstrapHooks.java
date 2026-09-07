@@ -10,12 +10,14 @@ import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.ReconnectScheduler;
 import dev.aether.modules.failsafe.FailsafeColourFlashManager;
 import dev.aether.modules.failsafe.FailsafeManager;
+import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.farming.UngrabMouse;
 import dev.aether.modules.pathfinding.rotation.RotationExecutor;
 import dev.aether.modules.performance.MuteManager;
 import dev.aether.modules.performance.PerformanceModeManager;
 import dev.aether.modules.pest.helpers.PestDestroyer;
 import dev.aether.modules.pest.helpers.VacuumParticleDebug;
+import dev.aether.modules.pest.helpers.PestTrackerAbility;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.modules.visuals.FreecamManager;
 import dev.aether.modules.visuals.FreelookManager;
@@ -41,17 +43,25 @@ import dev.aether.util.ProgrammaticMovementTracker;
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket;
 
 import java.io.File;
+import java.util.function.Consumer;
 
 public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.FeatureHooks {
     @Override
     public boolean isAttackSuppressed() {
         return PestDestroyer.isCatchInProgress();
+    }
+
+    @Override
+    public void onAttack(Minecraft minecraft) {
+        SqueakyMousematManager.onAttack(minecraft);
+        PestTrackerAbility.onAttack(minecraft);
     }
 
     @Override
@@ -159,6 +169,11 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
     }
 
     @Override
+    public int pestOutlineColor(net.minecraft.world.entity.Entity entity) {
+        return PestEspManager.outlineColor(entity);
+    }
+
+    @Override
     public void renderPestEspTracerOverlay() {
         PestEspManager.renderTracerOverlay();
     }
@@ -169,8 +184,28 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
     }
 
     @Override
+    public void onGameplayInput() {
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || client.screen != null || !client.getWindow().isFocused()
+                || isFreecamEnabled()
+                || FreelookManager.isActive()
+                || dev.aether.modules.pest.ManualPestManager.isActive()) {
+            return;
+        }
+        if (MacroStateManager.isAutomationRunning()) {
+            MacroStateManager.stopMacro(client, "Automation interrupted by user input", false);
+        }
+    }
+
+    @Override
     public boolean shouldSuppressVanillaHud(Screen screen) {
         return AetherBootstrapHooks.isBootstrapConfigScreen(screen) || screen instanceof MainGUI || screen instanceof HudEditScreen;
+    }
+
+    @Override
+    public void extractScoreboardSidebar(GuiGraphicsExtractor graphics, Consumer<GuiGraphicsExtractor> vanilla) {
+        if (HudRegistry.scoreboardHud == null) vanilla.accept(graphics);
+        else HudRegistry.scoreboardHud.extract(graphics, vanilla);
     }
 
     @Override
@@ -364,7 +399,9 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public void onParticlePacket(Minecraft minecraft, ClientboundLevelParticlesPacket packet) {
+        if (!minecraft.isSameThread()) return;
         VacuumParticleDebug.onParticlePacket(packet);
+        PestTrackerAbility.onParticlePacket(minecraft, packet);
     }
 
     @Override

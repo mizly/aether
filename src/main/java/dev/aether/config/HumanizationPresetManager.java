@@ -164,6 +164,15 @@ public final class HumanizationPresetManager {
         addEntry(entries, AetherConfig.MACRO_CUSTOM_YAW_HUMANIZATION);
         addEntry(entries, AetherConfig.AOTV_ROOF_PITCH_HUMANIZATION);
         addEntry(entries, AetherConfig.PEST_FOV_RANGE);
+        addEntry(entries, AetherConfig.PEST_MAX_TURN_SPEED);
+        addEntry(entries, AetherConfig.PEST_TRACKING_SMOOTHING_MS);
+        addEntry(entries, AetherConfig.PEST_APPROACH_SPEED);
+        addEntry(entries, AetherConfig.PEST_VACUUM_FOLLOW_DISTANCE);
+        addEntry(entries, AetherConfig.PEST_HUNTING_FOLLOW_DISTANCE);
+        addEntry(entries, AetherConfig.PEST_HUNTING_MAX_DISTANCE);
+        addEntry(entries, AetherConfig.PEST_HUNTING_TRACKING_SMOOTHING_MS);
+        addEntry(entries, AetherConfig.PEST_HUNTING_MAX_TURN_SPEED);
+        addEntry(entries, AetherConfig.PEST_AIM_DRIFT);
         addEntry(entries, AetherConfig.PEST_ABOVE_TARGET_PITCH_MIN);
         addEntry(entries, AetherConfig.PEST_ABOVE_TARGET_PITCH_MAX);
         addEntry(entries, AetherConfig.VISITOR_FOV_RANGE);

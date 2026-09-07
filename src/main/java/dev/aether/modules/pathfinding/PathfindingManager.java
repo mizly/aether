@@ -145,6 +145,7 @@ public final class PathfindingManager {
 
         // Detect re-plan requests from PathExecutor
         if (activeMode == NavigationMode.WALK && executor.getState() == PathExecutor.State.REPLANNING) {
+            walkSneakLatched = executor.isSneakLatched();
             doStartPathfind(mc, goalX, goalY, goalZ, false);
             return;
         }
@@ -202,21 +203,29 @@ public final class PathfindingManager {
             activeMode = NavigationMode.NONE;
             clearTransientDebugRenderingIfActive();
             return;
-        } else {
-            NavigationMode modeBeforeTick = activeMode;
-            executor.tick(mc);
-            if (PathVisualizer.shouldRender() && activeMode == modeBeforeTick) {
-                PathVisualizer.updateExecution(executor.getWaypointIndex(), executor.getCamTargetIdx());
+        } else if (activeMode == NavigationMode.WALK) {
+            if (currentPathfinder != null) {
+                return;
             }
-            if (activeMode == modeBeforeTick
-                    && (executor.getState() == PathExecutor.State.FINISHED
-                    || executor.getState() == PathExecutor.State.FAILED)) {
-                if (executor.getState() == PathExecutor.State.FAILED && walkFailureCallback != null) {
-                    walkFailureCallback.run();
-                }
+            long searchTokenBeforeTick = pathSearchToken;
+            executor.tick(mc);
+            if (activeMode != NavigationMode.WALK || searchTokenBeforeTick != pathSearchToken) {
+                return;
+            }
+            if (PathVisualizer.shouldRender()) {
+                PathVisualizer.updateExecution(executor.getWaypointIndex(), executor.getCamTargetIdx());
+                PathVisualizer.updateWalkingTargets(executor.getAimPoint(), executor.getMovementDirection());
+            }
+            if (executor.getState() == PathExecutor.State.FINISHED
+                    || executor.getState() == PathExecutor.State.FAILED) {
+                Runnable failureCallback = executor.getState() == PathExecutor.State.FAILED
+                        ? walkFailureCallback : null;
                 navigating = false;
                 activeMode = NavigationMode.NONE;
                 clearTransientDebugRenderingIfActive();
+                if (failureCallback != null) {
+                    failureCallback.run();
+                }
             }
         }
     }
@@ -447,6 +456,8 @@ public final class PathfindingManager {
         int ty = (int) Math.floor(target.y);
         int tz = (int) Math.floor(target.z);
 
+        rotationTarget = null;
+        walkRequireFullPath = false;
         configureWalkExecution(target.add(0, -10.0, 0), onFinished, null, !isFirst, 0.25, true);
         walkGoalCenterX = target.x - tx;
         walkGoalCenterZ = target.z - tz;
@@ -516,7 +527,22 @@ public final class PathfindingManager {
         executor.setSneakLatched(walkSneakLatched);
     }
 
+    public static void setWalkLookTarget(Vec3 lookTarget) {
+        walkLookTarget = lookTarget;
+        rotationTarget = null;
+        executor.setRotationTarget(null);
+        executor.setLookTarget(lookTarget);
+    }
+
+    public static void setWalkRotationTarget(Entity target) {
+        rotationTarget = target;
+        walkLookTarget = null;
+        executor.setLookTarget(null);
+        executor.setRotationTarget(target);
+    }
+
     private static void resetWalkExecutionOptions() {
+        rotationTarget = null;
         walkLookTarget = null;
         walkFinishedCallback = null;
         walkFailureCallback = null;
@@ -1030,21 +1056,24 @@ public final class PathfindingManager {
                     false);
         }
 
+        resetWalkExecutionOptions();
+        configureWalkExecution(null, () -> mc.execute(() -> {
+            if (abortFlag.get() || searchToken != etherwarpSearchToken) {
+                return;
+            }
+            List<Node> etherwarpPath = new ArrayList<>(plan.etherwarpPath());
+            if (etherwarpPath.isEmpty() || etherwarpPath.size() <= 1) {
+                clearEtherwarpSneakState(mc);
+                navigating = false;
+                activeMode = NavigationMode.NONE;
+                clearTransientDebugRenderingIfActive();
+                return;
+            }
+            startEtherwarpExecution(mc, etherwarpPath, finalTarget);
+        }), etherwarpFailureCallback, true, ETHERWARP_WALK_ASSIST_GOAL_TOLERANCE, false);
+        walkStickySneakDistance = -1.0;
         executor.start(navPath, launch.flooredX(), launch.flooredY(), launch.flooredZ(), true, null,
-                () -> mc.execute(() -> {
-                    if (abortFlag.get() || searchToken != etherwarpSearchToken) {
-                        return;
-                    }
-                    List<Node> etherwarpPath = new ArrayList<>(plan.etherwarpPath());
-                    if (etherwarpPath.isEmpty() || etherwarpPath.size() <= 1) {
-                        clearEtherwarpSneakState(mc);
-                        navigating = false;
-                        activeMode = NavigationMode.NONE;
-                        clearTransientDebugRenderingIfActive();
-                        return;
-                    }
-                    startEtherwarpExecution(mc, etherwarpPath, finalTarget);
-                }));
+                walkFinishedCallback);
         executor.setAllowRotation(true);
         executor.setAllowReplan(true);
         executor.setPreciseGoalTolerance(ETHERWARP_WALK_ASSIST_GOAL_TOLERANCE);

@@ -72,11 +72,6 @@ final class PestHuntingController {
     // apart; decay that step instead of handing the tracker an instant error.
     private static final long AIM_BLEND_MS = 420L;
     private static final long FOCUS_SWITCH_DEBOUNCE_MS = 200L;
-    // The stun and throw windows are a tick or two wide, so the hunt tracks with
-    // a shorter time constant and a higher ceiling than the cleaner's aim: enough
-    // smoothing to read as a hand, not so much that the pest walks out of it.
-    private static final float HUNT_AIM_SMOOTHING_MS = 90.0f;
-    private static final float HUNT_AIM_MAX_TURN_SPEED = 700.0f;
     private static final long REEL_RESPONSE_WAIT_MS = 500L;
     private static final long REEL_OVERLAY_SIGNAL_GRACE_MS = 300L;
     private static final long LANDING_WAIT_TIMEOUT_MS = 250L;
@@ -846,8 +841,8 @@ final class PestHuntingController {
         RotationManager.trackRotation(
                 client,
                 wander(client, steerPoint(runtime, aim, now), wanderDegrees(tolerance), now),
-                HUNT_AIM_SMOOTHING_MS,
-                HUNT_AIM_MAX_TURN_SPEED);
+                AetherConfig.PEST_HUNTING_TRACKING_SMOOTHING_MS.get(),
+                AetherConfig.PEST_HUNTING_MAX_TURN_SPEED.get());
     }
 
     private static double wanderDegrees(float tolerance) {

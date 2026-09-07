@@ -218,7 +218,8 @@ public final class PestOnTheTrackManager {
 	}
 	
 	private Entity selectEligiblePest(Minecraft client, boolean needsInFOV) {
-		double effectiveRange = Math.max(0.0, vacuumRange - RANGE_SAFETY_MARGIN);
+		double margin = AetherConfig.RESPECT_VACUUM_TRUE_RANGE.get() ? 0.0 : RANGE_SAFETY_MARGIN;
+		double effectiveRange = Math.max(0.0, vacuumRange - margin);
 		return PestTargetTracker.selectClosestPestWithin(client, effectiveRange,
 			needsInFOV ? target -> {
 				return isWithinGrabFOV(client, target);

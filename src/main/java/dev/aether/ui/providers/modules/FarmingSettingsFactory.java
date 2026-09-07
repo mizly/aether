@@ -236,6 +236,16 @@ final class FarmingSettingsFactory {
                 .withDecimals(1).withSuffix("\u00B0");
     }
 
+    static SliderSetting pestAimDriftSetting() {
+        return new SliderSetting("Pest Aim Drift", 0, 2,
+                () -> AetherConfig.PEST_AIM_DRIFT.get(),
+                v -> {
+                    AetherConfig.PEST_AIM_DRIFT.set(v);
+                    AetherConfig.save();
+                })
+                .withDecimals(2);
+    }
+
     static SliderSetting pestMaxTurnSpeedSetting() {
         return new SliderSetting("Pest Turn Speed Limit", 60, 1200,
                 () -> AetherConfig.PEST_MAX_TURN_SPEED.get(),

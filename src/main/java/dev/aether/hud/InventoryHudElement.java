@@ -18,10 +18,10 @@ import net.minecraft.world.item.ItemStack;
  */
 public class InventoryHudElement extends HudElement {
 
-    private static final float PAD = 6f;
-    private static final float CONTENT_Y = PAD;
+    private static final float PAD = 8f;
+    private static final float CONTENT_Y = 34f;
 
-    private static final float SLOT_SIZE = 16f;
+    private static final float SLOT_SIZE = 18f;
     private static final float SLOT_GAP = 2f;
     private static final float SLOT_STEP = SLOT_SIZE + SLOT_GAP;
 
@@ -36,8 +36,8 @@ public class InventoryHudElement extends HudElement {
     private static final float CONTENT_H = HOTBAR_Y + SLOT_STEP - CONTENT_Y;
     private static final float H = CONTENT_Y + CONTENT_H + PAD;
     private static final float ARMOR_STEP = (HOTBAR_Y - CONTENT_Y) / 3f;
-    private static final float CORNER = 6f;
 
+    @Override public boolean rendersBeforeMinecraft() { return true; }
     @Override public float getX() { return AetherConfig.INVENTORY_HUD_X.get(); }
     @Override public float getY() { return AetherConfig.INVENTORY_HUD_Y.get(); }
     @Override public void setX(float x) { AetherConfig.INVENTORY_HUD_X.set((int) x); }
@@ -77,10 +77,18 @@ public class InventoryHudElement extends HudElement {
         }
 
         float width = cursorX + PAD;
-        int border = isDragging() ? BORDER_DRAG : isResizing() ? BORDER_RESIZE : Theme.HUD_BORDER;
-
-        nvg.blur(0, 0, width, H, CORNER, 20f);
-        nvg.rectOutline(0, 0, width, H, CORNER, 1f, border);
+        HudStyle.panel(nvg, width, H);
+        HudStyle.accent(nvg, width, Theme.HUD_ACCENT, Theme.HUD_ACCENT);
+        nvg.text(Fonts.BOLD, "Inventory", PAD + 3f, 12f, 11f, Theme.HUD_TITLE);
+        Minecraft client = Minecraft.getInstance();
+        int used = 0;
+        if (client.player != null) {
+            for (int slot = 0; slot < 36; slot++) {
+                if (!client.player.getInventory().getItem(slot).isEmpty()) used++;
+            }
+        }
+        nvg.textRight(Fonts.MONO, used + "/36", PAD, 13f, width - PAD * 2f, 9f, Theme.HUD_LABEL);
+        nvg.rect(inventoryX, SEP_Y, INVENTORY_W, 0.7f, Theme.HUD_SEP);
 
         if (showArmor) {
             for (int i = 0; i < 4; i++) {
@@ -100,7 +108,8 @@ public class InventoryHudElement extends HudElement {
             float sx = inventoryX + col * SLOT_STEP;
             if (col == selected) {
                 nvg.roundedRect(sx, HOTBAR_Y, SLOT_SIZE, SLOT_SIZE, 2f,
-                        Theme.withAlpha(0xFFFFFFFF, 0x18));
+                        HudStyle.alpha(Theme.HUD_ACCENT, 0.2f));
+                nvg.rectOutline(sx, HOTBAR_Y, SLOT_SIZE, SLOT_SIZE, 3f, 1f, Theme.HUD_ACCENT);
             } else {
                 drawSlotBg(nvg, sx, HOTBAR_Y);
             }
@@ -108,19 +117,12 @@ public class InventoryHudElement extends HudElement {
 
         if (showPlayerModel) {
             nvg.roundedRect(modelX, CONTENT_Y, MODEL_W, CONTENT_H, 4f,
-                    Theme.withAlpha(0xFF000000, 0x30));
-        }
-
-        if (editMode) {
-            String hint = isDragging() ? "moving..."
-                    : isResizing() ? "resizing..."
-                    : "drag - ctrl+drag to resize";
-            nvg.textCentered(Fonts.REGULAR, hint, 0, H - PAD + 2f, width, PAD - 2f, 9f, Theme.HUD_LABEL);
+                    Theme.HUD_BAR_BG);
         }
     }
 
     private void drawSlotBg(NVGRenderer nvg, float x, float y) {
-        nvg.roundedRect(x, y, SLOT_SIZE, SLOT_SIZE, 2f, Theme.withAlpha(0xFF000000, 0x40));
+        nvg.roundedRect(x, y, SLOT_SIZE, SLOT_SIZE, 2f, Theme.HUD_BAR_BG);
     }
 
     @Override
@@ -308,7 +310,7 @@ public class InventoryHudElement extends HudElement {
         nvg.textRight(Fonts.BOLD, Integer.toString(stack.getCount()),
                 slotX, slotY + SLOT_SIZE - 7f,
                 SLOT_SIZE, 8f,
-                0xFFCCCCCC);
+                Theme.HUD_VALUE);
     }
 
     private static float computeLayoutWidth() {

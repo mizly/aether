@@ -99,20 +99,17 @@ final class MainGUIRenderPrimitives {
 
     void renderPill(NVGRenderer nvg, float x, float y, boolean on, Object key) {
         float t = pillAnimValue(key, on);
-        float trackW = 38f;
-        float trackH = MainGUI.PILL_H;
-
-        int offBg = Theme.PILL_TRACK;
-        int onBg = Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.18f);
-        nvg.roundedRect(x, y, trackW, trackH, 10f, Theme.blend(offBg, onBg, t));
-
-        int offBorder = Theme.withAlpha(0xFFFFFFFF, 0.2f);
-        int onBorder = Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.7f);
-        nvg.rectOutlineSolid(x, y, trackW, trackH, 10f, 1f, Theme.blend(offBorder, onBorder, t));
-
-        float knobX = x + 2f + t * 19f;
-        float knobY = y + 3f;
-        nvg.roundedRect(knobX, knobY, 15f, 15f, 7.5f, Theme.blend(Theme.PILL_KNOB_OFF, Theme.ACCENT_PRIMARY, t));
+        float boxX = x + 10f;
+        float boxY = y + (MainGUI.PILL_H - 18f) / 2f;
+        nvg.roundedRect(boxX, boxY, 18f, 18f, 4f,
+                Theme.blend(Theme.BG_FIELD, Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.18f), t));
+        nvg.rectOutline(boxX, boxY, 18f, 18f, 4f, 1f,
+                Theme.blend(Theme.BORDER_HOVER, Theme.ACCENT_PRIMARY, t));
+        if (t > 0.01f) {
+            int color = Theme.withAlpha(Theme.ACCENT_PRIMARY, t);
+            nvg.line(boxX + 4f, boxY + 9f, boxX + 8f, boxY + 13f, 1.8f, color);
+            nvg.line(boxX + 8f, boxY + 13f, boxX + 14f, boxY + 5f, 1.8f, color);
+        }
     }
 
     void renderDropdownActionButtons(NVGRenderer nvg, DropdownSetting dropdown, float fieldX, float fieldY, float fieldH, float mx, float my) {

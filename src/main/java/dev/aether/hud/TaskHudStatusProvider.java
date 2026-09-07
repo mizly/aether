@@ -575,38 +575,46 @@ final class TaskHudStatusProvider {
         final String detail;
         final String[] detailLines;
         final String badge;
-        final int color;
 
-        private TaskStatusRow(String name, String detail, String badge, int color) {
+        private TaskStatusRow(String name, String detail, String badge) {
             this.name = name;
             this.detail = detail;
             this.detailLines = detail.isEmpty() ? new String[]{""} : detail.split("\\n");
             this.badge = badge;
-            this.color = color;
+        }
+
+        int color() {
+            return switch (badge) {
+                case "READY" -> dev.aether.ui.theme.Theme.HUD_SUCCESS;
+                case "WAIT", "HOLD" -> dev.aether.ui.theme.Theme.HUD_WARNING;
+                case "LIVE" -> dev.aether.ui.theme.Theme.HUD_ACCENT;
+                case "TRIG" -> dev.aether.ui.theme.Theme.HUD_ERROR;
+                default -> dev.aether.ui.theme.Theme.HUD_LABEL;
+            };
         }
 
         static TaskStatusRow disabled(String name, String detail) {
-            return new TaskStatusRow(name, detail, "OFF", 0xFF7E8798);
+            return new TaskStatusRow(name, detail, "OFF");
         }
 
         static TaskStatusRow waiting(String name, String detail) {
-            return new TaskStatusRow(name, detail, "WAIT", 0xFFF6C453);
+            return new TaskStatusRow(name, detail, "WAIT");
         }
 
         static TaskStatusRow blocked(String name, String detail) {
-            return new TaskStatusRow(name, detail, "HOLD", 0xFFFF8A65);
+            return new TaskStatusRow(name, detail, "HOLD");
         }
 
         static TaskStatusRow ready(String name, String detail) {
-            return new TaskStatusRow(name, detail, "READY", 0xFF4ADE80);
+            return new TaskStatusRow(name, detail, "READY");
         }
 
         static TaskStatusRow running(String name, String detail) {
-            return new TaskStatusRow(name, detail, "LIVE", 0xFF5EEAD4);
+            return new TaskStatusRow(name, detail, "LIVE");
         }
 
         static TaskStatusRow triggered(String name, String detail) {
-            return new TaskStatusRow(name, detail, "TRIG", 0xFFFF5555);
+            return new TaskStatusRow(name, detail, "TRIG");
         }
     }
 }

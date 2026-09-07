@@ -1,6 +1,7 @@
 package dev.aether.modules.pathfinding.rotation;
 
 import dev.aether.modules.failsafe.FailsafeManager;
+import dev.aether.modules.pathfinding.rotation.strategy.TrackingRotationStrategy;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 
@@ -46,6 +47,17 @@ public final class RotationExecutor {
         currStrat  = null;
         isRotating = false;
         hasLastApplied = false;
+    }
+
+    public static void track(Rotation target, float degreesPerSecond) {
+        if (FailsafeManager.shouldSuppressPestCleanerRotation(mc)) return;
+        if (isRotating && currStrat instanceof TrackingRotationStrategy tracking) {
+            targetYaw = target.yaw;
+            targetPitch = target.pitch;
+            tracking.setSpeed(degreesPerSecond);
+        } else {
+            rotateTo(target, new TrackingRotationStrategy(degreesPerSecond));
+        }
     }
 
     public static boolean isRotating()  { return isRotating; }

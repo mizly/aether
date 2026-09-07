@@ -3,12 +3,14 @@ package dev.aether.macro.farming;
 import dev.aether.config.AetherConfig;
 import dev.aether.config.ConfigHelpers;
 import dev.aether.macro.MacroState;
+import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.rewarp.RewarpManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.helpers.AutoPestExchangeManager;
+import dev.aether.modules.session.RecoveryManager;
 import dev.aether.modules.session.RestartManager;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
@@ -105,6 +107,9 @@ public final class FarmingMacroManager {
             ClientUtils.sendDebugMessage("Farming start deferred because pest exchange has priority.");
             return;
         }
+        if (!ensureFarmingLocation()) {
+            return;
+        }
 
         if (activeMacro != null) {
             activeMacro.onDisable(mc);
@@ -140,6 +145,9 @@ public final class FarmingMacroManager {
     }
 
     private static void startMacroNow(Minecraft mc, AbstractFarmingMacro macro) {
+        if (!ensureFarmingLocation()) {
+            return;
+        }
         if (hasBlockingScreenOrContainer(mc)) {
             deferStartUntilReady(mc, macro);
             return;
@@ -153,6 +161,18 @@ public final class FarmingMacroManager {
         // swap + first click landing on the same tick every resume is fingerprintable
         activeMacro = macro;
         pendingEnableTicks = ConfigHelpers.getRandomizedDelay(START_DELAY_MIN_TICKS, START_DELAY_MAX_TICKS);
+    }
+
+    private static boolean ensureFarmingLocation() {
+        MacroState.State state = MacroStateManager.getCurrentState();
+        if (state == MacroState.State.OFF || state == MacroState.State.RECOVERING) {
+            return false;
+        }
+        if (ClientUtils.getCurrentLocation() != MacroState.Location.GARDEN) {
+            RecoveryManager.beginRecovery();
+            return false;
+        }
+        return true;
     }
 
     private static void deferStartUntilReady(Minecraft mc, AbstractFarmingMacro macro) {
@@ -263,6 +283,9 @@ public final class FarmingMacroManager {
         }
 
         if (pendingEnableTicks > 0) {
+            if (!ensureFarmingLocation()) {
+                return;
+            }
             if (--pendingEnableTicks > 0) {
                 return;
             }
