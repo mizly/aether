@@ -1,5 +1,6 @@
 package dev.aether.modules.pest.helpers;
 
+import dev.aether.config.AetherConfig;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.util.ClientUtils;
@@ -27,25 +28,76 @@ final class PestHuntController {
             PestTargetController.Context targetContext,
             Context context) {
         ClientUtils.setKeyMappingState(client.options.keyUse, false);
-        ClientUtils.setKeyMappingState(client.options.keyDown, false);
-        ClientUtils.setKeyMappingState(client.options.keyUp, false);
+        // CHECK_NEXT doubles as the final verification scan once the current
+        // route runs dry. Stop completely during that check instead of carrying
+        // old flight/path input into the scan and appearing to wander randomly.
+        ClientUtils.forceReleaseMovementKeys();
         PathfindingManager.stop();
 
         if (context.tryLeaveOneOnCurrentPlot(client)) {
             return;
         }
 
+        // One Tap may have moved on before a server death was final. Before a
+        // route can run dry, make any still-live optimistic target eligible again.
+        PestTargetController.reviveVisibleAssumedOneTapTargets(
+                client, runtime, targetContext);
+
+        // Refresh the queue from the player's current position every time we
+        // choose a new pest. The player may have crossed a large part of the
+        // plot since the old queue was built.
+        PestTargetController.rebuildQueue(client, runtime, targetContext);
         Entity pest = PestTargetController.nextQueuedPest(client, runtime);
-        if (pest == null) {
-            PestTargetController.rebuildQueue(client, runtime, targetContext);
-            pest = PestTargetController.nextQueuedPest(client, runtime);
-        }
         if (pest == null && runtime.deferredTargets.releaseRetryable()) {
             PestTargetController.rebuildQueue(client, runtime, targetContext);
             pest = PestTargetController.nextQueuedPest(client, runtime);
         }
         if (pest != null) {
             PestTargetController.engage(client, runtime, targetContext, pest);
+            return;
+        }
+
+        // Give the most recent optimistic One Tap handoff a short chance to
+        // disappear before deciding the route is empty. State stays CHECK_NEXT,
+        // so this is a lightweight tick wait rather than another movement sweep.
+        if (PestTargetController.waitingForOneTapRecheck(runtime)) {
+            return;
+        }
+
+        // Final verification is adaptive: stay still, but do not force the
+        // player to wait the entire configured scan duration when the server has
+        // already confirmed the clear. A small settle window gives the last
+        // kill/tab update time to arrive; after that, a finish-level alive count
+        // ends the run immediately. The configured duration is only the maximum
+        // amount of time we wait before falling back to the slower recovery
+        // checks below.
+        long now = System.currentTimeMillis();
+        long scanElapsedMs = now - runtime.stateEnteredAt;
+        long finalStationaryScanMs = Math.max(500L,
+                Math.round(AetherConfig.PEST_FINAL_SCAN_DURATION_SECONDS.get() * 1000.0f));
+        final long minimumSettleMs = 350L;
+
+        int aliveNow = PestManager.getPestDestroyerCompletionAliveCountNow(client);
+        if (scanElapsedMs >= minimumSettleMs
+                && aliveNow >= 0
+                && PestDestroyer.shouldFinishForAliveCount(client, aliveNow)) {
+            ClientUtils.sendDebugMessage(
+                    "[PestDestroyer] Adaptive final scan confirmed clear early. Finishing in place.");
+            context.finish(client);
+            return;
+        }
+
+        if (scanElapsedMs < finalStationaryScanMs) {
+            return;
+        }
+
+        // If the authoritative count never became available, preserve the
+        // previous max-time behavior rather than hanging forever. Otherwise a
+        // positive count continues into the existing recovery logic.
+        if (aliveNow < 0 || PestDestroyer.shouldFinishForAliveCount(client, aliveNow)) {
+            ClientUtils.sendDebugMessage(
+                    "[PestDestroyer] Stationary final scan reached its maximum and found no actionable pests. Finishing in place.");
+            context.finish(client);
             return;
         }
 
@@ -58,8 +110,11 @@ final class PestHuntController {
                 return;
             }
             ClientUtils.sendDebugMessage(
-                    "[PestDestroyer] No infested plots in tab. Finishing.");
-            context.finish(client);
+                    "[PestDestroyer] " + aliveNow
+                            + " pest(s) are still reported alive but no plot is listed. Holding position and rescanning.");
+            // Stay in CHECK_NEXT. Do not launch a blind plot sweep from stale or
+            // incomplete tab data; a visible pest or refreshed plot entry will
+            // be picked up on a later tick.
             return;
         }
 

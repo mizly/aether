@@ -76,6 +76,11 @@ final class PestDestroyerCoordinatorContext
     }
 
     @Override
+    public boolean prepareCompletionRescan(Minecraft client) {
+        return PestDestroyer.prepareCompletionRescan(client);
+    }
+
+    @Override
     public void finish(Minecraft client) {
         PestDestroyer.finish(client);
     }
@@ -113,6 +118,11 @@ final class PestDestroyerCoordinatorContext
     @Override
     public boolean tryNextPlot(Minecraft client) {
         return PestDestroyer.tryNextPlot(client);
+    }
+
+    @Override
+    public boolean shouldContinueSearching(Minecraft client) {
+        return PestDestroyer.shouldContinueSearching(client);
     }
 
     @Override
@@ -171,11 +181,17 @@ final class PestDestroyerCoordinatorContext
 
     @Override
     public void markKilled(Entity entity) {
+        if (entity != null && runtime.lockedTargetEntityId == entity.getId()) {
+            runtime.lockedTargetEntityId = -1;
+        }
         runtime.killedEntities.add(entity);
     }
 
     @Override
     public void deferTarget(Entity entity) {
+        if (entity != null && runtime.lockedTargetEntityId == entity.getId()) {
+            runtime.lockedTargetEntityId = -1;
+        }
         runtime.deferredTargets.defer(entity);
     }
 

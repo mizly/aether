@@ -87,6 +87,13 @@ final class MainGUIChromeRenderer {
                 nvg.text(Fonts.REGULAR, tabLabels[i], textX, pillY + (MainGUI.SB_PILL - 12f) / 2f, 12f, color);
                 nvg.restore();
             }
+            String tabDescription = switch (i) {
+                case 0 -> AetherLang.localize("Manage and configure modules");
+                case 1 -> AetherLang.localize("Customise HUD and menu colors");
+                default -> AetherLang.localize("Save and manage config and theme profiles");
+            };
+            owner.offerHoverHelp("sidebar:" + tabIds[i], tabLabels[i], tabDescription,
+                    context.layout.px, tabY, sbW, 44f, mx, my);
         }
 
         float profileTabY = context.layout.py + context.layout.ph - MainGUI.SB_BOT_PAD - 44f;
@@ -116,6 +123,9 @@ final class MainGUIChromeRenderer {
             nvg.text(Fonts.REGULAR, AetherLang.localize("HUD Positions"), textX, hudPillY + (MainGUI.SB_PILL - 12f) / 2f, 12f, hudColor);
             nvg.restore();
         }
+        owner.offerHoverHelp("sidebar:hud_positions", AetherLang.localize("HUD Positions"),
+                AetherLang.localize("Open the HUD layout editor to move and arrange Aether overlays."),
+                context.layout.px, hudPositionsTabY, sbW, 44f, mx, my);
 
         float keybindsPillY = keybindsTabY + MainGUI.SB_ROW_PAD;
         boolean keybindsSelected = context.navigation.activeMain == 3;
@@ -142,6 +152,9 @@ final class MainGUIChromeRenderer {
             nvg.text(Fonts.REGULAR, AetherLang.localize("Keybinds"), textX, keybindsPillY + (MainGUI.SB_PILL - 12f) / 2f, 12f, keybindsColor);
             nvg.restore();
         }
+        owner.offerHoverHelp("sidebar:keybinds", AetherLang.localize("Keybinds"),
+                AetherLang.localize("Edit Aether keybinds and keep them synced with Minecraft controls"),
+                context.layout.px, keybindsTabY, sbW, 44f, mx, my);
 
         float settingsPillY = settingsTabY + MainGUI.SB_ROW_PAD;
         boolean settingsSelected = context.navigation.activeMain == 4;
@@ -168,6 +181,9 @@ final class MainGUIChromeRenderer {
             nvg.text(Fonts.REGULAR, AetherLang.localize("Settings"), textX, settingsPillY + (MainGUI.SB_PILL - 12f) / 2f, 12f, settingsColor);
             nvg.restore();
         }
+        owner.offerHoverHelp("sidebar:settings", AetherLang.localize("Settings"),
+                AetherLang.localize("General client settings"),
+                context.layout.px, settingsTabY, sbW, 44f, mx, my);
 
         nvg.rect(context.layout.px + MainGUI.SB_H_PAD, profileTabY - MainGUI.SB_SEP_GAP,
                 sbW - MainGUI.SB_H_PAD * 2f, 1f, Theme.SEPARATOR);
@@ -238,6 +254,9 @@ final class MainGUIChromeRenderer {
         }
 
         owner.addClickArea(searchX, searchY, searchW, searchH, owner::activateSearchField);
+        owner.offerHoverHelp("search", AetherLang.localize("Search settings..."),
+                AetherLang.localize("Search all Aether settings by name and jump directly to matching controls."),
+                searchX, searchY, searchW, searchH, mx, my);
         nvg.rect(context.layout.contX, context.layout.contY + MainGUI.TOP_BAR_H, context.layout.contW, 1f, Theme.SEPARATOR);
     }
 

@@ -25,6 +25,8 @@ final class PestDestroyerProgressController {
 
         void setState(PestDestroyer.State state);
 
+        boolean prepareCompletionRescan(Minecraft client);
+
         void finish(Minecraft client);
     }
 
@@ -48,10 +50,14 @@ final class PestDestroyerProgressController {
             if (PestCompletionGuard.isConfirmed(runtime.zeroPestTabTicks)) {
                 ClientUtils.setKeyMappingState(client.options.keyUse, false);
                 ClientUtils.setKeyMappingState(client.options.keyDown, false);
+                if (context.prepareCompletionRescan(client)) {
+                    runtime.zeroPestTabTicks = 0;
+                    return true;
+                }
                 ClientUtils.sendDebugMessage(
                         "PestDestroyer: tablist reports "
                                 + context.getAliveFinishReason(aliveNow)
-                                + ". Finishing.");
+                                + " and final rescan is clear. Finishing.");
                 context.finish(client);
                 return true;
             }

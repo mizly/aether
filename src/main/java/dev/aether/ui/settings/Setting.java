@@ -10,5 +10,8 @@ public interface Setting {
         return getName();
     }
     SettingType getType();
+    default String getDescription() {
+        return SettingDescriptionCatalog.describe(this);
+    }
     boolean isVisible();
 }
