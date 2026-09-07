@@ -1,7 +1,6 @@
-package dev.aether.hud;
+package dev.aether.hud.legacy;
 
 import dev.aether.config.AetherConfig;
-import dev.aether.hud.legacy.LegacyInventoryHud;
 import dev.aether.mixin.AccessorEntity;
 import dev.aether.renderer.NVGRenderer;
 import dev.aether.ui.theme.Theme;
@@ -14,58 +13,50 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Glass-panel HUD element that displays the player's inventory, with optional
- * armor slots and player portrait.
+ * Pre-Ryn rendering for the inventory HUD. Called by
+ * {@link dev.aether.hud.InventoryHudElement} when the Frosted Panel toggle is on.
  */
-public class InventoryHudElement extends HudElement {
+public final class LegacyInventoryHud {
+    public static final float PAD = 6f;
+    public static final float CONTENT_Y = PAD;
 
-    private static final float PAD = 8f;
-    private static final float CONTENT_Y = 34f;
+    public static final float SLOT_SIZE = 16f;
+    public static final float SLOT_GAP = 2f;
+    public static final float SLOT_STEP = SLOT_SIZE + SLOT_GAP;
 
-    private static final float SLOT_SIZE = 18f;
-    private static final float SLOT_GAP = 2f;
-    private static final float SLOT_STEP = SLOT_SIZE + SLOT_GAP;
+    public static final float ARMOR_GAP = 6f;
+    public static final float MODEL_GAP = 4f;
+    public static final float INVENTORY_W = 9 * SLOT_STEP - SLOT_GAP;
+    public static final float MODEL_W = 58f;
 
-    private static final float ARMOR_GAP = 6f;
-    private static final float MODEL_GAP = 4f;
-    private static final float INVENTORY_W = 9 * SLOT_STEP - SLOT_GAP;
-    private static final float MODEL_W = 58f;
+    public static final float SEP_Y = CONTENT_Y + 3 * SLOT_STEP;
+    public static final float HOTBAR_Y = SEP_Y + SLOT_GAP + 1f;
 
-    private static final float SEP_Y = CONTENT_Y + 3 * SLOT_STEP;
-    private static final float HOTBAR_Y = SEP_Y + SLOT_GAP + 1f;
+    public static final float CONTENT_H = HOTBAR_Y + SLOT_STEP - CONTENT_Y;
+    public static final float H = CONTENT_Y + CONTENT_H + PAD;
+    public static final float ARMOR_STEP = (HOTBAR_Y - CONTENT_Y) / 3f;
+    public static final float CORNER = 6f;
 
-    private static final float CONTENT_H = HOTBAR_Y + SLOT_STEP - CONTENT_Y;
-    private static final float H = CONTENT_Y + CONTENT_H + PAD;
-    private static final float ARMOR_STEP = (HOTBAR_Y - CONTENT_Y) / 3f;
+    private LegacyInventoryHud() {}
 
-    @Override public boolean rendersBeforeMinecraft() { return true; }
-    @Override public float getX() { return AetherConfig.INVENTORY_HUD_X.get(); }
-    @Override public float getY() { return AetherConfig.INVENTORY_HUD_Y.get(); }
-    @Override public void setX(float x) { AetherConfig.INVENTORY_HUD_X.set((int) x); }
-    @Override public void setY(float y) { AetherConfig.INVENTORY_HUD_Y.set((int) y); }
-    @Override public float getScale() { return 1f; }
-    @Override public void setScale(float s) { }
-    @Override public float getWidth() {
-        return AetherConfig.HUD_PANEL_FROSTED.get() ? LegacyInventoryHud.computeWidth() : computeLayoutWidth();
-    }
-    @Override public float getHeight() {
-        return AetherConfig.HUD_PANEL_FROSTED.get() ? LegacyInventoryHud.H : H;
-    }
-    @Override public boolean isEnabled() { return AetherConfig.SHOW_INVENTORY_HUD.get(); }
-    @Override public boolean isVisible() {
-        if (!isEnabled()) return false;
-        net.minecraft.client.gui.screens.Screen screen = Minecraft.getInstance().screen;
-        return screen == null || screen instanceof HudEditScreen;
-    }
-    @Override public String getName() { return "Inventory HUD"; }
-    @Override public void savePosition() { AetherConfig.save(); }
+    public static float computeWidth() {
+        boolean showArmor = AetherConfig.INVENTORY_HUD_SHOW_ARMOR.get();
+        boolean showPlayerModel = AetherConfig.INVENTORY_HUD_SHOW_PLAYER_MODEL.get();
 
-    @Override
-    protected void renderElement(NVGRenderer nvg, boolean editMode) {
-        if (AetherConfig.HUD_PANEL_FROSTED.get()) {
-            LegacyInventoryHud.renderElement(nvg, isDragging(), isResizing(), editMode);
-            return;
+        float width = PAD;
+        if (showArmor) {
+            width += SLOT_SIZE + ARMOR_GAP;
         }
+
+        width += INVENTORY_W;
+        if (showPlayerModel) {
+            width += MODEL_GAP + MODEL_W;
+        }
+
+        return width + PAD;
+    }
+
+    public static void renderElement(NVGRenderer nvg, boolean isDragging, boolean isResizing, boolean editMode) {
         boolean showArmor = AetherConfig.INVENTORY_HUD_SHOW_ARMOR.get();
         boolean showPlayerModel = AetherConfig.INVENTORY_HUD_SHOW_PLAYER_MODEL.get();
 
@@ -86,18 +77,10 @@ public class InventoryHudElement extends HudElement {
         }
 
         float width = cursorX + PAD;
-        HudStyle.panel(nvg, width, H);
-        HudStyle.accent(nvg, width, Theme.HUD_ACCENT, Theme.HUD_ACCENT);
-        nvg.text(Fonts.BOLD, "Inventory", PAD + 3f, 12f, 11f, Theme.HUD_TITLE);
-        Minecraft client = Minecraft.getInstance();
-        int used = 0;
-        if (client.player != null) {
-            for (int slot = 0; slot < 36; slot++) {
-                if (!client.player.getInventory().getItem(slot).isEmpty()) used++;
-            }
-        }
-        nvg.textRight(Fonts.MONO, used + "/36", PAD, 13f, width - PAD * 2f, 9f, Theme.HUD_LABEL);
-        nvg.rect(inventoryX, SEP_Y, INVENTORY_W, 0.7f, Theme.HUD_SEP);
+        int border = isDragging ? Theme.HUD_ACCENT : isResizing ? Theme.HUD_WARNING : Theme.HUD_BORDER;
+
+        nvg.blur(0, 0, width, H, CORNER, 20f);
+        nvg.rectOutline(0, 0, width, H, CORNER, 1f, border);
 
         if (showArmor) {
             for (int i = 0; i < 4; i++) {
@@ -117,8 +100,7 @@ public class InventoryHudElement extends HudElement {
             float sx = inventoryX + col * SLOT_STEP;
             if (col == selected) {
                 nvg.roundedRect(sx, HOTBAR_Y, SLOT_SIZE, SLOT_SIZE, 2f,
-                        HudStyle.alpha(Theme.HUD_ACCENT, 0.2f));
-                nvg.rectOutline(sx, HOTBAR_Y, SLOT_SIZE, SLOT_SIZE, 3f, 1f, Theme.HUD_ACCENT);
+                        Theme.withAlpha(0xFFFFFFFF, 0x18));
             } else {
                 drawSlotBg(nvg, sx, HOTBAR_Y);
             }
@@ -126,22 +108,22 @@ public class InventoryHudElement extends HudElement {
 
         if (showPlayerModel) {
             nvg.roundedRect(modelX, CONTENT_Y, MODEL_W, CONTENT_H, 4f,
-                    Theme.HUD_BAR_BG);
+                    Theme.withAlpha(0xFF000000, 0x30));
+        }
+
+        if (editMode) {
+            String hint = isDragging ? "moving..."
+                    : isResizing ? "resizing..."
+                    : "drag - ctrl+drag to resize";
+            nvg.textCentered(Fonts.REGULAR, hint, 0, H - PAD + 2f, width, PAD - 2f, 9f, Theme.HUD_LABEL);
         }
     }
 
-    private void drawSlotBg(NVGRenderer nvg, float x, float y) {
-        nvg.roundedRect(x, y, SLOT_SIZE, SLOT_SIZE, 2f, Theme.HUD_BAR_BG);
+    private static void drawSlotBg(NVGRenderer nvg, float x, float y) {
+        nvg.roundedRect(x, y, SLOT_SIZE, SLOT_SIZE, 2f, Theme.withAlpha(0xFF000000, 0x40));
     }
 
-    @Override
-    public void renderMinecraft(GuiGraphicsExtractor graphics, boolean editMode) {
-        if (!isVisible() && !editMode) return;
-        if (AetherConfig.HUD_PANEL_FROSTED.get()) {
-            LegacyInventoryHud.renderMinecraft(graphics, getX(), getY(), getScale());
-            return;
-        }
-
+    public static void renderMinecraft(GuiGraphicsExtractor graphics, float ox, float oy, float sc) {
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
         if (player == null) return;
@@ -166,9 +148,6 @@ public class InventoryHudElement extends HudElement {
         }
 
         float width = cursorX + PAD;
-        float ox = getX();
-        float oy = getY();
-        float sc = getScale();
 
         graphics.enableScissor(
                 screenX(ox, 0, sc), screenY(oy, 0, sc),
@@ -216,6 +195,49 @@ public class InventoryHudElement extends HudElement {
         } finally {
             graphics.disableScissor();
         }
+    }
+
+    public static void renderOverlay(NVGRenderer nvg) {
+        Minecraft mc = Minecraft.getInstance();
+        Player player = mc.player;
+        if (player == null) return;
+
+        boolean showArmor = AetherConfig.INVENTORY_HUD_SHOW_ARMOR.get();
+        float cursorX = PAD;
+        float armorX = -1f;
+        if (showArmor) {
+            armorX = cursorX;
+            cursorX += SLOT_SIZE + ARMOR_GAP;
+        }
+
+        float inventoryX = cursorX;
+
+        if (showArmor) {
+            for (int i = 0; i < 4; i++) {
+                drawCount(nvg, player.getInventory().getItem(39 - i),
+                        armorX, CONTENT_Y + i * ARMOR_STEP);
+            }
+        }
+
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 9; col++) {
+                drawCount(nvg, player.getInventory().getItem(9 + row * 9 + col),
+                        inventoryX + col * SLOT_STEP, CONTENT_Y + row * SLOT_STEP);
+            }
+        }
+
+        for (int col = 0; col < 9; col++) {
+            drawCount(nvg, player.getInventory().getItem(col),
+                    inventoryX + col * SLOT_STEP, HOTBAR_Y);
+        }
+    }
+
+    private static void drawCount(NVGRenderer nvg, ItemStack stack, float slotX, float slotY) {
+        if (stack.isEmpty() || stack.getCount() <= 1) return;
+        nvg.textRight(Fonts.BOLD, Integer.toString(stack.getCount()),
+                slotX, slotY + SLOT_SIZE - 7f,
+                SLOT_SIZE, 8f,
+                0xFFCCCCCC);
     }
 
     private static void renderPortrait(GuiGraphicsExtractor graphics, Player player,
@@ -280,70 +302,5 @@ public class InventoryHudElement extends HudElement {
 
     private static void renderItem(GuiGraphicsExtractor graphics, ItemStack stack, int x, int y) {
         graphics.item(stack, x, y);
-    }
-
-    @Override
-    public void renderOverlay(NVGRenderer nvg, boolean editMode) {
-        if (AetherConfig.HUD_PANEL_FROSTED.get()) {
-            LegacyInventoryHud.renderOverlay(nvg);
-            return;
-        }
-        Minecraft mc = Minecraft.getInstance();
-        Player player = mc.player;
-        if (player == null) return;
-
-        boolean showArmor = AetherConfig.INVENTORY_HUD_SHOW_ARMOR.get();
-        float cursorX = PAD;
-        float armorX = -1f;
-        if (showArmor) {
-            armorX = cursorX;
-            cursorX += SLOT_SIZE + ARMOR_GAP;
-        }
-
-        float inventoryX = cursorX;
-
-        if (showArmor) {
-            for (int i = 0; i < 4; i++) {
-                drawCount(nvg, player.getInventory().getItem(39 - i),
-                        armorX, CONTENT_Y + i * ARMOR_STEP);
-            }
-        }
-
-        for (int row = 0; row < 3; row++) {
-            for (int col = 0; col < 9; col++) {
-                drawCount(nvg, player.getInventory().getItem(9 + row * 9 + col),
-                        inventoryX + col * SLOT_STEP, CONTENT_Y + row * SLOT_STEP);
-            }
-        }
-
-        for (int col = 0; col < 9; col++) {
-            drawCount(nvg, player.getInventory().getItem(col),
-                    inventoryX + col * SLOT_STEP, HOTBAR_Y);
-        }
-    }
-
-    private void drawCount(NVGRenderer nvg, ItemStack stack, float slotX, float slotY) {
-        if (stack.isEmpty() || stack.getCount() <= 1) return;
-        nvg.textRight(Fonts.BOLD, Integer.toString(stack.getCount()),
-                slotX, slotY + SLOT_SIZE - 7f,
-                SLOT_SIZE, 8f,
-                Theme.HUD_VALUE);
-    }
-
-    private static float computeLayoutWidth() {
-        boolean showArmor = AetherConfig.INVENTORY_HUD_SHOW_ARMOR.get();
-        boolean showPlayerModel = AetherConfig.INVENTORY_HUD_SHOW_PLAYER_MODEL.get();
-
-        float width = PAD;
-        if (showArmor) {
-            width += SLOT_SIZE + ARMOR_GAP;
-        }
-
-        width += INVENTORY_W;
-        if (showPlayerModel) {
-            width += MODEL_GAP + MODEL_W;
-        }
-
-        return width + PAD;
     }
 }

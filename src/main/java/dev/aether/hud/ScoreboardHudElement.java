@@ -43,6 +43,7 @@ public final class ScoreboardHudElement extends HudElement {
 
     @Override
     public boolean isVisible() {
+        if (AetherConfig.HUD_PANEL_FROSTED.get()) return false;
         Minecraft mc = Minecraft.getInstance();
         return isEnabled() && !renderingFailed && mc.player != null && mc.level != null
                 && !mc.options.hideGui && !StreamerModeManager.isEnabled() && HudRegistry.canRenderInGameplay(mc);

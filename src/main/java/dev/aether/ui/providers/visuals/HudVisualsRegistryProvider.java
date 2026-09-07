@@ -37,6 +37,12 @@ public final class HudVisualsRegistryProvider extends AbstractVisualsRegistryPro
                             AetherConfig.HUD_THEME.set(i);
                             AetherConfig.save();
                         }))
+                .add(new ToggleSetting("Frosted Panel Background",
+                        () -> AetherConfig.HUD_PANEL_FROSTED.get(),
+                        v -> {
+                            AetherConfig.HUD_PANEL_FROSTED.set(v);
+                            AetherConfig.save();
+                        }))
                 .add(new ActionSetting("Edit HUD Layout", () -> Minecraft.getInstance().setScreen(new HudEditScreen()))));
 
         groups.add(SettingGroup.alwaysOn(

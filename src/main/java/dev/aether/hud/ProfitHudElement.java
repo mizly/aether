@@ -1,6 +1,7 @@
 package dev.aether.hud;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.hud.legacy.LegacyProfitHud;
 
 
 import dev.aether.macro.MacroStateManager;
@@ -86,8 +87,8 @@ public class ProfitHudElement extends HudElement {
             default         -> AetherConfig.SESSION_PROFIT_HUD_SCALE.set(s);
         }
     }
-    @Override public float   getWidth()  { return W; }
-    @Override public float   getHeight() { return computeHeight(); }
+    @Override public float   getWidth()  { return AetherConfig.HUD_PANEL_FROSTED.get() ? LegacyProfitHud.W : W; }
+    @Override public float   getHeight() { return AetherConfig.HUD_PANEL_FROSTED.get() ? LegacyProfitHud.computeHeight(mode) : computeHeight(); }
     @Override public boolean isVisible() {
         if (!AetherConfig.PROFIT_HUD_ENABLED.get()) return false;
         return switch (mode) {
@@ -138,6 +139,10 @@ public class ProfitHudElement extends HudElement {
 
     @Override
     protected void renderElement(NVGRenderer nvg, boolean editMode) {
+        if (AetherConfig.HUD_PANEL_FROSTED.get()) {
+            LegacyProfitHud.renderElement(nvg, mode, isDragging(), isResizing(), editMode);
+            return;
+        }
         float ph = computeHeight();
         HudStyle.panel(nvg, W, ph);
         HudStyle.header(nvg, W, title(), "COINS");

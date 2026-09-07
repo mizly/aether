@@ -766,6 +766,7 @@ public final class AetherConfig {
         public static final BooleanEntry STREAMER_MODE = Config.bool("streamerMode", false);
 
         public static final IntEntry HUD_THEME = Config.integer("hudTheme", 2).range(0, 3);
+        public static final BooleanEntry HUD_PANEL_FROSTED = Config.bool("hudPanelFrosted", false);
         public static final IntEntry HUD_X = Config.integer("hudX", 410);
         public static final IntEntry HUD_Y = Config.integer("hudY", 360);
         public static final FloatEntry HUD_SCALE = Config.floatVal("hudScale", 1.0f).range(0.5f, 3.0f);
