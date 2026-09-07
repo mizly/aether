@@ -37,11 +37,6 @@ final class MainGUISettingRowRenderer {
 
         float cardH = h - 5f;
 
-        owner.offerHoverHelp(
-                "setting:" + setting.getRawName(),
-                setting.getName(),
-                setting.getDescription(),
-                x, y, w, cardH, mx, my);
 
         nvg.roundedRect(x, y, w, cardH, 7f, Theme.CARD_BG);
         nvg.rectOutlineSolid(x, y, w, cardH, 7f, 1f, Theme.withAlpha(0xFFFFFFFF, 0.12f));

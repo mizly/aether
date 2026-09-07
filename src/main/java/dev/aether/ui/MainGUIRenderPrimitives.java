@@ -75,11 +75,6 @@ final class MainGUIRenderPrimitives {
 
         nvg.restore();
 
-        owner.offerHoverHelp(
-                "module:" + subTab.name(),
-                AetherLang.localize(subTab.name()),
-                AetherLang.localize(subTab.description()),
-                x, y, w, height, mx, my);
         if (subTab.hasToggle()) {
             owner.addClickArea(pillX - 6f, pillY - 6f, 50f, MainGUI.PILL_H + 12f, subTab::toggle);
         }

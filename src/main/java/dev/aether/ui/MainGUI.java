@@ -114,87 +114,6 @@ public class MainGUI extends NVGScreen {
     public static float uiScale = 1.5f;
     public static float uiTextScale = 1;
 
-    void offerHoverHelp(String key, String title, String description,
-                        float x, float y, float w, float h, float mx, float my) {
-        if (key == null || title == null || description == null || description.isBlank()) {
-            return;
-        }
-        if (mx < x || mx > x + w || my < y || my > y + h) {
-            return;
-        }
-        hoverHelpCandidateKey = key;
-        hoverHelpCandidateTitle = title;
-        hoverHelpCandidateDescription = description;
-    }
-
-    private void renderHoverHelp(NVGRenderer nvg, float mx, float my) {
-        if (hoverHelpCandidateKey == null
-                || openDd != null
-                || activeColor != null
-                || activeSliderField != null
-                || activeText != null
-                || activeList != null
-                || activePosField != null) {
-            hoverHelpLastKey = null;
-            hoverHelpStartedAt = 0L;
-            return;
-        }
-
-        long now = System.currentTimeMillis();
-        if (!hoverHelpCandidateKey.equals(hoverHelpLastKey)) {
-            hoverHelpLastKey = hoverHelpCandidateKey;
-            hoverHelpStartedAt = now;
-            return;
-        }
-        if (now - hoverHelpStartedAt < HOVER_HELP_DELAY_MS) {
-            return;
-        }
-
-        float maxTextW = Math.min(330f, Math.max(220f, pw * 0.36f));
-        float titleSize = 12.5f;
-        float bodySize = 11f;
-        float padX = 12f;
-        float padY = 10f;
-        float titleGap = 6f;
-        float bodyStep = 14f;
-        java.util.List<String> bodyLines = wrapTextForWidth(
-                nvg, hoverHelpCandidateDescription, Fonts.REGULAR, bodySize, maxTextW);
-        if (bodyLines.isEmpty()) {
-            return;
-        }
-
-        float titleW = nvg.textWidth(Fonts.BOLD, hoverHelpCandidateTitle, titleSize);
-        float bodyW = 0f;
-        for (String line : bodyLines) {
-            bodyW = Math.max(bodyW, nvg.textWidth(Fonts.REGULAR, line, bodySize));
-        }
-        float tooltipW = Math.min(maxTextW + padX * 2f, Math.max(190f, Math.max(titleW, bodyW) + padX * 2f));
-        float tooltipH = padY * 2f + titleSize + titleGap + bodyLines.size() * bodyStep;
-
-        float tx = mx + 16f;
-        float ty = my + 16f;
-        float panelRight = px + pw - 8f;
-        float panelBottom = py + ph - 8f;
-        if (tx + tooltipW > panelRight) {
-            tx = mx - tooltipW - 16f;
-        }
-        if (ty + tooltipH > panelBottom) {
-            ty = my - tooltipH - 16f;
-        }
-        tx = Math.max(px + 8f, Math.min(tx, panelRight - tooltipW));
-        ty = Math.max(py + 8f, Math.min(ty, panelBottom - tooltipH));
-
-        nvg.shadow(tx, ty, tooltipW, tooltipH, 7f, 12f, Theme.withAlpha(0xFF000000, 0.55f));
-        nvg.roundedRect(tx, ty, tooltipW, tooltipH, 7f, Theme.BG_SECONDARY);
-        nvg.rectOutlineSolid(tx, ty, tooltipW, tooltipH, 7f, 1f,
-                Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.42f));
-        nvg.text(Fonts.BOLD, hoverHelpCandidateTitle, tx + padX, ty + padY, titleSize, Theme.TEXT_PRIMARY);
-        float bodyY = ty + padY + titleSize + titleGap;
-        for (int i = 0; i < bodyLines.size(); i++) {
-            nvg.text(Fonts.REGULAR, bodyLines.get(i), tx + padX, bodyY + i * bodyStep, bodySize, Theme.TEXT_SECONDARY);
-        }
-    }
-
     // -- Sidebar ---------------------------------------------------------------
 
     private float sidebarAnim = 0f;   // 0 = collapsed, 1 = expanded
@@ -329,17 +248,6 @@ public class MainGUI extends NVGScreen {
     /** The color swatch the mouse is currently hovering over (updated each frame). */
     ColorSetting  hoveredColor;
     ColorSetting  activeColor;
-
-    // -- Hover help -----------------------------------------------------------
-    // Settings across the whole ClickGUI feed this lightweight help overlay.
-    // A short delay keeps normal mouse movement clean while still making every
-    // control self-documenting when the user intentionally hovers it.
-    private String hoverHelpCandidateKey;
-    private String hoverHelpCandidateTitle;
-    private String hoverHelpCandidateDescription;
-    private String hoverHelpLastKey;
-    private long hoverHelpStartedAt;
-    private static final long HOVER_HELP_DELAY_MS = 260L;
     private float cpHue = 0f, cpSat = 1f, cpVal = 1f, cpAlpha = 1f;
     /** 0=none 1=SV 2=Hue 3=Alpha */
     private int cpDrag = 0;
@@ -964,13 +872,9 @@ public class MainGUI extends NVGScreen {
         refreshContext();
         clickAreas.clear();
         hoveredColor = null;
-        hoverHelpCandidateKey = null;
-        hoverHelpCandidateTitle = null;
-        hoverHelpCandidateDescription = null;
         transitionRenderer.syncContentTransition();
         transitionRenderer.renderContentWithTransition(nvg, mx, my);
         renderSidebar(nvg, mx, my);
-        renderHoverHelp(nvg, mx, my);
     }
 
     private void syncContentTransition() {
@@ -1167,8 +1071,6 @@ public class MainGUI extends NVGScreen {
             renderPill(nvg, pillX, pillY, group.isEnabled(), group);
             if (interactive) {
                 clickAreas.add(new ClickArea(pillX - 6f, pillY - 6f, 48f, PILL_H + 12f, group::toggle));
-                offerHoverHelp("group:" + group.getRawName(), group.getName(), group.getDescription(),
-                        pillX - 6f, pillY - 6f, 48f, PILL_H + 12f, mx, my);
             }
         }
 
