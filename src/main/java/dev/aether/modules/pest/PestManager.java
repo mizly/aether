@@ -502,7 +502,22 @@ public class PestManager {
             return Math.max(0, data.aliveCount());
         }
         syncPredictedAliveFromTab(data.aliveCount());
+        if (AetherConfig.PEST_ONE_TAP_PESTS.get() && data.aliveCount() >= 0) {
+            // A One Tap assumption can temporarily put the local prediction below
+            // reality. During completion checks the server tab is the safer side.
+            return Math.max(data.aliveCount(), predictedAliveCount);
+        }
         return getEffectiveAliveCount(data.aliveCount());
+    }
+
+    public static synchronized void restorePredictedAliveCount(Minecraft client, int restoredCount) {
+        int restored = Math.max(0, restoredCount);
+        if (restored == 0) {
+            return;
+        }
+        predictedAliveCount = Math.min(99, predictedAliveCount + restored);
+        ClientUtils.sendDebugMessage("Pest One Tap recheck restored " + restored
+                + " pest(s); predicted alive: " + predictedAliveCount);
     }
 
     public static boolean startCleaningSequence(Minecraft client, String plot) {
@@ -617,6 +632,9 @@ public class PestManager {
 
             if (AetherConfig.ESTIMATE_PEST_DESTROYER_COMPLETION.get()
                     && PestDestroyer.isActive()
+                    // One Tap Pests is optimistic by design. Never let its local
+                    // prediction end the run before a fresh scan/tab check.
+                    && !AetherConfig.PEST_ONE_TAP_PESTS.get()
                     && PestDestroyer.shouldFinishForAliveCount(client, predictedAliveCount)) {
                 String reason = predictedAliveCount == 0
                         ? "0 pests predicted"

@@ -1,11 +1,13 @@
 package dev.aether.modules.pest.helpers;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -14,6 +16,10 @@ final class PestDestroyerRuntime {
     volatile PestDestroyer.State state = PestDestroyer.State.IDLE;
     volatile boolean active = false;
     Entity currentTarget = null;
+    // When Target Lock is enabled, this id remains committed until the pest is
+    // killed, disappears, becomes invalid, or is explicitly deferred. Small
+    // distance changes from moving pests must not reshuffle the active route.
+    int lockedTargetEntityId = -1;
     final List<Entity> killedEntities = new CopyOnWriteArrayList<>();
     final PestTargetDeferrals deferredTargets = new PestTargetDeferrals();
     final PestFlightController flightController = new PestFlightController();
@@ -88,6 +94,21 @@ final class PestDestroyerRuntime {
     double aotvLastUsePlayerY = Double.NaN;
     double aotvLastUsePlayerZ = Double.NaN;
     boolean arrivedAtCurrentTargetViaAotv = false;
+    boolean pestEtherwarpActive = false;
+    int pestEtherwarpTargetEntityId = -1;
+    Vec3 pestEtherwarpAimPoint = null;
+    long pestEtherwarpClickAt = 0L;
+    long pestEtherwarpRetryAfter = 0L;
+    BlockPos pestEtherwarpLandingBlock = null;
+    // Landing blocks that looked valid client-side but failed to Etherwarp are
+    // avoided briefly so repeated route decisions do not retry the same bad spot.
+    final Map<Long, Long> pestEtherwarpFailedBlocksUntil = new ConcurrentHashMap<>();
+    // After a successful pest Etherwarp, stay flight-ready by keeping the
+    // player a few blocks above the local ground. This is deliberately kept
+    // separate from pestEtherwarpActive so it can persist through the kill and
+    // into the next target handoff.
+    boolean pestEtherwarpMaintainHeight = false;
+    boolean pestEtherwarpJumpHeld = false;
     volatile double aotvStartY = Double.NaN;
     long activatedAt = 0L;
     long lastRoofRescanAt = 0L;
@@ -95,6 +116,31 @@ final class PestDestroyerRuntime {
 
     int zeroPestTabTicks = 0;
     int targetWithoutSkullTicks = 0;
+
+    // Stable normal-combat aim state. The sampled target point and deadzone
+    // keep tiny pest movements from becoming a fresh head correction every tick.
+    int combatAimTargetEntityId = -1;
+    Vec3 combatAimPoint = null;
+    long combatAimUpdatedAt = 0L;
+    boolean combatAimCorrecting = false;
+
+    // A jumping pest can briefly separate from its marker and move several
+    // blocks vertically. Keep that recovery isolated from normal pathing/death
+    // heuristics so the cleaner does not spin, repath, or switch targets.
+    boolean airborneRecoveryActive = false;
+    int airborneRecoveryTargetEntityId = -1;
+    Vec3 airborneRecoveryAimPoint = null;
+    long airborneRecoveryAimUpdatedAt = 0L;
+
+    // Optional fast vacuum confirmation. The named-entity snapshot lets the
+    // combat coordinator distinguish a newly spawned damage popup from health
+    // bars/name tags that were already present around the pest.
+    int oneTapTargetEntityId = -1;
+    long oneTapVacuumNearStartedAt = 0L;
+    final Set<Integer> oneTapKnownNamedEntityIds = ConcurrentHashMap.newKeySet();
+    // One Tap is intentionally optimistic. Keep those handoffs separate from
+    // confirmed deaths so the final scan can revive a pest that survived.
+    final Map<Integer, Long> oneTapAssumedKilledAt = new ConcurrentHashMap<>();
 
     final PestNavigationState navigation = new PestNavigationState();
 
@@ -104,6 +150,7 @@ final class PestDestroyerRuntime {
         stateEnteredAt = now;
         activatedAt = now;
         currentTarget = null;
+        lockedTargetEntityId = -1;
         currentTargetUsesLasso = false;
         killedEntities.clear();
         deferredTargets.clear();
@@ -120,6 +167,7 @@ final class PestDestroyerRuntime {
         active = false;
         state = PestDestroyer.State.IDLE;
         currentTarget = null;
+        lockedTargetEntityId = -1;
         currentTargetUsesLasso = false;
         killedEntities.clear();
         deferredTargets.clear();
@@ -146,7 +194,7 @@ final class PestDestroyerRuntime {
                 || newState == PestDestroyer.State.FINISH
                 || newState == PestDestroyer.State.IDLE) {
             arrivedAtCurrentTargetViaAotv = false;
-            flightController.reset();
+            resetCombatAimState();
         }
         if (newState != PestDestroyer.State.AOTV_BETWEEN_PESTS) {
             aotvLastUseAt = 0L;
@@ -157,11 +205,19 @@ final class PestDestroyerRuntime {
             aotvLastUsePlayerX = Double.NaN;
             aotvLastUsePlayerY = Double.NaN;
             aotvLastUsePlayerZ = Double.NaN;
+            pestEtherwarpActive = false;
+            pestEtherwarpTargetEntityId = -1;
+            pestEtherwarpAimPoint = null;
+            pestEtherwarpClickAt = 0L;
+            pestEtherwarpRetryAfter = 0L;
+            pestEtherwarpLandingBlock = null;
         }
         if (newState != PestDestroyer.State.KILL_PEST) {
             targetWithoutSkullTicks = 0;
             lastPreRotateAt = 0L;
             resetKillVacuumRetry();
+            resetOneTapTracking();
+            resetAirborneRecovery();
         }
         if (newState != PestDestroyer.State.HUNT_PEST) {
             resetHuntState();
@@ -174,6 +230,26 @@ final class PestDestroyerRuntime {
         killVacuumReleaseUntil = 0L;
     }
 
+    void resetOneTapTracking() {
+        oneTapTargetEntityId = -1;
+        oneTapVacuumNearStartedAt = 0L;
+        oneTapKnownNamedEntityIds.clear();
+    }
+
+    void resetAirborneRecovery() {
+        airborneRecoveryActive = false;
+        airborneRecoveryTargetEntityId = -1;
+        airborneRecoveryAimPoint = null;
+        airborneRecoveryAimUpdatedAt = 0L;
+    }
+
+    void resetCombatAimState() {
+        combatAimTargetEntityId = -1;
+        combatAimPoint = null;
+        combatAimUpdatedAt = 0L;
+        combatAimCorrecting = false;
+    }
+
     boolean claimKilledPestEntityId(int entityId) {
         return accountedKilledPestEntityIds.add(entityId);
     }
@@ -184,6 +260,10 @@ final class PestDestroyerRuntime {
         approachTicks = 0;
         zeroPestTabTicks = 0;
         targetWithoutSkullTicks = 0;
+        resetOneTapTracking();
+        resetAirborneRecovery();
+        resetCombatAimState();
+        oneTapAssumedKilledAt.clear();
         lastVacuumUseAt = 0L;
         flyRetryAfterUnflyAt = 0L;
         killVacuumHoldStartedAt = 0L;
@@ -199,7 +279,17 @@ final class PestDestroyerRuntime {
         aotvLastUsePlayerX = Double.NaN;
         aotvLastUsePlayerY = Double.NaN;
         aotvLastUsePlayerZ = Double.NaN;
+        pestEtherwarpActive = false;
+        pestEtherwarpTargetEntityId = -1;
+        pestEtherwarpAimPoint = null;
+        pestEtherwarpClickAt = 0L;
+        pestEtherwarpRetryAfter = 0L;
+        pestEtherwarpLandingBlock = null;
+        pestEtherwarpFailedBlocksUntil.clear();
+        pestEtherwarpMaintainHeight = false;
+        pestEtherwarpJumpHeld = false;
         arrivedAtCurrentTargetViaAotv = false;
+        lockedTargetEntityId = -1;
         aotvStartY = Double.NaN;
         lastRoofRescanAt = 0L;
         roofAotvReturnState = null;

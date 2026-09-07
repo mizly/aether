@@ -30,6 +30,7 @@ final class MainGUITextLayout {
                         + textSetting.getVisibleLines() * MainGUI.TEXT_MULTI_LINE_STEP - 2f;
                 yield 26f + labelBlockH + fieldH;
             }
+            case SECTION -> 46f;
             case INFO -> {
                 float labelBlockH = wrappedSettingLabelLineCount(setting, rowW) * settingLabelLineStep(setting);
                 float valueFontSize = 12f;

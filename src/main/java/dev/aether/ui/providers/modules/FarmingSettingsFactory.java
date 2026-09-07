@@ -91,6 +91,46 @@ final class FarmingSettingsFactory {
                 });
     }
 
+    static SliderSetting pestEtherwarpMinDistanceSetting() {
+        return new SliderSetting("Etherwarp Minimum Distance (Blocks)", 20, 60,
+                () -> AetherConfig.PEST_ETHERWARP_MIN_DISTANCE.get(),
+                v -> {
+                    AetherConfig.PEST_ETHERWARP_MIN_DISTANCE.set(v);
+                    AetherConfig.save();
+                })
+                .withDecimals(1);
+    }
+
+    static SliderSetting pestFinalScanDurationSetting() {
+        return new SliderSetting("Final Scan Max Duration (Seconds)", 0.5f, 8.0f,
+                () -> AetherConfig.PEST_FINAL_SCAN_DURATION_SECONDS.get(),
+                v -> {
+                    AetherConfig.PEST_FINAL_SCAN_DURATION_SECONDS.set(v);
+                    AetherConfig.save();
+                })
+                .withDecimals(1);
+    }
+
+    static SliderSetting pestAotvStartDistanceSetting() {
+        return new SliderSetting("AOTV Start Distance (Blocks)", 12, 40,
+                () -> AetherConfig.PEST_AOTV_START_DISTANCE.get(),
+                v -> {
+                    AetherConfig.PEST_AOTV_START_DISTANCE.set(v);
+                    AetherConfig.save();
+                })
+                .withDecimals(1);
+    }
+
+    static SliderSetting pestAotvStopDistanceSetting() {
+        return new SliderSetting("AOTV Stop Distance (Blocks)", 6, 20,
+                () -> AetherConfig.PEST_AOTV_STOP_DISTANCE.get(),
+                v -> {
+                    AetherConfig.PEST_AOTV_STOP_DISTANCE.set(v);
+                    AetherConfig.save();
+                })
+                .withDecimals(1);
+    }
+
     static RangeSliderSetting rodSwapDelaySetting() {
         return intDelayRangeSetting("Rod Swap Delay", 0f, 1000f,
                 () -> AetherConfig.ROD_SWAP_DELAY_MIN.get(),
@@ -251,6 +291,16 @@ final class FarmingSettingsFactory {
                 () -> AetherConfig.PEST_MAX_TURN_SPEED.get(),
                 v -> {
                     AetherConfig.PEST_MAX_TURN_SPEED.set(v);
+                    AetherConfig.save();
+                })
+                .withDecimals(0).withSuffix("\u00B0/s");
+    }
+
+    static SliderSetting pestNextTargetTurnSpeedSetting() {
+        return new SliderSetting("Next Pest Turn Speed", 60, 1200,
+                () -> AetherConfig.PEST_NEXT_TARGET_TURN_SPEED.get(),
+                v -> {
+                    AetherConfig.PEST_NEXT_TARGET_TURN_SPEED.set(v);
                     AetherConfig.save();
                 })
                 .withDecimals(0).withSuffix("\u00B0/s");

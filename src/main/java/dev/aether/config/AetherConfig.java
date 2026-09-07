@@ -454,6 +454,8 @@ public final class AetherConfig {
         public static final ListEntry<String> LEAVE_ONE_PEST_PLOTS = Config.list("leaveOnePestPlots",
                         Collections.emptyList(), String.class);
         public static final BooleanEntry SUNSET_PESTS = Config.bool("sunsetPests", false);
+        public static final BooleanEntry PEST_TARGET_LOCK = Config.bool("pestTargetLock", true);
+        public static final BooleanEntry PEST_ONE_TAP_PESTS = Config.bool("pestOneTapPests", false);
         public static final BooleanEntry BALLSACK_SHREDDER = Config.bool("ballsackShredder", false);
         public static final IntEntry BALLSACK_SHREDDER_TRIGGER_DELAY_MIN =
                         Config.integer("ballsackShredderTriggerDelayMin", 20000).range(0, 30000);
@@ -465,20 +467,24 @@ public final class AetherConfig {
         public static final IntEntry BALLSACK_LOOK_DOWN_TIME_MS = Config.integer("ballsackLookDownTimeMs", 1000)
                         .range(0, 3000);
         public static final BooleanEntry PEST_AOTV_BETWEEN = Config.bool("pestAotvBetween", false);
+        public static final BooleanEntry PEST_SMART_AOTV_ROUTING = Config.bool("pestSmartAotvRouting", true);
+        public static final BooleanEntry PEST_ETHERWARP_TO_PEST = Config.bool("pestEtherwarpToPest", false);
+        public static final FloatEntry PEST_ETHERWARP_MIN_DISTANCE =
+                        Config.floatVal("pestEtherwarpMinDistance", 32.0f).range(20.0f, 60.0f);
+        public static final FloatEntry PEST_FINAL_SCAN_DURATION_SECONDS =
+                        Config.floatVal("pestFinalScanDurationSeconds", 3.0f).range(0.5f, 8.0f);
+        public static final FloatEntry PEST_AOTV_START_DISTANCE =
+                        Config.floatVal("pestAotvStartDistance", 20.0f).range(12.0f, 40.0f);
+        public static final FloatEntry PEST_AOTV_STOP_DISTANCE =
+                        Config.floatVal("pestAotvStopDistance", 11.0f).range(6.0f, 20.0f);
         public static final BooleanEntry PEST_AOTV_CONFIRM_BETWEEN = Config.bool("pestAotvConfirmBetween", false);
         public static final IntEntry PEST_AOTV_DELAY_MIN = Config.integer("pestAotvDelayMin", 150).range(100, 250);
         public static final IntEntry PEST_AOTV_DELAY_MAX = Config.integer("pestAotvDelayMax", 250).range(100, 250);
         public static final FloatEntry PEST_FOV_RANGE = Config.floatVal("pestFovRange", 20.0f).range(0.0f, 90.0f);
         public static final FloatEntry PEST_MAX_TURN_SPEED =
                         Config.floatVal("pestMaxTurnSpeed", 300.0f).range(60.0f, 1200.0f);
-        public static final FloatEntry PEST_VACUUM_FOLLOW_DISTANCE =
-                        Config.floatVal("pestVacuumFollowDistance", 5.0f).range(2.0f, 7.0f);
-        public static final BooleanEntry RESPECT_VACUUM_TRUE_RANGE = Config.bool("respectVacuumTrueRange", true);
-        public static final FloatEntry PEST_APPROACH_SPEED =
-                        Config.floatVal("pestApproachSpeed", 0.35f).range(0.15f, 0.8f);
-        public static final FloatEntry PEST_TRACKING_SMOOTHING_MS =
-                        Config.floatVal("pestTrackingSmoothingMs", 220.0f).range(100.0f, 500.0f);
-        public static final FloatEntry PEST_AIM_DRIFT = Config.floatVal("pestAimDrift", 1.0f).range(0.0f, 2.0f);
+        public static final FloatEntry PEST_NEXT_TARGET_TURN_SPEED =
+                        Config.floatVal("pestNextTargetTurnSpeed", 450.0f).range(60.0f, 1200.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MIN = Config.floatVal("pestAboveTargetPitchMin", 25.0f)
                         .range(20.0f, 40.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MAX = Config.floatVal("pestAboveTargetPitchMax", 40.0f)
@@ -1097,23 +1103,8 @@ public final class AetherConfig {
         public static final IntEntry PEST_ESP_HIGHLIGHT_COLOR = Config.integer("pestEspHighlightColor", 0xFFFF3030);
         public static final BooleanEntry PEST_ESP_TRACER = Config.bool("pestEspTracer", true);
         public static final IntEntry PEST_ESP_TRACER_COLOR = Config.integer("pestEspTracerColor", 0xFFFF3030);
-        public static final BooleanEntry PEST_ESP_PATH = Config.bool("pestEspPath", false);
-        public static final IntEntry PEST_ESP_PATH_COLOR = Config.integer("pestEspPathColor", 0xFF30FF80);
-        public static final BooleanEntry PEST_ESP_HUNT = Config.bool("pestEspHunt", false);
-        public static final IntEntry PEST_ESP_HUNT_COLOR = Config.integer("pestEspHuntColor", 0xFFFFAA00);
-
-        // -- MANUAL PEST HUNTING (aim + reel assists for manual pest mode) --------
-        public static final BooleanEntry MANUAL_PEST_HUNTING = Config.bool("manualPestHunting", false);
-        public static final BooleanEntry MANUAL_HUNT_AUTOREEL = Config.bool("manualHuntAutoreel", false);
-        public static final IntEntry MANUAL_HUNT_REEL_DELAY_MIN = Config.integer("manualHuntReelDelayMin", 0).range(0, 2000);
-        public static final IntEntry MANUAL_HUNT_REEL_DELAY_MAX = Config.integer("manualHuntReelDelayMax", 0).range(0, 2000);
-        public static final BooleanEntry MANUAL_HUNT_AIM_ASSIST = Config.bool("manualHuntAimAssist", false);
-        public static final IntEntry MANUAL_HUNT_AIM_STRENGTH = Config.integer("manualHuntAimStrength", 5);
-        public static final IntEntry MANUAL_HUNT_ETHERWARP_ROTATION = Config.integer("manualHuntEtherwarpRotation", 5);
-        public static final BooleanEntry MANUAL_HUNT_AUTO_STUN = Config.bool("manualHuntAutoStun", false);
-        public static final IntEntry MANUAL_HUNT_STUN_STRENGTH = Config.integer("manualHuntStunStrength", 5);
-        public static final BooleanEntry MANUAL_HUNT_AUTO_LASSO = Config.bool("manualHuntAutoLasso", false);
-        public static final IntEntry MANUAL_HUNT_AIM_FOV = Config.integer("manualHuntAimFov", 90);
+        public static final BooleanEntry PEST_ESP_OPTIMIZED_ROUTE = Config.bool("pestEspOptimizedRoute", false);
+        public static final IntEntry PEST_ESP_OPTIMIZED_ROUTE_COLOR = Config.integer("pestEspOptimizedRouteColor", 0xFF00F0FF);
 
         // -- GREENHOUSE ------------------------------------------------------------
         public static final BooleanEntry AUTO_GREENHOUSE = Config.bool("autoGreenhouse", false);

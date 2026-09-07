@@ -6,6 +6,7 @@ public enum SettingType {
     RANGE_SLIDER,
     TEXT,
     INFO,
+    SECTION,
     LIST,
     DROPDOWN,
     DROPDOWN_LIST,

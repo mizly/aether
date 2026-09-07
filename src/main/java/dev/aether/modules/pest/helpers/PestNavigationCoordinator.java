@@ -25,6 +25,7 @@ final class PestNavigationCoordinator {
         Entity findClosestPest(Minecraft client);
         void engagePestTarget(Minecraft client, Entity pest);
         boolean tryNextPlot(Minecraft client);
+        boolean shouldContinueSearching(Minecraft client);
         boolean tryLeaveOneOnCurrentWhitelistedPlot(Minecraft client);
         void startRoofAotv(Minecraft client, String plot);
         void startBallsackShredder(Minecraft client, String plot);
@@ -156,8 +157,17 @@ final class PestNavigationCoordinator {
             if (navigationState.getLocationAttempts >= maxPlotSweeps) {
                 navigationState.getLocationAttempts = 0;
                 if (!context.tryNextPlot(client)) {
-                    ClientUtils.sendDebugMessage("[PestDestroyer] No more plots to check. Finishing.");
-                    context.setState(PestDestroyer.State.FINISH);
+                    if (context.shouldContinueSearching(client)) {
+                        ClientUtils.sendDebugMessage(
+                                "[PestDestroyer] Sweep ended but pests are still reported/visible. Rescanning current plot.");
+                        navigationState.getLocationAttempts = 0;
+                        navigationState.waypointCycleCount = 0;
+                        navigationState.scanPointIdx = 0;
+                        context.setState(PestDestroyer.State.GET_LOCATION);
+                    } else {
+                        ClientUtils.sendDebugMessage("[PestDestroyer] Final scan confirmed no actionable pests. Finishing.");
+                        context.setState(PestDestroyer.State.FINISH);
+                    }
                 }
             }
             return;
@@ -169,7 +179,15 @@ final class PestNavigationCoordinator {
             navigationState.scanPointIdx = 0;
             ClientUtils.sendDebugMessage("[PestDestroyer] Scan waypoint budget spent without finding a pest.");
             if (!context.tryNextPlot(client)) {
-                context.setState(PestDestroyer.State.FINISH);
+                if (context.shouldContinueSearching(client)) {
+                    ClientUtils.sendDebugMessage(
+                            "[PestDestroyer] Waypoint budget ended with pests still outstanding. Starting another sweep.");
+                    navigationState.getLocationAttempts = 0;
+                    navigationState.scanPointIdx = 0;
+                    context.setState(PestDestroyer.State.GET_LOCATION);
+                } else {
+                    context.setState(PestDestroyer.State.FINISH);
+                }
             }
             return;
         }
