@@ -164,11 +164,6 @@ public class VisitorsMacro {
 
         boolean compactorsDisabled = false;
         try {
-        // Step 0: check auto sell after wardrobe per user request (regardless of threshold)
-        // This is now synchronous when called from the worker thread, so we don't need to restart the macro.
-        AutoSellManager.checkBeforeVisitors(client, true, wasRunningBefore);
-        if (shouldStop) return;
-
         // Step 1: TP to barn
         closeScreen(client);
         MacroWorkerThread.sleep(300);
@@ -202,6 +197,13 @@ public class VisitorsMacro {
             if (shouldStop) {
                 return;
             }
+        }
+
+        // Sell inventory before serving, as part of the pre-visitor setup so it
+        // runs alongside the compactor turn-off. Gated by Auto Sell Before Visitors.
+        AutoSellManager.checkBeforeVisitors(client, true, wasRunningBefore);
+        if (shouldStop) {
+            return;
         }
 
         // Step 2+: Re-scan the queue each round and process from the back of the line.

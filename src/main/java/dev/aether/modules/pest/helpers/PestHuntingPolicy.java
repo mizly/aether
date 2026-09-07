@@ -12,7 +12,7 @@ import java.util.Locale;
 import java.util.regex.Pattern;
 
 /** Selects whether a pest is caught with a lasso or killed with the vacuum. */
-final class PestHuntingPolicy {
+public final class PestHuntingPolicy {
     static final List<String> PEST_TYPES = List.of(
             "Fly", "Cricket", "Locust", "Rat", "Mosquito", "Earthworm",
             "Mite", "Moth", "Slug", "Beetle", "Firefly", "Dragonfly", "Praying Mantis");
@@ -20,6 +20,17 @@ final class PestHuntingPolicy {
     private static final double NAME_MARKER_SEARCH_SIZE = 5.0;
 
     private PestHuntingPolicy() {
+    }
+
+    /**
+     * Classifies a pest the way the hunter does, but independent of the pest
+     * hunting toggle so the Hunt ESP can colour vacuum vs lasso targets. A type
+     * we cannot resolve counts as a lasso (hunt) target, matching {@link #shouldLasso}.
+     */
+    public static boolean isVacuumTarget(Minecraft client, Entity target) {
+        int typeIndex = findPestTypeIndex(client, target);
+        return typeIndex >= 0
+                && (AetherConfig.PEST_HUNTING_VACUUM_PEST_MASK.get() & (1 << typeIndex)) != 0;
     }
 
     static boolean shouldLasso(Minecraft client, Entity target) {

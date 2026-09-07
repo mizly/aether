@@ -8,11 +8,13 @@ import dev.aether.ui.MainGUIRegistry;
 import dev.aether.ui.providers.base.AbstractModulesRegistryProvider;
 import dev.aether.ui.settings.ColorSetting;
 import dev.aether.ui.settings.DropdownSetting;
+import dev.aether.ui.settings.InfoSetting;
 import dev.aether.ui.settings.KeybindSetting;
 import dev.aether.ui.settings.ListSetting;
 import dev.aether.ui.settings.MultiDropdownSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.PositionSetting;
+import dev.aether.ui.settings.RangeSliderSetting;
 import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.TextSetting;
@@ -22,6 +24,7 @@ import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 public final class PestManagerRegistryProvider extends AbstractModulesRegistryProvider {
     public PestManagerRegistryProvider() {
@@ -33,6 +36,9 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
         List<String> sprayMaterials = FarmingSettingsFactory.sprayMaterials();
         List<String> manualPestSoundOptions = getSoundOptions();
         List<SettingGroup> groups = new ArrayList<>();
+        // Gate for the manual pest hunting assists: the Pest Hunting sub-toggle.
+        Supplier<Boolean> HUNTING = () -> AetherConfig.MANUAL_PEST_MODE.get()
+                && AetherConfig.MANUAL_PEST_HUNTING.get();
 
         groups.add(SettingGroup.of(
                         "Pest ESP",
@@ -73,7 +79,20 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.PEST_ESP_TRACER_COLOR.set(value);
                             AetherConfig.save();
                         })
-                        .visibleWhen(AetherConfig.PEST_ESP_TRACER::get)));
+                        .visibleWhen(AetherConfig.PEST_ESP_TRACER::get))
+                .add(new ToggleSetting("Optimized Route ESP",
+                        AetherConfig.PEST_ESP_PATH::get,
+                        value -> {
+                            AetherConfig.PEST_ESP_PATH.set(value);
+                            AetherConfig.save();
+                        }))
+                .add(new ColorSetting("Optimized Route Color",
+                        AetherConfig.PEST_ESP_PATH_COLOR::get,
+                        value -> {
+                            AetherConfig.PEST_ESP_PATH_COLOR.set(value);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(AetherConfig.PEST_ESP_PATH::get)));
 
         groups.add(SettingGroup.of(
                         "Pest Destroyer",
@@ -211,6 +230,19 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.PEST_HUNTING_VACUUM_PEST_MASK.set(v);
                             AetherConfig.save();
                         }))
+                .add(new ToggleSetting("Hunt ESP",
+                        AetherConfig.PEST_ESP_HUNT::get,
+                        v -> {
+                            AetherConfig.PEST_ESP_HUNT.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(new ColorSetting("Hunt ESP Color",
+                        AetherConfig.PEST_ESP_HUNT_COLOR::get,
+                        v -> {
+                            AetherConfig.PEST_ESP_HUNT_COLOR.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(AetherConfig.PEST_ESP_HUNT::get))
                 .add(new SliderSetting("Follow Distance", 1, 8,
                         AetherConfig.PEST_HUNTING_FOLLOW_DISTANCE::get,
                         v -> {
@@ -369,7 +401,92 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         .addIconAction("/assets/aether/icons/folder.svg", FailsafeSoundManager::openSoundFolder)
                         .addIconAction("/assets/aether/icons/refresh.svg", () -> refreshSoundOptions(manualPestSoundOptions)))
                 .add(new KeybindSetting("Manual Pest Early Finish",
-                        AetherKeybindRegistry.getManualPestEarlyFinishKey())));
+                        AetherKeybindRegistry.getManualPestEarlyFinishKey()))
+                .add(new ToggleSetting("Pest Hunting",
+                        AetherConfig.MANUAL_PEST_HUNTING::get,
+                        v -> {
+                            AetherConfig.MANUAL_PEST_HUNTING.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(() -> AetherConfig.MANUAL_PEST_MODE.get()))
+                .add(new KeybindSetting("Etherwarp Next",
+                        AetherKeybindRegistry.getEtherwarpNextKey())
+                        .visibleWhen(HUNTING))
+                .add(new ToggleSetting("Auto Stun",
+                        AetherConfig.MANUAL_HUNT_AUTO_STUN::get,
+                        v -> {
+                            AetherConfig.MANUAL_HUNT_AUTO_STUN.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(() -> HUNTING.get() && AetherKeybindRegistry.isEtherwarpNextBound()))
+                .add(new SliderSetting("Stun Strength", 1, 10,
+                        () -> (float) AetherConfig.MANUAL_HUNT_STUN_STRENGTH.get(),
+                        v -> {
+                            AetherConfig.MANUAL_HUNT_STUN_STRENGTH.set(Math.round(v));
+                            AetherConfig.save();
+                        })
+                        .withDecimals(0)
+                        .visibleWhen(() -> HUNTING.get() && AetherKeybindRegistry.isEtherwarpNextBound()
+                                && AetherConfig.MANUAL_HUNT_AUTO_STUN.get()))
+                .add(new ToggleSetting("Auto Lasso",
+                        AetherConfig.MANUAL_HUNT_AUTO_LASSO::get,
+                        v -> {
+                            AetherConfig.MANUAL_HUNT_AUTO_LASSO.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(() -> HUNTING.get() && AetherKeybindRegistry.isEtherwarpNextBound()
+                                && AetherConfig.MANUAL_HUNT_AUTO_STUN.get()))
+                .add(new ToggleSetting("Autoreel Lasso",
+                        () -> AetherConfig.MANUAL_HUNT_AUTOREEL.get(),
+                        v -> {
+                            AetherConfig.MANUAL_HUNT_AUTOREEL.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(HUNTING))
+                .add(new RangeSliderSetting("Reel Delay", 0, 2000,
+                        () -> (float) AetherConfig.MANUAL_HUNT_REEL_DELAY_MIN.get(),
+                        () -> (float) AetherConfig.MANUAL_HUNT_REEL_DELAY_MAX.get(),
+                        (lower, upper) -> {
+                            AetherConfig.MANUAL_HUNT_REEL_DELAY_MIN.set(Math.round(lower));
+                            AetherConfig.MANUAL_HUNT_REEL_DELAY_MAX.set(Math.round(upper));
+                            AetherConfig.save();
+                        })
+                        .withDecimals(0).withSuffix("ms")
+                        .visibleWhen(() -> HUNTING.get()
+                                && AetherConfig.MANUAL_HUNT_AUTOREEL.get()))
+                .add(new ToggleSetting("Aim Assist",
+                        () -> AetherConfig.MANUAL_HUNT_AIM_ASSIST.get(),
+                        v -> {
+                            AetherConfig.MANUAL_HUNT_AIM_ASSIST.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(HUNTING))
+                .add(new SliderSetting("Aim Strength", 1, 10,
+                        () -> (float) AetherConfig.MANUAL_HUNT_AIM_STRENGTH.get(),
+                        v -> {
+                            AetherConfig.MANUAL_HUNT_AIM_STRENGTH.set(Math.round(v));
+                            AetherConfig.save();
+                        })
+                        .withDecimals(0)
+                        .visibleWhen(() -> HUNTING.get()
+                                && AetherConfig.MANUAL_HUNT_AIM_ASSIST.get()))
+                .add(new SliderSetting("Etherwarp Rotation Speed", 1, 10,
+                        () -> (float) AetherConfig.MANUAL_HUNT_ETHERWARP_ROTATION.get(),
+                        v -> {
+                            AetherConfig.MANUAL_HUNT_ETHERWARP_ROTATION.set(Math.round(v));
+                            AetherConfig.save();
+                        })
+                        .withDecimals(0)
+                        .visibleWhen(HUNTING))
+                .add(new SliderSetting("Aim FOV", 10, 180,
+                        () -> (float) AetherConfig.MANUAL_HUNT_AIM_FOV.get(),
+                        v -> {
+                            AetherConfig.MANUAL_HUNT_AIM_FOV.set(Math.round(v));
+                            AetherConfig.save();
+                        })
+                        .withDecimals(0).withSuffix("°")
+                        .visibleWhen(() -> HUNTING.get()
+                                && AetherConfig.MANUAL_HUNT_AIM_ASSIST.get())));
 
         groups.add(SettingGroup.of(
                         "Pest Traps",

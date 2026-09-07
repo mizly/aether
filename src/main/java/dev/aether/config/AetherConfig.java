@@ -632,7 +632,7 @@ public final class AetherConfig {
         public static final BooleanEntry AUTO_SELL_BAZAAR = Config.bool("autoSellBazaar", true);
         public static final IntEntry AUTO_SELL_THRESHOLD = Config.integer("autoSellThreshold", 75).range(1, 100);
         public static final IntEntry AUTO_SELL_TIME = Config.integer("autoSellTime", 10).range(1, 60);
-        public static final BooleanEntry AUTO_SELL_BEFORE_VISITORS = Config.bool("autoSellBeforeVisitors", false);
+        public static final BooleanEntry AUTO_SELL_BEFORE_VISITORS = Config.bool("autoSellBeforeVisitors", true);
         public static final BooleanEntry AUTO_SELL_BEFORE_PEST_TRAPS = Config.bool("autoSellBeforePestTraps", false);
         public static final BooleanEntry AUTO_DROP_JUNK = Config.bool("autoDropJunk", false);
         public static final ListEntry<String> AUTO_SELL_ITEMS = Config.list("autoSellItems",
@@ -1096,6 +1096,23 @@ public final class AetherConfig {
         public static final IntEntry PEST_ESP_HIGHLIGHT_COLOR = Config.integer("pestEspHighlightColor", 0xFFFF3030);
         public static final BooleanEntry PEST_ESP_TRACER = Config.bool("pestEspTracer", true);
         public static final IntEntry PEST_ESP_TRACER_COLOR = Config.integer("pestEspTracerColor", 0xFFFF3030);
+        public static final BooleanEntry PEST_ESP_PATH = Config.bool("pestEspPath", false);
+        public static final IntEntry PEST_ESP_PATH_COLOR = Config.integer("pestEspPathColor", 0xFF30FF80);
+        public static final BooleanEntry PEST_ESP_HUNT = Config.bool("pestEspHunt", false);
+        public static final IntEntry PEST_ESP_HUNT_COLOR = Config.integer("pestEspHuntColor", 0xFFFFAA00);
+
+        // -- MANUAL PEST HUNTING (aim + reel assists for manual pest mode) --------
+        public static final BooleanEntry MANUAL_PEST_HUNTING = Config.bool("manualPestHunting", false);
+        public static final BooleanEntry MANUAL_HUNT_AUTOREEL = Config.bool("manualHuntAutoreel", false);
+        public static final IntEntry MANUAL_HUNT_REEL_DELAY_MIN = Config.integer("manualHuntReelDelayMin", 0).range(0, 2000);
+        public static final IntEntry MANUAL_HUNT_REEL_DELAY_MAX = Config.integer("manualHuntReelDelayMax", 0).range(0, 2000);
+        public static final BooleanEntry MANUAL_HUNT_AIM_ASSIST = Config.bool("manualHuntAimAssist", false);
+        public static final IntEntry MANUAL_HUNT_AIM_STRENGTH = Config.integer("manualHuntAimStrength", 5);
+        public static final IntEntry MANUAL_HUNT_ETHERWARP_ROTATION = Config.integer("manualHuntEtherwarpRotation", 5);
+        public static final BooleanEntry MANUAL_HUNT_AUTO_STUN = Config.bool("manualHuntAutoStun", false);
+        public static final IntEntry MANUAL_HUNT_STUN_STRENGTH = Config.integer("manualHuntStunStrength", 5);
+        public static final BooleanEntry MANUAL_HUNT_AUTO_LASSO = Config.bool("manualHuntAutoLasso", false);
+        public static final IntEntry MANUAL_HUNT_AIM_FOV = Config.integer("manualHuntAimFov", 90);
 
         // -- GREENHOUSE ------------------------------------------------------------
         public static final BooleanEntry AUTO_GREENHOUSE = Config.bool("autoGreenhouse", false);
