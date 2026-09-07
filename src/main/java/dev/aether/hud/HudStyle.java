@@ -1,5 +1,6 @@
 package dev.aether.hud;
 
+import dev.aether.config.AetherConfig;
 import dev.aether.macro.MacroState;
 import dev.aether.renderer.NVGRenderer;
 import dev.aether.ui.theme.Theme;
@@ -18,6 +19,11 @@ public final class HudStyle {
     }
 
     public static void panel(NVGRenderer nvg, float width, float height) {
+        if (AetherConfig.HUD_PANEL_FROSTED.get()) {
+            nvg.blur(0, 0, width, height, RADIUS, 20f);
+            nvg.rectOutline(0, 0, width, height, RADIUS, 1f, Theme.HUD_BORDER);
+            return;
+        }
         nvg.shadow(0, 2, width, height, RADIUS, 10f, alpha(Theme.HUD_BG & 0xFF000000, 0.3f));
         nvg.roundedRect(0, 0, width, height, RADIUS, Theme.HUD_BG);
         nvg.rectOutline(0, 0, width, height, RADIUS, 0.8f, Theme.HUD_BORDER);

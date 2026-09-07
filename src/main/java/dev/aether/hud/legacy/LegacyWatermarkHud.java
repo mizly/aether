@@ -1,7 +1,6 @@
-package dev.aether.hud;
+package dev.aether.hud.legacy;
 
 import dev.aether.config.AetherConfig;
-import dev.aether.hud.legacy.LegacyWatermarkHud;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.misc.AutoCarnivalManager;
@@ -18,23 +17,35 @@ import net.minecraft.client.Minecraft;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
-public class WatermarkHudElement extends HudElement {
+/**
+ * Pre-Ryn rendering for the Watermark HUD. Preserves the two-phase width
+ * animation and the icon-per-info-row look.
+ */
+public final class LegacyWatermarkHud {
+    public static final String NAME    = "Aether";
+    public static final String VERSION = "DEBUG";
 
-    private static final String NAME    = "Aether";
-    private static final String VERSION = "DEBUG";
+    public static final float PAD_H     = 10f;
+    public static final float PAD_V     = 6f;
+    public static final float NAME_SZ   = 14f;
+    public static final float VER_SZ    = 8f;
+    public static final float INFO_SZ   = 10f;
+    public static final float CORNER    = 5f;
+    public static final float ICON_SZ   = 12f;
+    public static final float ICON_GAP  = 3f;
+    public static final float SEP       = 10f;
+    public static final float BADGE_PAD = 5f;
+    public static final float BADGE_R   = 3f;
+    public static final float SHRINK_SPEED_MULT = 0.5f;
+    public static final float GROW_SPEED_MULT   = 0.3f;
 
-    private static final float PAD_H     = 12f;
-    private static final float PAD_V     = 9f;
-    private static final float NAME_SZ   = 14f;
-    private static final float VER_SZ    = 8f;
-    private static final float INFO_SZ   = 10f;
-    private static final float ICON_SZ   = 12f;
-    private static final float ICON_GAP  = 3f;
-    private static final float SEP       = 14f;
-    private static final float BADGE_PAD = 5f;
-    private static final float BADGE_R   = 3f;
-    private static final float SHRINK_SPEED_MULT = 0.5f;
-    private static final float GROW_SPEED_MULT   = 0.3f;
+    public static final float WIDTH  = PAD_H * 2f + 200f;
+    public static final float HEIGHT = PAD_V * 2f + NAME_SZ;
+
+    private static final int BPS_GREEN  = 0xFF8AFFA0;
+    private static final int BPS_YELLOW = 0xFFFFE08A;
+    private static final int BPS_ORANGE = 0xFFFFBB88;
+    private static final int BPS_RED    = 0xFFFF8A8A;
 
     private static final String LOGO_ICON        = "/assets/aether/icons/logo.svg";
     private static final String PERSON_ICON      = "/assets/aether/icons/person.svg";
@@ -47,46 +58,24 @@ public class WatermarkHudElement extends HudElement {
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("HH:mm:ss");
 
-    // Animation state
-    private float   animW       = -1f;
-    private boolean renderMacro = false;
-    private int     animStep    = 0;   // 0=idle, 1=shrinking, 2=growing
+    private static float   animW       = -1f;
+    private static boolean renderMacro = false;
+    private static int     animStep    = 0;
 
-    @Override public float   getX()            { return AetherConfig.WATERMARK_HUD_X.get(); }
-    @Override public float   getY()            { return AetherConfig.WATERMARK_HUD_Y.get(); }
-    @Override public void    setX(float x)     { AetherConfig.WATERMARK_HUD_X.set((int) x); }
-    @Override public void    setY(float y)     { AetherConfig.WATERMARK_HUD_Y.set((int) y); }
-    @Override public float   getScale()        { return AetherConfig.WATERMARK_HUD_SCALE.get(); }
-    @Override public void    setScale(float s) { AetherConfig.WATERMARK_HUD_SCALE.set(s); }
-    @Override public float   getWidth()        {
-        if (AetherConfig.HUD_PANEL_FROSTED.get()) return LegacyWatermarkHud.WIDTH;
-        return animW < 0f ? PAD_H * 2f + 200f : animW;
-    }
-    @Override public float   getHeight()       {
-        if (AetherConfig.HUD_PANEL_FROSTED.get()) return LegacyWatermarkHud.HEIGHT;
-        return PAD_V * 2f + NAME_SZ;
-    }
-    @Override public boolean isVisible()       { return (AetherConfig.HUD_THEME.get() & 0x2) != 0; }
-    @Override public String  getName()         { return "Watermark"; }
-    @Override public void    savePosition()    { AetherConfig.save(); }
+    private LegacyWatermarkHud() {}
 
-    @Override
-    protected void renderElement(NVGRenderer nvg, boolean editMode) {
-        if (AetherConfig.HUD_PANEL_FROSTED.get()) {
-            LegacyWatermarkHud.renderElement(nvg, isDragging(), isResizing(), editMode);
-            return;
-        }
+    public static void renderElement(NVGRenderer nvg, boolean isDragging, boolean isResizing, boolean editMode) {
         Minecraft mc = Minecraft.getInstance();
 
         boolean showLogo  = AetherConfig.WATERMARK_SHOW_LOGO.get();
         boolean showName  = AetherConfig.WATERMARK_SHOW_NAME.get();
         boolean gradient  = AetherConfig.WATERMARK_GRADIENT.get();
-        int     gradLeft  = gradient ? AetherConfig.WATERMARK_GRADIENT_LEFT.get()  : Theme.HUD_ACCENT;
-        int     gradRight = gradient ? AetherConfig.WATERMARK_GRADIENT_COLOR.get() : Theme.HUD_ACCENT;
+        int     gradLeft  = gradient ? AetherConfig.WATERMARK_GRADIENT_LEFT.get()  : Theme.ACCENT_PRIMARY;
+        int     gradRight = gradient ? AetherConfig.WATERMARK_GRADIENT_COLOR.get() : Theme.ACCENT_PRIMARY;
 
         boolean wantMacro = AetherConfig.WATERMARK_SHOW_MACRO_STATUS.get() && MacroStateManager.isMacroRunning();
 
-        float h      = getHeight();
+        float h      = HEIGHT;
         float nameW  = nvg.textWidth(Fonts.BOLD, NAME,    NAME_SZ);
         float verW   = nvg.textWidth(Fonts.BOLD, VERSION, VER_SZ);
         float brandW = PAD_H
@@ -94,7 +83,6 @@ public class WatermarkHudElement extends HudElement {
                 + (showName ? nameW  + 2f  : 0)
                 + verW + 1f + PAD_H;
 
-        // ---- Normal info data -----------------------------------------------
         boolean showUser = AetherConfig.WATERMARK_SHOW_USERNAME.get();
         boolean showFps  = AetherConfig.WATERMARK_SHOW_FPS.get();
         boolean showPing = AetherConfig.WATERMARK_SHOW_PING.get();
@@ -102,7 +90,6 @@ public class WatermarkHudElement extends HudElement {
         String custom    = AetherConfig.WATERMARK_CUSTOM_USERNAME.get();
         String username  = !custom.isEmpty() ? custom
                          : mc.player != null ? mc.player.getName().getString() : "---";
-        username = HudStyle.fit(nvg, Fonts.REGULAR, username, INFO_SZ, 110f);
         String fps  = mc.getFps() + " fps";
         String ping = getPing(mc);
         String time = LocalTime.now().format(TIME_FMT);
@@ -111,14 +98,27 @@ public class WatermarkHudElement extends HudElement {
         float pingW = showPing ? nvg.textWidth(Fonts.REGULAR, ping,     INFO_SZ) : 0;
         float timeW = showTime ? nvg.textWidth(Fonts.REGULAR, time,     INFO_SZ) : 0;
 
-        // ---- Macro status data ----------------------------------------------
         MacroState.State st = MacroStateManager.getCurrentState();
-        String stateStr = st.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
-        int stateColor = HudStyle.stateColor(st);
+        String stateStr  = "off";
+        int    stateColor = 0xFFFF8A8A;
+        switch (st) {
+            case FARMING         -> { stateStr = "farming";         stateColor = 0xFF8AFFA0; }
+            case METAL_DETECTING -> { stateStr = "metal detecting"; stateColor = 0xFFFFD166; }
+            case AUTO_CARNIVAL   -> { stateStr = "auto carnival";   stateColor = 0xFFFF8A5B; }
+            case CLEANING        -> { stateStr = "cleaning";        stateColor = 0xFFFFBB88; }
+            case RECOVERING      -> { stateStr = "recovering";      stateColor = 0xFFFF8A8A; }
+            case VISITING        -> { stateStr = "visitor";         stateColor = 0xFF8AFFFF; }
+            case AUTOSELLING     -> { stateStr = "autoselling";     stateColor = 0xFFCC8AFF; }
+            case WARDROBE        -> { stateStr = "wardrobe";        stateColor = 0xFFFFE08A; }
+            case EQUIPMENT       -> { stateStr = "equipment";       stateColor = 0xFFFFE08A; }
+            case GEORGE          -> { stateStr = "george";          stateColor = 0xFFFF8ACC; }
+            case DROPPING_JUNK   -> { stateStr = "dropping junk";   stateColor = 0xFFFFBB88; }
+            default -> {}
+        }
         boolean farming  = (st == MacroState.State.FARMING);
         boolean autoCarnival = (st == MacroState.State.AUTO_CARNIVAL);
         double  bps      = BpsTracker.getBps();
-        int     bpsClr   = HudStyle.bpsColor(bps);
+        int     bpsClr   = bpsColor(bps);
         String  bpsStr   = String.format("%.1f bps", bps);
         long totalProfit = ProfitManager.getTotalProfit(false);
         long sesMs       = MacroStateManager.getSessionRunningTime();
@@ -139,12 +139,10 @@ public class WatermarkHudElement extends HudElement {
         float sessW      = nvg.textWidth(Fonts.MONO, sessStr, INFO_SZ);
         float dayW       = nvg.textWidth(Fonts.MONO, dayStr, INFO_SZ);
 
-        // ---- Compute full target width for current renderMacro ---------------
-        float fullW = computeFullW(animW < 0f ? wantMacro : renderMacro, brandW, farming,
+        float fullW = computeFullW(renderMacro, brandW, farming,
                 badgeW, bpsW, cphW, restW, sessW, dayW,
                 showUser, userW, showFps, fpsW, showPing, pingW, showTime, timeW);
 
-        // ---- Two-phase animation state machine -------------------------------
         if (animW < 0f) {
             renderMacro = wantMacro;
             animW       = fullW;
@@ -161,7 +159,7 @@ public class WatermarkHudElement extends HudElement {
                         showUser, userW, showFps, fpsW, showPing, pingW, showTime, timeW);
                 animStep    = 2;
             }
-        } else { // GROWING
+        } else {
             if (Math.abs(animW - fullW) < 1.5f) { animW = fullW; animStep = 0; }
             if (wantMacro != renderMacro) animStep = 1;
         }
@@ -171,10 +169,20 @@ public class WatermarkHudElement extends HudElement {
         animW += (targetW - animW) * speed;
         float w = animW;
 
-        HudStyle.panel(nvg, w, h);
-        HudStyle.accent(nvg, w, gradLeft, gradRight);
+        nvg.roundedRect(0, 0, w, h, CORNER, Theme.HUD_BG);
+        if (gradient) {
+            nvg.rectOutlineVerticalSidesGradient(0, 0, w, h, CORNER, 1f,
+                    Theme.withAlpha(gradLeft, 0.7f),
+                    Theme.withAlpha(gradRight, 0.7f), 0.4f);
+        } else {
+            nvg.rectOutlineVerticalSides(0, 0, w, h, CORNER, 1f,
+                    Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.7f), 0.4f);
+        }
+        if (editMode) {
+            int border = isDragging ? Theme.HUD_ACCENT : isResizing ? Theme.HUD_WARNING : Theme.HUD_BORDER;
+            nvg.roundedRect(-1, -1, w + 2, h + 2, CORNER + 1, border);
+        }
 
-        // ---- Content (clipped to animated width) ----------------------------
         nvg.save();
         nvg.scissor(0, 0, w, h);
 
@@ -184,69 +192,60 @@ public class WatermarkHudElement extends HudElement {
         float infoY = cy - INFO_SZ / 2f + 0.5f;
         float cx    = PAD_H;
 
-        // Brand: logo + name + version
         if (showLogo) {
             nvg.renderSVG(LOGO_ICON, cx, iconY, ICON_SZ, ICON_SZ,
                     accent(cx + ICON_SZ / 2f, w, gradient, gradLeft, gradRight));
             cx += ICON_SZ + 4f;
         }
         if (showName) {
-            nvg.text(Fonts.BOLD, NAME, cx, textY, NAME_SZ, Theme.HUD_TITLE);
+            nvg.text(Fonts.BOLD, NAME, cx, textY, NAME_SZ,
+                    accent(cx + nameW / 2f, w, gradient, gradLeft, gradRight));
             cx += nameW + 2f;
         }
-        nvg.text(Fonts.BOLD, VERSION, cx, textY + VER_SZ / 2f + 0.5f, VER_SZ, Theme.HUD_LABEL);
+        nvg.text(Fonts.BOLD, VERSION, cx, textY + VER_SZ / 2f + 0.5f, VER_SZ, Theme.TEXT_DIM);
         cx += verW;
 
         if (renderMacro) {
-            // State badge
             cx += SEP;
             float badgeH = h - PAD_V * 2f + 2f;
             float badgeY = cy - badgeH / 2f;
-            nvg.roundedRect(cx, badgeY, badgeW, badgeH, BADGE_R, HudStyle.alpha(stateColor, 0.14f));
-            nvg.rectOutline(cx, badgeY, badgeW, badgeH, BADGE_R, 1f, HudStyle.alpha(stateColor, 0.5f));
+            nvg.roundedRect(cx, badgeY, badgeW, badgeH, BADGE_R, Theme.withAlpha(stateColor, 0x25));
+            nvg.rectOutline(cx, badgeY, badgeW, badgeH, BADGE_R, 1f, Theme.withAlpha(stateColor, 0x80));
             nvg.text(Fonts.BOLD, stateStr, cx + BADGE_PAD, infoY, INFO_SZ, stateColor);
             cx += badgeW;
 
-            // BPS - farming only
             if (farming) {
-                separator(nvg, cx, h);
                 cx += SEP;
                 nvg.renderSVG(PERFORMANCE_ICON, cx, iconY, ICON_SZ, ICON_SZ, bpsClr);
                 cx += ICON_SZ + ICON_GAP;
-                nvg.text(Fonts.MONO, bpsStr, cx, infoY, INFO_SZ, Theme.HUD_VALUE);
+                nvg.text(Fonts.MONO, bpsStr, cx, infoY, INFO_SZ, bpsClr);
                 cx += bpsW;
             }
 
-            // Cash per hour
             cx += SEP;
             nvg.renderSVG(CASH_ICON, cx, iconY, ICON_SZ, ICON_SZ, Theme.HUD_LABEL);
             cx += ICON_SZ + ICON_GAP;
             nvg.text(Fonts.MONO, cphStr, cx, infoY, INFO_SZ, Theme.HUD_VALUE);
             cx += cphW;
 
-            // Next rest
             cx += SEP;
             nvg.renderSVG(REFRESH_ICON, cx, iconY, ICON_SZ, ICON_SZ, Theme.HUD_LABEL);
             cx += ICON_SZ + ICON_GAP;
             nvg.text(Fonts.MONO, restStr, cx, infoY, INFO_SZ, Theme.HUD_VALUE);
             cx += restW;
 
-            // Session timer
             cx += SEP;
             nvg.renderSVG(CLOCK_ICON, cx, iconY, ICON_SZ, ICON_SZ, Theme.HUD_LABEL);
             cx += ICON_SZ + ICON_GAP;
             nvg.text(Fonts.MONO, sessStr, cx, infoY, INFO_SZ, Theme.HUD_VALUE);
             cx += sessW;
 
-            // Daily timer
             cx += SEP;
             nvg.renderSVG(CALENDAR_ICON, cx, iconY, ICON_SZ, ICON_SZ, Theme.HUD_LABEL);
             cx += ICON_SZ + ICON_GAP;
             nvg.text(Fonts.MONO, dayStr, cx, infoY, INFO_SZ, Theme.HUD_VALUE);
-
         } else {
             if (showUser) {
-                separator(nvg, cx, h);
                 cx += SEP;
                 nvg.renderSVG(PERSON_ICON, cx, iconY, ICON_SZ, ICON_SZ,
                         accent(cx + ICON_SZ / 2f, w, gradient, gradLeft, gradRight));
@@ -255,7 +254,6 @@ public class WatermarkHudElement extends HudElement {
                 cx += userW;
             }
             if (showFps) {
-                separator(nvg, cx, h);
                 cx += SEP;
                 nvg.renderSVG(PERFORMANCE_ICON, cx, iconY, ICON_SZ, ICON_SZ,
                         accent(cx + ICON_SZ / 2f, w, gradient, gradLeft, gradRight));
@@ -264,7 +262,6 @@ public class WatermarkHudElement extends HudElement {
                 cx += fpsW;
             }
             if (showPing) {
-                separator(nvg, cx, h);
                 cx += SEP;
                 nvg.renderSVG(SIGNAL_ICON, cx, iconY, ICON_SZ, ICON_SZ,
                         accent(cx + ICON_SZ / 2f, w, gradient, gradLeft, gradRight));
@@ -273,7 +270,6 @@ public class WatermarkHudElement extends HudElement {
                 cx += pingW;
             }
             if (showTime) {
-                separator(nvg, cx, h);
                 cx += SEP;
                 nvg.renderSVG(CLOCK_ICON, cx, iconY, ICON_SZ, ICON_SZ,
                         accent(cx + ICON_SZ / 2f, w, gradient, gradLeft, gradRight));
@@ -284,8 +280,6 @@ public class WatermarkHudElement extends HudElement {
 
         nvg.restore();
     }
-
-    // ---- Helpers ---------------------------------------------------------------
 
     private static float computeFullW(boolean macro, float brandW, boolean farming,
                                        float badgeW, float bpsW, float cphW, float restW, float sessW, float dayW,
@@ -309,13 +303,25 @@ public class WatermarkHudElement extends HudElement {
     }
 
     private static int accent(float cx, float totalW, boolean gradient, int gradLeft, int gradRight) {
-        if (!gradient) return Theme.HUD_ACCENT;
+        if (!gradient) return Theme.ACCENT_PRIMARY;
         float t = totalW > 0f ? Math.max(0f, Math.min(1f, cx / totalW)) : 0f;
-        return Theme.blend(gradLeft, gradRight, t);
+        return lerpColor(gradLeft, gradRight, t);
     }
 
-    private static void separator(NVGRenderer nvg, float x, float height) {
-        nvg.rect(x + SEP / 2f, 10f, 0.7f, height - 20f, Theme.HUD_SEP);
+    private static int bpsColor(double bps) {
+        if (bps >= 18.5) return BPS_GREEN;
+        if (bps >= 16.0) return lerpColor(BPS_YELLOW, BPS_GREEN,  (float)((bps - 16.0) / 2.5));
+        if (bps >= 14.0) return lerpColor(BPS_ORANGE, BPS_YELLOW, (float)((bps - 14.0) / 2.0));
+        return lerpColor(BPS_RED, BPS_ORANGE, (float)(Math.max(0, bps) / 14.0));
+    }
+
+    private static int lerpColor(int a, int b, float t) {
+        int aa = (a >> 24) & 0xFF, ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+        int ba = (b >> 24) & 0xFF, br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+        return ((int)(aa + (ba - aa) * t) << 24)
+             | ((int)(ar + (br - ar) * t) << 16)
+             | ((int)(ag + (bg - ag) * t) << 8)
+             |  (int)(ab + (bb - ab) * t);
     }
 
     private static String fmtCompact(long v) {

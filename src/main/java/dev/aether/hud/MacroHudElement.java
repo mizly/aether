@@ -1,6 +1,7 @@
 package dev.aether.hud;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.hud.legacy.LegacyMacroHud;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.farming.FastLaneSwitchManager;
@@ -24,8 +25,8 @@ public class MacroHudElement extends HudElement {
     @Override public void    setY(float y)    { AetherConfig.HUD_Y.set((int) y); }
     @Override public float   getScale()       { return AetherConfig.HUD_SCALE.get(); }
     @Override public void    setScale(float s){ AetherConfig.HUD_SCALE.set(s); }
-    @Override public float   getWidth()       { return W; }
-    @Override public float   getHeight()      { return computeHeight(); }
+    @Override public float   getWidth()       { return AetherConfig.HUD_PANEL_FROSTED.get() ? LegacyMacroHud.W : W; }
+    @Override public float   getHeight()      { return AetherConfig.HUD_PANEL_FROSTED.get() ? LegacyMacroHud.computeHeight() : computeHeight(); }
     @Override public boolean isEnabled()      { return AetherConfig.SHOW_HUD.get(); }
     @Override public boolean isVisible()      {
         boolean inSupportedArea = ClientUtils.isSupportedHudArea();
@@ -40,6 +41,10 @@ public class MacroHudElement extends HudElement {
 
     @Override
     protected void renderElement(NVGRenderer nvg, boolean editMode) {
+        if (AetherConfig.HUD_PANEL_FROSTED.get()) {
+            LegacyMacroHud.renderElement(nvg, isDragging(), isResizing(), editMode);
+            return;
+        }
         MacroState.State state = MacroStateManager.getCurrentState();
         String stateLabel = state.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ');
         long sessionMs = MacroStateManager.getSessionRunningTime();
