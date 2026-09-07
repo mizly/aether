@@ -36,22 +36,37 @@ public final class EtherwarpExecutor {
     private static final long WARP_SETTLE_TIMEOUT_MS = 900L;
     private static final int MAX_WARP_ATTEMPTS = 3;
     private static final double WAYPOINT_REACHED_DIST = 1.35;
+    private static final long DEFAULT_ROTATION_DURATION_MS = 80L;
 
     private State state = State.IDLE;
     private List<Node> path = List.of();
     private int waypointIndex = 1;
     private long stateSince = 0L;
     private int warpAttempts = 0;
+    private long rotationDurationMs = DEFAULT_ROTATION_DURATION_MS;
+    private int maxWarpAttempts = MAX_WARP_ATTEMPTS;
     private Vec3 warpStartPos = Vec3.ZERO;
     private Runnable onFinished;
     private Function<FailureReason, Boolean> onFailed;
 
     public void start(List<Node> path, Runnable onFinished, Function<FailureReason, Boolean> onFailed) {
+        start(path, DEFAULT_ROTATION_DURATION_MS, MAX_WARP_ATTEMPTS, onFinished, onFailed);
+    }
+
+    public void start(List<Node> path, long rotationDurationMs,
+                      Runnable onFinished, Function<FailureReason, Boolean> onFailed) {
+        start(path, rotationDurationMs, MAX_WARP_ATTEMPTS, onFinished, onFailed);
+    }
+
+    public void start(List<Node> path, long rotationDurationMs, int maxWarpAttempts,
+                      Runnable onFinished, Function<FailureReason, Boolean> onFailed) {
         this.path = path == null ? List.of() : new ArrayList<>(path);
         this.waypointIndex = this.path.size() > 1 ? 1 : this.path.size();
         this.state = this.path.size() <= 1 ? State.FINISHED : State.IDLE;
         this.stateSince = System.currentTimeMillis();
         this.warpAttempts = 0;
+        this.rotationDurationMs = Math.max(1L, rotationDurationMs);
+        this.maxWarpAttempts = Math.max(1, maxWarpAttempts);
         this.warpStartPos = Vec3.ZERO;
         this.onFinished = onFinished;
         this.onFailed = onFailed;
@@ -104,7 +119,7 @@ public final class EtherwarpExecutor {
         long now = System.currentTimeMillis();
         if (state == State.WAITING_FOR_WARP) {
             if (now - stateSince > WARP_SETTLE_TIMEOUT_MS) {
-                if (warpAttempts >= MAX_WARP_ATTEMPTS) {
+                if (warpAttempts >= maxWarpAttempts) {
                     fail(mc, FailureReason.WARP_TIMEOUT,
                             "Etherwarp timed out at waypoint " + waypointIndex + ".");
                     return;
@@ -124,7 +139,7 @@ public final class EtherwarpExecutor {
             if (!RotationManager.isRotating() || now - stateSince > ROTATION_RETRY_MS) {
                 RotationManager.cancelRotation();
                 RotationUtils.Rotation lookRotation = RotationUtils.calculateLookAt(eyePos, targetPoint);
-                RotationManager.rotateToYawPitch(mc, lookRotation.yaw, lookRotation.pitch, 80L);
+                RotationManager.rotateToYawPitch(mc, lookRotation.yaw, lookRotation.pitch, rotationDurationMs);
                 state = State.ROTATING;
                 stateSince = now;
             }

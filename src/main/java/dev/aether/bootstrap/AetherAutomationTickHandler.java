@@ -23,6 +23,8 @@ import dev.aether.modules.pest.DynamicPestsManager;
 import dev.aether.modules.pest.ManualPestManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.pest.helpers.AutoPestExchangeManager;
+import dev.aether.modules.pest.helpers.EtherwarpNextController;
+import dev.aether.modules.pest.helpers.ManualHuntingController;
 import dev.aether.modules.pest.helpers.AutoSprayonatorManager;
 import dev.aether.modules.pest.helpers.PestAotvManager;
 import dev.aether.modules.pest.helpers.PestBonusManager;
@@ -136,6 +138,8 @@ public final class AetherAutomationTickHandler {
         AutoPestExchangeManager.update();
         PestManager.update();
         ManualPestManager.update();
+        ManualHuntingController.tick(client);
+        EtherwarpNextController.tick(client);
         CropFeverManager.update();
         AutoSprayonatorManager.update();
         DynamicPestsManager.update();

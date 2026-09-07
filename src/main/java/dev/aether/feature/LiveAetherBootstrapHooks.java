@@ -15,6 +15,7 @@ import dev.aether.modules.farming.UngrabMouse;
 import dev.aether.modules.pathfinding.rotation.RotationExecutor;
 import dev.aether.modules.performance.MuteManager;
 import dev.aether.modules.performance.PerformanceModeManager;
+import dev.aether.modules.pest.helpers.ManualHuntingController;
 import dev.aether.modules.pest.helpers.PestDestroyer;
 import dev.aether.modules.pest.helpers.VacuumParticleDebug;
 import dev.aether.modules.pest.helpers.PestTrackerAbility;
@@ -156,6 +157,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
         }
         RotationManager.update();
         RotationExecutor.update();
+        ManualHuntingController.tickAim(minecraft);
     }
 
     @Override

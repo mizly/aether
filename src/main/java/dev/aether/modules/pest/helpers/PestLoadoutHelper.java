@@ -33,6 +33,11 @@ final class PestLoadoutHelper {
         return -1;
     }
 
+    /** Lowest-tier vacuum in the hotbar (the Skymart Vacuum), used to stun without killing. */
+    static int findLowestVacuumHotbarSlot(Minecraft client) {
+        return findAutomaticVacuumSlots(client)[0];
+    }
+
     /** Returns [lowest-rarity stun slot, highest-rarity kill slot]. */
     static int[] findAutomaticVacuumSlots(Minecraft client) {
         if (client.player == null) return new int[] {-1, -1};
