@@ -12,6 +12,9 @@ import dev.aether.modules.pest.PestManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.CommandUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Coordinates one pest cycle without coupling the setup and teardown work to
@@ -217,7 +220,7 @@ public final class PestLifecycleManager {
             return;
         }
 
-        int vacuumSlot = PestLoadoutHelper.findVacuumHotbarSlot(client);
+        int vacuumSlot = pickStartingVacuumSlot(client);
         if (vacuumSlot < 0) {
             ClientUtils.sendMessage("\u00A7cManual Pest Mode: no vacuum found in hotbar.", false);
             ClientUtils.sendDebugMessage("Manual Pest Mode: Switch to Vacuum When Start enabled, but no vacuum was found.");
@@ -226,6 +229,41 @@ public final class PestLifecycleManager {
 
         FailsafeManager.selectHotbarSlot(client, vacuumSlot);
         ClientUtils.sendDebugMessage("Manual Pest Mode: switched to vacuum slot " + (vacuumSlot + 1) + ".");
+    }
+
+    // Pick the appropriate vacuum for the closest loaded pest: hunt pest -> lowest
+    // (stun) vacuum so the follow-up lasso can land; vacuum-list pest -> highest
+    // tier so it dies fast. Falls back to the previous behavior when nothing's near.
+    private static int pickStartingVacuumSlot(Minecraft client) {
+        Entity closest = findClosestPest(client);
+        if (closest == null) {
+            return PestLoadoutHelper.findVacuumHotbarSlot(client);
+        }
+        int[] slots = PestLoadoutHelper.findAutomaticVacuumSlots(client);
+        if (slots[0] < 0) {
+            return PestLoadoutHelper.findVacuumHotbarSlot(client);
+        }
+        boolean vacuumTarget = PestHuntingPolicy.isVacuumTarget(client, closest);
+        return vacuumTarget ? slots[1] : slots[0];
+    }
+
+    private static Entity findClosestPest(Minecraft client) {
+        if (client.player == null) return null;
+        Vec3 playerPos = client.player.position();
+        Entity closest = null;
+        double closestSq = Double.MAX_VALUE;
+        for (Entity entity : PestTargetTracker.getLoadedPestMobs(client)) {
+            if (entity == null || entity.isRemoved()
+                    || (entity instanceof LivingEntity living && living.isDeadOrDying())) {
+                continue;
+            }
+            double distSq = entity.position().distanceToSqr(playerPos);
+            if (distSq < closestSq) {
+                closestSq = distSq;
+                closest = entity;
+            }
+        }
+        return closest;
     }
 
     static boolean shouldSkipCleaningAfterBallsack(

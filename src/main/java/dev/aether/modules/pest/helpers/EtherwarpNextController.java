@@ -4,6 +4,7 @@ import dev.aether.config.AetherConfig;
 import dev.aether.macro.MacroInput;
 import dev.aether.macro.MacroState;
 import dev.aether.modules.failsafe.FailsafeManager;
+import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.pest.ManualPestManager;
 import dev.aether.modules.pathfinding.Node;
 import dev.aether.modules.pathfinding.etherwarp.EtherwarpHelper;
@@ -23,9 +24,10 @@ import java.util.List;
 
 /**
  * Hotkey "Etherwarp Next": crouches, aims at the block beneath the nearest pest
- * (the head of the optimal route) and etherwarps onto it in one tap. With Auto
- * Stun on it then turns to the pest, taps the vacuum to stun and swaps to the
- * lasso; with Auto Lasso on it also throws the lasso.
+ * (the head of the optimal route) and etherwarps onto it in one tap. When no
+ * AOTV is in the hotbar it falls back to the shared walker to close on the
+ * pest. With Auto Stun on it then turns to the pest, taps the vacuum to stun
+ * and swaps to the lasso; with Auto Lasso on it also throws the lasso.
  */
 public final class EtherwarpNextController {
     // Ignore a pest we are essentially standing on so repeated taps move onward.
@@ -35,13 +37,18 @@ public final class EtherwarpNextController {
     private static final float STUN_AIM_TOLERANCE_DEGREES = 4.0f;
     private static final long STUN_TIMEOUT_MS = 3000L;
     private static final long LASSO_THROW_DELAY_MS = 150L;
+    // Walk fallback tuning: give the walker up to this long to close in before
+    // giving up, and re-target the pest at most this often as it moves.
+    private static final long WALK_TIMEOUT_MS = 15000L;
+    private static final long WALK_RETARGET_COOLDOWN_MS = 400L;
 
-    private enum Phase { IDLE, WARP, STUN_AIM, SWAP_LASSO, THROW }
+    private enum Phase { IDLE, WARP, WALK, STUN_AIM, SWAP_LASSO, THROW }
 
     private static final EtherwarpExecutor executor = new EtherwarpExecutor();
     private static Phase phase = Phase.IDLE;
     private static long phaseSince = 0L;
     private static int targetPestId = -1;
+    private static long lastWalkRetargetAt = 0L;
 
     private EtherwarpNextController() {
     }
@@ -62,15 +69,25 @@ public final class EtherwarpNextController {
         // Lock onto this exact pest so the stun targets the one we warp to, not
         // whatever happens to be closest after we land.
         targetPestId = pest.getId();
+
+        // Without an AOTV in the hotbar, fall through to a walking approach that
+        // uses the shared pathfinder to close on the pest and then stuns as usual.
+        if (PestLoadoutHelper.findAotvHotbarSlot(client) < 0) {
+            startWalkFollow(client, pest);
+            return;
+        }
+
         WalkabilityChecker checker = new WalkabilityChecker(client.level);
         PathPosition landing = resolveLanding(checker, pest);
         if (landing == null) {
             ClientUtils.sendMessage("§cEtherwarp Next: no landing under that pest.", false);
+            targetPestId = -1;
             return;
         }
         Vec3 eye = EtherwarpHelper.getEyePosition(client, client.player.position());
         if (EtherwarpHelper.findVisibleTargetPoint(client, checker, eye, landing) == null) {
             ClientUtils.sendMessage("§cEtherwarp Next: no line of sight to that pest.", false);
+            targetPestId = -1;
             return;
         }
 
@@ -83,6 +100,29 @@ public final class EtherwarpNextController {
             ClientUtils.sendMessage("§cEtherwarp Next failed: " + describe(reason), false);
             return true;
         });
+    }
+
+    private static void startWalkFollow(Minecraft client, Entity pest) {
+        setPhase(Phase.WALK);
+        lastWalkRetargetAt = 0L;
+        requestWalkTo(client, pest);
+    }
+
+    private static void requestWalkTo(Minecraft client, Entity pest) {
+        long now = System.currentTimeMillis();
+        if (now - lastWalkRetargetAt < WALK_RETARGET_COOLDOWN_MS) {
+            return;
+        }
+        lastWalkRetargetAt = now;
+        PathfindingManager.startConfiguredWalk(
+                client,
+                pest.position(),
+                () -> {},
+                () -> {},
+                true,   // allow replan
+                0.75,   // precise enough to end near the pest without pixel-hunting
+                false,  // strictGoalCompletion
+                false); // requireFullPath
     }
 
     public static void tick(Minecraft client) {
@@ -101,11 +141,41 @@ public final class EtherwarpNextController {
         }
         switch (phase) {
             case WARP -> tickWarp(client);
+            case WALK -> tickWalk(client);
             case STUN_AIM -> tickStunAim(client);
             case SWAP_LASSO -> tickSwapLasso(client);
             case THROW -> tickThrow(client);
             default -> {
             }
+        }
+    }
+
+    private static void tickWalk(Minecraft client) {
+        Entity pest = resolveTargetPest(client);
+        if (pest == null) {
+            PathfindingManager.stop(false);
+            finish(client);
+            return;
+        }
+        if (client.player.distanceTo(pest) <= STUN_RANGE) {
+            PathfindingManager.stop(false);
+            if (AetherConfig.MANUAL_HUNT_AUTO_STUN.get()
+                    && !PestHuntingPolicy.isVacuumTarget(client, pest)) {
+                setPhase(Phase.STUN_AIM);
+            } else {
+                swapToVacuum(client);
+                finish(client);
+            }
+            return;
+        }
+        if (System.currentTimeMillis() - phaseSince > WALK_TIMEOUT_MS) {
+            ClientUtils.sendMessage("§cEtherwarp Next: could not reach pest in time.", false);
+            PathfindingManager.stop(false);
+            finish(client);
+            return;
+        }
+        if (!PathfindingManager.isNavigating()) {
+            requestWalkTo(client, pest);
         }
     }
 
@@ -215,6 +285,9 @@ public final class EtherwarpNextController {
         if (phase == Phase.WARP) {
             executor.stop(client);
         }
+        if (phase == Phase.WALK) {
+            PathfindingManager.stop(false);
+        }
         endSequence(client);
     }
 
@@ -230,6 +303,7 @@ public final class EtherwarpNextController {
         }
         phase = Phase.IDLE;
         targetPestId = -1;
+        lastWalkRetargetAt = 0L;
     }
 
     private static Entity resolveTargetPest(Minecraft client) {
