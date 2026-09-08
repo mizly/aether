@@ -34,6 +34,21 @@ public class RotationManager {
     private static boolean trackingMode = false;
     private static float trackingSmoothingMs = 0.0f;
 
+    // WindMouse ("human cursor") state for the point-to-point turn onto a target.
+    private static final double SQRT3 = Math.sqrt(3.0);
+    private static final double SQRT5 = Math.sqrt(5.0);
+    private static final double WIND_ITER_MS = 6.0;
+    private static final double WIND_DAMP_DISTANCE = 8.0;
+    private static final double WIND_MAX_STEP = 2.5;
+    private static final double WIND_ARRIVAL_DEGREES = 0.35;
+    private static boolean windMode = false;
+    private static double windYaw = 0.0;
+    private static double windPitch = 0.0;
+    private static double windVx = 0.0;
+    private static double windVy = 0.0;
+    private static double windWx = 0.0;
+    private static double windWy = 0.0;
+
     public static boolean isRotating() {
         return isRotating;
     }
@@ -49,6 +64,7 @@ public class RotationManager {
         hasLastApplied = false;
         maxDegreesPerSecond = 0.0f;
         trackingMode = false;
+        windMode = false;
     }
 
     public static void initiateRotation(Minecraft mc, Vec3 targetPos, long minDuration) {
@@ -93,6 +109,15 @@ public class RotationManager {
         hasLastApplied = false;
         maxDegreesPerSecond = Math.max(0.0f, turnSpeedLimit);
         trackingMode = false;
+        windMode = AetherConfig.ROTATION_HUMAN_CURSOR.get();
+        if (windMode) {
+            windYaw = startRot.yaw;
+            windPitch = startRot.pitch;
+            windVx = 0.0;
+            windVy = 0.0;
+            windWx = 0.0;
+            windWy = 0.0;
+        }
         isRotating = true;
     }
 
@@ -118,6 +143,7 @@ public class RotationManager {
         hasLastApplied = false;
         maxDegreesPerSecond = 0.0f;
         trackingMode = false;
+        windMode = false;
         isRotating = true;
     }
 
@@ -138,6 +164,7 @@ public class RotationManager {
         hasLastApplied = false;
         maxDegreesPerSecond = 0.0f;
         trackingMode = false;
+        windMode = false;
         isRotating = true;
     }
 
@@ -166,6 +193,7 @@ public class RotationManager {
         maxDegreesPerSecond = Math.max(0.0f, turnSpeedLimit);
         trackingSmoothingMs = Math.max(MIN_TRACKING_SMOOTHING_MS, smoothingMs);
         trackingMode = true;
+        windMode = false;
         isRotating = true;
     }
 
@@ -199,6 +227,50 @@ public class RotationManager {
                 float closed = 1.0f - (float) Math.exp(-stepMs / trackingSmoothingMs);
                 currentYaw = mc.player.getYRot() + remainingYaw * closed;
                 currentPitch = mc.player.getXRot() + remainingPitch * closed;
+            } else if (windMode) {
+                double dyaw = targetRot.yaw - windYaw;
+                double dpitch = targetRot.pitch - windPitch;
+                double dist = Math.sqrt(dyaw * dyaw + dpitch * dpitch);
+                if (dist <= WIND_ARRIVAL_DEGREES) {
+                    windYaw = targetRot.yaw;
+                    windPitch = targetRot.pitch;
+                    isRotating = false;
+                } else {
+                    double gravity = AetherConfig.ROTATION_HC_GRAVITY.get();
+                    double windStrength = AetherConfig.ROTATION_HC_WIND.get();
+                    int iters = (int) Math.max(1L, Math.round(stepMs / WIND_ITER_MS));
+                    ThreadLocalRandom rnd = ThreadLocalRandom.current();
+                    for (int i = 0; i < iters; i++) {
+                        dyaw = targetRot.yaw - windYaw;
+                        dpitch = targetRot.pitch - windPitch;
+                        dist = Math.sqrt(dyaw * dyaw + dpitch * dpitch);
+                        if (dist < 1.0) {
+                            break;
+                        }
+                        double windMag = Math.min(windStrength, dist);
+                        double maxStep = WIND_MAX_STEP;
+                        if (dist >= WIND_DAMP_DISTANCE) {
+                            windWx = windWx / SQRT3 + (2.0 * rnd.nextDouble() - 1.0) * windMag / SQRT5;
+                            windWy = windWy / SQRT3 + (2.0 * rnd.nextDouble() - 1.0) * windMag / SQRT5;
+                        } else {
+                            windWx /= SQRT3;
+                            windWy /= SQRT3;
+                            maxStep = 0.6 + (WIND_MAX_STEP - 0.6) * (dist / WIND_DAMP_DISTANCE);
+                        }
+                        windVx += windWx + gravity * dyaw / dist;
+                        windVy += windWy + gravity * dpitch / dist;
+                        double vmag = Math.sqrt(windVx * windVx + windVy * windVy);
+                        if (vmag > maxStep) {
+                            double vclip = maxStep / 2.0 + rnd.nextDouble() * maxStep / 2.0;
+                            windVx = windVx / vmag * vclip;
+                            windVy = windVy / vmag * vclip;
+                        }
+                        windYaw += windVx;
+                        windPitch += windVy;
+                    }
+                }
+                currentYaw = (float) windYaw;
+                currentPitch = (float) windPitch;
             } else {
                 long elapsed = updateAt - rotationStartTime;
                 float t = (float) elapsed / (float) rotationDuration;

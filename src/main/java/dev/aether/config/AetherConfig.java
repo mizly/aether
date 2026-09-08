@@ -663,6 +663,10 @@ public final class AetherConfig {
         public static final FloatEntry ROTATION_EASE_IN_FACTOR = Config.floatVal("rotationEaseInFactor", 2.0f).range(1.0f, 5.0f);
         public static final BooleanEntry ROTATION_EASE_OUT = Config.bool("rotationEaseOut", true);
         public static final FloatEntry ROTATION_EASE_OUT_FACTOR = Config.floatVal("rotationEaseOutFactor", 2.0f).range(1.0f, 5.0f);
+        // WindMouse ("human cursor") aim for the point-to-point turn onto a pest.
+        public static final BooleanEntry ROTATION_HUMAN_CURSOR = Config.bool("rotationHumanCursor", false);
+        public static final FloatEntry ROTATION_HC_GRAVITY = Config.floatVal("rotationHcGravity", 9.0f).range(3.0f, 20.0f);
+        public static final FloatEntry ROTATION_HC_WIND = Config.floatVal("rotationHcWind", 3.0f).range(0.0f, 12.0f);
         public static final FloatEntry ROTATION_TRACKING_NOISE_MIN = Config.floatVal("rotationTrackingNoiseMin", 2.0f)
                         .range(0.0f, 10.0f);
         public static final FloatEntry ROTATION_TRACKING_NOISE_MAX = Config.floatVal("rotationTrackingNoiseMax", 6.0f)

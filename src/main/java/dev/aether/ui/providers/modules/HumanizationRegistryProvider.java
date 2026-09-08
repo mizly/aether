@@ -93,6 +93,28 @@ public final class HumanizationRegistryProvider extends AbstractModulesRegistryP
                         })
                         .withDecimals(1)
                         .visibleWhen(() -> AetherConfig.ROTATION_EASE_OUT.get()))
+                .add(new ToggleSetting("Human Cursor Aim",
+                        () -> AetherConfig.ROTATION_HUMAN_CURSOR.get(),
+                        v -> {
+                            AetherConfig.ROTATION_HUMAN_CURSOR.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(new SliderSetting("Human Cursor Gravity", 3, 20,
+                        () -> AetherConfig.ROTATION_HC_GRAVITY.get(),
+                        v -> {
+                            AetherConfig.ROTATION_HC_GRAVITY.set(v);
+                            AetherConfig.save();
+                        })
+                        .withDecimals(1)
+                        .visibleWhen(() -> AetherConfig.ROTATION_HUMAN_CURSOR.get()))
+                .add(new SliderSetting("Human Cursor Wind", 0, 12,
+                        () -> AetherConfig.ROTATION_HC_WIND.get(),
+                        v -> {
+                            AetherConfig.ROTATION_HC_WIND.set(v);
+                            AetherConfig.save();
+                        })
+                        .withDecimals(1)
+                        .visibleWhen(() -> AetherConfig.ROTATION_HUMAN_CURSOR.get()))
                 .add(new SliderSetting("Tracking Noise Min", 0, 10,
                         () -> AetherConfig.ROTATION_TRACKING_NOISE_MIN.get(),
                         v -> {
