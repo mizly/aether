@@ -101,6 +101,26 @@ final class FarmingSettingsFactory {
                 .withDecimals(1);
     }
 
+    static SliderSetting pestEtherwarpTimeoutSetting() {
+        return new SliderSetting("Etherwarp Give Up Time (Seconds)", 5, 120,
+                () -> AetherConfig.PEST_ETHERWARP_TIMEOUT_SECONDS.get(),
+                v -> {
+                    AetherConfig.PEST_ETHERWARP_TIMEOUT_SECONDS.set(v);
+                    AetherConfig.save();
+                })
+                .withDecimals(0);
+    }
+
+    static SliderSetting pestRespawnCheckDelaySetting() {
+        return new SliderSetting("Recheck Delay (Seconds)", 0.5f, 10.0f,
+                () -> AetherConfig.PEST_ONE_TAP_RESPAWN_CHECK_DELAY_SECONDS.get(),
+                v -> {
+                    AetherConfig.PEST_ONE_TAP_RESPAWN_CHECK_DELAY_SECONDS.set(v);
+                    AetherConfig.save();
+                })
+                .withDecimals(1);
+    }
+
     static SliderSetting pestFinalScanDurationSetting() {
         return new SliderSetting("Final Scan Max Duration (Seconds)", 0.5f, 8.0f,
                 () -> AetherConfig.PEST_FINAL_SCAN_DURATION_SECONDS.get(),

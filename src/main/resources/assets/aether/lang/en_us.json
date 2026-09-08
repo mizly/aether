@@ -700,5 +700,11 @@
   "text.aether.restoring_previous_equipment": "Restoring previous equipment...",
   "text.aether.smart_aotv_routing": "Smart AOTV Routing",
   "text.aether.aotv_start_distance": "AOTV Start Distance",
-  "text.aether.aotv_stop_distance": "AOTV Stop Distance"
+  "text.aether.aotv_stop_distance": "AOTV Stop Distance",
+  "text.aether.plot_clear_order": "Plot Clear Order",
+  "text.aether.current_plot_first": "Current Plot First",
+  "text.aether.other_plots_first": "Other Plots First",
+  "text.aether.recheck_for_pests_after_clearing": "Recheck for Pests After Clearing",
+  "text.aether.recheck_delay_seconds": "Recheck Delay (Seconds)",
+  "text.aether.etherwarp_give_up_time_seconds": "Etherwarp Give Up Time (Seconds)"
 }

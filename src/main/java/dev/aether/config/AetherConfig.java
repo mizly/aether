@@ -456,6 +456,11 @@ public final class AetherConfig {
         public static final BooleanEntry SUNSET_PESTS = Config.bool("sunsetPests", false);
         public static final BooleanEntry PEST_TARGET_LOCK = Config.bool("pestTargetLock", true);
         public static final BooleanEntry PEST_ONE_TAP_PESTS = Config.bool("pestOneTapPests", false);
+        public static final BooleanEntry PEST_ONE_TAP_RESPAWN_CHECK = Config.bool("pestOneTapRespawnCheck", true);
+        public static final FloatEntry PEST_ONE_TAP_RESPAWN_CHECK_DELAY_SECONDS =
+                        Config.floatVal("pestOneTapRespawnCheckDelaySeconds", 2.0f).range(0.5f, 10.0f);
+        // 0 = clear the plot we are already on first, 1 = clear every other infested plot first.
+        public static final IntEntry PEST_PLOT_PRIORITY = Config.integer("pestPlotPriority", 0).range(0, 1);
         public static final BooleanEntry BALLSACK_SHREDDER = Config.bool("ballsackShredder", false);
         public static final IntEntry BALLSACK_SHREDDER_TRIGGER_DELAY_MIN =
                         Config.integer("ballsackShredderTriggerDelayMin", 20000).range(0, 30000);
@@ -471,6 +476,8 @@ public final class AetherConfig {
         public static final BooleanEntry PEST_ETHERWARP_TO_PEST = Config.bool("pestEtherwarpToPest", false);
         public static final FloatEntry PEST_ETHERWARP_MIN_DISTANCE =
                         Config.floatVal("pestEtherwarpMinDistance", 32.0f).range(20.0f, 60.0f);
+        public static final FloatEntry PEST_ETHERWARP_TIMEOUT_SECONDS =
+                        Config.floatVal("pestEtherwarpTimeoutSeconds", 30.0f).range(5.0f, 120.0f);
         public static final FloatEntry PEST_FINAL_SCAN_DURATION_SECONDS =
                         Config.floatVal("pestFinalScanDurationSeconds", 3.0f).range(0.5f, 8.0f);
         public static final FloatEntry PEST_AOTV_START_DISTANCE =

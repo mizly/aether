@@ -130,6 +130,13 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.PEST_PLOT_TP_FOR_CURRENT_PLOT.set(v);
                             AetherConfig.save();
                         }))
+                .add(new DropdownSetting("Plot Clear Order",
+                        List.of("Current Plot First", "Other Plots First"),
+                        () -> AetherConfig.PEST_PLOT_PRIORITY.get(),
+                        v -> {
+                            AetherConfig.PEST_PLOT_PRIORITY.set(v);
+                            AetherConfig.save();
+                        }))
                 .add(new SectionSetting("Targeting",
                         "How Pest Destroyer chooses and reserves pests"))
                 .add(new ToggleSetting("Target Lock",
@@ -165,6 +172,16 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.PEST_ONE_TAP_PESTS.set(v);
                             AetherConfig.save();
                         }))
+                .add(new ToggleSetting("Recheck for Pests After Clearing",
+                        () -> AetherConfig.PEST_ONE_TAP_RESPAWN_CHECK.get(),
+                        v -> {
+                            AetherConfig.PEST_ONE_TAP_RESPAWN_CHECK.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(() -> AetherConfig.PEST_ONE_TAP_PESTS.get()))
+                .add(FarmingSettingsFactory.pestRespawnCheckDelaySetting()
+                        .visibleWhen(() -> AetherConfig.PEST_ONE_TAP_PESTS.get()
+                                && AetherConfig.PEST_ONE_TAP_RESPAWN_CHECK.get()))
                 .add(new SectionSetting("Movement & Routing",
                         "Travel between pests and decide when AOTV is worth using"))
                 .add(new ToggleSetting("AOTV Between Distant Pests",
@@ -207,6 +224,9 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         })
                         .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()))
                 .add(FarmingSettingsFactory.pestEtherwarpMinDistanceSetting()
+                        .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()
+                                && AetherConfig.PEST_ETHERWARP_TO_PEST.get()))
+                .add(FarmingSettingsFactory.pestEtherwarpTimeoutSetting()
                         .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()
                                 && AetherConfig.PEST_ETHERWARP_TO_PEST.get()))
                 .add(new SectionSetting("Aim & Rotation",
