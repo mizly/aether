@@ -51,6 +51,7 @@ public class PestDestroyer {
         AOTV_TO_ROOF_RETURN,
         AOTV_POST_LOOKDOWN,
         BALLSACK_SHREDDER,
+        RECHECK_SPAWNS,
         FINISH
     }
 
@@ -117,7 +118,7 @@ public class PestDestroyer {
         }
 
         if (infested != null && !infested.isEmpty()) {
-            for (String p : infested) {
+            for (String p : PestPlotPriority.order(infested, getEffectivePlot(client))) {
                 if (!containsPlot(runtime.navigation.plotQueue, p)) {
                     runtime.navigation.plotQueue.add(p);
                 }
@@ -245,6 +246,7 @@ public class PestDestroyer {
                     || runtime.state == State.AOTV_TO_ROOF_RETURN
                     || runtime.state == State.AOTV_POST_LOOKDOWN
                     || runtime.state == State.BALLSACK_SHREDDER
+                    || runtime.state == State.RECHECK_SPAWNS
                     || runtime.state == State.FLY_UP) {
                 break;
             }
@@ -282,6 +284,7 @@ public class PestDestroyer {
             case AOTV_POST_LOOKDOWN -> handlePostAotvLookdown(client);
             case BALLSACK_SHREDDER -> {
             } // Handled by its dedicated worker task.
+            case RECHECK_SPAWNS -> handleRecheckSpawns(client);
             case FINISH -> finish(client);
             default -> {
             }
@@ -574,6 +577,12 @@ public class PestDestroyer {
             return true;
         }
 
+        // Sweeping again cannot help when the only pests left are ones the
+        // Etherwarp failsafe already gave up on.
+        if (PestTargetController.onlyGivenUpPestsRemain(client, runtime, CONTEXT)) {
+            return false;
+        }
+
         int aliveNow = PestManager.getPestDestroyerCompletionAliveCountNow(client);
         if (aliveNow >= 0 && !shouldFinishForAliveCount(client, aliveNow)) {
             return true;
@@ -585,6 +594,19 @@ public class PestDestroyer {
     }
 
     public static void finish(Minecraft client) {
+        if (beginSpawnRecheck(client)) {
+            return;
+        }
+        endRun(client);
+    }
+
+    /** Ends the run now, for callers the server has already told the garden is clear. */
+    public static void finishWithoutRecheck(Minecraft client) {
+        runtime.spawnRecheckDone = true;
+        endRun(client);
+    }
+
+    private static void endRun(Minecraft client) {
         ClientUtils.setKeyMappingState(client.options.keyUse, false);
         ClientUtils.setKeyMappingState(client.options.keyDown, false);
         ClientUtils.setKeyMappingState(client.options.keyAttack, false);
@@ -597,6 +619,69 @@ public class PestDestroyer {
         PathfindingManager.stop();
 
         PestManager.handlePestCleaningFinished(client);
+    }
+
+    /**
+     * One Tap moves on before the server confirms a kill, so a "clear" run can
+     * still have pests standing. Hold still once, re-read the tab and the loaded
+     * pests, and only then let the run end.
+     */
+    private static boolean beginSpawnRecheck(Minecraft client) {
+        if (!runtime.active
+                || runtime.spawnRecheckDone
+                || runtime.state == State.RECHECK_SPAWNS
+                || !AetherConfig.PEST_ONE_TAP_PESTS.get()
+                || !AetherConfig.PEST_ONE_TAP_RESPAWN_CHECK.get()
+                || client == null || client.player == null) {
+            return false;
+        }
+        runtime.spawnRecheckDone = true;
+        PathfindingManager.stop();
+        if (client.options != null) {
+            ClientUtils.setKeyMappingState(client.options.keyUse, false);
+            ClientUtils.setKeyMappingState(client.options.keyAttack, false);
+            ClientUtils.forceReleaseMovementKeys();
+        }
+        ClientUtils.sendDebugMessage(
+                "[PestDestroyer] Route is clear. Re-checking for pests before finishing.");
+        setState(State.RECHECK_SPAWNS);
+        return true;
+    }
+
+    private static void handleRecheckSpawns(Minecraft client) {
+        if (client.options != null) {
+            ClientUtils.setKeyMappingState(client.options.keyUse, false);
+            ClientUtils.forceReleaseMovementKeys();
+        }
+
+        long waitMs = Math.max(0L, Math.round(
+                AetherConfig.PEST_ONE_TAP_RESPAWN_CHECK_DELAY_SECONDS.get() * 1000.0f));
+        if (System.currentTimeMillis() - runtime.stateEnteredAt < waitMs) {
+            return;
+        }
+
+        PestTargetController.reviveVisibleAssumedOneTapTargets(client, runtime, CONTEXT);
+        PestTargetController.rebuildQueue(client, runtime, CONTEXT);
+        Entity pest = PestTargetController.nextQueuedPest(client, runtime);
+        if (pest != null) {
+            ClientUtils.sendDebugMessage(
+                    "[PestDestroyer] Respawn check found a pest still standing. Resuming.");
+            PestTargetController.engage(client, runtime, CONTEXT, pest);
+            return;
+        }
+
+        int aliveNow = PestManager.getPestDestroyerCompletionAliveCountNow(client);
+        Set<String> infested = filterSkippedInfestedPlots(
+                PestManager.getInfestedPlotsFromTab(client));
+        if (aliveNow > 0 && !infested.isEmpty() && !shouldFinishForAliveCount(client, aliveNow)) {
+            ClientUtils.sendDebugMessage("[PestDestroyer] Respawn check still reports "
+                    + aliveNow + " pest(s) on " + infested + ". Resuming.");
+            runtime.spawnRecheckDone = false;
+            setState(State.CHECK_NEXT);
+            return;
+        }
+
+        setState(State.FINISH);
     }
 
     // -- Helpers --------------------------------------------------------------
@@ -623,6 +708,11 @@ public class PestDestroyer {
 
     public static Set<String> filterRememberedLeaveOnePlots(Set<String> infested) {
         return PestLeaveOneController.filterSkippedPlots(runtime, infested);
+    }
+
+    /** Infested plots in the order the configured plot priority wants them visited. */
+    public static List<String> orderPlotsByPriority(Collection<String> plots, String currentPlot) {
+        return PestPlotPriority.order(plots, currentPlot);
     }
 
     public static void onPestsSpawnedInPlot(String plot) {

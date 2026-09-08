@@ -108,6 +108,11 @@ final class PestDestroyerRuntime {
     // into the next target handoff.
     boolean pestEtherwarpMaintainHeight = false;
     boolean pestEtherwarpJumpHeld = false;
+    // How long we have been trying to warp to one pest, and how many times that
+    // attempt has run out of time. The second give-up drops the pest for good.
+    int etherwarpAttemptTargetEntityId = -1;
+    long etherwarpAttemptStartedAt = 0L;
+    final Map<Integer, Integer> etherwarpGiveUpCounts = new ConcurrentHashMap<>();
     volatile double aotvStartY = Double.NaN;
     long activatedAt = 0L;
     long lastRoofRescanAt = 0L;
@@ -115,6 +120,7 @@ final class PestDestroyerRuntime {
 
     int zeroPestTabTicks = 0;
     int targetWithoutSkullTicks = 0;
+    boolean spawnRecheckDone = false;
 
     // Stable normal-combat aim state. The sampled target point and deadzone
     // keep tiny pest movements from becoming a fresh head correction every tick.
@@ -155,6 +161,7 @@ final class PestDestroyerRuntime {
         deferredTargets.clear();
         pestTargetQueue.clear();
         accountedKilledPestEntityIds.clear();
+        spawnRecheckDone = false;
         vacuumSlot = detectedVacuumSlot;
         killVacuumSlot = detectedVacuumSlot;
         vacuumRange = 7.5f;
@@ -228,6 +235,12 @@ final class PestDestroyerRuntime {
         killVacuumReleaseUntil = 0L;
     }
 
+    /** Ends the per-target Etherwarp clock; the give-up tally survives the run. */
+    void clearEtherwarpAttemptClock() {
+        etherwarpAttemptTargetEntityId = -1;
+        etherwarpAttemptStartedAt = 0L;
+    }
+
     void resetOneTapTracking() {
         oneTapTargetEntityId = -1;
         oneTapVacuumNearStartedAt = 0L;
@@ -285,6 +298,9 @@ final class PestDestroyerRuntime {
         pestEtherwarpFailedBlocksUntil.clear();
         pestEtherwarpMaintainHeight = false;
         pestEtherwarpJumpHeld = false;
+        etherwarpAttemptTargetEntityId = -1;
+        etherwarpAttemptStartedAt = 0L;
+        etherwarpGiveUpCounts.clear();
         arrivedAtCurrentTargetViaAotv = false;
         lockedTargetEntityId = -1;
         aotvStartY = Double.NaN;

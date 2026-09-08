@@ -4,6 +4,7 @@ import dev.aether.modules.pest.PestManager;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -39,7 +40,9 @@ final class PestDestroyerProgressController {
             long stuckTimeoutMs,
             Context context) {
         int aliveNow = PestManager.getPestDestroyerCompletionAliveCountNow(client);
+        // The post-clear respawn check owns the decision to finish while it runs.
         boolean finishReading = aliveNow >= 0
+                && runtime.state != PestDestroyer.State.RECHECK_SPAWNS
                 && context.shouldFinishForAliveCount(client, aliveNow);
 
         if (finishReading
@@ -76,11 +79,18 @@ final class PestDestroyerProgressController {
             Set<String> rawInfested = PestManager.getInfestedPlotsFromTab(client);
             Set<String> infested = context.filterSkippedInfestedPlots(rawInfested);
             if (!infested.isEmpty()) {
-                String firstPlot = infested.iterator().next();
                 String currentPlot = context.getEffectivePlot(client);
-                boolean currentStillActionable = infested.stream()
-                        .anyMatch(plot -> context.plotsEqual(plot, currentPlot));
-                if (!currentStillActionable
+                boolean otherPlotsFirst = PestPlotPriority.otherPlotsFirst();
+                List<String> ordered =
+                        PestPlotPriority.order(infested, currentPlot, otherPlotsFirst);
+                String firstPlot = ordered.getFirst();
+                boolean holdCurrent = PestPlotPriority.shouldHoldCurrentPlot(
+                        infested,
+                        currentPlot,
+                        otherPlotsFirst,
+                        runtime.navigation.currentPlotHoldSweeps);
+                if (!holdCurrent
+                        && !context.plotsEqual(firstPlot, currentPlot)
                         && isImmediatePlotExitState(runtime.state)) {
                     ClientUtils.sendDebugMessage(
                             "[PestDestroyer] Plot "
@@ -88,7 +98,7 @@ final class PestDestroyerProgressController {
                                     + " no longer first in tab. Leaving immediately for "
                                     + firstPlot);
                     runtime.navigation.plotQueue.clear();
-                    runtime.navigation.plotQueue.addAll(infested);
+                    runtime.navigation.plotQueue.addAll(ordered);
                     runtime.navigation.currentPlotIdx = 0;
                     runtime.navigation.plotTpSent = false;
                     context.setState(PestDestroyer.State.TELEPORT_TO_PLOT);
@@ -106,6 +116,9 @@ final class PestDestroyerProgressController {
             ClientUtils.sendMessage(
                     "\u00A7cPest destroyer timed out after 5 minutes. Returning to farm.",
                     false);
+            // A run this stuck must end now; the post-clear respawn check would
+            // only hand it another pest to fail on.
+            runtime.spawnRecheckDone = true;
             context.finish(client);
             return true;
         }
@@ -122,6 +135,7 @@ final class PestDestroyerProgressController {
     private static boolean isPlotRefreshState(PestDestroyer.State state) {
         return state != PestDestroyer.State.TELEPORT_TO_PLOT
                 && state != PestDestroyer.State.IDLE
+                && state != PestDestroyer.State.RECHECK_SPAWNS
                 && state != PestDestroyer.State.FINISH;
     }
 
@@ -133,6 +147,7 @@ final class PestDestroyerProgressController {
 
     private static boolean shouldEnsureFlying(PestDestroyer.State state) {
         return state != PestDestroyer.State.IDLE
+                && state != PestDestroyer.State.RECHECK_SPAWNS
                 && state != PestDestroyer.State.FINISH
                 && state != PestDestroyer.State.TELEPORT_TO_PLOT
                 && state != PestDestroyer.State.EQUIP_VACUUM

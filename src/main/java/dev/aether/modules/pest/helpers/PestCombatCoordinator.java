@@ -10,6 +10,7 @@ import dev.aether.modules.pathfinding.movement.WalkabilityChecker;
 import dev.aether.modules.pathfinding.wrapper.PathPosition;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
+import dev.aether.util.GardenPlots;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -36,6 +37,7 @@ final class PestCombatCoordinator {
     private static final long ETHERWARP_RETRY_COOLDOWN_MS = 1500L;
     private static final long ETHERWARP_FAILED_BLOCK_MEMORY_MS = 15_000L;
     private static final int ETHERWARP_BLOCK_SCAN_DEPTH = 20;
+    private static final int ETHERWARP_MAX_GIVE_UPS = 2;
     private static final double ETHERWARP_MIN_TRAVEL_DISTANCE = 3.0;
     private static final double ETHERWARP_POST_HOVER_MIN_CLEARANCE = 3.0;
     private static final double ETHERWARP_POST_HOVER_RELEASE_CLEARANCE = 3.35;
@@ -524,6 +526,10 @@ final class PestCombatCoordinator {
             return;
         }
 
+        if (giveUpOnUnreachableEtherwarpTarget(client, context, currentTarget, now)) {
+            return;
+        }
+
         // Prefer one precise Etherwarp onto a random safe block 1-2 blocks
         // around the pest. If no valid/visible landing exists, fall through to
         // the existing balanced AOTV route unchanged.
@@ -709,6 +715,19 @@ final class PestCombatCoordinator {
         if (runtime.pestEtherwarpActive
                 && runtime.pestEtherwarpTargetEntityId != currentTarget.getId()) {
             clearPestEtherwarpAttempt(client, runtime, false);
+        }
+
+        // A warp is a plot-local move. While the run still owes a /plottp -- or
+        // the pest sits on a neighbouring plot -- warping there only trades one
+        // teleport for another, so wait until the plot teleport has landed.
+        if (!PestPlotNavigator.isOnPlotBeingCleaned(client, runtime.navigation)
+                || !isPestOnPlotBeingCleaned(client, runtime, currentTarget)) {
+            if (runtime.pestEtherwarpActive) {
+                ClientUtils.sendDebugMessage(
+                        "[PestDestroyer] Cancelling Etherwarp: the pest is not on the plot being cleared.");
+                clearPestEtherwarpAttempt(client, runtime, true);
+            }
+            return false;
         }
 
         if (!runtime.pestEtherwarpActive) {
@@ -1015,6 +1034,61 @@ final class PestCombatCoordinator {
                         + String.format("%.1f", selected.landingFeet().distanceTo(nextPosition))
                         + " blocks from next target after landing).");
         return selected;
+    }
+
+    private static boolean isPestOnPlotBeingCleaned(
+            Minecraft client, PestDestroyerRuntime runtime, Entity pest) {
+        GardenPlots.Bounds bounds =
+                PestPlotNavigator.plotBeingCleanedBounds(client, runtime.navigation);
+        return bounds == null || bounds.contains(pest.getX(), pest.getZ(), 3.0);
+    }
+
+    /**
+     * Etherwarp routing can commit to a pest it never manages to land next to.
+     * The first timeout defers the pest so the route retries it later; a second
+     * one drops it for the rest of the run so the cleaner can go back to farming.
+     */
+    private static boolean giveUpOnUnreachableEtherwarpTarget(
+            Minecraft client,
+            Context context,
+            Entity currentTarget,
+            long now
+    ) {
+        PestDestroyerRuntime runtime = context.runtime();
+        if (!AetherConfig.PEST_ETHERWARP_TO_PEST.get()) {
+            runtime.clearEtherwarpAttemptClock();
+            return false;
+        }
+
+        if (runtime.etherwarpAttemptTargetEntityId != currentTarget.getId()) {
+            runtime.etherwarpAttemptTargetEntityId = currentTarget.getId();
+            runtime.etherwarpAttemptStartedAt = now;
+            return false;
+        }
+
+        long timeoutMs = Math.round(
+                AetherConfig.PEST_ETHERWARP_TIMEOUT_SECONDS.get() * 1000.0f);
+        if (now - runtime.etherwarpAttemptStartedAt < timeoutMs) {
+            return false;
+        }
+
+        int giveUps = runtime.etherwarpGiveUpCounts.merge(currentTarget.getId(), 1, Integer::sum);
+        clearPestEtherwarpAttempt(client, runtime, true);
+        clearAotvBetweenPests(client, context);
+        runtime.clearEtherwarpAttemptClock();
+        context.deferTarget(currentTarget);
+        if (giveUps >= ETHERWARP_MAX_GIVE_UPS) {
+            runtime.deferredTargets.deferPermanently(currentTarget);
+            ClientUtils.sendMessage(
+                    "\u00A7cPest destroyer could not Etherwarp to a pest twice. Skipping it.", false);
+        } else {
+            ClientUtils.sendDebugMessage(
+                    "[PestDestroyer] Etherwarp to pest " + currentTarget.getId()
+                            + " timed out after " + (timeoutMs / 1000) + "s. Retrying it later.");
+        }
+        runtime.currentTarget = null;
+        context.setState(PestDestroyer.State.CHECK_NEXT);
+        return true;
     }
 
     private static void clearPestEtherwarpAttempt(

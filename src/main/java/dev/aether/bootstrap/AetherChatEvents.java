@@ -147,7 +147,7 @@ public final class AetherChatEvents {
         if (PestDestroyer.isActive()) {
             ClientUtils.sendDebugMessage("[PestDestroyer] Detected 'No Pests' message. Finishing destroyer.");
             PestDestroyer.clearRememberedLeaveOnePlots();
-            PestDestroyer.finish(Minecraft.getInstance());
+            PestDestroyer.finishWithoutRecheck(Minecraft.getInstance());
         }
     }
 

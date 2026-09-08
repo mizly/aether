@@ -346,7 +346,9 @@ public class PestManager {
                 ClientUtils.sendMessage("\u00A7eMax Pests (8) reached. Starting cleaning...", true);
             }
             setCurrentInfestedPlots(actionablePlots);
-            String targetPlot = actionablePlots.stream().findFirst().orElse(null);
+            String targetPlot = PestDestroyer.orderPlotsByPriority(
+                            actionablePlots, ClientUtils.getCurrentPlot())
+                    .stream().findFirst().orElse(null);
             ClientUtils.sendDebugMessage("[PestManager] Tab threshold met. infestedPlots=" + actionablePlots
                             + " targetPlot=" + targetPlot + " currentPlot=" + ClientUtils.getCurrentPlot());
             boolean useBallsackRoute = shouldRunBallsackShredderForSpawn(targetPlot);

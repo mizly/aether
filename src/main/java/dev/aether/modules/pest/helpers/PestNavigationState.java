@@ -27,6 +27,7 @@ final class PestNavigationState {
     int leaveOneUnbudgetedKills = 0;
     int leaveOneReservedEntityId = -1;
     int currentPlotIdx = 0;
+    int currentPlotHoldSweeps = 0;
     String lastTargetPlot = null;
     String trustedPlot = null;
     long trustedPlotExpiresAt = 0;
@@ -53,6 +54,7 @@ final class PestNavigationState {
         leaveOneUnbudgetedKills = 0;
         leaveOneReservedEntityId = -1;
         currentPlotIdx = 0;
+        currentPlotHoldSweeps = 0;
         lastTargetPlot = null;
         trustedPlot = null;
         trustedPlotExpiresAt = 0L;

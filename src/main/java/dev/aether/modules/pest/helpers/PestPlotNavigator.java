@@ -68,13 +68,50 @@ final class PestPlotNavigator {
         return PestPlotId.isUsable(plot) ? GardenPlots.boundsForPlot(plot) : null;
     }
 
+    /** The plot this run is meant to be clearing right now: the head of the plot queue. */
+    static String plotBeingCleaned(Minecraft client, PestNavigationState navigationState) {
+        String queued = getNextPlotTarget(navigationState);
+        if (PestPlotId.isUsable(queued)) {
+            return queued;
+        }
+        return getEffectivePlot(client, navigationState);
+    }
+
+    static GardenPlots.Bounds plotBeingCleanedBounds(
+            Minecraft client, PestNavigationState navigationState) {
+        String plot = plotBeingCleaned(client, navigationState);
+        GardenPlots.Bounds bounds = PestPlotId.isUsable(plot)
+                ? GardenPlots.boundsForPlot(plot)
+                : null;
+        if (bounds != null) {
+            return bounds;
+        }
+        // An unknown plot label used to mean "target anything", which let the
+        // router etherwarp onto a neighbouring plot and then bounce back and
+        // forth with the plot teleport. Fall back to the square we stand in.
+        if (client == null || client.player == null) {
+            return null;
+        }
+        return GardenPlots.boundsContaining(client.player.getX(), client.player.getZ());
+    }
+
+    /** True while the player is inside the plot the run is currently clearing. */
+    static boolean isOnPlotBeingCleaned(Minecraft client, PestNavigationState navigationState) {
+        if (client == null || client.player == null) {
+            return false;
+        }
+        GardenPlots.Bounds bounds = plotBeingCleanedBounds(client, navigationState);
+        return bounds == null
+                || bounds.contains(client.player.getX(), client.player.getZ(), TARGET_PLOT_MARGIN);
+    }
+
     /**
      * Pests on a neighbouring plot are in entity range but chasing them leaves the
      * plot, which the tab-list plot check answers with a teleport back.
      */
     static Predicate<Entity> currentPlotFilter(
             Minecraft client, PestNavigationState navigationState) {
-        GardenPlots.Bounds bounds = currentPlotBounds(client, navigationState);
+        GardenPlots.Bounds bounds = plotBeingCleanedBounds(client, navigationState);
         if (bounds == null) {
             return entity -> true;
         }
@@ -96,13 +133,32 @@ final class PestPlotNavigator {
             return false;
         }
 
+        String currentPlot = getEffectivePlot(client, navigationState);
+        boolean otherPlotsFirst = PestPlotPriority.otherPlotsFirst();
+        boolean holdCurrent = PestPlotPriority.shouldHoldCurrentPlot(
+                infested, currentPlot, otherPlotsFirst, navigationState.currentPlotHoldSweeps);
+        if (holdCurrent) {
+            navigationState.currentPlotHoldSweeps++;
+            ClientUtils.sendDebugMessage("[PestDestroyer] Plot " + currentPlot
+                    + " still reports pests. Staying here before any plot teleport (hold "
+                    + navigationState.currentPlotHoldSweeps + "/"
+                    + PestPlotPriority.MAX_CURRENT_PLOT_HOLDS + ").");
+        } else if (!otherPlotsFirst
+                && navigationState.currentPlotHoldSweeps >= PestPlotPriority.MAX_CURRENT_PLOT_HOLDS
+                && PestPlotPriority.contains(infested, currentPlot)) {
+            navigationState.currentPlotHoldSweeps = 0;
+            otherPlotsFirst = true;
+            ClientUtils.sendDebugMessage("[PestDestroyer] Plot " + currentPlot
+                    + " keeps reporting pests we cannot reach. Moving to another plot.");
+        }
+
         navigationState.plotQueue.clear();
-        navigationState.plotQueue.addAll(infested);
+        navigationState.plotQueue.addAll(
+                PestPlotPriority.order(infested, currentPlot, otherPlotsFirst));
         navigationState.currentPlotIdx = 0;
 
         String firstPlot = navigationState.plotQueue.get(0);
-        String currentPlot = getEffectivePlot(client, navigationState);
-        if (!plotsEqual(firstPlot, currentPlot)) {
+        if (!holdCurrent && !plotsEqual(firstPlot, currentPlot)) {
             navigationState.plotTpSent = false;
             navigationState.getLocationAttempts = 0;
             navigationState.waypointCycleCount = 0;

@@ -116,6 +116,8 @@ final class PestTargetController {
         runtime.arrivedAtCurrentTargetViaAotv = false;
         runtime.navigation.waypointCycleCount = 0;
         runtime.navigation.getLocationAttempts = 0;
+        runtime.navigation.currentPlotHoldSweeps = 0;
+        runtime.spawnRecheckDone = false;
         resetRotationForHandoff();
 
         double distance = client.player.distanceTo(pest);
@@ -165,6 +167,7 @@ final class PestTargetController {
             PestLeaveOneController.Context context) {
         boolean lassoTarget = PestHuntingController.shouldLassoTarget(client, runtime.currentTarget);
         runtime.currentTargetUsesLasso = lassoTarget;
+        runtime.clearEtherwarpAttemptClock();
         runtime.resetOneTapTracking();
         if (!lassoTarget && AetherConfig.PEST_ONE_TAP_PESTS.get()) {
             PestCombatCoordinator.prepareOneTapTarget(client, runtime, runtime.currentTarget);
@@ -456,6 +459,43 @@ final class PestTargetController {
             rebuildQueue(client, runtime, context);
         }
         return revived;
+    }
+
+    /**
+     * True when every pest we can still see is one the Etherwarp failsafe gave
+     * up on and no other plot is left to visit, so the run has nothing to do.
+     */
+    static boolean onlyGivenUpPestsRemain(
+            Minecraft client,
+            PestDestroyerRuntime runtime,
+            Context context) {
+        if (client == null || client.player == null) {
+            return false;
+        }
+        boolean sawGivenUp = false;
+        Predicate<Entity> eligible = eligibleTarget(client, runtime);
+        for (Entity pest : PestTargetTracker.getLoadedPests(client)) {
+            if (pest == null || pest.isRemoved() || isDead(pest)) {
+                continue;
+            }
+            if (runtime.deferredTargets.isPermanentlyDeferred(pest.getId())) {
+                sawGivenUp = true;
+            } else if (eligible.test(pest)) {
+                return false;
+            }
+        }
+        if (!sawGivenUp) {
+            return false;
+        }
+
+        String currentPlot = context.getEffectivePlot(client);
+        for (String plot : PestDestroyer.filterRememberedLeaveOnePlots(
+                PestManager.getInfestedPlotsFromTab(client))) {
+            if (!PestPlotId.equals(plot, currentPlot)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     static boolean waitingForOneTapRecheck(PestDestroyerRuntime runtime) {

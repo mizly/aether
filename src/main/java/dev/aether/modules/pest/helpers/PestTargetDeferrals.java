@@ -18,11 +18,14 @@ final class PestTargetDeferrals {
     private final Map<Integer, Entry> entries = new ConcurrentHashMap<>();
 
     void defer(Entity entity) {
-        if (entity == null) {
-            return;
+        if (entity != null) {
+            defer(entity.getId());
         }
+    }
+
+    void defer(int entityId) {
         long now = System.currentTimeMillis();
-        entries.compute(entity.getId(), (id, previous) -> {
+        entries.compute(entityId, (id, previous) -> {
             int attempts = previous == null ? 1 : previous.attempts() + 1;
             long until = attempts >= MAX_ATTEMPTS
                     ? Long.MAX_VALUE
@@ -31,9 +34,25 @@ final class PestTargetDeferrals {
         });
     }
 
+    /** Gives up on a pest for the rest of the run; a later retry cannot revive it. */
+    void deferPermanently(Entity entity) {
+        if (entity != null) {
+            deferPermanently(entity.getId());
+        }
+    }
+
+    void deferPermanently(int entityId) {
+        entries.put(entityId, new Entry(MAX_ATTEMPTS, Long.MAX_VALUE));
+    }
+
     boolean isDeferred(int entityId) {
         Entry entry = entries.get(entityId);
         return entry != null && System.currentTimeMillis() < entry.until();
+    }
+
+    boolean isPermanentlyDeferred(int entityId) {
+        Entry entry = entries.get(entityId);
+        return entry != null && entry.attempts() >= MAX_ATTEMPTS;
     }
 
     /**

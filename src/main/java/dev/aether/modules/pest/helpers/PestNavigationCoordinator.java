@@ -264,6 +264,7 @@ final class PestNavigationCoordinator {
         navigationState.plotAnchor = null;
         navigationState.scanPointIdx = 0;
         navigationState.getLocationAttempts = 0;
+        navigationState.currentPlotHoldSweeps = 0;
         if (PestManager.isBallsackShredderActiveForCurrentCycle()) {
             context.startBallsackShredder(client, plot);
             return;

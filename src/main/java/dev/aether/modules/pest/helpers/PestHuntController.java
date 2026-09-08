@@ -64,6 +64,14 @@ final class PestHuntController {
             return;
         }
 
+        if (PestTargetController.onlyGivenUpPestsRemain(client, runtime, targetContext)) {
+            ClientUtils.sendMessage(
+                    "\u00A7ePest destroyer gave up on the last unreachable pest(s). Back to farming.",
+                    false);
+            context.finish(client);
+            return;
+        }
+
         // Final verification is adaptive: stay still, but do not force the
         // player to wait the entire configured scan duration when the server has
         // already confirmed the clear. A small settle window gives the last
@@ -127,19 +135,17 @@ final class PestHuntController {
             return;
         }
 
-        runtime.navigation.plotQueue.clear();
         String currentPlot =
                 PestPlotNavigator.getEffectivePlot(client, runtime.navigation);
-        infested.stream()
-                .filter(plot -> PestPlotId.equals(plot, currentPlot))
-                .findFirst()
-                .ifPresent(runtime.navigation.plotQueue::add);
-        infested.stream()
-                .filter(plot -> !PestPlotId.equals(plot, currentPlot))
-                .forEach(runtime.navigation.plotQueue::add);
+        boolean otherPlotsFirst = PestPlotPriority.otherPlotsFirst();
+        boolean holdCurrent = PestPlotPriority.shouldHoldCurrentPlot(
+                infested, currentPlot, otherPlotsFirst, runtime.navigation.currentPlotHoldSweeps);
+        runtime.navigation.plotQueue.clear();
+        runtime.navigation.plotQueue.addAll(
+                PestPlotPriority.order(infested, currentPlot, otherPlotsFirst));
         String firstPlot = runtime.navigation.plotQueue.getFirst();
 
-        if (!PestPlotId.equals(firstPlot, currentPlot)) {
+        if (!holdCurrent && !PestPlotId.equals(firstPlot, currentPlot)) {
             runtime.navigation.currentPlotIdx = 0;
             runtime.navigation.plotTpSent = false;
             runtime.navigation.getLocationAttempts = 0;
