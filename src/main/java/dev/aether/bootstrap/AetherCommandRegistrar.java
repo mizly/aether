@@ -33,6 +33,7 @@ import dev.aether.modules.visitor.VisitorsMacro;
 import dev.aether.util.AetherLang;
 import dev.aether.util.BazaarUtils;
 import dev.aether.util.ClientUtils;
+import dev.aether.modules.pest.helpers.TestTrackManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
@@ -143,6 +144,22 @@ public final class AetherCommandRegistrar {
                                     .executes(ctx -> TablistSetupManager.start(Minecraft.getInstance())))
                             .then(ClientCommands.literal("printscoreboard")
                                     .executes(ctx -> printScoreboard(Minecraft.getInstance())))
+                            .then(ClientCommands.literal("testtrack")
+                                    .executes(ctx -> {
+                                        boolean on = TestTrackManager.toggleHuman();
+                                        ClientUtils.sendMessage(on
+                                                ? "§aTest track (human) ON – pursuing nearest pest (no clicking)."
+                                                : "§eTest track OFF.", false);
+                                        return 1;
+                                    }))
+                            .then(ClientCommands.literal("testoriginal")
+                                    .executes(ctx -> {
+                                        boolean on = TestTrackManager.toggleOriginal();
+                                        ClientUtils.sendMessage(on
+                                                ? "§bTest track (original) ON – in-game combat tracking (no clicking)."
+                                                : "§eTest track OFF.", false);
+                                        return 1;
+                                    }))
                             .then(ClientCommands.literal("rotate")
                                     .then(ClientCommands.argument("pitch", FloatArgumentType.floatArg(-90.0f, 90.0f))
                                             .suggests((ctx, builder) -> suggestAngles(builder, "-90", "-45", "0", "45", "90"))
@@ -432,6 +449,26 @@ public final class AetherCommandRegistrar {
                                             .then(ClientCommands.argument("config_string", StringArgumentType.greedyString())
                                                     .executes(ctx -> importConfig(
                                                             StringArgumentType.getString(ctx, "config_string")))))));
+
+            dispatcher.register(
+                    ClientCommands.literal("testtrack")
+                            .executes(ctx -> {
+                                boolean on = TestTrackManager.toggleHuman();
+                                ClientUtils.sendMessage(on
+                                        ? "§aTest track (human) ON – pursuing nearest pest (no clicking)."
+                                        : "§eTest track OFF.", false);
+                                return 1;
+                            }));
+
+            dispatcher.register(
+                    ClientCommands.literal("testoriginal")
+                            .executes(ctx -> {
+                                boolean on = TestTrackManager.toggleOriginal();
+                                ClientUtils.sendMessage(on
+                                        ? "§bTest track (original) ON – in-game combat tracking (no clicking)."
+                                        : "§eTest track OFF.", false);
+                                return 1;
+                            }));
         });
     }
 
