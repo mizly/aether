@@ -11,6 +11,7 @@ import dev.aether.ui.settings.KeybindSetting;
 import dev.aether.ui.settings.ListSetting;
 import dev.aether.ui.settings.PositionSetting;
 import dev.aether.ui.settings.RangeSliderSetting;
+import dev.aether.ui.settings.SectionSetting;
 import dev.aether.ui.settings.Setting;
 import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.TextSetting;
@@ -29,7 +30,13 @@ final class MainGUISettingRowRenderer {
     }
 
     void render(NVGRenderer nvg, Setting setting, float x, float y, float w, float h, float mx, float my) {
+        if (setting.getType() == dev.aether.ui.settings.SettingType.SECTION) {
+            renderSection(nvg, (SectionSetting) setting, x, y, w, h);
+            return;
+        }
+
         float cardH = h - 5f;
+
 
         nvg.roundedRect(x, y, w, cardH, 7f, Theme.CARD_BG);
         nvg.rectOutlineSolid(x, y, w, cardH, 7f, 1f, Theme.withAlpha(0xFFFFFFFF, 0.12f));
@@ -49,6 +56,7 @@ final class MainGUISettingRowRenderer {
             case RANGE_SLIDER -> renderRangeSlider(nvg, (RangeSliderSetting) setting, innerX, innerW, y, cardH, midY, labelLines, labelFontSize, labelLineStep, labelBlockH);
             case TEXT -> renderText(nvg, (TextSetting) setting, innerX, innerW, y, cardH, labelLines, labelFontSize, labelLineStep, labelBlockH);
             case INFO -> renderInfo(nvg, (InfoSetting) setting, innerX, innerW, y, cardH, labelLines, labelFontSize, labelLineStep, labelBlockH);
+            case SECTION -> { }
             case LIST -> renderList(nvg, (ListSetting) setting, innerX, innerW, y, labelLines, labelFontSize, labelLineStep, labelBlockH, mx, my);
             case DROPDOWN_LIST -> renderDropdownList(nvg, (DropdownListSetting) setting, innerX, innerW, y, labelLines, labelFontSize, labelLineStep, labelBlockH, mx, my);
             case DROPDOWN -> renderDropdown(nvg, (DropdownSetting) setting, innerX, innerW, y, cardH, labelLines, labelFontSize, labelLineStep, labelBlockH, mx, my);
@@ -58,6 +66,19 @@ final class MainGUISettingRowRenderer {
             case POSITION -> renderPosition(nvg, (PositionSetting) setting, innerX, innerW, y, cardH, midY, labelLines, labelFontSize, labelLineStep, labelBlockH, mx, my);
             case KEYBIND -> renderKeybind(nvg, (KeybindSetting) setting, innerX, innerW, y, cardH, labelLines, labelFontSize, labelLineStep, labelBlockH);
         }
+    }
+
+    private void renderSection(NVGRenderer nvg, SectionSetting setting, float x, float y, float w, float h) {
+        float titleY = y + 7f;
+        nvg.text(Fonts.BOLD, setting.getName().toUpperCase(), x + 4f, titleY, 10f, Theme.ACCENT_PRIMARY);
+
+        String description = setting.getDescription();
+        if (!description.isBlank()) {
+            nvg.text(Fonts.REGULAR, description, x + 4f, titleY + 15f, 11.5f, Theme.TEXT_SECONDARY);
+        }
+
+        float lineY = y + h - 7f;
+        nvg.rect(x + 4f, lineY, Math.max(0f, w - 8f), 1f, Theme.SEPARATOR);
     }
 
     private void renderToggle(NVGRenderer nvg, ToggleSetting setting, float x, float w, float y, float cardH,

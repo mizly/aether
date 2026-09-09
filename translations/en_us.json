@@ -668,5 +668,8 @@
   "text.aether.random": "Random",
   "text.aether.random_local": "Random (Local)",
   "text.aether.random_global": "Random (Global)",
-  "text.aether.restoring_previous_equipment": "Restoring previous equipment..."
+  "text.aether.restoring_previous_equipment": "Restoring previous equipment...",
+  "text.aether.smart_aotv_routing": "Smart AOTV Routing",
+  "text.aether.aotv_start_distance": "AOTV Start Distance",
+  "text.aether.aotv_stop_distance": "AOTV Stop Distance"
 }

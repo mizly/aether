@@ -197,6 +197,7 @@ final class PestLeaveOneController {
         ClientUtils.setKeyMappingState(client.options.keyUp, false);
         PathfindingManager.stop();
         runtime.currentTarget = null;
+        runtime.lockedTargetEntityId = -1;
         runtime.pestTargetQueue.clear();
         runtime.zeroPestTabTicks = 0;
         runtime.navigation.plotTpSent = false;

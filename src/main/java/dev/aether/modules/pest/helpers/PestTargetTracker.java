@@ -21,7 +21,6 @@ import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.IdentityHashMap;
 import java.util.function.Predicate;
 
 public final class PestTargetTracker {
@@ -88,16 +87,13 @@ public final class PestTargetTracker {
     ) {
         List<Entity> pests = availableTargets(client, killedEntities, eligible);
         if (reservedEntityId != -1) {
-            Map<Entity, Double> nearestNeighborDistances = new IdentityHashMap<>();
-            List<Vec3> positions = pests.stream().map(Entity::position).toList();
-            for (int i = 0; i < pests.size(); i++) {
-                nearestNeighborDistances.put(pests.get(i), nearestNeighborDistanceSqr(i, positions));
-            }
+            // Leave-one still excludes the reserved pest, but all remaining
+            // targets should be visited nearest-first from the player's current
+            // position. The previous nearest-neighbor clustering sort could send
+            // the cleaner across the plot even with another pest beside it.
             pests.removeIf(pest -> pest.getId() == reservedEntityId);
-            pests.sort(Comparator
-                    .comparingDouble((Entity pest) -> nearestNeighborDistances.get(pest))
-                    .thenComparingDouble(client.player::distanceToSqr));
-        } else if (client.player != null) {
+        }
+        if (client.player != null) {
             pests.sort(Comparator.comparingDouble(client.player::distanceToSqr));
         }
         pestTargetQueue.clear();
@@ -128,6 +124,54 @@ public final class PestTargetTracker {
         return closest;
     }
 
+    /**
+     * Predicts the nearest-first route the destroyer will take as it hands off
+     * from one pest to the next. The first point is the current target when it
+     * is still valid; subsequent points are chosen greedily from the previous
+     * pest position, matching the re-scan-on-every-kill behavior closely.
+     */
+    static List<Entity> buildNearestRoute(
+            Minecraft client,
+            Collection<Entity> killedEntities,
+            int reservedEntityId,
+            Predicate<Entity> eligible,
+            Entity currentTarget) {
+        if (client == null || client.player == null) {
+            return List.of();
+        }
+
+        List<Entity> remaining = availableTargets(client, killedEntities, eligible);
+        remaining.removeIf(target -> target.getId() == reservedEntityId);
+        List<Entity> route = new ArrayList<>(remaining.size());
+        Vec3 cursor = client.player.position();
+
+        if (currentTarget != null) {
+            Entity active = remaining.stream()
+                    .filter(target -> target.getId() == currentTarget.getId())
+                    .findFirst()
+                    .orElse(null);
+            if (active != null) {
+                route.add(active);
+                remaining.remove(active);
+                cursor = active.position();
+            }
+        }
+
+        while (!remaining.isEmpty()) {
+            Vec3 origin = cursor;
+            Entity next = remaining.stream()
+                    .min(Comparator.comparingDouble(target -> origin.distanceToSqr(target.position())))
+                    .orElse(null);
+            if (next == null) {
+                break;
+            }
+            route.add(next);
+            remaining.remove(next);
+            cursor = next.position();
+        }
+        return List.copyOf(route);
+    }
+
     static Entity findMostIsolatedPest(
             Minecraft client,
             Collection<Entity> killedEntities,
@@ -138,6 +182,21 @@ public final class PestTargetTracker {
         }
         List<Vec3> positions = pests.stream().map(Entity::position).toList();
         return pests.get(mostIsolatedIndex(positions));
+    }
+
+
+    static Entity findAvailablePestById(
+            Minecraft client,
+            Collection<Entity> killedEntities,
+            int entityId,
+            Predicate<Entity> eligible) {
+        if (entityId < 0) {
+            return null;
+        }
+        return availableTargets(client, killedEntities, eligible).stream()
+                .filter(target -> target.getId() == entityId)
+                .findFirst()
+                .orElse(null);
     }
 
     static boolean isAvailablePest(

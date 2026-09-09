@@ -75,6 +75,14 @@ public class PestDestroyer {
         return runtime.state;
     }
 
+    /** Returns the currently predicted pest visit order for ESP/debug rendering. */
+    public static List<Entity> getPlannedPestRoute(Minecraft client) {
+        if (!runtime.active || client == null || client.player == null) {
+            return List.of();
+        }
+        return PestTargetController.buildPlannedRoute(client, runtime);
+    }
+
     public static void start(Minecraft client) {
         start(client, null);
     }
@@ -173,6 +181,7 @@ public class PestDestroyer {
             ClientUtils.setKeyMappingState(client.options.keyUse, false);
             ClientUtils.setKeyMappingState(client.options.keyAttack, false);
             ClientUtils.setKeyMappingState(client.options.keyShift, false);
+            ClientUtils.setKeyMappingState(client.options.keyJump, false);
         }
         ClientUtils.sendDebugMessage("[PestDestroyer] Stopped.");
     }
@@ -247,6 +256,10 @@ public class PestDestroyer {
                 PestDestroyerInputController.isVacuumTemporarilyReleased(runtime));
 
         PestDestroyerInputController.updateVacuumRetryPulse(client, runtime);
+
+        // Applied last so normal pest/path input cannot accidentally cancel the
+        // post-Etherwarp minimum hover height in the same tick.
+        PestCombatCoordinator.updateEtherwarpAltitudeHold(client, runtime);
     }
 
     private static void processState(Minecraft client) {
@@ -296,6 +309,8 @@ public class PestDestroyer {
         ClientUtils.setKeyMappingState(client.options.keyUse, false);
         ClientUtils.setKeyMappingState(client.options.keyAttack, false);
         ClientUtils.setKeyMappingState(client.options.keyUp, false);
+        ClientUtils.setKeyMappingState(client.options.keyJump, false);
+        ClientUtils.setKeyMappingState(client.options.keyShift, false);
         ClientUtils.setKeyMappingState(client.options.keyDown, false);
         ClientUtils.sendDebugMessage("PestDestroyer: roof detected during cleaning. Pausing navigation for roof AOTV.");
         startRoofAotv(client, currentPlot, returnState, "PestAotv-Roof-Periodic-" + currentPlot);
@@ -320,6 +335,12 @@ public class PestDestroyer {
     private static void startRoofAotv(Minecraft client, String plot, State returnState, String taskName) {
         runtime.roofAotvReturnState = returnState;
         runtime.aotvStartY = Double.NaN;
+        runtime.pestEtherwarpMaintainHeight = false;
+        runtime.pestEtherwarpJumpHeld = false;
+        if (client != null && client.options != null) {
+            ClientUtils.setKeyMappingState(client.options.keyJump, false);
+            ClientUtils.setKeyMappingState(client.options.keyShift, false);
+        }
         setState(State.AOTV_TO_ROOF);
         PestAotvManager.setSneakingForAotv(true);
         MacroWorkerThread.getInstance().submit(taskName, () -> {
@@ -493,6 +514,12 @@ public class PestDestroyer {
     static boolean tryNextPlot(Minecraft client) {
         boolean shouldTeleport = PestPlotNavigator.tryNextPlot(client, runtime.navigation);
         if (shouldTeleport) {
+            runtime.pestEtherwarpMaintainHeight = false;
+            runtime.pestEtherwarpJumpHeld = false;
+            if (client != null && client.options != null) {
+                ClientUtils.setKeyMappingState(client.options.keyJump, false);
+                ClientUtils.setKeyMappingState(client.options.keyShift, false);
+            }
             setState(State.TELEPORT_TO_PLOT);
             return true;
         }
@@ -501,11 +528,69 @@ public class PestDestroyer {
 
     // Predictive finish logic removed in favor of chat detection
 
+    /**
+     * Final completion gate used by tab-based finish confirmation. A run may
+     * only end after optimistic One Tap kills are revalidated and the currently
+     * loaded plot has no actionable pest left.
+     */
+    static boolean prepareCompletionRescan(Minecraft client) {
+        int revived = PestTargetController.reviveVisibleAssumedOneTapTargets(
+                client, runtime, CONTEXT);
+        if (revived > 0) {
+            setState(State.CHECK_NEXT);
+            return true;
+        }
+
+        PestTargetController.rebuildQueue(client, runtime, CONTEXT);
+        Entity visible = PestTargetController.nextQueuedPest(client, runtime);
+        if (visible != null) {
+            ClientUtils.sendDebugMessage(
+                    "[PestDestroyer] Final completion rescan found another loaded pest. Continuing run.");
+            PestTargetController.engage(client, runtime, CONTEXT, visible);
+            return true;
+        }
+
+        if (PestTargetController.waitingForOneTapRecheck(runtime)) {
+            setState(State.CHECK_NEXT);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Used when a plot sweep reaches its old budget. The budget is now a
+     * rescan cadence, not permission to finish while the server still reports
+     * actionable pests. The global stuck timeout remains the hard safety cap.
+     */
+    static boolean shouldContinueSearching(Minecraft client) {
+        int revived = PestTargetController.reviveVisibleAssumedOneTapTargets(
+                client, runtime, CONTEXT);
+        if (revived > 0 || PestTargetController.waitingForOneTapRecheck(runtime)) {
+            return true;
+        }
+
+        Entity visible = PestTargetController.findClosestPest(client, runtime, CONTEXT);
+        if (visible != null) {
+            return true;
+        }
+
+        int aliveNow = PestManager.getPestDestroyerCompletionAliveCountNow(client);
+        if (aliveNow >= 0 && !shouldFinishForAliveCount(client, aliveNow)) {
+            return true;
+        }
+
+        Set<String> actionablePlots = filterSkippedInfestedPlots(
+                PestManager.getInfestedPlotsFromTab(client));
+        return !actionablePlots.isEmpty();
+    }
+
     public static void finish(Minecraft client) {
         ClientUtils.setKeyMappingState(client.options.keyUse, false);
         ClientUtils.setKeyMappingState(client.options.keyDown, false);
         ClientUtils.setKeyMappingState(client.options.keyAttack, false);
         ClientUtils.setKeyMappingState(client.options.keyUp, false);
+        ClientUtils.setKeyMappingState(client.options.keyJump, false);
+        ClientUtils.setKeyMappingState(client.options.keyShift, false);
         int killed = runtime.killedEntities.size();
         ClientUtils.sendMessage("\u00A7aPest destroyer finished. Tracked " + killed + " pest(s).", false);
         runtime.resetAll();
