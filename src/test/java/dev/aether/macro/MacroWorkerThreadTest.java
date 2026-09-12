@@ -78,4 +78,31 @@ class MacroWorkerThreadTest {
             worker.cancelCurrent();
         }
     }
+
+    @Test
+    void activeWorkerCanBeReplacedByPriorityTask() throws InterruptedException {
+        MacroWorkerThread worker = new MacroWorkerThread();
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch replace = new CountDownLatch(1);
+        CountDownLatch replacementRan = new CountDownLatch(1);
+        worker.submit("Current", () -> {
+            started.countDown();
+            try {
+                if (replace.await(2, TimeUnit.SECONDS)) {
+                    worker.replaceCurrent("Priority", replacementRan::countDown);
+                }
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        worker.start();
+        try {
+            assertTrue(started.await(2, TimeUnit.SECONDS));
+            replace.countDown();
+            assertTrue(replacementRan.await(2, TimeUnit.SECONDS));
+        } finally {
+            replace.countDown();
+            worker.cancelCurrent();
+        }
+    }
 }

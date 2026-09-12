@@ -67,6 +67,16 @@ public final class MacroWorkerThread {
         debugLog("Cancel requested for [" + currentTaskName + "]; drained " + drained + " pending task(s).");
     }
 
+    public void replaceCurrent(String taskName, Runnable task) {
+        long generation = cancellationGeneration.incrementAndGet();
+        cancelRequested = true;
+        int drained = queue.size();
+        queue.clear();
+        queue.add(new TaskEntry(taskName, task, generation));
+        debugLog("Replacing [" + currentTaskName + "] with [" + taskName + "]; drained " + drained
+                + " pending task(s).");
+    }
+
     // leaves the running task alone
     public void clearPendingTasks() {
         int drained = queue.size();

@@ -157,17 +157,18 @@ public final class AutoPestExchangeManager {
         if (LoadoutManager.isSwappingLoadout) {
             LoadoutManager.abortSwapForPriorityTask(client, "pest exchange");
         }
-        if (MacroWorkerThread.getInstance().isBusy()) {
-            MacroWorkerThread.getInstance().cancelCurrent();
-            ClientUtils.sendDebugMessage("AutoPestExchange: cancelled queued worker tasks for priority.");
-        }
-
         MacroStateManager.setCurrentState(MacroState.State.CLEANING);
         PestManager.setCleaningInProgress(true);
         running = true;
         lastRunMs = now;
         // the trigger stays armed so a run that never reaches phillip retries after the cooldown
-        MacroWorkerThread.getInstance().submit("AutoPestExchange", () -> runSequence(client));
+        MacroWorkerThread worker = MacroWorkerThread.getInstance();
+        if (worker.isBusy()) {
+            worker.replaceCurrent("AutoPestExchange", () -> runSequence(client));
+            ClientUtils.sendDebugMessage("AutoPestExchange: replaced queued worker tasks for priority.");
+        } else {
+            worker.submit("AutoPestExchange", () -> runSequence(client));
+        }
         return true;
     }
 
