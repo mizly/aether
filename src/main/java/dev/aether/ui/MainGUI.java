@@ -2188,6 +2188,11 @@ public class MainGUI extends NVGScreen {
         renderPill(nvg, x, y, on, key);
     }
 
+    void renderStartControl(NVGRenderer nvg, float x, float y, float w, float h,
+                            ModulesTab.SubTab subTab, boolean hovered) {
+        renderPrimitives.renderStartButton(nvg, subTab, x, y, w, h, hovered);
+    }
+
     List<String> wrapSettingLabelForRow(NVGRenderer nvg, Setting setting, float rowW) {
         return wrapSettingLabel(nvg, setting, rowW);
     }

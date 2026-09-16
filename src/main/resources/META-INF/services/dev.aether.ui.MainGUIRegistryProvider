@@ -1,5 +1,6 @@
 dev.aether.ui.providers.modules.AutoUpdateRegistryProvider
 dev.aether.ui.providers.modules.FarmingMacroRegistryProvider
+dev.aether.ui.providers.modules.StriderFishingRegistryProvider
 dev.aether.ui.providers.modules.RewarpRegistryProvider
 dev.aether.ui.providers.modules.PestManagerRegistryProvider
 dev.aether.ui.providers.modules.MiningRegistryProvider

@@ -4,6 +4,7 @@ import dev.aether.config.AetherConfig;
 import dev.aether.bootstrap.AetherBootstrapHooks;
 import dev.aether.bootstrap.AetherUiActions;
 import dev.aether.macro.farming.FarmingMacroManager;
+import dev.aether.macro.fishing.FishingMacroManager;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.CropFeverManager;
@@ -66,6 +67,10 @@ public final class AetherKeybindHandler {
 
             while (AetherKeybindRegistry.getManualPestEarlyFinishKey().consumeClick()) {
                 ManualPestManager.requestEarlyFinish(client);
+            }
+
+            while (AetherKeybindRegistry.getStriderFishingKey().consumeClick()) {
+                handleStriderFishingToggle(client);
             }
         });
     }
@@ -133,6 +138,33 @@ public final class AetherKeybindHandler {
         client.execute(() -> FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig()));
         if (announce) {
             ClientUtils.sendMessage("\u00A7aFarming macro started.", false);
+        }
+    }
+
+    private static void handleStriderFishingToggle(Minecraft client) {
+        if (MacroStateManager.isAutomationRunning()) {
+            MacroStateManager.stopMacro();
+            return;
+        }
+        startStriderFishingMacro(client, true);
+    }
+
+    public static void startStriderFishingMacro(Minecraft client) {
+        startStriderFishingMacro(client, true);
+    }
+
+    public static void startStriderFishingMacro(Minecraft client, boolean announce) {
+        if (client == null) {
+            return;
+        }
+
+        AetherBootstrapHooks.resetFailsafeRuntimeState();
+        GearManager.reset();
+        RecoveryManager.reset();
+        MacroStateManager.setCurrentState(MacroState.State.FISHING);
+        client.execute(() -> FishingMacroManager.enable(client));
+        if (announce) {
+            ClientUtils.sendMessage("§aStrider fishing macro started.", false);
         }
     }
 

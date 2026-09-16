@@ -14,6 +14,8 @@ public class ModulesTab {
             String description,
             BooleanSupplier enabledGetter,
             Consumer<Boolean> enabledSetter,
+            BooleanSupplier runningGetter,
+            Runnable runToggler,
             List<SettingGroup> groups) {
 
         public SubTab {
@@ -22,7 +24,25 @@ public class ModulesTab {
         }
 
         public SubTab(String name, String description, List<SettingGroup> groups) {
-            this(name, description, null, null, groups);
+            this(name, description, null, null, null, null, groups);
+        }
+
+        public SubTab(String name, String description,
+                      BooleanSupplier enabledGetter, Consumer<Boolean> enabledSetter,
+                      List<SettingGroup> groups) {
+            this(name, description, enabledGetter, enabledSetter, null, null, groups);
+        }
+
+        public boolean hasStartButton() {
+            return runningGetter != null && runToggler != null;
+        }
+
+        public boolean isRunning() {
+            return hasStartButton() && runningGetter.getAsBoolean();
+        }
+
+        public void toggleRun() {
+            if (hasStartButton()) runToggler.run();
         }
 
         public boolean hasToggle() {

@@ -3,6 +3,7 @@ package dev.aether.bootstrap;
 import dev.aether.config.AetherConfig;
 import dev.aether.config.ConfigHelpers;
 import dev.aether.macro.farming.FarmingMacroManager;
+import dev.aether.macro.fishing.FishingMacroManager;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.bootstrap.AetherBootstrapHooks;
@@ -149,6 +150,9 @@ public final class AetherAutomationTickHandler {
         	&& !PestOnTheTrackManager.getInstance().isBlockingFarming()
         ) {
             FarmingMacroManager.tick(client);
+        }
+        if (MacroStateManager.getCurrentState() == MacroState.State.FISHING) {
+            FishingMacroManager.tick(client);
         }
         MacroStateManager.periodicUpdate();
         ProfitManager.update();

@@ -245,6 +245,7 @@ public class MainStatusHudElement extends HudElement {
     private static String stateLabel(MacroState.State st) {
         return switch (st) {
             case FARMING       -> "Farming";
+            case FISHING       -> "Fishing";
             case METAL_DETECTING -> "Metal Detecting";
             case AUTO_CARNIVAL -> "Auto Carnival";
             case CLEANING      -> "Cleaning";

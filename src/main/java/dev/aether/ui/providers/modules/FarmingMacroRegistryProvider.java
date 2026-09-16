@@ -1,7 +1,10 @@
 package dev.aether.ui.providers.modules;
 
+import dev.aether.bootstrap.AetherKeybindHandler;
 import dev.aether.config.AetherConfig;
 import dev.aether.config.FarmWaypoint;
+import dev.aether.macro.MacroState;
+import dev.aether.macro.MacroStateManager;
 import dev.aether.config.FarmingMacroPresetManager;
 import dev.aether.config.FarmType;
 import dev.aether.config.FarmWaypoints;
@@ -32,7 +35,18 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
 
     @Override
     protected ModulesTab.SubTab createSubTab() {
-        return MainGUIRegistry.subTab("Farming Macro", "Automatically farms crops", buildGroups());
+        return MainGUIRegistry.startableSubTab("Farming Macro", "Automatically farms crops",
+                () -> MacroStateManager.getCurrentState() == MacroState.State.FARMING,
+                FarmingMacroRegistryProvider::toggleMacro,
+                buildGroups());
+    }
+
+    private static void toggleMacro() {
+        if (MacroStateManager.isAutomationRunning()) {
+            MacroStateManager.stopMacro();
+            return;
+        }
+        AetherKeybindHandler.startFarmingMacro(Minecraft.getInstance());
     }
 
     private static List<SettingGroup> buildGroups() {

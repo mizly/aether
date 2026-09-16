@@ -1081,4 +1081,24 @@ public final class AetherConfig {
         public static final ListEntry<String> AUTO_SUPERCRAFT_ITEMS = Config.list("autoSupercraftItems",
                         DEFAULT_SUPERCRAFT_ITEMS,
                         String.class);
+
+        // -- STRIDER FISHING -------------------------------------------------------
+        // slots are configured 1-9 and converted to 0-based when selected
+        public static final IntEntry STRIDER_FISHING_ROD_SLOT = Config.integer("striderFishingRodSlot", 1).range(1, 9);
+        public static final IntEntry STRIDER_FISHING_WEAPON_SLOT = Config.integer("striderFishingWeaponSlot", 2)
+                        .range(1, 9);
+        public static final BooleanEntry STRIDER_FISHING_ALWAYS_SNEAK = Config.bool("striderFishingAlwaysSneak", false);
+        // off releases sneak while standing in lava or water, so the crouch only happens on solid ground
+        public static final BooleanEntry STRIDER_FISHING_SNEAK_IN_LIQUID = Config
+                        .bool("striderFishingSneakInLiquid", false);
+        public static final BooleanEntry STRIDER_FISHING_ETHERWARP_RETURN = Config
+                        .bool("striderFishingEtherwarpReturn", false);
+        public static final StringEntry STRIDER_FISHING_TARGET_NAME = Config.string("striderFishingTargetName",
+                        "Stridersurfer");
+        public static final FloatEntry STRIDER_FISHING_KILL_DISTANCE = Config
+                        .floatVal("striderFishingKillDistance", 1.5f).range(1.0f, 2.0f);
+        public static final IntEntry STRIDER_FISHING_CAST_DELAY_MIN = Config.integer("striderFishingCastDelayMin", 400)
+                        .range(0, 3000);
+        public static final IntEntry STRIDER_FISHING_CAST_DELAY_MAX = Config.integer("striderFishingCastDelayMax", 900)
+                        .range(0, 3000);
 }

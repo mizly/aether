@@ -134,6 +134,16 @@ public class MainGUIRegistry {
         return new ModulesTab.SubTab(name, description, groups);
     }
 
+    // a module whose header and card carry a start/stop button instead of a toggle
+    public static ModulesTab.SubTab startableSubTab(
+            String name,
+            String description,
+            java.util.function.BooleanSupplier runningGetter,
+            Runnable runToggler,
+            List<SettingGroup> groups) {
+        return new ModulesTab.SubTab(name, description, null, null, runningGetter, runToggler, groups);
+    }
+
     public static ModulesTab.SubTab toggleSubTab(
             String name,
             String description,

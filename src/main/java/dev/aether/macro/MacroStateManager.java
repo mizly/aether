@@ -1,6 +1,7 @@
 package dev.aether.macro;
 
 import dev.aether.macro.farming.FarmingMacroManager;
+import dev.aether.macro.fishing.FishingMacroManager;
 
 import dev.aether.util.ClientUtils;
 import dev.aether.config.AetherConfig;
@@ -162,11 +163,20 @@ public class MacroStateManager {
             PathfindingManager.stop();
         }
 
+        if (state == MacroState.State.FISHING && prevState != MacroState.State.FISHING) {
+            MacroWorkerThread.getInstance().clearPendingTasks();
+            PathfindingManager.stop();
+        }
+
         currentState = state;
         ProfitManager.updateSessionGraphClock();
 
         if (prevState == MacroState.State.FARMING && state != MacroState.State.FARMING) {
             runOnClientThread(client, () -> FarmingMacroManager.releaseInputs(client));
+        }
+
+        if (prevState == MacroState.State.FISHING && state != MacroState.State.FISHING) {
+            runOnClientThread(client, () -> FishingMacroManager.releaseInputs(client));
         }
 
         if (prevState == MacroState.State.OFF && state != MacroState.State.OFF
@@ -242,6 +252,7 @@ public class MacroStateManager {
         BazaarUtils.cancel();
         // Stop any active internal farming macro.
         runOnClientThread(client, () -> FarmingMacroManager.disable(client));
+        runOnClientThread(client, () -> FishingMacroManager.disable(client));
         MetalDetectorSolver.stopForMacro(client);
         AutoCarnivalManager.stopForMacro(client);
         FailsafeManager.reset();
