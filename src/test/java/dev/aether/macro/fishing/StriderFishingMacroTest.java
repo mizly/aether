@@ -85,6 +85,29 @@ class StriderFishingMacroTest {
     }
 
     @Test
+    void theCursorSitsOffCentreOnTheFloatModel() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        boolean sawOffCentre = false;
+        for (int i = 0; i < 500; i++) {
+            net.minecraft.world.phys.Vec3 offset = StriderFishingMacro.aimBoxOffset(random);
+            assertTrue(StriderFishingMacro.aimBoxOffsetInRange(offset));
+            sawOffCentre |= offset.length() > 0.02;
+        }
+        assertTrue(sawOffCentre);
+    }
+
+    @Test
+    void aRefusedRouteBacksOffBeforeTryingAgain() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            long delay = StriderFishingMacro.nextReturnRetryDelayMs(random);
+            assertTrue(StriderFishingMacro.returnRetryDelayInRange(delay));
+            // long enough that the jump can lift us out of lava before the next plan
+            assertTrue(delay >= 500L && delay <= 900L);
+        }
+    }
+
+    @Test
     void etherwarpOnlyEarnsItsKeepFromFourBlocksOut() {
         assertFalse(StriderFishingMacro.shouldEtherwarp(3.9, false, true));
         assertTrue(StriderFishingMacro.shouldEtherwarp(4.0, false, true));

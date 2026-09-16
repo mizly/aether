@@ -84,7 +84,13 @@ public final class StriderFishingMacro extends AbstractMacro {
     private static final double ATTACK_RANGE_SLACK = 0.85;
     private static final double FOLLOW_BAND = 0.35;
     private static final int MAX_AIM_ATTEMPTS = 6;
-    private static final int MAX_RETURN_ATTEMPTS = 3;
+    private static final int MAX_RETURN_ATTEMPTS = 6;
+    // a failed plan usually means we are still sinking in lava, so the jump needs time before retrying
+    private static final long RETURN_RETRY_MIN_MS = 500L;
+    private static final long RETURN_RETRY_MAX_MS = 900L;
+    // the nearest lava is usually straight down at our feet, which is no way to cast
+    private static final double MIN_CAST_HORIZONTAL = 2.0;
+    private static final double AIM_BOX_RADIUS = 0.18;
 
     private State state = State.AIM_LAVA;
     private BlockPos origin;
@@ -100,6 +106,8 @@ public final class StriderFishingMacro extends AbstractMacro {
     private Entity target;
     private boolean returnPathStarted;
     private boolean returnByWalk;
+    private boolean etherwarpFailed;
+    private long returnRetryAt;
     private volatile boolean returnFinished;
 
     // everything loaded when the line was reeled, so a catch is told apart from whatever was already swimming
@@ -362,27 +370,39 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
+        long now = System.currentTimeMillis();
         if (returnFinished) {
-            // the route ended somewhere else, so line the block up again rather than casting from it
             returnFinished = false;
             returnPathStarted = false;
-            if (++returnAttempts > MAX_RETURN_ATTEMPTS) {
+            // a refused warp is a change of plan, not a failed attempt; only a dead walk route counts
+            if (returnByWalk && ++returnAttempts > MAX_RETURN_ATTEMPTS) {
                 fail("Strider fishing stopped: could not get back onto the start block.");
+                return;
             }
+            returnByWalk = false;
+            returnRetryAt = now + nextReturnRetryDelayMs(ThreadLocalRandom.current());
+            return;
+        }
+
+        if (now < returnRetryAt) {
             return;
         }
 
         Vec3 home = Vec3.atBottomCenterOf(origin);
         if (!returnPathStarted) {
             boolean inLiquid = mc.player.isInLiquid();
-            if (shouldEtherwarp(mc.player.position().distanceTo(home), inLiquid,
+            if (!etherwarpFailed && shouldEtherwarp(mc.player.position().distanceTo(home), inLiquid,
                     AetherConfig.STRIDER_FISHING_ETHERWARP_RETURN.get())) {
                 returnPathStarted = true;
                 returnByWalk = false;
                 PathfindingManager.startConfiguredPureEtherwarp(mc,
                         origin.getX(), origin.getY(), origin.getZ(),
                         () -> returnFinished = true,
-                        () -> mc.execute(() -> startWalkHome(mc, home)));
+                        () -> {
+                            // stop trying to warp for this trip and let the walk take over
+                            etherwarpFailed = true;
+                            returnFinished = true;
+                        });
                 return;
             }
             // a walk route cannot be planned out of lava, so the jump has to lift us clear first
@@ -434,14 +454,14 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
-        // drift around the float itself; anchoring to the cast angle left the cursor sitting short of it
-        Vec3 eye = mc.player.getEyePosition();
-        Vec3 float3 = hook.position();
-        double dx = float3.x - eye.x;
-        double dy = float3.y - eye.y;
-        double dz = float3.z - eye.z;
-
+        // drift around the float itself, offset inside a small box so the cursor is never dead centre on it
         ThreadLocalRandom random = ThreadLocalRandom.current();
+        Vec3 eye = mc.player.getEyePosition();
+        Vec3 aimAt = hook.position().add(aimBoxOffset(random));
+        double dx = aimAt.x - eye.x;
+        double dy = aimAt.y - eye.y;
+        double dz = aimAt.z - eye.z;
+
         RotationManager.rotateToYawPitch(mc,
                 yawTo(dx, dz) + driftDegrees(random, IDLE_YAW_DEGREES),
                 pitchTo(dx, dy, dz) + driftDegrees(random, IDLE_PITCH_DEGREES),
@@ -477,6 +497,27 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     static long nextIdleDelayMs(ThreadLocalRandom random) {
         return random.nextLong(IDLE_MIN_DELAY_MS, IDLE_MAX_DELAY_MS + 1);
+    }
+
+    static Vec3 aimBoxOffset(ThreadLocalRandom random) {
+        return new Vec3(
+                random.nextDouble(-AIM_BOX_RADIUS, AIM_BOX_RADIUS),
+                random.nextDouble(-AIM_BOX_RADIUS, AIM_BOX_RADIUS),
+                random.nextDouble(-AIM_BOX_RADIUS, AIM_BOX_RADIUS));
+    }
+
+    static boolean aimBoxOffsetInRange(Vec3 offset) {
+        return Math.abs(offset.x) <= AIM_BOX_RADIUS
+                && Math.abs(offset.y) <= AIM_BOX_RADIUS
+                && Math.abs(offset.z) <= AIM_BOX_RADIUS;
+    }
+
+    static long nextReturnRetryDelayMs(ThreadLocalRandom random) {
+        return random.nextLong(RETURN_RETRY_MIN_MS, RETURN_RETRY_MAX_MS + 1);
+    }
+
+    static boolean returnRetryDelayInRange(long delay) {
+        return delay >= RETURN_RETRY_MIN_MS && delay <= RETURN_RETRY_MAX_MS;
     }
 
     static long nextIdleTurnMs(ThreadLocalRandom random) {
@@ -532,6 +573,8 @@ public final class StriderFishingMacro extends AbstractMacro {
         returnPathStarted = false;
         returnByWalk = false;
         returnFinished = false;
+        etherwarpFailed = false;
+        returnRetryAt = 0L;
         clearIdle();
         releaseAll(mc);
         changeState(State.RETURN);
@@ -541,6 +584,8 @@ public final class StriderFishingMacro extends AbstractMacro {
         returnPathStarted = false;
         returnByWalk = false;
         returnFinished = false;
+        etherwarpFailed = false;
+        returnRetryAt = 0L;
         returnAttempts = 0;
         releaseAll(mc);
         aimAttempts = 0;
@@ -701,7 +746,9 @@ public final class StriderFishingMacro extends AbstractMacro {
         BlockPos base = mc.player.blockPosition();
         Vec3 eye = mc.player.getEyePosition();
         Vec3 best = null;
-        double bestDistance = Double.MAX_VALUE;
+        double bestPitch = Double.MAX_VALUE;
+        Vec3 fallback = null;
+        double fallbackPitch = Double.MAX_VALUE;
 
         int radius = (int) LAVA_SCAN_RADIUS;
         int depth = (int) LAVA_SCAN_DEPTH;
@@ -717,15 +764,28 @@ public final class StriderFishingMacro extends AbstractMacro {
                         continue;
                     }
                     Vec3 surface = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
-                    double distance = eye.distanceToSqr(surface);
-                    if (distance < bestDistance && ClientUtils.hasLineOfSight(mc.player, surface)) {
-                        bestDistance = distance;
+                    double sdx = surface.x - eye.x;
+                    double sdz = surface.z - eye.z;
+                    // flattest reachable lava, so the cast goes out across it instead of at our own feet
+                    double pitch = pitchTo(sdx, surface.y - eye.y, sdz);
+                    if (pitch >= fallbackPitch && pitch >= bestPitch) {
+                        continue;
+                    }
+                    if (!ClientUtils.hasLineOfSight(mc.player, surface)) {
+                        continue;
+                    }
+                    if (pitch < fallbackPitch) {
+                        fallbackPitch = pitch;
+                        fallback = surface;
+                    }
+                    if (pitch < bestPitch && Math.sqrt(sdx * sdx + sdz * sdz) >= MIN_CAST_HORIZONTAL) {
+                        bestPitch = pitch;
                         best = surface;
                     }
                 }
             }
         }
-        return best;
+        return best != null ? best : fallback;
     }
 
     private static boolean hasCatchMarker(Minecraft mc, FishingHook hook) {
