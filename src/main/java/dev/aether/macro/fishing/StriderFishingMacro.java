@@ -51,6 +51,12 @@ public final class StriderFishingMacro extends AbstractMacro {
     private static final long ATTACK_MAX_DELAY_MS = 333L;
     private static final long RETURN_DELAY_MIN_MS = 75L;
     private static final long RETURN_DELAY_MAX_MS = 175L;
+    // nothing was caught, so the next cast waits out a human pause instead of snapping straight back
+    private static final long EMPTY_CATCH_DELAY_MIN_MS = 1_500L;
+    private static final long EMPTY_CATCH_DELAY_MAX_MS = 3_500L;
+    private static final double LOOK_AHEAD_DISTANCE = 6.0;
+    private static final double LOOK_DOWN_DEGREES = 5.0;
+    private static final double MIN_TRAVEL_SPEED_SQR = 1.0e-4;
     private static final double ETHERWARP_MIN_DISTANCE = 4.0;
     // wading out of lava is slow and expensive, so the warp takes over as soon as there is anywhere to go
     private static final double ETHERWARP_LIQUID_MIN_DISTANCE = 1.0;
@@ -81,10 +87,12 @@ public final class StriderFishingMacro extends AbstractMacro {
     private long nextAttackAt;
     private long returnAt;
     private int followMove;
+    private boolean emptyCatch;
     private int aimAttempts;
     private int returnAttempts;
     private Entity target;
     private boolean returnPathStarted;
+    private boolean returnByWalk;
     private volatile boolean returnFinished;
 
     // everything loaded when the line was reeled, so a catch is told apart from whatever was already swimming
@@ -111,6 +119,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         returnFinished = false;
         nextAttackAt = 0L;
         returnAt = 0L;
+        emptyCatch = false;
         preReelEntityIds.clear();
         clearIdle();
         changeState(State.AIM_LAVA);
@@ -169,7 +178,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         if (isLookingAtLava(mc)) {
             FailsafeManager.selectHotbarSlot(mc, rodSlot());
             changeState(State.CAST);
-            nextActionAt = System.currentTimeMillis() + castDelayMs();
+            nextActionAt = System.currentTimeMillis() + castDelayForCycle();
             return;
         }
 
@@ -216,6 +225,7 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
         aimAttempts = 0;
+        emptyCatch = false;
         anchorIdle(mc, now);
         changeState(State.WAIT_BITE);
     }
@@ -271,6 +281,7 @@ public final class StriderFishingMacro extends AbstractMacro {
             target = findTarget(mc);
             if (target != null) {
                 returnAt = 0L;
+                emptyCatch = false;
             }
         }
 
@@ -284,6 +295,7 @@ public final class StriderFishingMacro extends AbstractMacro {
             }
             // item drops and empty catches never spawn a mob, so go back and cast again
             if (now - stateEnteredAt > ACQUIRE_TIMEOUT_MS) {
+                emptyCatch = true;
                 beginReturn(mc);
             }
             return;
@@ -352,6 +364,7 @@ public final class StriderFishingMacro extends AbstractMacro {
             if (shouldEtherwarp(mc.player.position().distanceTo(home),
                     mc.player.isInLiquid(),
                     AetherConfig.STRIDER_FISHING_ETHERWARP_RETURN.get())) {
+                returnByWalk = false;
                 PathfindingManager.startConfiguredPureEtherwarp(mc,
                         origin.getX(), origin.getY(), origin.getZ(),
                         () -> returnFinished = true,
@@ -359,10 +372,17 @@ public final class StriderFishingMacro extends AbstractMacro {
                 return;
             }
             startWalkHome(mc, home);
+            return;
+        }
+
+        // the warp has to keep its own aim, so only the walk gets the relaxed camera
+        if (returnByWalk && PathfindingManager.isNavigating()) {
+            PathfindingManager.setWalkLookTarget(travelLookTarget(mc));
         }
     }
 
     private void startWalkHome(Minecraft mc, Vec3 home) {
+        returnByWalk = true;
         PathfindingManager.startConfiguredWalk(mc, home,
                 () -> returnFinished = true,
                 () -> returnFinished = true,
@@ -450,14 +470,17 @@ public final class StriderFishingMacro extends AbstractMacro {
     }
 
     private void recast(long now) {
+        // the line came back with nothing on it, so the next cast is not instant
+        emptyCatch = true;
         changeState(State.CAST);
-        nextActionAt = now + castDelayMs();
+        nextActionAt = now + castDelayForCycle();
     }
 
     private void beginReturn(Minecraft mc) {
         target = null;
         followMove = 0;
         returnPathStarted = false;
+        returnByWalk = false;
         returnFinished = false;
         clearIdle();
         releaseAll(mc);
@@ -466,6 +489,7 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     private void arriveHome(Minecraft mc) {
         returnPathStarted = false;
+        returnByWalk = false;
         returnFinished = false;
         returnAttempts = 0;
         releaseAll(mc);
@@ -552,6 +576,39 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     private static int weaponSlot() {
         return Mth.clamp(AetherConfig.STRIDER_FISHING_WEAPON_SLOT.get() - 1, 0, 8);
+    }
+
+    // aiming down the path snaps the camera around every corner, so it just looks where it is walking
+    private static Vec3 travelLookTarget(Minecraft mc) {
+        Vec3 motion = mc.player.getDeltaMovement();
+        double yawRad = Math.toRadians(travelYawDegrees(motion.x, motion.z, mc.player.getYRot()));
+        Vec3 ahead = new Vec3(-Math.sin(yawRad), 0.0, Math.cos(yawRad)).scale(LOOK_AHEAD_DISTANCE);
+        return mc.player.getEyePosition().add(ahead).subtract(0.0, lookDrop(), 0.0);
+    }
+
+    static float travelYawDegrees(double motionX, double motionZ, float fallbackYaw) {
+        if (motionX * motionX + motionZ * motionZ < MIN_TRAVEL_SPEED_SQR) {
+            return fallbackYaw;
+        }
+        return (float) Math.toDegrees(Math.atan2(-motionX, motionZ));
+    }
+
+    static double lookDrop() {
+        return LOOK_AHEAD_DISTANCE * Math.tan(Math.toRadians(LOOK_DOWN_DEGREES));
+    }
+
+    private long castDelayForCycle() {
+        return emptyCatch
+                ? nextEmptyCatchDelayMs(ThreadLocalRandom.current())
+                : castDelayMs();
+    }
+
+    static long nextEmptyCatchDelayMs(ThreadLocalRandom random) {
+        return random.nextLong(EMPTY_CATCH_DELAY_MIN_MS, EMPTY_CATCH_DELAY_MAX_MS + 1);
+    }
+
+    static boolean emptyCatchDelayInRange(long delay) {
+        return delay >= EMPTY_CATCH_DELAY_MIN_MS && delay <= EMPTY_CATCH_DELAY_MAX_MS;
     }
 
     private static long castDelayMs() {

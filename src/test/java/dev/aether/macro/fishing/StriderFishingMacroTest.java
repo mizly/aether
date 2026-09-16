@@ -75,6 +75,17 @@ class StriderFishingMacroTest {
     }
 
     @Test
+    void anEmptyCatchWaitsLongerBeforeTheNextCastThanAKill() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            long delay = StriderFishingMacro.nextEmptyCatchDelayMs(random);
+            assertTrue(StriderFishingMacro.emptyCatchDelayInRange(delay));
+            assertTrue(delay >= 1_500L && delay <= 3_500L);
+            assertTrue(delay > StriderFishingMacro.nextReturnDelayMs(random));
+        }
+    }
+
+    @Test
     void etherwarpOnlyEarnsItsKeepFromFourBlocksOut() {
         assertFalse(StriderFishingMacro.shouldEtherwarp(3.9, false, true));
         assertTrue(StriderFishingMacro.shouldEtherwarp(4.0, false, true));
@@ -102,6 +113,24 @@ class StriderFishingMacroTest {
             assertTrue(StriderFishingMacro.idleDelayInRange(StriderFishingMacro.nextIdleDelayMs(random)));
             assertTrue(Math.abs(StriderFishingMacro.driftDegrees(random, 2.5f)) <= 2.5f);
         }
+    }
+
+    @Test
+    void theWalkHomeLooksWhereItIsHeaded() {
+        assertEquals(0.0f, StriderFishingMacro.travelYawDegrees(0.0, 0.5, 123.0f), 0.001f);
+        assertEquals(90.0f, StriderFishingMacro.travelYawDegrees(-0.5, 0.0, 123.0f), 0.001f);
+        assertEquals(-90.0f, StriderFishingMacro.travelYawDegrees(0.5, 0.0, 123.0f), 0.001f);
+    }
+
+    @Test
+    void aStandstillKeepsTheCurrentFacingInsteadOfSnapping() {
+        assertEquals(123.0f, StriderFishingMacro.travelYawDegrees(0.0, 0.0, 123.0f), 0.001f);
+    }
+
+    @Test
+    void theWalkHomeLooksOnlyVerySlightlyDown() {
+        double degrees = Math.toDegrees(Math.atan2(StriderFishingMacro.lookDrop(), 6.0));
+        assertTrue(degrees > 4.0 && degrees < 6.0);
     }
 
     @Test
