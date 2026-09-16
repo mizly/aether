@@ -49,8 +49,8 @@ public final class StriderFishingMacro extends AbstractMacro {
     // 3-6 cps, redrawn every swing so the cadence is not a metronome
     private static final long ATTACK_MIN_DELAY_MS = 167L;
     private static final long ATTACK_MAX_DELAY_MS = 333L;
-    private static final long RETURN_DELAY_MIN_MS = 200L;
-    private static final long RETURN_DELAY_MAX_MS = 500L;
+    private static final long RETURN_DELAY_MIN_MS = 75L;
+    private static final long RETURN_DELAY_MAX_MS = 175L;
     private static final double ETHERWARP_MIN_DISTANCE = 4.0;
     // wading out of lava is slow and expensive, so the warp takes over as soon as there is anywhere to go
     private static final double ETHERWARP_LIQUID_MIN_DISTANCE = 1.0;
@@ -167,7 +167,6 @@ public final class StriderFishingMacro extends AbstractMacro {
         }
 
         if (isLookingAtLava(mc)) {
-            aimAttempts = 0;
             FailsafeManager.selectHotbarSlot(mc, rodSlot());
             changeState(State.CAST);
             nextActionAt = System.currentTimeMillis() + castDelayMs();
@@ -199,6 +198,16 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
+        // the camera can still be settling from the walk back, so the lava is confirmed again at the last moment
+        if (!isLookingAtLava(mc)) {
+            if (++aimAttempts > MAX_AIM_ATTEMPTS) {
+                fail("Strider fishing stopped: could not keep the rod pointed at lava.");
+                return;
+            }
+            changeState(State.AIM_LAVA);
+            return;
+        }
+
         FailsafeManager.selectHotbarSlot(mc, rodSlot());
         ClientUtils.performUseClick();
         // a bobber still out means that click reeled the stuck line in, so cast on the next pass
@@ -206,6 +215,7 @@ public final class StriderFishingMacro extends AbstractMacro {
             nextActionAt = now + castDelayMs();
             return;
         }
+        aimAttempts = 0;
         anchorIdle(mc, now);
         changeState(State.WAIT_BITE);
     }
@@ -460,6 +470,8 @@ public final class StriderFishingMacro extends AbstractMacro {
         returnAttempts = 0;
         releaseAll(mc);
         aimAttempts = 0;
+        // the route leaves the camera wherever it was steering, so the lava aim starts from a clean slate
+        RotationManager.cancelRotation();
         changeState(State.AIM_LAVA);
     }
 

@@ -70,7 +70,7 @@ class StriderFishingMacroTest {
         for (int i = 0; i < 500; i++) {
             long delay = StriderFishingMacro.nextReturnDelayMs(random);
             assertTrue(StriderFishingMacro.returnDelayInRange(delay));
-            assertTrue(delay >= 200L && delay <= 500L);
+            assertTrue(delay >= 75L && delay <= 175L);
         }
     }
 
