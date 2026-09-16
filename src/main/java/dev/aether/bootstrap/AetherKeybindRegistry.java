@@ -22,6 +22,7 @@ public final class AetherKeybindRegistry {
     private static KeyMapping ungrabMouseKey;
     private static KeyMapping manualPestEarlyFinishKey;
     private static KeyMapping striderFishingKey;
+    private static KeyMapping macroMenuKey;
     private static boolean registered;
 
     private AetherKeybindRegistry() {
@@ -55,6 +56,8 @@ public final class AetherKeybindRegistry {
                     .registerKeyMapping(new KeyMapping("Manual Pest Early Finish", GLFW.GLFW_KEY_UNKNOWN, category));
             striderFishingKey = KeyMappingHelper
                     .registerKeyMapping(new KeyMapping("Strider Fishing Macro", GLFW.GLFW_KEY_UNKNOWN, category));
+            macroMenuKey = KeyMappingHelper
+                    .registerKeyMapping(new KeyMapping("Open Macro Menu", GLFW.GLFW_KEY_N, category));
         } catch (IllegalStateException ex) {
             // External feature jars can initialize after options are already built; reuse existing mappings if present.
             macroToggleKey = resolveExistingOrDetached("key.aether.start_script", GLFW.GLFW_KEY_K, category);
@@ -67,6 +70,7 @@ public final class AetherKeybindRegistry {
             ungrabMouseKey = resolveExistingOrDetached("key.aether.ungrab_mouse", GLFW.GLFW_KEY_U, category);
             manualPestEarlyFinishKey = resolveExistingOrDetached("Manual Pest Early Finish", GLFW.GLFW_KEY_UNKNOWN, category);
             striderFishingKey = resolveExistingOrDetached("Strider Fishing Macro", GLFW.GLFW_KEY_UNKNOWN, category);
+            macroMenuKey = resolveExistingOrDetached("Open Macro Menu", GLFW.GLFW_KEY_N, category);
         }
         registered = true;
     }
@@ -181,6 +185,11 @@ public final class AetherKeybindRegistry {
         return striderFishingKey;
     }
 
+    public static KeyMapping getMacroMenuKey() {
+        register();
+        return macroMenuKey;
+    }
+
     public static List<RegisteredKeybind> getRegisteredKeybinds() {
         register();
         return List.of(
@@ -193,7 +202,8 @@ public final class AetherKeybindRegistry {
                 new RegisteredKeybind("Toggle PiP", "Opens or closes the picture-in-picture window", getPipKey()),
                 new RegisteredKeybind("Toggle Ungrab Mouse", "Releases or restores the mouse cursor", getUngrabMouseKey()),
                 new RegisteredKeybind("Manual Pest Early Finish", "While manual pest cleaning is waiting, skip straight to pest post-actions and resume farming", getManualPestEarlyFinishKey()),
-                new RegisteredKeybind("Strider Fishing Macro", "Starts or stops the strider fishing macro", getStriderFishingKey())
+                new RegisteredKeybind("Strider Fishing Macro", "Starts or stops the strider fishing macro", getStriderFishingKey()),
+                new RegisteredKeybind("Open Macro Menu", "Opens the macro start menu", getMacroMenuKey())
         );
     }
 

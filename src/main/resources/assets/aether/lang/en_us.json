@@ -1,4 +1,9 @@
 {
+  "text.aether.macros": "Macros",
+  "text.aether.search": "Search",
+  "text.aether.open_macro_menu": "Open Macro Menu",
+  "text.aether.opens_the_macro_start_menu": "Opens the macro start menu",
+  "text.aether.open_the_macro_start_menu": "Open the macro start menu.",
   "text.aether.start": "Start",
   "text.aether.fishing": "Fishing",
   "text.aether.strider_fishing": "Strider Fishing",

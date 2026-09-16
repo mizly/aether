@@ -19,6 +19,24 @@ public final class AetherUiActions {
         }
     }
 
+    public static void toggleMacroStartMenu() {
+        Minecraft client = Minecraft.getInstance();
+        if (client == null) {
+            return;
+        }
+        if (client.screen instanceof dev.aether.ui.MacroStartScreen) {
+            client.setScreen(null);
+            return;
+        }
+        client.execute(() -> {
+            try {
+                client.setScreen(new dev.aether.ui.MacroStartScreen());
+            } catch (RuntimeException | LinkageError e) {
+                Aether.LOGGER.error("Failed to open the macro start menu", e);
+            }
+        });
+    }
+
     public static void openMainGui() {
         Minecraft client = Minecraft.getInstance();
         if (client == null) {

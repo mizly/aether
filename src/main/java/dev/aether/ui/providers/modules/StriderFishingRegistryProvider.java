@@ -1,9 +1,6 @@
 package dev.aether.ui.providers.modules;
 
-import dev.aether.bootstrap.AetherKeybindHandler;
 import dev.aether.config.AetherConfig;
-import dev.aether.macro.MacroState;
-import dev.aether.macro.MacroStateManager;
 import dev.aether.ui.MainGUIRegistry;
 import dev.aether.ui.providers.base.AbstractFishingRegistryProvider;
 import dev.aether.ui.settings.ModulesTab;
@@ -11,7 +8,6 @@ import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.TextSetting;
 import dev.aether.ui.settings.ToggleSetting;
-import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,27 +20,10 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
 
     @Override
     protected ModulesTab.SubTab createSubTab() {
-        return MainGUIRegistry.startableSubTab(
+        return MainGUIRegistry.subTab(
                 "Strider Fishing",
                 "Fishes Stridersurfers out of lava and kills them",
-                StriderFishingRegistryProvider::isRunning,
-                StriderFishingRegistryProvider::toggleMacro,
                 buildGroups());
-    }
-
-    public static boolean isRunning() {
-        return MacroStateManager.getCurrentState() == MacroState.State.FISHING;
-    }
-
-    public static void toggleMacro() {
-        if (MacroStateManager.isAutomationRunning()) {
-            MacroStateManager.stopMacro();
-            return;
-        }
-        // the open Aether menu is an automation stop screen, so it has to go before the macro starts
-        Minecraft client = Minecraft.getInstance();
-        client.setScreen(null);
-        AetherKeybindHandler.startStriderFishingMacro(client);
     }
 
     private static List<SettingGroup> buildGroups() {

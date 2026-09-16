@@ -2188,11 +2188,6 @@ public class MainGUI extends NVGScreen {
         renderPill(nvg, x, y, on, key);
     }
 
-    void renderStartControl(NVGRenderer nvg, float x, float y, float w, float h,
-                            ModulesTab.SubTab subTab, boolean hovered) {
-        renderPrimitives.renderStartButton(nvg, subTab, x, y, w, h, hovered);
-    }
-
     List<String> wrapSettingLabelForRow(NVGRenderer nvg, Setting setting, float rowW) {
         return wrapSettingLabel(nvg, setting, rowW);
     }
@@ -2737,6 +2732,11 @@ public class MainGUI extends NVGScreen {
         float settClickY = profileClickY - 44f - SB_SEP_GAP;
         float keybindsClickY = settClickY - 44f;
         float hudPosClickY = keybindsClickY - 44f;
+        float macrosClickY = hudPosClickY - 44f;
+        if (mx >= px && mx <= px + sbClickW && my >= macrosClickY && my <= macrosClickY + 44f) {
+            dev.aether.bootstrap.AetherUiActions.toggleMacroStartMenu();
+            return true;
+        }
         if (mx >= px && mx <= px + sbClickW && my >= hudPosClickY && my <= hudPosClickY + 44f) {
             openOptionalHudEditor(minecraft);
             return true;

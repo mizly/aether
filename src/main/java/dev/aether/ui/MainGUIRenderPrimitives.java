@@ -59,20 +59,10 @@ final class MainGUIRenderPrimitives {
             renderPill(nvg, pillX, pillY, enabled, subTab);
         }
 
-        float startW = 52f;
-        float startH = 22f;
-        float startX = x + w - startW - 12f;
-        float startY = y + 12f;
-        if (subTab.hasStartButton()) {
-            renderStartButton(nvg, subTab, startX, startY, startW, startH,
-                    mx >= startX && mx < startX + startW && my >= startY && my < startY + startH);
-        }
-
         float textX = x + 16f;
         int nameColor = enabled ? Theme.TEXT_PRIMARY : Theme.TEXT_VALUE;
         int descriptionColor = enabled ? Theme.TEXT_SECONDARY : Theme.TEXT_MUTED;
-        float rightReserve = subTab.hasToggle() ? 62f : subTab.hasStartButton() ? 76f : 0f;
-        float textMaxW = Math.max(80f, w - 32f - rightReserve);
+        float textMaxW = Math.max(80f, w - 32f - (subTab.hasToggle() ? 62f : 0f));
         List<String> nameLines = textLayout.wrapTextToWidth(nvg, AetherLang.localize(subTab.name()), Fonts.BOLD, 13f, textMaxW);
         List<String> descriptionLines = textLayout.wrapTextToWidth(nvg, AetherLang.localize(subTab.description()), Fonts.REGULAR, 10f, textMaxW);
         float descriptionY = y + 38f + Math.max(0, Math.min(2, nameLines.size()) - 1) * 12f;
@@ -93,23 +83,7 @@ final class MainGUIRenderPrimitives {
         if (subTab.hasToggle()) {
             owner.addClickArea(pillX - 6f, pillY - 6f, 50f, MainGUI.PILL_H + 12f, subTab::toggle);
         }
-        // click areas are first match, and this overlaps the strip that opens the detail view
-        if (subTab.hasStartButton()) {
-            owner.addClickArea(startX, startY, startW, startH, subTab::toggleRun);
-        }
         owner.addClickArea(x, y, w - 56f, height, () -> owner.openModuleDetailFromCard(subTab));
-    }
-
-    void renderStartButton(NVGRenderer nvg, ModulesTab.SubTab subTab,
-                           float x, float y, float w, float h, boolean hovered) {
-        boolean running = subTab.isRunning();
-        int accent = running ? Theme.ACCENT_ERROR : Theme.ACCENT_ENABLED;
-        nvg.roundedRect(x, y, w, h, 5f, Theme.withAlpha(accent, hovered ? 0.28f : 0.16f));
-        nvg.rectOutlineSolid(x, y, w, h, 5f, 1f, Theme.withAlpha(accent, hovered ? 0.9f : 0.55f));
-
-        String label = AetherLang.localize(running ? "Stop" : "Start");
-        float labelW = nvg.textWidth(Fonts.BOLD, label, 10f);
-        nvg.text(Fonts.BOLD, label, x + (w - labelW) / 2f, y + (h - 10f) / 2f, 10f, accent);
     }
 
     void renderListActionButton(NVGRenderer nvg, float x, float y, float w, String label, boolean hovered, boolean enabled) {

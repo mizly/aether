@@ -141,14 +141,6 @@ final class MainGUIModuleDetailRenderer {
             float pillY = panelTop + (MainGUI.MOD_HEADER_H - MainGUI.PILL_H) / 2f;
             owner.renderPillControl(nvg, pillX, pillY, subtabEnabled, activeSubTab);
             owner.addClickArea(pillX - 6f, pillY - 6f, 48f, MainGUI.PILL_H + 12f, activeSubTab::toggle);
-        } else if (activeSubTab.hasStartButton()) {
-            float startW = 58f;
-            float startH = 24f;
-            float startX = groupX + groupW - startW;
-            float startY = panelTop + (MainGUI.MOD_HEADER_H - startH) / 2f;
-            owner.renderStartControl(nvg, startX, startY, startW, startH, activeSubTab,
-                    mx >= startX && mx < startX + startW && my >= startY && my < startY + startH);
-            owner.addClickArea(startX, startY, startW, startH, activeSubTab::toggleRun);
         }
 
         nvg.rect(rightX, panelTop + MainGUI.MOD_HEADER_H, rightW, 1f, Theme.SEPARATOR);

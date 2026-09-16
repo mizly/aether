@@ -8,6 +8,7 @@ import dev.aether.macro.fishing.FishingMacroManager;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.CropFeverManager;
+import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.inventorymanager.AutoSellManager;
@@ -44,6 +45,10 @@ public final class AetherKeybindHandler {
         ClientTickEvents.START_CLIENT_TICK.register(client -> {
                         while (AetherKeybindRegistry.getClickGuiKey().consumeClick()) {
                 AetherUiActions.toggleMainGui();
+            }
+
+            while (AetherKeybindRegistry.getMacroMenuKey().consumeClick()) {
+                AetherUiActions.toggleMacroStartMenu();
             }
 
             if (client.player == null) {
@@ -161,6 +166,10 @@ public final class AetherKeybindHandler {
         AetherBootstrapHooks.resetFailsafeRuntimeState();
         GearManager.reset();
         RecoveryManager.reset();
+        // the rod and weapon swaps and the lava turn are ours, so the failsafes start from where we are
+        FailsafeManager.syncSelectedSlotFromClient(client);
+        FailsafeManager.syncExpectedRotationFromClient(client);
+        FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
         MacroStateManager.setCurrentState(MacroState.State.FISHING);
         client.execute(() -> FishingMacroManager.enable(client));
         if (announce) {
