@@ -1,5 +1,7 @@
 {
   "text.aether.macros": "Macros",
+  "text.aether.start_and_stop_macros": "Start and stop macros",
+  "text.aether.search_macros": "Search macros...",
   "text.aether.search": "Search",
   "text.aether.open_macro_menu": "Open Macro Menu",
   "text.aether.opens_the_macro_start_menu": "Opens the macro start menu",

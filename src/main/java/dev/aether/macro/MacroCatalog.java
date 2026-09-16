@@ -10,8 +10,8 @@ import java.util.function.BooleanSupplier;
 // every macro the start menu can run, grouped by the type it is listed under
 public final class MacroCatalog {
 
-    public record Entry(String id, String displayName, String type, String settingsModule,
-                        BooleanSupplier running, Runnable start) {
+    public record Entry(String id, String displayName, String description, String type,
+                        String settingsModule, BooleanSupplier running, Runnable start) {
 
         public boolean isRunning() {
             return running.getAsBoolean();
@@ -19,10 +19,11 @@ public final class MacroCatalog {
     }
 
     private static final List<Entry> ENTRIES = List.of(
-            new Entry("farming", "Farming Macro", "Farming", "Farming Macro",
+            new Entry("farming", "Farming Macro", "Automatically farms crops", "Farming", "Farming Macro",
                     () -> MacroStateManager.getCurrentState() == MacroState.State.FARMING,
                     () -> AetherKeybindHandler.startFarmingMacro(Minecraft.getInstance())),
-            new Entry("strider_fishing", "Strider Fishing", "Fishing", "Strider Fishing",
+            new Entry("strider_fishing", "Strider Fishing",
+                    "Fishes Stridersurfers out of lava and kills them", "Fishing", "Strider Fishing",
                     () -> MacroStateManager.getCurrentState() == MacroState.State.FISHING,
                     () -> AetherKeybindHandler.startStriderFishingMacro(Minecraft.getInstance())));
 
