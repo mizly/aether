@@ -75,13 +75,12 @@ class StriderFishingMacroTest {
     }
 
     @Test
-    void anEmptyCatchWaitsLongerBeforeTheNextCastThanAKill() {
+    void lootInsteadOfAMobPutsTheLineStraightBackOut() {
         java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
         for (int i = 0; i < 500; i++) {
             long delay = StriderFishingMacro.nextEmptyCatchDelayMs(random);
             assertTrue(StriderFishingMacro.emptyCatchDelayInRange(delay));
-            assertTrue(delay >= 1_500L && delay <= 3_500L);
-            assertTrue(delay > StriderFishingMacro.nextReturnDelayMs(random));
+            assertTrue(delay >= 150L && delay <= 400L);
         }
     }
 

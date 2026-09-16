@@ -44,16 +44,17 @@ public final class StriderFishingMacro extends AbstractMacro {
     private static final double TARGET_SEARCH_RADIUS = 16.0;
 
     private static final long BITE_TIMEOUT_MS = 90_000L;
-    private static final long ACQUIRE_TIMEOUT_MS = 6_000L;
+    // a catch surfaces within a tick or two, so anything slower than this means the reel brought up loot
+    private static final long ACQUIRE_TIMEOUT_MS = 800L;
     private static final long FIGHT_TIMEOUT_MS = 45_000L;
     // 3-6 cps, redrawn every swing so the cadence is not a metronome
     private static final long ATTACK_MIN_DELAY_MS = 167L;
     private static final long ATTACK_MAX_DELAY_MS = 333L;
     private static final long RETURN_DELAY_MIN_MS = 75L;
     private static final long RETURN_DELAY_MAX_MS = 175L;
-    // nothing was caught, so the next cast waits out a human pause instead of snapping straight back
-    private static final long EMPTY_CATCH_DELAY_MIN_MS = 1_500L;
-    private static final long EMPTY_CATCH_DELAY_MAX_MS = 3_500L;
+    // loot instead of a mob leaves nothing to fight, so the line goes straight back out
+    private static final long EMPTY_CATCH_DELAY_MIN_MS = 150L;
+    private static final long EMPTY_CATCH_DELAY_MAX_MS = 400L;
     // the block being walked to sits just under eye level, so watching it reads as ahead and slightly down
     private static final double LOOK_TARGET_HEIGHT = 1.2;
     private static final long LIQUID_JUMP_MIN_DELAY_MS = 100L;
@@ -298,8 +299,12 @@ public final class StriderFishingMacro extends AbstractMacro {
                 }
                 return;
             }
-            // item drops and empty catches never spawn a mob, so go back and cast again
+            // loot never spawns a mob, and the rod never left the start block, so just cast again
             if (now - stateEnteredAt > ACQUIRE_TIMEOUT_MS) {
+                if (isOnOrigin(mc)) {
+                    recast(now);
+                    return;
+                }
                 emptyCatch = true;
                 beginReturn(mc);
             }
@@ -480,7 +485,7 @@ public final class StriderFishingMacro extends AbstractMacro {
     }
 
     private void recast(long now) {
-        // the line came back with nothing on it, so the next cast is not instant
+        // nothing on the line and nothing to fight, so the rod goes back out almost at once
         emptyCatch = true;
         changeState(State.CAST);
         nextActionAt = now + castDelayForCycle();
