@@ -106,6 +106,26 @@ class StriderFishingMacroTest {
     }
 
     @Test
+    void theCursorIsAimedAtTheFloatItself() {
+        assertEquals(0.0f, StriderFishingMacro.yawTo(0.0, 4.0), 0.001f);
+        assertEquals(90.0f, StriderFishingMacro.yawTo(-4.0, 0.0), 0.001f);
+        assertEquals(-90.0f, StriderFishingMacro.yawTo(4.0, 0.0), 0.001f);
+        // the float sits below eye level, so looking at it is a downward pitch
+        assertEquals(45.0f, StriderFishingMacro.pitchTo(0.0, -4.0, 4.0), 0.001f);
+        assertEquals(0.0f, StriderFishingMacro.pitchTo(0.0, 0.0, 4.0), 0.001f);
+    }
+
+    @Test
+    void theCursorSettlesOntoTheFloatSoonAfterItLands() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            long delay = StriderFishingMacro.nextFirstIdleDelayMs(random);
+            assertTrue(StriderFishingMacro.firstIdleDelayInRange(delay));
+            assertTrue(delay < StriderFishingMacro.nextIdleDelayMs(random));
+        }
+    }
+
+    @Test
     void theIdleDriftStaysSmallAndUnhurried() {
         java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
         for (int i = 0; i < 500; i++) {

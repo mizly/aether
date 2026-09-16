@@ -67,6 +67,8 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     private static final long IDLE_MIN_DELAY_MS = 2_500L;
     private static final long IDLE_MAX_DELAY_MS = 7_000L;
+    private static final long IDLE_FIRST_MIN_DELAY_MS = 400L;
+    private static final long IDLE_FIRST_MAX_DELAY_MS = 900L;
     private static final long IDLE_TURN_MIN_MS = 500L;
     private static final long IDLE_TURN_MAX_MS = 1_100L;
     private static final long IDLE_TAP_MIN_MS = 90L;
@@ -101,8 +103,6 @@ public final class StriderFishingMacro extends AbstractMacro {
     // everything loaded when the line was reeled, so a catch is told apart from whatever was already swimming
     private final Set<Integer> preReelEntityIds = new HashSet<>();
 
-    private float idleAnchorYaw;
-    private float idleAnchorPitch;
     private boolean idleAnchored;
     private long idleNextAt;
     private long idleTapUntil;
@@ -232,7 +232,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         }
         aimAttempts = 0;
         emptyCatch = false;
-        anchorIdle(mc, now);
+        anchorIdle(now);
         changeState(State.WAIT_BITE);
     }
 
@@ -425,14 +425,22 @@ public final class StriderFishingMacro extends AbstractMacro {
             MacroInput.set(idleTapKey, true);
         }
 
-        if (!idleAnchored || now < idleNextAt || RotationManager.isRotating()) {
+        FishingHook hook = mc.player.fishing;
+        if (!idleAnchored || hook == null || now < idleNextAt || RotationManager.isRotating()) {
             return;
         }
 
+        // drift around the float itself; anchoring to the cast angle left the cursor sitting short of it
+        Vec3 eye = mc.player.getEyePosition();
+        Vec3 float3 = hook.position();
+        double dx = float3.x - eye.x;
+        double dy = float3.y - eye.y;
+        double dz = float3.z - eye.z;
+
         ThreadLocalRandom random = ThreadLocalRandom.current();
         RotationManager.rotateToYawPitch(mc,
-                idleAnchorYaw + driftDegrees(random, IDLE_YAW_DEGREES),
-                idleAnchorPitch + driftDegrees(random, IDLE_PITCH_DEGREES),
+                yawTo(dx, dz) + driftDegrees(random, IDLE_YAW_DEGREES),
+                pitchTo(dx, dy, dz) + driftDegrees(random, IDLE_PITCH_DEGREES),
                 random.nextLong(IDLE_TURN_MIN_MS, IDLE_TURN_MAX_MS + 1));
         idleNextAt = now + nextIdleDelayMs(random);
 
@@ -448,11 +456,10 @@ public final class StriderFishingMacro extends AbstractMacro {
         }
     }
 
-    private void anchorIdle(Minecraft mc, long now) {
-        idleAnchorYaw = mc.player.getYRot();
-        idleAnchorPitch = mc.player.getXRot();
+    private void anchorIdle(long now) {
         idleAnchored = true;
-        idleNextAt = now + nextIdleDelayMs(ThreadLocalRandom.current());
+        // settle onto the float shortly after it lands, then drift on the slower cadence
+        idleNextAt = now + nextFirstIdleDelayMs(ThreadLocalRandom.current());
         idleTapUntil = 0L;
         idleTapKey = null;
     }
@@ -466,6 +473,22 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     static long nextIdleDelayMs(ThreadLocalRandom random) {
         return random.nextLong(IDLE_MIN_DELAY_MS, IDLE_MAX_DELAY_MS + 1);
+    }
+
+    static long nextFirstIdleDelayMs(ThreadLocalRandom random) {
+        return random.nextLong(IDLE_FIRST_MIN_DELAY_MS, IDLE_FIRST_MAX_DELAY_MS + 1);
+    }
+
+    static boolean firstIdleDelayInRange(long delay) {
+        return delay >= IDLE_FIRST_MIN_DELAY_MS && delay <= IDLE_FIRST_MAX_DELAY_MS;
+    }
+
+    static float yawTo(double dx, double dz) {
+        return (float) Math.toDegrees(Math.atan2(-dx, dz));
+    }
+
+    static float pitchTo(double dx, double dy, double dz) {
+        return (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
     }
 
     static float driftDegrees(ThreadLocalRandom random, float range) {
