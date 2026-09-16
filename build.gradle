@@ -11,12 +11,15 @@ if (artifactVersion == project.version) {
     artifactVersion = "${project.version}-${project.minecraft_version}"
 }
 
+// ci passes -beta for the aether-ea repo; unset everywhere else, so local and upstream builds are unchanged
+def fileSuffix = (findProperty('aether_file_suffix') ?: '').toString().trim()
+
 base {
     archivesName = project.archives_base_name
 }
 
 tasks.withType(AbstractArchiveTask).configureEach {
-    archiveVersion = artifactVersion
+    archiveVersion = artifactVersion + fileSuffix
 }
 
 repositories {

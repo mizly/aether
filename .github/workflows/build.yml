@@ -83,7 +83,7 @@ jobs:
             core.setOutput('release_tag', releaseVersion);
 
       - name: Build with Gradle
-        run: ./gradlew build --no-daemon -Paether_version=${{ steps.vars.outputs.release_version }}
+        run: ./gradlew build --no-daemon -Paether_version=${{ steps.vars.outputs.release_version }} -Paether_file_suffix=${{ endsWith(github.repository, '/aether-ea') && '-beta' || '' }}
 
       - name: Upload JAR Artifact
         uses: actions/upload-artifact@v4
