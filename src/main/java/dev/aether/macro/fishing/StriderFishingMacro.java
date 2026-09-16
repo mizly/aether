@@ -90,6 +90,10 @@ public final class StriderFishingMacro extends AbstractMacro {
     // a failed plan usually means we are still sinking in lava, so the jump needs time before retrying
     private static final long RETURN_RETRY_MIN_MS = 500L;
     private static final long RETURN_RETRY_MAX_MS = 900L;
+    // the block footprint plus a sliver; an exact block match alone routes us to where we already stand
+    private static final double ORIGIN_RADIUS = 0.55;
+    private static final double ORIGIN_BELOW = 0.5;
+    private static final double ORIGIN_ABOVE = 1.0;
     // the nearest lava is usually straight down at our feet, which is no way to cast
     private static final double MIN_CAST_HORIZONTAL = 2.0;
     private static final double AIM_BOX_RADIUS = 0.18;
@@ -632,7 +636,24 @@ public final class StriderFishingMacro extends AbstractMacro {
     }
 
     private boolean isOnOrigin(Minecraft mc) {
-        return origin != null && origin.equals(mc.player.blockPosition());
+        if (origin == null) {
+            return false;
+        }
+        if (origin.equals(mc.player.blockPosition())) {
+            return true;
+        }
+        Vec3 home = Vec3.atBottomCenterOf(origin);
+        return withinOriginBlock(mc.player.getX() - home.x,
+                mc.player.getY() - home.y,
+                mc.player.getZ() - home.z);
+    }
+
+    // standing on the lip of the block, or a hair above it after the jump out, still counts as home
+    static boolean withinOriginBlock(double dx, double dy, double dz) {
+        return Math.abs(dx) <= ORIGIN_RADIUS
+                && Math.abs(dz) <= ORIGIN_RADIUS
+                && dy >= -ORIGIN_BELOW
+                && dy <= ORIGIN_ABOVE;
     }
 
     private void holdStill(Minecraft mc) {

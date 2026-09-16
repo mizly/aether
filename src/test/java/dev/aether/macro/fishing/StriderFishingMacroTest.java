@@ -97,6 +97,24 @@ class StriderFishingMacroTest {
     }
 
     @Test
+    void standingOnTheStartBlockNeedsNoRouteBackToIt() {
+        assertTrue(StriderFishingMacro.withinOriginBlock(0.0, 0.0, 0.0));
+        // the corners and lip of the block itself
+        assertTrue(StriderFishingMacro.withinOriginBlock(0.5, 0.0, 0.5));
+        assertTrue(StriderFishingMacro.withinOriginBlock(-0.5, 0.0, 0.5));
+        // a hair above it, mid hop out of the lava
+        assertTrue(StriderFishingMacro.withinOriginBlock(0.0, 0.9, 0.0));
+    }
+
+    @Test
+    void theNextBlockOverStillEarnsARouteHome() {
+        assertFalse(StriderFishingMacro.withinOriginBlock(0.8, 0.0, 0.0));
+        assertFalse(StriderFishingMacro.withinOriginBlock(0.0, 0.0, -0.8));
+        assertFalse(StriderFishingMacro.withinOriginBlock(0.0, 1.5, 0.0));
+        assertFalse(StriderFishingMacro.withinOriginBlock(0.0, -0.9, 0.0));
+    }
+
+    @Test
     void aMissedLavaAimBacksOffBeforeTryingSomewhereElse() {
         java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
         for (int i = 0; i < 500; i++) {
