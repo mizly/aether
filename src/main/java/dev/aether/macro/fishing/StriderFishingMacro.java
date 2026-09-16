@@ -50,8 +50,8 @@ public final class StriderFishingMacro extends AbstractMacro {
     // 3-6 cps, redrawn every swing so the cadence is not a metronome
     private static final long ATTACK_MIN_DELAY_MS = 167L;
     private static final long ATTACK_MAX_DELAY_MS = 333L;
-    private static final long RETURN_DELAY_MIN_MS = 75L;
-    private static final long RETURN_DELAY_MAX_MS = 175L;
+    private static final long RETURN_DELAY_MIN_MS = 25L;
+    private static final long RETURN_DELAY_MAX_MS = 80L;
     // loot instead of a mob leaves nothing to fight, so the line goes straight back out
     private static final long EMPTY_CATCH_DELAY_MIN_MS = 150L;
     private static final long EMPTY_CATCH_DELAY_MAX_MS = 400L;
@@ -69,8 +69,10 @@ public final class StriderFishingMacro extends AbstractMacro {
     private static final long IDLE_MAX_DELAY_MS = 7_000L;
     private static final long IDLE_FIRST_MIN_DELAY_MS = 400L;
     private static final long IDLE_FIRST_MAX_DELAY_MS = 900L;
-    private static final long IDLE_TURN_MIN_MS = 500L;
-    private static final long IDLE_TURN_MAX_MS = 1_100L;
+    // a flick, not a glide; a half second spent easing across two degrees is what reads as a machine
+    // the rotation manager floors any duration at 100ms, so nothing shorter is worth asking for
+    private static final long IDLE_TURN_MIN_MS = 100L;
+    private static final long IDLE_TURN_MAX_MS = 220L;
     private static final long IDLE_TAP_MIN_MS = 90L;
     private static final long IDLE_TAP_MAX_MS = 200L;
     private static final float IDLE_YAW_DEGREES = 2.5f;
@@ -296,6 +298,8 @@ public final class StriderFishingMacro extends AbstractMacro {
             if (returnAt != 0L) {
                 if (now >= returnAt) {
                     beginReturn(mc);
+                    // plan the route in this same tick instead of idling until the next one
+                    tickReturn(mc);
                 }
                 return;
             }
@@ -441,7 +445,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         RotationManager.rotateToYawPitch(mc,
                 yawTo(dx, dz) + driftDegrees(random, IDLE_YAW_DEGREES),
                 pitchTo(dx, dy, dz) + driftDegrees(random, IDLE_PITCH_DEGREES),
-                random.nextLong(IDLE_TURN_MIN_MS, IDLE_TURN_MAX_MS + 1));
+                nextIdleTurnMs(random));
         idleNextAt = now + nextIdleDelayMs(random);
 
         // a step only happens crouched, so the shuffle cannot carry the player off the start block
@@ -473,6 +477,14 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     static long nextIdleDelayMs(ThreadLocalRandom random) {
         return random.nextLong(IDLE_MIN_DELAY_MS, IDLE_MAX_DELAY_MS + 1);
+    }
+
+    static long nextIdleTurnMs(ThreadLocalRandom random) {
+        return random.nextLong(IDLE_TURN_MIN_MS, IDLE_TURN_MAX_MS + 1);
+    }
+
+    static boolean idleTurnInRange(long turnMs) {
+        return turnMs >= IDLE_TURN_MIN_MS && turnMs <= IDLE_TURN_MAX_MS;
     }
 
     static long nextFirstIdleDelayMs(ThreadLocalRandom random) {

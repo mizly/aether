@@ -70,7 +70,7 @@ class StriderFishingMacroTest {
         for (int i = 0; i < 500; i++) {
             long delay = StriderFishingMacro.nextReturnDelayMs(random);
             assertTrue(StriderFishingMacro.returnDelayInRange(delay));
-            assertTrue(delay >= 75L && delay <= 175L);
+            assertTrue(delay >= 25L && delay <= 80L);
         }
     }
 
@@ -126,7 +126,17 @@ class StriderFishingMacroTest {
     }
 
     @Test
-    void theIdleDriftStaysSmallAndUnhurried() {
+    void theGlanceAtTheFloatIsAFlickRatherThanAGlide() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            long turn = StriderFishingMacro.nextIdleTurnMs(random);
+            assertTrue(StriderFishingMacro.idleTurnInRange(turn));
+            assertTrue(turn >= 100L && turn <= 220L);
+        }
+    }
+
+    @Test
+    void theIdleDriftStaysSmall() {
         java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
         for (int i = 0; i < 500; i++) {
             assertTrue(StriderFishingMacro.idleDelayInRange(StriderFishingMacro.nextIdleDelayMs(random)));
