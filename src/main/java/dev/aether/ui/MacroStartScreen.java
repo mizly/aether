@@ -7,6 +7,7 @@ import dev.aether.ui.theme.Theme;
 import dev.aether.ui.util.Fonts;
 import dev.aether.util.AetherLang;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -19,17 +20,18 @@ import java.util.Locale;
 import java.util.Set;
 
 // vertical list of every runnable macro, grouped by type, with start and settings on each row
+// drawn in the same scaled canvas as MainGUI so ui scale, text scale and the theme all carry over
 public final class MacroStartScreen extends NVGScreen {
 
-    private static final float PANEL_W = 320f;
-    private static final float PANEL_MAX_H = 460f;
-    private static final float HEADER_H = 42f;
-    private static final float SEARCH_H = 28f;
+    private static final float PANEL_W = 340f;
+    private static final float PANEL_MAX_H = 520f;
+    private static final float HEADER_H = 46f;
+    private static final float SEARCH_H = 30f;
     private static final float CHIP_H = 24f;
-    private static final float ROW_H = 40f;
-    private static final float TYPE_H = 24f;
-    private static final float PAD = 12f;
-    private static final float ICON = 15f;
+    private static final float ROW_H = 42f;
+    private static final float TYPE_H = 26f;
+    private static final float PAD = 20f;
+    private static final float ICON = 16f;
 
     // kept between openings, so a filter stays set until it is cleared again
     private static final Set<String> ACTIVE_FILTERS = new LinkedHashSet<>();
@@ -40,8 +42,16 @@ public final class MacroStartScreen extends NVGScreen {
     private float scrollY;
     private float maxScrollY;
 
+    private float alpha;
+    private float animScale = 0.96f;
+    private float animOffsetY = 120f;
+
+    private float pr = 1f;
+    private float rawMouseX;
+    private float rawMouseY;
+
     private record Hit(float x, float y, float w, float h, Runnable action) {
-        boolean contains(double mx, double my) {
+        boolean contains(float mx, float my) {
             return mx >= x && mx <= x + w && my >= y && my <= y + h;
         }
     }
@@ -52,60 +62,98 @@ public final class MacroStartScreen extends NVGScreen {
 
     @Override
     protected void renderNVG(NVGRenderer nvg) {
+        syncPixelRatio();
+        float step = Math.min(1f, Theme.animationFactor() * 6f);
+        alpha += (1f - alpha) * step;
+        animScale += (1f - animScale) * step * 1.1f;
+        animOffsetY += (0f - animOffsetY) * step * 1.1f;
+
         hits.clear();
 
-        float panelH = Math.min(PANEL_MAX_H, Math.max(220f, height - 60f));
-        float px = (width - PANEL_W) / 2f;
-        float py = (height - panelH) / 2f;
+        nvg.save();
+        nvg.scale(MainGUI.uiScale / pr, MainGUI.uiScale / pr);
+        nvg.setTextScale(MainGUI.uiTextScale);
 
-        nvg.shadow(px, py, PANEL_W, panelH, 10f, 26f, Theme.withAlpha(0xFF000000, 0.45f));
-        nvg.roundedRect(px, py, PANEL_W, panelH, 10f, Theme.PANEL_BG);
-        nvg.rectOutlineSolid(px, py, PANEL_W, panelH, 10f, 1f, Theme.SEPARATOR);
+        float canvasW = width * pr / MainGUI.uiScale;
+        float canvasH = height * pr / MainGUI.uiScale;
+        nvg.rect(0f, 0f, canvasW, canvasH, Theme.withAlpha(0xFF000000, (int) (alpha * 170)));
 
-        float mx = lastMouseX;
-        float my = lastMouseY;
+        float panelH = Math.min(PANEL_MAX_H, Math.max(240f, canvasH - 60f));
+        float px = (canvasW - PANEL_W) / 2f;
+        float py = (canvasH - panelH) / 2f;
+        float scx = canvasW / 2f;
+        float scy = canvasH / 2f;
 
-        nvg.text(Fonts.BOLD, AetherLang.localize("Macros"), px + PAD, py + (HEADER_H - 14f) / 2f, 14f,
+        nvg.save();
+        nvg.translate(scx, scy);
+        nvg.scale(animScale, animScale);
+        nvg.translate(-scx, -scy);
+        nvg.translate(0f, animOffsetY);
+        nvg.globalAlpha(alpha);
+        nvg.shadow(px, py, PANEL_W, panelH, MainGUI.RADIUS, 26f, Theme.withAlpha(0xFF000000, 0.75f));
+        nvg.roundedRect(px, py, PANEL_W, panelH, MainGUI.RADIUS, Theme.PANEL_BG);
+        nvg.rectOutline(px, py, PANEL_W, panelH, MainGUI.RADIUS, 1f, Theme.BORDER_DEFAULT);
+        nvg.restore();
+
+        // text keeps its final size through the zoom so it never jitters, matching MainGUI
+        nvg.save();
+        nvg.translate(0f, animOffsetY);
+        nvg.globalAlpha(alpha);
+        renderContent(nvg, px, py, panelH);
+        nvg.restore();
+
+        nvg.restore();
+    }
+
+    private void renderContent(NVGRenderer nvg, float px, float py, float panelH) {
+        float mx = canvasMouseX();
+        float my = canvasMouseY();
+
+        nvg.text(Fonts.BOLD, AetherLang.localize("Macros"), px + PAD, py + (HEADER_H - 15f) / 2f, 15f,
                 Theme.TEXT_PRIMARY);
-        boolean anythingRunning = MacroCatalog.isStoppable();
-        if (anythingRunning) {
-            String stopAll = AetherLang.localize("Stop");
-            float stopW = nvg.textWidth(Fonts.BOLD, stopAll, 10f) + 18f;
-            float stopX = px + PANEL_W - PAD - stopW;
-            float stopY = py + (HEADER_H - 20f) / 2f;
-            boolean hovered = mx >= stopX && mx <= stopX + stopW && my >= stopY && my <= stopY + 20f;
-            nvg.roundedRect(stopX, stopY, stopW, 20f, 5f,
-                    Theme.withAlpha(Theme.ACCENT_ERROR, hovered ? 0.30f : 0.18f));
-            nvg.textCentered(Fonts.BOLD, stopAll, stopX, stopY, stopW, 20f, 10f, Theme.ACCENT_ERROR);
-            hits.add(new Hit(stopX, stopY, stopW, 20f, MacroCatalog::stopEverything));
+        if (MacroCatalog.isStoppable()) {
+            renderStopAll(nvg, px, py, mx, my);
         }
         nvg.rect(px, py + HEADER_H, PANEL_W, 1f, Theme.SEPARATOR);
 
-        float searchY = py + HEADER_H + PAD;
+        float searchY = py + HEADER_H + 14f;
         renderSearch(nvg, px + PAD, searchY, PANEL_W - PAD * 2f, mx, my);
 
-        float chipsY = searchY + SEARCH_H + 10f;
+        float chipsY = searchY + SEARCH_H + 12f;
         renderFilters(nvg, px + PAD, chipsY, mx, my);
 
-        float listTop = chipsY + CHIP_H + 10f;
-        float listH = py + panelH - listTop - PAD;
+        float listTop = chipsY + CHIP_H + 12f;
+        float listH = py + panelH - listTop - 14f;
         renderList(nvg, px + PAD, listTop, PANEL_W - PAD * 2f, listH, mx, my);
     }
 
-    private void renderSearch(NVGRenderer nvg, float x, float y, float w, float mx, float my) {
-        boolean hovered = mx >= x && mx <= x + w && my >= y && my <= y + SEARCH_H;
-        nvg.roundedRect(x, y, w, SEARCH_H, 6f, Theme.BG_FIELD);
-        nvg.rectOutlineSolid(x, y, w, SEARCH_H, 6f, 1f,
-                searchFocused ? Theme.ACCENT_PRIMARY : (hovered ? Theme.BORDER_HOVER : Theme.BORDER_DEFAULT));
-        nvg.renderSVG("/assets/aether/icons/search.svg", x + 8f, y + (SEARCH_H - 13f) / 2f, 13f, 13f,
-                Theme.TEXT_MUTED);
+    private void renderStopAll(NVGRenderer nvg, float px, float py, float mx, float my) {
+        String label = AetherLang.localize("Stop");
+        float w = nvg.textWidth(Fonts.BOLD, label, 11f) + 22f;
+        float h = 24f;
+        float x = px + PANEL_W - PAD - w;
+        float y = py + (HEADER_H - h) / 2f;
+        boolean hovered = mx >= x && mx <= x + w && my >= y && my <= y + h;
 
-        String shown = search.isEmpty() ? AetherLang.localize("Search") : search.toString();
-        int color = search.isEmpty() ? Theme.TEXT_MUTED : Theme.TEXT_PRIMARY;
-        nvg.text(Fonts.REGULAR, shown, x + 27f, y + (SEARCH_H - 11f) / 2f, 11f, color);
+        nvg.roundedRect(x, y, w, h, 6f, hovered ? Theme.ACTION_BTN_HOVER : Theme.ACTION_BTN_BG);
+        nvg.rectOutlineSolid(x, y, w, h, 6f, 1f, Theme.withAlpha(Theme.ACCENT_ERROR, hovered ? 0.9f : 0.55f));
+        nvg.textCentered(Fonts.BOLD, label, x, y, w, h, 11f, Theme.ACCENT_ERROR);
+        hits.add(new Hit(x, y, w, h, MacroCatalog::stopEverything));
+    }
+
+    private void renderSearch(NVGRenderer nvg, float x, float y, float w, float mx, float my) {
+        nvg.roundedRect(x, y, w, SEARCH_H, 7f, Theme.BG_FIELD);
+        nvg.rectOutlineSolid(x, y, w, SEARCH_H, 7f, 1f,
+                searchFocused ? Theme.ACCENT_PRIMARY : Theme.BORDER_DEFAULT);
+        nvg.renderSVG("/assets/aether/icons/search.svg", x + 8f, y + (SEARCH_H - 14f) / 2f, 14f, 14f,
+                searchFocused ? Theme.ACCENT_PRIMARY : Theme.TEXT_MUTED);
+
+        boolean empty = search.isEmpty();
+        nvg.text(Fonts.REGULAR, empty ? AetherLang.localize("Search") : search.toString(),
+                x + 30f, y + (SEARCH_H - 12f) / 2f, 12f, empty ? Theme.TEXT_MUTED : Theme.TEXT_PRIMARY);
         if (searchFocused) {
-            float caretX = x + 27f + nvg.textWidth(Fonts.REGULAR, search.toString(), 11f) + 1.5f;
-            nvg.rect(caretX, y + 7f, 1f, SEARCH_H - 14f, Theme.TEXT_PRIMARY);
+            float caretX = x + 30f + nvg.textWidth(Fonts.REGULAR, search.toString(), 12f) + 1.5f;
+            nvg.rect(caretX, y + 8f, 1f, SEARCH_H - 16f, Theme.ACCENT_PRIMARY);
         }
         hits.add(new Hit(x, y, w, SEARCH_H, () -> searchFocused = true));
     }
@@ -114,16 +162,16 @@ public final class MacroStartScreen extends NVGScreen {
         float chipX = x;
         for (String type : MacroCatalog.types()) {
             String label = AetherLang.localize(type) + " (" + MacroCatalog.countOfType(type) + ")";
-            float chipW = nvg.textWidth(Fonts.REGULAR, label, 10f) + 18f;
+            float chipW = nvg.textWidth(Fonts.REGULAR, label, 11f) + 20f;
             boolean on = ACTIVE_FILTERS.contains(type);
             boolean hovered = mx >= chipX && mx <= chipX + chipW && my >= y && my <= y + CHIP_H;
 
             nvg.roundedRect(chipX, y, chipW, CHIP_H, 12f,
                     on ? Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.22f)
-                       : Theme.withAlpha(Theme.TEXT_MUTED, hovered ? 0.16f : 0.08f));
+                       : (hovered ? Theme.ACTION_BTN_HOVER : Theme.ELEMENT_BG));
             nvg.rectOutlineSolid(chipX, y, chipW, CHIP_H, 12f, 1f,
                     on ? Theme.ACCENT_PRIMARY : Theme.BORDER_DEFAULT);
-            nvg.textCentered(Fonts.REGULAR, label, chipX, y, chipW, CHIP_H, 10f,
+            nvg.textCentered(Fonts.REGULAR, label, chipX, y, chipW, CHIP_H, 11f,
                     on ? Theme.ACCENT_PRIMARY : Theme.TEXT_SECONDARY);
 
             final String filtered = type;
@@ -149,7 +197,7 @@ public final class MacroStartScreen extends NVGScreen {
 
             if (rowY + TYPE_H > y && rowY < y + h) {
                 nvg.text(Fonts.BOLD, AetherLang.localize(type).toUpperCase(Locale.ROOT), x + 2f,
-                        rowY + (TYPE_H - 9f) / 2f, 9f, Theme.withAlpha(Theme.TEXT_MUTED, 200));
+                        rowY + (TYPE_H - 9f) / 2f, 9f, Theme.withAlpha(Theme.TEXT_MUTED, 185));
             }
             rowY += TYPE_H;
             total += TYPE_H;
@@ -158,11 +206,11 @@ public final class MacroStartScreen extends NVGScreen {
                 if (rowY + ROW_H > y && rowY < y + h) {
                     renderRow(nvg, entry, x, rowY, w, mx, my);
                 }
-                rowY += ROW_H + 4f;
-                total += ROW_H + 4f;
+                rowY += ROW_H + 6f;
+                total += ROW_H + 6f;
             }
-            rowY += 6f;
-            total += 6f;
+            rowY += 8f;
+            total += 8f;
         }
 
         nvg.popScissor();
@@ -176,31 +224,33 @@ public final class MacroStartScreen extends NVGScreen {
         boolean hovered = mx >= x && mx <= x + w && my >= y && my <= y + ROW_H;
 
         nvg.roundedRect(x, y, w, ROW_H, 7f, Theme.CARD_BG);
+        if (running) {
+            nvg.roundedRect(x, y, w, ROW_H, 7f, Theme.withAlpha(Theme.ACCENT_ENABLED, 0.10f));
+        }
         nvg.rectOutlineSolid(x, y, w, ROW_H, 7f, 1f,
-                running ? Theme.withAlpha(Theme.ACCENT_ENABLED, 0.7f)
+                running ? Theme.withAlpha(Theme.ACCENT_ENABLED, 0.75f)
                         : (hovered ? Theme.BORDER_HOVER : Theme.SEPARATOR));
-        nvg.text(Fonts.REGULAR, AetherLang.localize(entry.displayName()), x + 12f,
+        nvg.text(Fonts.REGULAR, AetherLang.localize(entry.displayName()), x + 14f,
                 y + (ROW_H - 12f) / 2f, 12f, Theme.TEXT_PRIMARY);
 
-        float settingsX = x + w - PAD - ICON;
-        float startX = settingsX - ICON - 14f;
+        float settingsX = x + w - 14f - ICON;
+        float startX = settingsX - ICON - 16f;
         float iconY = y + (ROW_H - ICON) / 2f;
 
-        boolean settingsHover = mx >= settingsX - 5f && mx <= settingsX + ICON + 5f
-                && my >= iconY - 5f && my <= iconY + ICON + 5f;
+        boolean settingsHover = hitNear(mx, my, settingsX, iconY);
         nvg.renderSVG("/assets/aether/icons/settings.svg", settingsX, iconY, ICON, ICON,
                 settingsHover ? Theme.TEXT_PRIMARY : Theme.TEXT_MUTED);
-        hits.add(new Hit(settingsX - 5f, iconY - 5f, ICON + 10f, ICON + 10f,
-                () -> openSettings(entry)));
+        hits.add(new Hit(settingsX - 6f, iconY - 6f, ICON + 12f, ICON + 12f, () -> openSettings(entry)));
 
-        boolean startHover = mx >= startX - 5f && mx <= startX + ICON + 5f
-                && my >= iconY - 5f && my <= iconY + ICON + 5f;
+        boolean startHover = hitNear(mx, my, startX, iconY);
         int startColor = running ? Theme.ACCENT_ERROR : Theme.ACCENT_ENABLED;
         nvg.renderSVG(running ? "/assets/aether/icons/stop.svg" : "/assets/aether/icons/play.svg",
-                startX, iconY, ICON, ICON,
-                startHover ? startColor : Theme.withAlpha(startColor, 0.75f));
-        hits.add(new Hit(startX - 5f, iconY - 5f, ICON + 10f, ICON + 10f,
-                () -> MacroCatalog.toggle(entry)));
+                startX, iconY, ICON, ICON, startHover ? startColor : Theme.withAlpha(startColor, 0.8f));
+        hits.add(new Hit(startX - 6f, iconY - 6f, ICON + 12f, ICON + 12f, () -> MacroCatalog.toggle(entry)));
+    }
+
+    private static boolean hitNear(float mx, float my, float x, float y) {
+        return mx >= x - 6f && mx <= x + ICON + 6f && my >= y - 6f && my <= y + ICON + 6f;
     }
 
     private List<MacroCatalog.Entry> visibleEntriesOfType(String type) {
@@ -224,19 +274,32 @@ public final class MacroStartScreen extends NVGScreen {
     }
 
     private void openSettings(MacroCatalog.Entry entry) {
-        Minecraft client = Minecraft.getInstance();
         MainGUIRegistry.refresh();
-        client.setScreen(new MainGUI(new MainGUI.LaunchTarget(0, entry.settingsModule(), true)));
+        Minecraft.getInstance().setScreen(
+                new MainGUI(new MainGUI.LaunchTarget(0, entry.settingsModule(), true)));
     }
 
-    private float lastMouseX;
-    private float lastMouseY;
+    private void syncPixelRatio() {
+        try {
+            var target = Minecraft.getInstance().getMainRenderTarget();
+            pr = width > 0 ? (float) target.width / width : 1f;
+        } catch (Exception ignored) {
+            pr = 1f;
+        }
+    }
+
+    private float canvasMouseX() {
+        return rawMouseX * pr / MainGUI.uiScale;
+    }
+
+    private float canvasMouseY() {
+        return rawMouseY * pr / MainGUI.uiScale;
+    }
 
     @Override
-    public void extractRenderState(net.minecraft.client.gui.GuiGraphicsExtractor graphics,
-                                   int mouseX, int mouseY, float partialTick) {
-        lastMouseX = mouseX;
-        lastMouseY = mouseY;
+    public void extractRenderState(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTick) {
+        rawMouseX = mouseX;
+        rawMouseY = mouseY;
         super.extractRenderState(graphics, mouseX, mouseY, partialTick);
     }
 
@@ -245,10 +308,12 @@ public final class MacroStartScreen extends NVGScreen {
         if (click.button() != 0) {
             return true;
         }
+        float mx = (float) click.x() * pr / MainGUI.uiScale;
+        float my = (float) click.y() * pr / MainGUI.uiScale;
         searchFocused = false;
         for (int i = hits.size() - 1; i >= 0; i--) {
             Hit hit = hits.get(i);
-            if (hit.contains(click.x(), click.y())) {
+            if (hit.contains(mx, my)) {
                 hit.action().run();
                 return true;
             }
@@ -257,8 +322,8 @@ public final class MacroStartScreen extends NVGScreen {
     }
 
     @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY2) {
-        scrollY = Math.max(0f, Math.min(maxScrollY, scrollY - (float) scrollY2 * 18f));
+    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double verticalScroll) {
+        scrollY = Math.max(0f, Math.min(maxScrollY, scrollY - (float) verticalScroll * 20f));
         return true;
     }
 
