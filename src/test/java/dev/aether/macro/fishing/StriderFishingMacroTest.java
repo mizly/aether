@@ -97,6 +97,16 @@ class StriderFishingMacroTest {
     }
 
     @Test
+    void aMissedLavaAimBacksOffBeforeTryingSomewhereElse() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            long delay = StriderFishingMacro.nextAimRetryDelayMs(random);
+            assertTrue(StriderFishingMacro.aimRetryDelayInRange(delay));
+            assertTrue(delay >= 400L && delay <= 900L);
+        }
+    }
+
+    @Test
     void aRefusedRouteBacksOffBeforeTryingAgain() {
         java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
         for (int i = 0; i < 500; i++) {

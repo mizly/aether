@@ -83,7 +83,9 @@ public final class StriderFishingMacro extends AbstractMacro {
     private static final float AIM_MAX_TURN_SPEED = 520.0f;
     private static final double ATTACK_RANGE_SLACK = 0.85;
     private static final double FOLLOW_BAND = 0.35;
-    private static final int MAX_AIM_ATTEMPTS = 6;
+    private static final double MAX_LAVA_SCAN_RADIUS = 14.0;
+    private static final long AIM_RETRY_MIN_MS = 400L;
+    private static final long AIM_RETRY_MAX_MS = 900L;
     private static final int MAX_RETURN_ATTEMPTS = 6;
     // a failed plan usually means we are still sinking in lava, so the jump needs time before retrying
     private static final long RETURN_RETRY_MIN_MS = 500L;
@@ -101,7 +103,10 @@ public final class StriderFishingMacro extends AbstractMacro {
     private long jumpHoldAt;
     private int followMove;
     private boolean emptyCatch;
-    private int aimAttempts;
+    private final Set<BlockPos> rejectedLava = new HashSet<>();
+    private BlockPos aimTargetBlock;
+    private long aimRetryAt;
+    private int aimSweep;
     private int returnAttempts;
     private Entity target;
     private boolean returnPathStarted;
@@ -126,7 +131,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         origin = mc.player.blockPosition();
         target = null;
         followMove = 0;
-        aimAttempts = 0;
+        clearAimSearch();
         returnAttempts = 0;
         returnPathStarted = false;
         returnFinished = false;
@@ -191,24 +196,39 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
+        long now = System.currentTimeMillis();
+        if (now < aimRetryAt) {
+            return;
+        }
+
         if (isLookingAtLava(mc)) {
             FailsafeManager.selectHotbarSlot(mc, rodSlot());
             changeState(State.CAST);
-            nextActionAt = System.currentTimeMillis() + castDelayForCycle();
+            nextActionAt = now + castDelayForCycle();
             return;
         }
 
-        if (++aimAttempts > MAX_AIM_ATTEMPTS) {
-            fail("Strider fishing stopped: could not line up any lava to cast into.");
-            return;
+        // the turn landed somewhere that is not lava after all, so never pick that spot again this sweep
+        if (aimTargetBlock != null) {
+            rejectedLava.add(aimTargetBlock);
+            aimTargetBlock = null;
         }
 
-        Vec3 lava = findLavaSurface(mc);
+        Vec3 lava = findLavaSurface(mc, scanRadius());
         if (lava == null) {
-            fail("Strider fishing stopped: no lava within reach of the start block.");
+            // out of candidates rather than out of luck: widen the search and come back to it
+            rejectedLava.clear();
+            aimSweep++;
+            aimRetryAt = now + nextAimRetryDelayMs(ThreadLocalRandom.current());
+            ClientUtils.sendDebugMessage("[StriderFishing] no lava lined up, widening the search");
             return;
         }
+        aimTargetBlock = BlockPos.containing(lava.x, lava.y - 0.5, lava.z);
         RotationManager.initiateRotation(mc, lava, AetherConfig.ROTATION_TIME.get());
+    }
+
+    private int scanRadius() {
+        return (int) Math.min(LAVA_SCAN_RADIUS + aimSweep * 2.0, MAX_LAVA_SCAN_RADIUS);
     }
 
     private void tickCast(Minecraft mc) {
@@ -224,11 +244,8 @@ public final class StriderFishingMacro extends AbstractMacro {
         }
 
         // the camera can still be settling from the walk back, so the lava is confirmed again at the last moment
+        // aiming handles the retry, and it drops this spot from the running once it sees the miss
         if (!isLookingAtLava(mc)) {
-            if (++aimAttempts > MAX_AIM_ATTEMPTS) {
-                fail("Strider fishing stopped: could not keep the rod pointed at lava.");
-                return;
-            }
             changeState(State.AIM_LAVA);
             return;
         }
@@ -240,7 +257,7 @@ public final class StriderFishingMacro extends AbstractMacro {
             nextActionAt = now + castDelayMs();
             return;
         }
-        aimAttempts = 0;
+        clearAimSearch();
         emptyCatch = false;
         anchorIdle(now);
         changeState(State.WAIT_BITE);
@@ -588,7 +605,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         returnRetryAt = 0L;
         returnAttempts = 0;
         releaseAll(mc);
-        aimAttempts = 0;
+        clearAimSearch();
         // the route leaves the camera wherever it was steering, so the lava aim starts from a clean slate
         RotationManager.cancelRotation();
         changeState(State.AIM_LAVA);
@@ -597,6 +614,21 @@ public final class StriderFishingMacro extends AbstractMacro {
     private void fail(String message) {
         ClientUtils.sendMessage("§c" + message, false);
         MacroStateManager.stopMacro(Minecraft.getInstance(), message, false);
+    }
+
+    private void clearAimSearch() {
+        rejectedLava.clear();
+        aimTargetBlock = null;
+        aimRetryAt = 0L;
+        aimSweep = 0;
+    }
+
+    static long nextAimRetryDelayMs(ThreadLocalRandom random) {
+        return random.nextLong(AIM_RETRY_MIN_MS, AIM_RETRY_MAX_MS + 1);
+    }
+
+    static boolean aimRetryDelayInRange(long delay) {
+        return delay >= AIM_RETRY_MIN_MS && delay <= AIM_RETRY_MAX_MS;
     }
 
     private boolean isOnOrigin(Minecraft mc) {
@@ -742,7 +774,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         return !fluid.isEmpty() && fluid.getType().isSame(Fluids.LAVA);
     }
 
-    private static Vec3 findLavaSurface(Minecraft mc) {
+    private Vec3 findLavaSurface(Minecraft mc, int radius) {
         BlockPos base = mc.player.blockPosition();
         Vec3 eye = mc.player.getEyePosition();
         Vec3 best = null;
@@ -750,13 +782,12 @@ public final class StriderFishingMacro extends AbstractMacro {
         Vec3 fallback = null;
         double fallbackPitch = Double.MAX_VALUE;
 
-        int radius = (int) LAVA_SCAN_RADIUS;
         int depth = (int) LAVA_SCAN_DEPTH;
         for (int dx = -radius; dx <= radius; dx++) {
             for (int dz = -radius; dz <= radius; dz++) {
                 for (int dy = -depth; dy <= 1; dy++) {
                     BlockPos pos = base.offset(dx, dy, dz);
-                    if (!isLava(mc.level.getBlockState(pos))) {
+                    if (rejectedLava.contains(pos) || !isLava(mc.level.getBlockState(pos))) {
                         continue;
                     }
                     BlockPos above = pos.above();
