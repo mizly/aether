@@ -62,6 +62,22 @@ class StriderFishingMacroTest {
     }
 
     @Test
+    void onlyACatchThatSurfacedAfterTheReelIsTargeted() {
+        java.util.Set<Integer> beforeReel = java.util.Set.of(11, 22, 33);
+        assertFalse(StriderFishingMacro.shouldAcceptTarget(22, beforeReel));
+        assertTrue(StriderFishingMacro.shouldAcceptTarget(44, beforeReel));
+    }
+
+    @Test
+    void theIdleDriftStaysSmallAndUnhurried() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            assertTrue(StriderFishingMacro.idleDelayInRange(StriderFishingMacro.nextIdleDelayMs(random)));
+            assertTrue(Math.abs(StriderFishingMacro.driftDegrees(random, 2.5f)) <= 2.5f);
+        }
+    }
+
+    @Test
     void sneakIsDroppedInLiquidUnlessItIsAskedToContinue() {
         assertTrue(StriderFishingMacro.sneakAllowedInLiquid(false, false));
         assertFalse(StriderFishingMacro.sneakAllowedInLiquid(true, false));

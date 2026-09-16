@@ -9,6 +9,7 @@ import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
@@ -25,7 +26,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 // lava fishing for stridersurfers: cast, wait for the marker to flip from ? to !!, reel, kill, walk home
 // every delay here is wall-clock and every decision runs on the client tick, so the macro behaves the same at 10 or 240 fps
@@ -46,13 +50,23 @@ public final class StriderFishingMacro extends AbstractMacro {
     private static final long BOBBER_SETTLE_MS = 1_500L;
     private static final long REEL_SETTLE_MS = 350L;
 
+    private static final long IDLE_MIN_DELAY_MS = 2_500L;
+    private static final long IDLE_MAX_DELAY_MS = 7_000L;
+    private static final long IDLE_TURN_MIN_MS = 500L;
+    private static final long IDLE_TURN_MAX_MS = 1_100L;
+    private static final long IDLE_TAP_MIN_MS = 90L;
+    private static final long IDLE_TAP_MAX_MS = 200L;
+    private static final float IDLE_YAW_DEGREES = 2.5f;
+    private static final float IDLE_PITCH_DEGREES = 1.5f;
+    private static final int IDLE_TAP_ONE_IN = 4;
+
     private static final float AIM_SMOOTHING_MS = 110.0f;
     private static final float AIM_MAX_TURN_SPEED = 520.0f;
     private static final float ATTACK_AIM_TOLERANCE = 20.0f;
     private static final double ATTACK_RANGE_SLACK = 0.85;
     private static final double FOLLOW_BAND = 0.35;
-    private static final double RETURN_TOLERANCE = 1.25;
     private static final int MAX_AIM_ATTEMPTS = 6;
+    private static final int MAX_RETURN_ATTEMPTS = 3;
 
     private State state = State.AIM_LAVA;
     private BlockPos origin;
@@ -61,9 +75,20 @@ public final class StriderFishingMacro extends AbstractMacro {
     private long lastAttackAt;
     private int followMove;
     private int aimAttempts;
+    private int returnAttempts;
     private Entity target;
     private boolean returnPathStarted;
     private volatile boolean returnFinished;
+
+    // everything loaded when the line was reeled, so a catch is told apart from whatever was already swimming
+    private final Set<Integer> preReelEntityIds = new HashSet<>();
+
+    private float idleAnchorYaw;
+    private float idleAnchorPitch;
+    private boolean idleAnchored;
+    private long idleNextAt;
+    private long idleTapUntil;
+    private KeyMapping idleTapKey;
 
     @Override
     public void onEnable(Minecraft mc) {
@@ -74,9 +99,12 @@ public final class StriderFishingMacro extends AbstractMacro {
         target = null;
         followMove = 0;
         aimAttempts = 0;
+        returnAttempts = 0;
         returnPathStarted = false;
         returnFinished = false;
         lastAttackAt = 0L;
+        preReelEntityIds.clear();
+        clearIdle();
         changeState(State.AIM_LAVA);
         ClientUtils.sendDebugMessage("[StriderFishing] started at "
                 + origin.getX() + ", " + origin.getY() + ", " + origin.getZ());
@@ -91,6 +119,8 @@ public final class StriderFishingMacro extends AbstractMacro {
         followMove = 0;
         returnPathStarted = false;
         returnFinished = false;
+        preReelEntityIds.clear();
+        clearIdle();
     }
 
     @Override
@@ -103,8 +133,9 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
-        // pathfinding owns the keys on the way home, and a settling rotation needs a still body
-        if (state != State.FIGHT && state != State.RETURN && RotationManager.isRotating()) {
+        // only the lava turn has to land before its state can carry on; waiting for a bite still has to
+        // poll the marker every tick, or an idle drift would hide the short !! window
+        if (state == State.AIM_LAVA && RotationManager.isRotating()) {
             holdStill(mc);
             return;
         }
@@ -121,6 +152,11 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     private void tickAimLava(Minecraft mc) {
         holdStill(mc);
+
+        if (!isOnOrigin(mc)) {
+            beginReturn(mc);
+            return;
+        }
 
         if (isLookingAtLava(mc)) {
             aimAttempts = 0;
@@ -150,6 +186,11 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
+        if (!isOnOrigin(mc)) {
+            beginReturn(mc);
+            return;
+        }
+
         FailsafeManager.selectHotbarSlot(mc, rodSlot());
         ClientUtils.performUseClick();
         // a bobber still out means that click reeled the stuck line in, so cast on the next pass
@@ -157,14 +198,15 @@ public final class StriderFishingMacro extends AbstractMacro {
             nextActionAt = now + castDelayMs();
             return;
         }
+        anchorIdle(mc, now);
         changeState(State.WAIT_BITE);
     }
 
     private void tickWaitBite(Minecraft mc) {
-        holdStill(mc);
         long now = System.currentTimeMillis();
 
         if (!hasLiveHook(mc)) {
+            holdStill(mc);
             // the cast never left the rod, or the line came back on its own
             if (now - stateEnteredAt > BOBBER_SETTLE_MS) {
                 recast(now);
@@ -173,14 +215,20 @@ public final class StriderFishingMacro extends AbstractMacro {
         }
 
         if (hasCatchMarker(mc, mc.player.fishing)) {
+            clearIdle();
+            snapshotLoadedEntities(mc);
             changeState(State.REEL);
             return;
         }
 
         if (now - stateEnteredAt > BITE_TIMEOUT_MS) {
             ClientUtils.sendDebugMessage("[StriderFishing] no bite in time, recasting");
+            clearIdle();
             recast(now);
+            return;
         }
+
+        tickIdleMotion(mc, now);
     }
 
     private void tickReel(Minecraft mc) {
@@ -204,7 +252,7 @@ public final class StriderFishingMacro extends AbstractMacro {
 
         if (target == null) {
             holdStill(mc);
-            // nothing surfaced, or something else killed it: go home rather than wait out the fight timer
+            // item drops and empty catches never spawn a mob, so go back and cast again
             if (now - stateEnteredAt > ACQUIRE_TIMEOUT_MS) {
                 beginReturn(mc);
             }
@@ -252,22 +300,25 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
-        Vec3 home = Vec3.atBottomCenterOf(origin);
-        double dx = mc.player.getX() - home.x;
-        double dz = mc.player.getZ() - home.z;
-        if (Math.sqrt(dx * dx + dz * dz) <= RETURN_TOLERANCE) {
+        if (isOnOrigin(mc)) {
             PathfindingManager.stop(false);
             arriveHome(mc);
             return;
         }
 
         if (returnFinished) {
-            arriveHome(mc);
+            // the route ended somewhere else, so line the block up again rather than casting from it
+            returnFinished = false;
+            returnPathStarted = false;
+            if (++returnAttempts > MAX_RETURN_ATTEMPTS) {
+                fail("Strider fishing stopped: could not get back onto the start block.");
+            }
             return;
         }
 
         if (!returnPathStarted) {
             returnPathStarted = true;
+            Vec3 home = Vec3.atBottomCenterOf(origin);
             if (AetherConfig.STRIDER_FISHING_ETHERWARP_RETURN.get()) {
                 PathfindingManager.startConfiguredPureEtherwarp(mc,
                         origin.getX(), origin.getY(), origin.getZ(),
@@ -283,7 +334,79 @@ public final class StriderFishingMacro extends AbstractMacro {
         PathfindingManager.startConfiguredWalk(mc, home,
                 () -> returnFinished = true,
                 () -> returnFinished = true,
-                true, 0.5, false, false);
+                true, 0.35, true, false);
+    }
+
+    // small slow camera drift and the occasional short step, so a long wait is not a statue staring at lava
+    private void tickIdleMotion(Minecraft mc, long now) {
+        var options = mc.options;
+        boolean tapping = now < idleTapUntil && idleTapKey != null;
+        if (!tapping && idleTapKey != null) {
+            MacroInput.set(idleTapKey, false);
+            idleTapKey = null;
+        }
+
+        MacroInput.set(options.keyUp, false);
+        MacroInput.set(options.keyDown, false);
+        MacroInput.set(options.keyLeft, false);
+        MacroInput.set(options.keyRight, false);
+        MacroInput.set(options.keySprint, false);
+        MacroInput.set(options.keyJump, false);
+        boolean sneak = shouldSneak(mc) || tapping;
+        MacroInput.set(options.keyShift, sneak);
+        if (tapping) {
+            MacroInput.set(idleTapKey, true);
+        }
+
+        if (!idleAnchored || now < idleNextAt || RotationManager.isRotating()) {
+            return;
+        }
+
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        RotationManager.rotateToYawPitch(mc,
+                idleAnchorYaw + driftDegrees(random, IDLE_YAW_DEGREES),
+                idleAnchorPitch + driftDegrees(random, IDLE_PITCH_DEGREES),
+                random.nextLong(IDLE_TURN_MIN_MS, IDLE_TURN_MAX_MS + 1));
+        idleNextAt = now + nextIdleDelayMs(random);
+
+        // a step only happens crouched, so the shuffle cannot carry the player off the start block
+        if (sneakAllowedHere(mc) && isOnOrigin(mc) && random.nextInt(IDLE_TAP_ONE_IN) == 0) {
+            idleTapKey = switch (random.nextInt(4)) {
+                case 0 -> options.keyUp;
+                case 1 -> options.keyDown;
+                case 2 -> options.keyLeft;
+                default -> options.keyRight;
+            };
+            idleTapUntil = now + random.nextLong(IDLE_TAP_MIN_MS, IDLE_TAP_MAX_MS + 1);
+        }
+    }
+
+    private void anchorIdle(Minecraft mc, long now) {
+        idleAnchorYaw = mc.player.getYRot();
+        idleAnchorPitch = mc.player.getXRot();
+        idleAnchored = true;
+        idleNextAt = now + nextIdleDelayMs(ThreadLocalRandom.current());
+        idleTapUntil = 0L;
+        idleTapKey = null;
+    }
+
+    private void clearIdle() {
+        idleAnchored = false;
+        idleNextAt = 0L;
+        idleTapUntil = 0L;
+        idleTapKey = null;
+    }
+
+    static long nextIdleDelayMs(ThreadLocalRandom random) {
+        return random.nextLong(IDLE_MIN_DELAY_MS, IDLE_MAX_DELAY_MS + 1);
+    }
+
+    static float driftDegrees(ThreadLocalRandom random, float range) {
+        return (float) random.nextDouble(-range, range);
+    }
+
+    static boolean idleDelayInRange(long delay) {
+        return delay >= IDLE_MIN_DELAY_MS && delay <= IDLE_MAX_DELAY_MS;
     }
 
     private void changeState(State next) {
@@ -304,6 +427,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         followMove = 0;
         returnPathStarted = false;
         returnFinished = false;
+        clearIdle();
         releaseAll(mc);
         changeState(State.RETURN);
     }
@@ -311,6 +435,7 @@ public final class StriderFishingMacro extends AbstractMacro {
     private void arriveHome(Minecraft mc) {
         returnPathStarted = false;
         returnFinished = false;
+        returnAttempts = 0;
         releaseAll(mc);
         aimAttempts = 0;
         changeState(State.AIM_LAVA);
@@ -319,6 +444,10 @@ public final class StriderFishingMacro extends AbstractMacro {
     private void fail(String message) {
         ClientUtils.sendMessage("§c" + message, false);
         MacroStateManager.stopMacro(Minecraft.getInstance(), message, false);
+    }
+
+    private boolean isOnOrigin(Minecraft mc) {
+        return origin != null && origin.equals(mc.player.blockPosition());
     }
 
     private void holdStill(Minecraft mc) {
@@ -336,6 +465,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         if (mc == null || mc.options == null) {
             return;
         }
+        idleTapKey = null;
         MacroInput.setAttack(mc.options.keyAttack, false);
         MacroInput.releaseMovement(mc);
     }
@@ -452,6 +582,20 @@ public final class StriderFishingMacro extends AbstractMacro {
         return plainName != null && plainName.contains("?");
     }
 
+    private void snapshotLoadedEntities(Minecraft mc) {
+        preReelEntityIds.clear();
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (entity instanceof LivingEntity && !(entity instanceof ArmorStand)) {
+                preReelEntityIds.add(entity.getId());
+            }
+        }
+    }
+
+    // a catch is only whatever the reel pulled up, so drops and mobs that were already swimming are left alone
+    static boolean shouldAcceptTarget(int entityId, Set<Integer> preReelEntityIds) {
+        return !preReelEntityIds.contains(entityId);
+    }
+
     private Entity findTarget(Minecraft mc) {
         String wanted = AetherConfig.STRIDER_FISHING_TARGET_NAME.get();
         String needle = wanted == null ? "" : stripFormatting(wanted).toLowerCase(Locale.ROOT).trim();
@@ -463,6 +607,9 @@ public final class StriderFishingMacro extends AbstractMacro {
 
         for (Entity entity : mc.level.getEntities(mc.player, box)) {
             if (!(entity instanceof LivingEntity) || entity instanceof ArmorStand || !isAlive(entity)) {
+                continue;
+            }
+            if (!shouldAcceptTarget(entity.getId(), preReelEntityIds)) {
                 continue;
             }
             if (!needle.isEmpty() && !matchesName(mc, entity, needle)) {
