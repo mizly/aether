@@ -1096,7 +1096,7 @@ public final class AetherConfig {
         public static final StringEntry STRIDER_FISHING_TARGET_NAME = Config.string("striderFishingTargetName",
                         "Stridersurfer");
         public static final FloatEntry STRIDER_FISHING_KILL_DISTANCE = Config
-                        .floatVal("striderFishingKillDistance", 1.5f).range(1.0f, 2.0f);
+                        .floatVal("striderFishingKillDistance", 1.5f).range(1.0f, 3.0f);
         public static final IntEntry STRIDER_FISHING_CAST_DELAY_MIN = Config.integer("striderFishingCastDelayMin", 400)
                         .range(0, 3000);
         public static final IntEntry STRIDER_FISHING_CAST_DELAY_MAX = Config.integer("striderFishingCastDelayMax", 900)

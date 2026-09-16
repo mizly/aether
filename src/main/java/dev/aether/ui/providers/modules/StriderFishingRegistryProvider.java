@@ -41,7 +41,10 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
             MacroStateManager.stopMacro();
             return;
         }
-        AetherKeybindHandler.startStriderFishingMacro(Minecraft.getInstance());
+        // the open Aether menu is an automation stop screen, so it has to go before the macro starts
+        Minecraft client = Minecraft.getInstance();
+        client.setScreen(null);
+        AetherKeybindHandler.startStriderFishingMacro(client);
     }
 
     private static List<SettingGroup> buildGroups() {
@@ -92,7 +95,7 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
                             AetherConfig.STRIDER_FISHING_TARGET_NAME.set(v);
                             AetherConfig.save();
                         }))
-                .add(new SliderSetting("Kill Distance", 1.0f, 2.0f,
+                .add(new SliderSetting("Kill Distance", 1.0f, 3.0f,
                         () -> AetherConfig.STRIDER_FISHING_KILL_DISTANCE.get(),
                         v -> {
                             AetherConfig.STRIDER_FISHING_KILL_DISTANCE.set(v);

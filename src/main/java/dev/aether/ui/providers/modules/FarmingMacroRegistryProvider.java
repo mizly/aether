@@ -46,7 +46,10 @@ public final class FarmingMacroRegistryProvider extends AbstractModulesRegistryP
             MacroStateManager.stopMacro();
             return;
         }
-        AetherKeybindHandler.startFarmingMacro(Minecraft.getInstance());
+        // the open Aether menu is an automation stop screen, so it has to go before the macro starts
+        Minecraft client = Minecraft.getInstance();
+        client.setScreen(null);
+        AetherKeybindHandler.startFarmingMacro(client);
     }
 
     private static List<SettingGroup> buildGroups() {
