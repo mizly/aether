@@ -116,21 +116,26 @@ class StriderFishingMacroTest {
     }
 
     @Test
-    void theWalkHomeLooksWhereItIsHeaded() {
-        assertEquals(0.0f, StriderFishingMacro.travelYawDegrees(0.0, 0.5, 123.0f), 0.001f);
-        assertEquals(90.0f, StriderFishingMacro.travelYawDegrees(-0.5, 0.0, 123.0f), 0.001f);
-        assertEquals(-90.0f, StriderFishingMacro.travelYawDegrees(0.5, 0.0, 123.0f), 0.001f);
+    void theSwimOutOfLavaWaitsABeatBeforeHoldingJump() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            long delay = StriderFishingMacro.nextLiquidJumpDelayMs(random);
+            assertTrue(StriderFishingMacro.liquidJumpDelayInRange(delay));
+            assertTrue(delay >= 100L && delay <= 300L);
+        }
     }
 
     @Test
-    void aStandstillKeepsTheCurrentFacingInsteadOfSnapping() {
-        assertEquals(123.0f, StriderFishingMacro.travelYawDegrees(0.0, 0.0, 123.0f), 0.001f);
+    void jumpIsHeldOnlyOnceTheSinkingBeatHasPassed() {
+        assertFalse(StriderFishingMacro.shouldHoldLiquidJump(true, 1_000L, 1_200L));
+        assertTrue(StriderFishingMacro.shouldHoldLiquidJump(true, 1_200L, 1_200L));
+        assertTrue(StriderFishingMacro.shouldHoldLiquidJump(true, 9_000L, 1_200L));
     }
 
     @Test
-    void theWalkHomeLooksOnlyVerySlightlyDown() {
-        double degrees = Math.toDegrees(Math.atan2(StriderFishingMacro.lookDrop(), 6.0));
-        assertTrue(degrees > 4.0 && degrees < 6.0);
+    void dryLandNeverHoldsTheJumpKey() {
+        assertFalse(StriderFishingMacro.shouldHoldLiquidJump(false, 9_000L, 1_200L));
+        assertFalse(StriderFishingMacro.shouldHoldLiquidJump(true, 9_000L, 0L));
     }
 
     @Test

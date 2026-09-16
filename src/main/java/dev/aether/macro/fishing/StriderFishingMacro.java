@@ -54,9 +54,10 @@ public final class StriderFishingMacro extends AbstractMacro {
     // nothing was caught, so the next cast waits out a human pause instead of snapping straight back
     private static final long EMPTY_CATCH_DELAY_MIN_MS = 1_500L;
     private static final long EMPTY_CATCH_DELAY_MAX_MS = 3_500L;
-    private static final double LOOK_AHEAD_DISTANCE = 6.0;
-    private static final double LOOK_DOWN_DEGREES = 5.0;
-    private static final double MIN_TRAVEL_SPEED_SQR = 1.0e-4;
+    // the block being walked to sits just under eye level, so watching it reads as ahead and slightly down
+    private static final double LOOK_TARGET_HEIGHT = 1.2;
+    private static final long LIQUID_JUMP_MIN_DELAY_MS = 100L;
+    private static final long LIQUID_JUMP_MAX_DELAY_MS = 300L;
     private static final double ETHERWARP_MIN_DISTANCE = 4.0;
     // wading out of lava is slow and expensive, so the warp takes over as soon as there is anywhere to go
     private static final double ETHERWARP_LIQUID_MIN_DISTANCE = 1.0;
@@ -86,6 +87,7 @@ public final class StriderFishingMacro extends AbstractMacro {
     private long nextActionAt;
     private long nextAttackAt;
     private long returnAt;
+    private long jumpHoldAt;
     private int followMove;
     private boolean emptyCatch;
     private int aimAttempts;
@@ -119,6 +121,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         returnFinished = false;
         nextAttackAt = 0L;
         returnAt = 0L;
+        jumpHoldAt = 0L;
         emptyCatch = false;
         preReelEntityIds.clear();
         clearIdle();
@@ -154,17 +157,19 @@ public final class StriderFishingMacro extends AbstractMacro {
         // poll the marker every tick, or an idle drift would hide the short !! window
         if (state == State.AIM_LAVA && RotationManager.isRotating()) {
             holdStill(mc);
-            return;
+        } else {
+            switch (state) {
+                case AIM_LAVA -> tickAimLava(mc);
+                case CAST -> tickCast(mc);
+                case WAIT_BITE -> tickWaitBite(mc);
+                case REEL -> tickReel(mc);
+                case FIGHT -> tickFight(mc);
+                case RETURN -> tickReturn(mc);
+            }
         }
 
-        switch (state) {
-            case AIM_LAVA -> tickAimLava(mc);
-            case CAST -> tickCast(mc);
-            case WAIT_BITE -> tickWaitBite(mc);
-            case REEL -> tickReel(mc);
-            case FIGHT -> tickFight(mc);
-            case RETURN -> tickReturn(mc);
-        }
+        // last word on the jump key, since every state above clears it
+        tickLiquidEscape(mc);
     }
 
     private void tickAimLava(Minecraft mc) {
@@ -358,12 +363,12 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
+        Vec3 home = Vec3.atBottomCenterOf(origin);
         if (!returnPathStarted) {
-            returnPathStarted = true;
-            Vec3 home = Vec3.atBottomCenterOf(origin);
-            if (shouldEtherwarp(mc.player.position().distanceTo(home),
-                    mc.player.isInLiquid(),
+            boolean inLiquid = mc.player.isInLiquid();
+            if (shouldEtherwarp(mc.player.position().distanceTo(home), inLiquid,
                     AetherConfig.STRIDER_FISHING_ETHERWARP_RETURN.get())) {
+                returnPathStarted = true;
                 returnByWalk = false;
                 PathfindingManager.startConfiguredPureEtherwarp(mc,
                         origin.getX(), origin.getY(), origin.getZ(),
@@ -371,13 +376,18 @@ public final class StriderFishingMacro extends AbstractMacro {
                         () -> mc.execute(() -> startWalkHome(mc, home)));
                 return;
             }
+            // a walk route cannot be planned out of lava, so the jump has to lift us clear first
+            if (inLiquid) {
+                return;
+            }
+            returnPathStarted = true;
             startWalkHome(mc, home);
             return;
         }
 
-        // the warp has to keep its own aim, so only the walk gets the relaxed camera
+        // the warp has to keep its own aim, so only the walk watches the block it is heading for
         if (returnByWalk && PathfindingManager.isNavigating()) {
-            PathfindingManager.setWalkLookTarget(travelLookTarget(mc));
+            PathfindingManager.setWalkLookTarget(home.add(0.0, LOOK_TARGET_HEIGHT, 0.0));
         }
     }
 
@@ -578,23 +588,31 @@ public final class StriderFishingMacro extends AbstractMacro {
         return Mth.clamp(AetherConfig.STRIDER_FISHING_WEAPON_SLOT.get() - 1, 0, 8);
     }
 
-    // aiming down the path snaps the camera around every corner, so it just looks where it is walking
-    private static Vec3 travelLookTarget(Minecraft mc) {
-        Vec3 motion = mc.player.getDeltaMovement();
-        double yawRad = Math.toRadians(travelYawDegrees(motion.x, motion.z, mc.player.getYRot()));
-        Vec3 ahead = new Vec3(-Math.sin(yawRad), 0.0, Math.cos(yawRad)).scale(LOOK_AHEAD_DISTANCE);
-        return mc.player.getEyePosition().add(ahead).subtract(0.0, lookDrop(), 0.0);
-    }
-
-    static float travelYawDegrees(double motionX, double motionZ, float fallbackYaw) {
-        if (motionX * motionX + motionZ * motionZ < MIN_TRAVEL_SPEED_SQR) {
-            return fallbackYaw;
+    private void tickLiquidEscape(Minecraft mc) {
+        long now = System.currentTimeMillis();
+        if (!mc.player.isInLiquid()) {
+            jumpHoldAt = 0L;
+            return;
         }
-        return (float) Math.toDegrees(Math.atan2(-motionX, motionZ));
+        if (jumpHoldAt == 0L) {
+            // a beat of sinking first, so surfacing is not a frame-perfect reaction to touching lava
+            jumpHoldAt = now + nextLiquidJumpDelayMs(ThreadLocalRandom.current());
+        }
+        if (shouldHoldLiquidJump(true, now, jumpHoldAt)) {
+            MacroInput.set(mc.options.keyJump, true);
+        }
     }
 
-    static double lookDrop() {
-        return LOOK_AHEAD_DISTANCE * Math.tan(Math.toRadians(LOOK_DOWN_DEGREES));
+    static long nextLiquidJumpDelayMs(ThreadLocalRandom random) {
+        return random.nextLong(LIQUID_JUMP_MIN_DELAY_MS, LIQUID_JUMP_MAX_DELAY_MS + 1);
+    }
+
+    static boolean liquidJumpDelayInRange(long delay) {
+        return delay >= LIQUID_JUMP_MIN_DELAY_MS && delay <= LIQUID_JUMP_MAX_DELAY_MS;
+    }
+
+    static boolean shouldHoldLiquidJump(boolean inLiquid, long now, long holdFrom) {
+        return inLiquid && holdFrom != 0L && now >= holdFrom;
     }
 
     private long castDelayForCycle() {
