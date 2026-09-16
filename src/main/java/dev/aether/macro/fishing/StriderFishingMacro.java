@@ -46,7 +46,14 @@ public final class StriderFishingMacro extends AbstractMacro {
     private static final long BITE_TIMEOUT_MS = 90_000L;
     private static final long ACQUIRE_TIMEOUT_MS = 6_000L;
     private static final long FIGHT_TIMEOUT_MS = 45_000L;
-    private static final long ATTACK_COOLDOWN_MS = 550L;
+    // 3-6 cps, redrawn every swing so the cadence is not a metronome
+    private static final long ATTACK_MIN_DELAY_MS = 167L;
+    private static final long ATTACK_MAX_DELAY_MS = 333L;
+    private static final long RETURN_DELAY_MIN_MS = 200L;
+    private static final long RETURN_DELAY_MAX_MS = 500L;
+    private static final double ETHERWARP_MIN_DISTANCE = 4.0;
+    // wading out of lava is slow and expensive, so the warp takes over as soon as there is anywhere to go
+    private static final double ETHERWARP_LIQUID_MIN_DISTANCE = 1.0;
     private static final long BOBBER_SETTLE_MS = 1_500L;
     private static final long REEL_SETTLE_MS = 350L;
 
@@ -62,7 +69,6 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     private static final float AIM_SMOOTHING_MS = 110.0f;
     private static final float AIM_MAX_TURN_SPEED = 520.0f;
-    private static final float ATTACK_AIM_TOLERANCE = 20.0f;
     private static final double ATTACK_RANGE_SLACK = 0.85;
     private static final double FOLLOW_BAND = 0.35;
     private static final int MAX_AIM_ATTEMPTS = 6;
@@ -72,7 +78,8 @@ public final class StriderFishingMacro extends AbstractMacro {
     private BlockPos origin;
     private long stateEnteredAt;
     private long nextActionAt;
-    private long lastAttackAt;
+    private long nextAttackAt;
+    private long returnAt;
     private int followMove;
     private int aimAttempts;
     private int returnAttempts;
@@ -102,7 +109,8 @@ public final class StriderFishingMacro extends AbstractMacro {
         returnAttempts = 0;
         returnPathStarted = false;
         returnFinished = false;
-        lastAttackAt = 0L;
+        nextAttackAt = 0L;
+        returnAt = 0L;
         preReelEntityIds.clear();
         clearIdle();
         changeState(State.AIM_LAVA);
@@ -236,6 +244,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         ClientUtils.performUseClick();
         target = null;
         followMove = 0;
+        returnAt = 0L;
         changeState(State.FIGHT);
         nextActionAt = System.currentTimeMillis() + REEL_SETTLE_MS;
     }
@@ -245,13 +254,24 @@ public final class StriderFishingMacro extends AbstractMacro {
 
         if (target != null && !isAlive(target)) {
             target = null;
+            // the catch is down, so head back now instead of sitting out the acquire window
+            returnAt = now + nextReturnDelayMs(ThreadLocalRandom.current());
         }
         if (target == null) {
             target = findTarget(mc);
+            if (target != null) {
+                returnAt = 0L;
+            }
         }
 
         if (target == null) {
             holdStill(mc);
+            if (returnAt != 0L) {
+                if (now >= returnAt) {
+                    beginReturn(mc);
+                }
+                return;
+            }
             // item drops and empty catches never spawn a mob, so go back and cast again
             if (now - stateEnteredAt > ACQUIRE_TIMEOUT_MS) {
                 beginReturn(mc);
@@ -287,10 +307,10 @@ public final class StriderFishingMacro extends AbstractMacro {
         if (now < nextActionAt) {
             return;
         }
-        boolean inRange = horizontal <= follow + ATTACK_RANGE_SLACK;
-        if (inRange && attackReady(now, lastAttackAt) && isAimedAt(mc, aim, ATTACK_AIM_TOLERANCE)) {
+        // the tracker is already on the catch, so swing on cadence instead of waiting for a perfect angle
+        if (horizontal <= follow + ATTACK_RANGE_SLACK && now >= nextAttackAt) {
             ClientUtils.performAttackClick();
-            lastAttackAt = now;
+            nextAttackAt = now + nextAttackDelayMs(ThreadLocalRandom.current());
         }
     }
 
@@ -319,7 +339,9 @@ public final class StriderFishingMacro extends AbstractMacro {
         if (!returnPathStarted) {
             returnPathStarted = true;
             Vec3 home = Vec3.atBottomCenterOf(origin);
-            if (AetherConfig.STRIDER_FISHING_ETHERWARP_RETURN.get()) {
+            if (shouldEtherwarp(mc.player.position().distanceTo(home),
+                    mc.player.isInLiquid(),
+                    AetherConfig.STRIDER_FISHING_ETHERWARP_RETURN.get())) {
                 PathfindingManager.startConfiguredPureEtherwarp(mc,
                         origin.getX(), origin.getY(), origin.getZ(),
                         () -> returnFinished = true,
@@ -488,8 +510,28 @@ public final class StriderFishingMacro extends AbstractMacro {
         return continueInLiquid || !inLiquid;
     }
 
-    static boolean attackReady(long now, long lastAttackAt) {
-        return now - lastAttackAt >= ATTACK_COOLDOWN_MS;
+    static long nextAttackDelayMs(ThreadLocalRandom random) {
+        return random.nextLong(ATTACK_MIN_DELAY_MS, ATTACK_MAX_DELAY_MS + 1);
+    }
+
+    static boolean attackDelayInRange(long delay) {
+        return delay >= ATTACK_MIN_DELAY_MS && delay <= ATTACK_MAX_DELAY_MS;
+    }
+
+    static long nextReturnDelayMs(ThreadLocalRandom random) {
+        return random.nextLong(RETURN_DELAY_MIN_MS, RETURN_DELAY_MAX_MS + 1);
+    }
+
+    static boolean returnDelayInRange(long delay) {
+        return delay >= RETURN_DELAY_MIN_MS && delay <= RETURN_DELAY_MAX_MS;
+    }
+
+    // walking a few blocks beats lining up a warp, but lava is worth leaving at once
+    static boolean shouldEtherwarp(double distance, boolean inLiquid, boolean etherwarpEnabled) {
+        if (!etherwarpEnabled) {
+            return false;
+        }
+        return distance >= (inLiquid ? ETHERWARP_LIQUID_MIN_DISTANCE : ETHERWARP_MIN_DISTANCE);
     }
 
     private static int rodSlot() {
@@ -669,21 +711,6 @@ public final class StriderFishingMacro extends AbstractMacro {
             return 1;
         }
         return horizontal < follow - FOLLOW_BAND ? -1 : 0;
-    }
-
-    private static boolean isAimedAt(Minecraft mc, Vec3 point, float tolerance) {
-        Vec3 eye = mc.player.getEyePosition();
-        double dx = point.x - eye.x;
-        double dy = point.y - eye.y;
-        double dz = point.z - eye.z;
-        double horizontal = Math.sqrt(dx * dx + dz * dz);
-        if (horizontal < 1.0e-4) {
-            return true;
-        }
-        float desiredYaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
-        float desiredPitch = (float) -Math.toDegrees(Math.atan2(dy, horizontal));
-        return Math.abs(Mth.wrapDegrees(desiredYaw - mc.player.getYRot())) <= tolerance
-                && Math.abs(desiredPitch - mc.player.getXRot()) <= tolerance;
     }
 
     static String stripFormatting(String text) {

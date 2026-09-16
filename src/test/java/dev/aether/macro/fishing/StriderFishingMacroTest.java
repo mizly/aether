@@ -54,11 +54,38 @@ class StriderFishingMacroTest {
     }
 
     @Test
-    void theSwingCadenceIsWallClockSoItIsTheSameAtAnyFrameRate() {
-        assertFalse(StriderFishingMacro.attackReady(1_000L, 1_000L));
-        assertFalse(StriderFishingMacro.attackReady(1_500L, 1_000L));
-        assertTrue(StriderFishingMacro.attackReady(1_550L, 1_000L));
-        assertTrue(StriderFishingMacro.attackReady(9_000L, 1_000L));
+    void theSwingCadenceStaysBetweenThreeAndSixClicksASecond() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            long delay = StriderFishingMacro.nextAttackDelayMs(random);
+            assertTrue(StriderFishingMacro.attackDelayInRange(delay));
+            double cps = 1000.0 / delay;
+            assertTrue(cps >= 3.0 && cps <= 6.0);
+        }
+    }
+
+    @Test
+    void theWayHomeStartsJustAfterTheCatchDies() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            long delay = StriderFishingMacro.nextReturnDelayMs(random);
+            assertTrue(StriderFishingMacro.returnDelayInRange(delay));
+            assertTrue(delay >= 200L && delay <= 500L);
+        }
+    }
+
+    @Test
+    void etherwarpOnlyEarnsItsKeepFromFourBlocksOut() {
+        assertFalse(StriderFishingMacro.shouldEtherwarp(3.9, false, true));
+        assertTrue(StriderFishingMacro.shouldEtherwarp(4.0, false, true));
+        assertFalse(StriderFishingMacro.shouldEtherwarp(40.0, false, false));
+    }
+
+    @Test
+    void lavaIsWarpedOutOfAsSoonAsThereIsAnywhereToGo() {
+        assertFalse(StriderFishingMacro.shouldEtherwarp(0.9, true, true));
+        assertTrue(StriderFishingMacro.shouldEtherwarp(1.0, true, true));
+        assertTrue(StriderFishingMacro.shouldEtherwarp(2.0, true, true));
     }
 
     @Test
