@@ -60,6 +60,7 @@ public final class RouteRunner {
     private volatile boolean legFinished;
     private volatile boolean legFailed;
     private RouteEtherwarpLeg etherwarpLeg;
+    private BlockCentering finalCentering;
 
     public RouteRunner(Route route, boolean hopThroughHub) {
         this.route = route;
@@ -198,7 +199,17 @@ public final class RouteRunner {
 
     private void tickLeg(Minecraft mc, long now) {
         if (legIndex >= route.waypoints().size()) {
-            phase = Phase.DONE;
+            // the macro takes its home from the block the player stands on, so the route ends dead centre on it
+            if (mc.player == null || mc.screen != null) {
+                return;
+            }
+            if (finalCentering == null) {
+                finalCentering = new BlockCentering(now, floorOf(route.end()));
+            }
+            if (finalCentering.tick(mc, now)) {
+                MacroInput.set(mc.options.keyShift, false);
+                phase = Phase.DONE;
+            }
             return;
         }
         if (mc.player == null || mc.level == null || mc.screen != null || now < legRetryAt) {
@@ -222,7 +233,8 @@ public final class RouteRunner {
                 + " to waypoint " + (legIndex + 1) + "/" + route.waypoints().size()
                 + " (attempt " + legAttempts + ")");
         if (waypoint.type() == Route.LegType.ETHERWARP) {
-            etherwarpLeg = new RouteEtherwarpLeg(waypoint);
+            BlockPos throwFrom = legIndex == 0 ? null : floorOf(route.waypoints().get(legIndex - 1));
+            etherwarpLeg = new RouteEtherwarpLeg(waypoint, throwFrom);
             return;
         }
         legFinished = false;
@@ -286,6 +298,10 @@ public final class RouteRunner {
     private boolean nextIsEtherwarp() {
         return legIndex < route.waypoints().size()
                 && route.waypoints().get(legIndex).type() == Route.LegType.ETHERWARP;
+    }
+
+    private static BlockPos floorOf(Route.Waypoint waypoint) {
+        return new BlockPos(waypoint.x(), waypoint.y() - 1, waypoint.z());
     }
 
     private boolean isLastLeg() {

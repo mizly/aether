@@ -25,7 +25,7 @@ import java.util.concurrent.ThreadLocalRandom;
 final class RouteEtherwarpLeg {
     enum Result { RUNNING, LANDED, FAILED }
 
-    private enum Phase { AIM, TURNING, CLICK_DELAY, WAIT_LAND }
+    private enum Phase { CENTER, AIM, TURNING, CLICK_DELAY, WAIT_LAND }
 
     private static final long CLICK_DELAY_MIN_MS = 45L;
     private static final long CLICK_DELAY_MAX_MS = 120L;
@@ -58,7 +58,9 @@ final class RouteEtherwarpLeg {
     private final Route.Waypoint waypoint;
     private final PathPosition feet;
     private final BlockPos block;
-    private Phase phase = Phase.AIM;
+    private Phase phase = Phase.CENTER;
+    private BlockCentering centering;
+    private final BlockPos standingOn;
     private long phaseAt;
     private long clickAt;
     private long crouchedSince;
@@ -70,8 +72,10 @@ final class RouteEtherwarpLeg {
     private Aim aim;
     private String failure = "";
 
-    RouteEtherwarpLeg(Route.Waypoint waypoint) {
+    // standingOn is the recorded block the warp is thrown from, or null right after an island warp
+    RouteEtherwarpLeg(Route.Waypoint waypoint, BlockPos standingOn) {
         this.waypoint = waypoint;
+        this.standingOn = standingOn;
         this.feet = new PathPosition(waypoint.x(), waypoint.y(), waypoint.z());
         this.block = new BlockPos(waypoint.x(), waypoint.y() - 1, waypoint.z());
     }
@@ -112,6 +116,15 @@ final class RouteEtherwarpLeg {
 
         Vec3 feetPos = mc.player.position();
         switch (phase) {
+            case CENTER -> {
+                if (centering == null) {
+                    centering = new BlockCentering(now, standingOn);
+                }
+                if (centering.tick(mc, now)) {
+                    stillSince = 0L;
+                    enter(Phase.AIM, now);
+                }
+            }
             case AIM -> {
                 if (stillSince == 0L || now - stillSince < STILL_MS) {
                     return Result.RUNNING;
@@ -148,8 +161,7 @@ final class RouteEtherwarpLeg {
                     return Result.RUNNING;
                 }
                 if (hasMovedSinceAim(feetPos)) {
-                    turns--;
-                    enter(Phase.AIM, now);
+                    recentre(now);
                     return Result.RUNNING;
                 }
                 if (!isLookingAtBlock(mc, feetPos)) {
@@ -165,8 +177,7 @@ final class RouteEtherwarpLeg {
                     return Result.RUNNING;
                 }
                 if (hasMovedSinceAim(feetPos)) {
-                    turns--;
-                    enter(Phase.AIM, now);
+                    recentre(now);
                     return Result.RUNNING;
                 }
                 if (!isLookingAtBlock(mc, feetPos)) {
@@ -197,6 +208,13 @@ final class RouteEtherwarpLeg {
             }
         }
         return Result.RUNNING;
+    }
+
+    // a shuffle between aiming and clicking spoils the aim, so the player goes back to the middle and aims again
+    private void recentre(long now) {
+        turns--;
+        centering = null;
+        enter(Phase.CENTER, now);
     }
 
     private static boolean isStill(Minecraft mc) {
@@ -257,7 +275,9 @@ final class RouteEtherwarpLeg {
                             : hits(mc, modelEye, look.yaw, look.pitch, block, slack);
                     Aim candidate = new Aim(point, look.yaw, look.pitch, bothEyes, withSlack);
                     double centrality = Math.min(Math.min(u, 1.0 - u), Math.min(v, 1.0 - v));
-                    double score = candidate.tier() + centrality;
+                    // hypixel sets the player on top of the block either way, but the top face is the one aim
+                    // that cannot graze an edge into the block beside or above it
+                    double score = candidate.tier() + centrality + (face == Direction.UP ? 0.1 : 0.0);
                     if (score > bestScore) {
                         bestScore = score;
                         best = candidate;

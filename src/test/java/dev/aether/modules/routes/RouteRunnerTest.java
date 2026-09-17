@@ -23,4 +23,14 @@ class RouteRunnerTest {
     void aWalkPassingThroughAWaypointCountsFromFurtherOut() {
         assertTrue(RouteRunner.isWithinWaypoint(1.2, 0.0, 0.0, 1.3));
     }
+
+    @Test
+    void centringAimsAtTheMiddleOfTheBlockStoodOn() {
+        net.minecraft.world.phys.Vec3 offset = BlockCentering.offsetToCentre(
+                new net.minecraft.world.phys.Vec3(-650.95, 97.0, -90.1), new net.minecraft.core.BlockPos(-651, 96, -91));
+
+        assertTrue(Math.abs(offset.x - 0.45) < 1.0e-9);
+        assertTrue(Math.abs(offset.z + 0.4) < 1.0e-9);
+        assertTrue(offset.y == 0.0);
+    }
 }
