@@ -20,7 +20,8 @@ public final class RouteRunner {
     private static final String HUB_WARP = "/warp hub";
     // a warp to the island we are already on never changes the world and can land right where we stand,
     // so once nothing else has happened by then the warp is taken as done
-    private static final long SAME_ISLAND_WARP_MS = 5_000L;
+    // hypixel can sit on "Warping..." for several seconds before the transfer, so this has to outlast that
+    private static final long SAME_ISLAND_WARP_MS = 15_000L;
     // no walk covers this much ground in one tick, so a jump like it can only be the warp landing
     private static final double WARP_TICK_JUMP = 2.0;
     private static final long SETTLE_TIMEOUT_MS = 20_000L;
@@ -45,6 +46,7 @@ public final class RouteRunner {
     private String currentWarp;
     private long warpSentAt;
     private Level warpLevel;
+    private Level routeLevel;
     private Vec3 lastTickPosition;
     private long settleStartedAt;
     private long settleUntil;
@@ -99,6 +101,9 @@ public final class RouteRunner {
             return;
         }
         long now = System.currentTimeMillis();
+        if (phase != Phase.WARP && mc.level != null && routeLevel != null && mc.level != routeLevel) {
+            restartAfterLateTransfer(mc, now);
+        }
         switch (phase) {
             case WARP -> tickWarp(mc, now);
             case SETTLE -> tickSettle(mc, now);
@@ -142,10 +147,30 @@ public final class RouteRunner {
             ClientUtils.sendDebugMessage("[Route] warp done ("
                     + (worldChanged ? "new world" : jumped ? "teleported" : "no change seen") + ")");
             currentWarp = null;
-            settleStartedAt = now;
-            settleUntil = now + ThreadLocalRandom.current().nextLong(SETTLE_MIN_MS, SETTLE_MAX_MS + 1);
-            phase = Phase.SETTLE;
+            beginSettle(mc, now);
         }
+    }
+
+    private void beginSettle(Minecraft mc, long now) {
+        routeLevel = mc.level;
+        settleStartedAt = now;
+        settleUntil = now + ThreadLocalRandom.current().nextLong(SETTLE_MIN_MS, SETTLE_MAX_MS + 1);
+        phase = Phase.SETTLE;
+    }
+
+    // the server moved us after we had already started, so whatever leg was running is meaningless now
+    private void restartAfterLateTransfer(Minecraft mc, long now) {
+        ClientUtils.sendDebugMessage("[Route] world changed mid route, settling again");
+        if (phase == Phase.LEG_WAIT) {
+            PathfindingManager.stop(false);
+            if (etherwarpLeg != null) {
+                RouteEtherwarpLeg.release(mc);
+                etherwarpLeg = null;
+            }
+        }
+        legAttempts = 0;
+        legRetryAt = 0L;
+        beginSettle(mc, now);
     }
 
     private void tickSettle(Minecraft mc, long now) {

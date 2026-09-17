@@ -69,7 +69,8 @@ public final class AetherAutomationTickHandler {
                     || AetherBootstrapHooks.isBootstrapConfigScreen(client.screen);
             if (automationStopScreen) {
                 if (MacroStateManager.isAutomationRunning() && !ManualPestManager.isActive()) {
-                    MacroStateManager.stopMacro(client, "Automation interrupted by screen", false);
+                    MacroStateManager.stopMacro(client,
+                            "Automation interrupted by screen " + client.screen.getClass().getSimpleName(), false);
                 }
                 if (BedrockPlotMaker.isRunning()) {
                     BedrockPlotMaker.stop(client);
