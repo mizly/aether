@@ -100,8 +100,15 @@ final class RouteEtherwarpLeg {
                 if (!mc.player.onGround()) {
                     return Result.RUNNING;
                 }
-                if (!EtherwarpHelper.isValidLandingFeet(new WalkabilityChecker(mc.level), feet)) {
-                    return fail(mc, "no crouched headroom on the etherwarp block");
+                double distance = EtherwarpHelper.getEyePosition(mc, feetPos).distanceTo(Vec3.atCenterOf(block));
+                if (distance > EtherwarpHelper.MAX_ETHERWARP_DISTANCE + 1.0) {
+                    return fail(mc, String.format(Locale.ROOT,
+                            "the block is %.0f blocks away, out of etherwarp range", distance));
+                }
+                // our headroom model is stricter than hypixel on odd blocks, so it only warns and the server decides
+                if (turns == 0 && !EtherwarpHelper.isValidLandingFeet(new WalkabilityChecker(mc.level), feet)) {
+                    ClientUtils.sendDebugMessage("[Route] headroom looks tight on " + block.getX() + " "
+                            + block.getY() + " " + block.getZ() + ", warping anyway");
                 }
                 aim = findAim(mc, feetPos, block);
                 if (aim == null) {

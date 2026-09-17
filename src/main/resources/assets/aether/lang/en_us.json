@@ -832,8 +832,13 @@
   "text.aether.walk": "Walk",
   "text.aether.etherwarp": "Etherwarp",
   "text.aether.route_editor": "Route Editor",
-  "text.aether.right_click_to_add_waypoint": "Right click to add waypoint",
-  "text.aether.left_click_to_delete_waypoint": "Left click to delete waypoint",
   "text.aether.esc_to_exit": "Esc to exit",
-  "text.aether.no_route_selected": "No route selected"
+  "text.aether.no_route_selected": "No route selected",
+  "text.aether.edit_waypoint": "Edit Waypoint",
+  "text.aether.position": "Position",
+  "text.aether.the_highlighted_block": "The highlighted block",
+  "text.aether.move_in_world": "Move in World",
+  "text.aether.left_click_to_add_or_edit_waypoint": "Left click to add or edit waypoint",
+  "text.aether.right_click_a_waypoint_to_delete_it": "Right click a waypoint to delete it",
+  "text.aether.esc_to_cancel_the_move": "Esc to cancel the move"
 }

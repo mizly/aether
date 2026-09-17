@@ -27,7 +27,8 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
-// in-world route editing: right click a block to add a leg on top of it, left click a highlighted block to drop it
+// in-world route editing: left click a block to add or edit a leg on top of it, right click a highlighted block to
+// drop it; any other right click goes through, so the AOTV still works for getting around while placing
 public final class RouteEditor {
     // etherwarp legs can land far across an island, so the pick reaches well past vanilla reach
     private static final double PICK_DISTANCE = 64.0;
@@ -39,6 +40,9 @@ public final class RouteEditor {
 
     private static RouteStore.Folder folder;
     private static Route route;
+    // index of the waypoint waiting for a left click on its new block, or -1
+    private static int movingIndex = -1;
+    private static boolean rightPressSwallowed;
 
     private RouteEditor() {
     }
@@ -50,6 +54,7 @@ public final class RouteEditor {
     public static void begin(Minecraft mc, RouteStore.Folder routeFolder, Route editing) {
         folder = routeFolder;
         route = editing;
+        movingIndex = -1;
         mc.setScreen(null);
     }
 
@@ -61,6 +66,7 @@ public final class RouteEditor {
         RouteStore.Folder returnTo = folder;
         route = null;
         folder = null;
+        movingIndex = -1;
         mc.setScreen(new RoutesScreen(returnTo));
     }
 
@@ -83,12 +89,46 @@ public final class RouteEditor {
         save();
     }
 
+    public static void replace(int index, Route.Waypoint waypoint) {
+        if (route == null || index < 0 || index >= route.waypoints().size()) {
+            return;
+        }
+        int clash = route.indexAt(waypoint.x(), waypoint.y(), waypoint.z());
+        if (clash >= 0 && clash != index) {
+            return;
+        }
+        route.waypoints().set(index, waypoint);
+        save();
+    }
+
+    public static void remove(int index) {
+        if (route == null || index < 0 || index >= route.waypoints().size()) {
+            return;
+        }
+        route.waypoints().remove(index);
+        save();
+    }
+
+    public static void beginMove(Minecraft mc, int index) {
+        if (route == null || index < 0 || index >= route.waypoints().size()) {
+            return;
+        }
+        movingIndex = index;
+        mc.setScreen(null);
+    }
+
     // physical mouse buttons only; true means vanilla never sees the click
     public static boolean onMouseButton(Minecraft mc, int button, int action) {
-        if (route == null || mc.screen != null || mc.player == null
-                || (button != GLFW.GLFW_MOUSE_BUTTON_LEFT && button != GLFW.GLFW_MOUSE_BUTTON_RIGHT)) {
+        if (route == null || mc.screen != null || mc.player == null) {
             return false;
         }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            return onRightButton(mc, action);
+        }
+        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            return false;
+        }
+        // left clicks never reach the world while editing, so nothing gets broken or hit by accident
         if (action != GLFW.GLFW_PRESS) {
             return true;
         }
@@ -98,21 +138,58 @@ public final class RouteEditor {
             return true;
         }
         BlockPos standing = clicked.above();
-        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            Route.Waypoint existing = findAt(standing);
-            mc.setScreen(new RouteWaypointScreen(route, standing, existing == null ? null : existing.type()));
+        if (movingIndex >= 0) {
+            Route.Waypoint moving = route.waypoints().get(movingIndex);
+            replace(movingIndex, new Route.Waypoint(standing.getX(), standing.getY(), standing.getZ(), moving.type()));
+            movingIndex = -1;
             return true;
         }
-        if (route.removeAt(standing.getX(), standing.getY(), standing.getZ())
-                || route.removeAt(clicked.getX(), clicked.getY(), clicked.getZ())) {
-            save();
+        int index = indexAtClicked(clicked);
+        if (index >= 0) {
+            Route.Waypoint existing = route.waypoints().get(index);
+            standing = new BlockPos(existing.x(), existing.y(), existing.z());
         }
+        mc.setScreen(new RouteWaypointScreen(route, standing, index));
         return true;
+    }
+
+    private static boolean onRightButton(Minecraft mc, int action) {
+        if (action != GLFW.GLFW_PRESS) {
+            // a release only belongs to us when we also took the press, or vanilla keeps holding use
+            boolean swallowed = rightPressSwallowed;
+            rightPressSwallowed = false;
+            return swallowed;
+        }
+        BlockPos clicked = pickBlock(mc);
+        int index = clicked == null ? -1 : indexAtClicked(clicked);
+        if (index < 0) {
+            rightPressSwallowed = false;
+            return false;
+        }
+        rightPressSwallowed = true;
+        if (movingIndex == index) {
+            movingIndex = -1;
+        } else if (movingIndex > index) {
+            movingIndex--;
+        }
+        remove(index);
+        return true;
+    }
+
+    // the highlight sits on the block under a waypoint, but clicking the air spot above it counts too
+    private static int indexAtClicked(BlockPos clicked) {
+        BlockPos standing = clicked.above();
+        int index = route.indexAt(standing.getX(), standing.getY(), standing.getZ());
+        return index >= 0 ? index : route.indexAt(clicked.getX(), clicked.getY(), clicked.getZ());
     }
 
     public static boolean onKeyPress(Minecraft mc, int key, int action) {
         if (route == null || mc.screen != null || key != GLFW.GLFW_KEY_ESCAPE || action != GLFW.GLFW_PRESS) {
             return false;
+        }
+        if (movingIndex >= 0) {
+            movingIndex = -1;
+            return true;
         }
         exit(mc);
         return true;
@@ -220,9 +297,15 @@ public final class RouteEditor {
         nvg.rect(pad, 31f, innerW, 0.7f, Theme.HUD_SEP);
 
         float y = 40f;
-        y = renderHint(nvg, pad, y, "RMB", "Right click to add waypoint");
-        y = renderHint(nvg, pad, y, "LMB", "Left click to delete waypoint");
-        y = renderHint(nvg, pad, y, "ESC", "Esc to exit");
+        if (movingIndex >= 0) {
+            y = renderHint(nvg, pad, y, "LMB", "Left click the new spot for #" + (movingIndex + 1));
+            y = renderHint(nvg, pad, y, "RMB", "Right click a waypoint to delete it");
+            y = renderHint(nvg, pad, y, "ESC", "Esc to cancel the move");
+        } else {
+            y = renderHint(nvg, pad, y, "LMB", "Left click to add or edit waypoint");
+            y = renderHint(nvg, pad, y, "RMB", "Right click a waypoint to delete it");
+            y = renderHint(nvg, pad, y, "ESC", "Esc to exit");
+        }
 
         nvg.rect(pad, y + 2f, innerW, 0.7f, Theme.HUD_SEP);
         y += 10f;

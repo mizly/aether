@@ -38,11 +38,22 @@ abstract class CanvasPanelScreen extends NVGScreen {
     static final class Field {
         final StringBuilder text = new StringBuilder();
         final int maxLength;
+        final boolean numeric;
         boolean focused;
+        boolean invalid;
 
         Field(String initial, int maxLength) {
+            this(initial, maxLength, false);
+        }
+
+        Field(String initial, int maxLength, boolean numeric) {
             this.maxLength = maxLength;
+            this.numeric = numeric;
             text.append(initial == null ? "" : initial);
+        }
+
+        boolean accepts(char typed) {
+            return !numeric || Character.isDigit(typed) || (typed == '-' && text.isEmpty());
         }
 
         String value() {
@@ -160,7 +171,7 @@ abstract class CanvasPanelScreen extends NVGScreen {
         float radius = FIELD_H / 2f;
         nvg.roundedRect(x, y, w, FIELD_H, radius, Theme.BG_FIELD);
         nvg.rectOutlineSolid(x, y, w, FIELD_H, radius, 1f,
-                field.focused ? Theme.ACCENT_PRIMARY : Theme.BORDER_DEFAULT);
+                field.invalid ? Theme.ACCENT_ERROR : field.focused ? Theme.ACCENT_PRIMARY : Theme.BORDER_DEFAULT);
 
         float textX = x + 14f;
         float textY = y + (FIELD_H - 12f) / 2f;
@@ -178,6 +189,15 @@ abstract class CanvasPanelScreen extends NVGScreen {
         }
         nvg.popScissor();
         addHit(x, y, w, FIELD_H, () -> field.focused = true);
+    }
+
+    void renderButton(NVGRenderer nvg, String label, float x, float y, float w, float h, int color,
+                      float mx, float my, Runnable action) {
+        boolean hover = hovered(mx, my, x, y, w, h);
+        nvg.roundedRect(x, y, w, h, 6f, hover ? Theme.ACTION_BTN_HOVER : Theme.ACTION_BTN_BG);
+        nvg.rectOutlineSolid(x, y, w, h, 6f, 1f, Theme.withAlpha(color, hover ? 0.9f : 0.55f));
+        nvg.textCentered(Fonts.BOLD, label, x, y, w, h, 11f, color);
+        addHit(x, y, w, h, action);
     }
 
     static String fit(NVGRenderer nvg, String text, String font, float size, float maxW) {
@@ -279,8 +299,9 @@ abstract class CanvasPanelScreen extends NVGScreen {
         Field field = focusedField();
         if (field != null) {
             char typed = (char) input.codepoint();
-            if (typed >= ' ' && field.text.length() < field.maxLength) {
+            if (typed >= ' ' && field.text.length() < field.maxLength && field.accepts(typed)) {
                 field.text.append(typed);
+                field.invalid = false;
             }
             return true;
         }
