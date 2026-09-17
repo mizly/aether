@@ -7,6 +7,8 @@ import dev.aether.macro.MacroInput;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
+import dev.aether.modules.routes.EtherwarpLeg;
+import dev.aether.modules.routes.Route;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.KeyMapping;
@@ -63,6 +65,8 @@ public final class StriderFishingMacro extends AbstractMacro {
     // wading out of lava is slow and expensive, so the warp takes over as soon as there is anywhere to go
     private static final double ETHERWARP_LIQUID_MIN_DISTANCE = 1.0;
     private static final long BOBBER_SETTLE_MS = 1_500L;
+    // the float needs time to finish its arc before where it landed means anything
+    private static final long BOBBER_LANDED_MS = 1_200L;
     private static final long REEL_SETTLE_MS = 350L;
 
     private static final long IDLE_MIN_DELAY_MS = 2_500L;
@@ -115,7 +119,8 @@ public final class StriderFishingMacro extends AbstractMacro {
     private Entity target;
     private boolean returnPathStarted;
     private boolean returnByWalk;
-    private boolean etherwarpFailed;
+    private boolean etherwarpUsed;
+    private EtherwarpLeg returnWarp;
     private long returnRetryAt;
     private volatile boolean returnFinished;
 
@@ -153,6 +158,7 @@ public final class StriderFishingMacro extends AbstractMacro {
     @Override
     public void onDisable(Minecraft mc) {
         PathfindingManager.stop(false);
+        dropReturnWarp(mc);
         RotationManager.cancelRotation();
         releaseAll(mc);
         target = null;
@@ -286,6 +292,16 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
+        // a float sitting on stone will never get a bite, so reel it in and aim somewhere else
+        if (now - stateEnteredAt > BOBBER_LANDED_MS && !isInLava(mc, mc.player.fishing)) {
+            ClientUtils.sendDebugMessage("[StriderFishing] float landed out of the lava, recasting");
+            rejectCurrentAim();
+            clearIdle();
+            ClientUtils.performUseClick();
+            changeState(State.AIM_LAVA);
+            return;
+        }
+
         if (now - stateEnteredAt > BITE_TIMEOUT_MS) {
             ClientUtils.sendDebugMessage("[StriderFishing] no bite in time, recasting");
             clearIdle();
@@ -387,7 +403,23 @@ public final class StriderFishingMacro extends AbstractMacro {
 
         if (isOnOrigin(mc)) {
             PathfindingManager.stop(false);
+            dropReturnWarp(mc);
             arriveHome(mc);
+            return;
+        }
+
+        // one crouched, lined up click; the old pathfinder warp re-clicked on a timer and could fire unsneaked,
+        // which is a plain aotv teleport straight off the block
+        if (returnWarp != null) {
+            EtherwarpLeg.Result result = returnWarp.tick(mc);
+            if (result == EtherwarpLeg.Result.RUNNING) {
+                return;
+            }
+            if (result == EtherwarpLeg.Result.FAILED) {
+                ClientUtils.sendDebugMessage("[StriderFishing] return warp failed: " + returnWarp.failure());
+            }
+            dropReturnWarp(mc);
+            returnFinished = true;
             return;
         }
 
@@ -412,18 +444,15 @@ public final class StriderFishingMacro extends AbstractMacro {
         Vec3 home = Vec3.atBottomCenterOf(origin);
         if (!returnPathStarted) {
             boolean inLiquid = mc.player.isInLiquid();
-            if (!etherwarpFailed && shouldEtherwarp(mc.player.position().distanceTo(home), inLiquid,
+            // one warp per trip, landed or missed; anything after it walks and looks at the block
+            if (!etherwarpUsed && shouldEtherwarp(mc.player.position().distanceTo(home), inLiquid,
                     AetherConfig.STRIDER_FISHING_ETHERWARP_RETURN.get())) {
+                etherwarpUsed = true;
                 returnPathStarted = true;
                 returnByWalk = false;
-                PathfindingManager.startConfiguredPureEtherwarp(mc,
-                        origin.getX(), origin.getY(), origin.getZ(),
-                        () -> returnFinished = true,
-                        () -> {
-                            // stop trying to warp for this trip and let the walk take over
-                            etherwarpFailed = true;
-                            returnFinished = true;
-                        });
+                PathfindingManager.stop(false);
+                returnWarp = new EtherwarpLeg(
+                        new Route.Waypoint(origin.getX(), origin.getY(), origin.getZ(), Route.LegType.ETHERWARP), null);
                 return;
             }
             // a walk route cannot be planned out of lava, so the jump has to lift us clear first
@@ -438,6 +467,13 @@ public final class StriderFishingMacro extends AbstractMacro {
         // the warp has to keep its own aim, so only the walk watches the block it is heading for
         if (returnByWalk && PathfindingManager.isNavigating()) {
             PathfindingManager.setWalkLookTarget(home.add(0.0, LOOK_TARGET_HEIGHT, 0.0));
+        }
+    }
+
+    private void dropReturnWarp(Minecraft mc) {
+        if (returnWarp != null) {
+            returnWarp = null;
+            EtherwarpLeg.release(mc);
         }
     }
 
@@ -594,8 +630,9 @@ public final class StriderFishingMacro extends AbstractMacro {
         returnPathStarted = false;
         returnByWalk = false;
         returnFinished = false;
-        etherwarpFailed = false;
+        etherwarpUsed = false;
         returnRetryAt = 0L;
+        dropReturnWarp(mc);
         clearIdle();
         releaseAll(mc);
         changeState(State.RETURN);
@@ -605,7 +642,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         returnPathStarted = false;
         returnByWalk = false;
         returnFinished = false;
-        etherwarpFailed = false;
+        etherwarpUsed = false;
         returnRetryAt = 0L;
         returnAttempts = 0;
         releaseAll(mc);
@@ -728,7 +765,8 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     private void tickLiquidEscape(Minecraft mc) {
         long now = System.currentTimeMillis();
-        if (!mc.player.isInLiquid()) {
+        // a jump mid aim moves the eye off the line the warp was lined up on
+        if (!mc.player.isInLiquid() || returnWarp != null) {
             jumpHoldAt = 0L;
             return;
         }
@@ -852,6 +890,18 @@ public final class StriderFishingMacro extends AbstractMacro {
             }
         }
         return false;
+    }
+
+    private static boolean isInLava(Minecraft mc, FishingHook hook) {
+        BlockPos at = BlockPos.containing(hook.position());
+        return isLava(mc.level.getBlockState(at)) || isLava(mc.level.getBlockState(at.below()));
+    }
+
+    private void rejectCurrentAim() {
+        if (aimTargetBlock != null) {
+            rejectedLava.add(aimTargetBlock);
+            aimTargetBlock = null;
+        }
     }
 
     // the bite marker shows a single ? and flips to !! once the catch is on the line
