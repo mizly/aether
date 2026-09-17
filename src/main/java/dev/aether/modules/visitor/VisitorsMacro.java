@@ -278,6 +278,9 @@ public class VisitorsMacro {
         // Step 4: Done
         msg(client, "\u00A7aVisitors macro complete. Served \u00A7e" + totalServed + " \u00A7avisitor(s).");
         if (!shouldStop && wasRunningBefore) {
+            if (compactorsDisabled) {
+                compactorsPendingReenable = true;
+            }
             VisitorManager.handleVisitorScriptFinished(client);
         } else {
             MacroStateManager.setCurrentState(MacroState.State.OFF);

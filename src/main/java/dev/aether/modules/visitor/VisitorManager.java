@@ -92,6 +92,7 @@ public class VisitorManager {
                 ClientUtils.sendDebugMessage("Warping to garden...");
                 CommandUtils.warpGarden();
                 PestLifecycleManager.restorePendingSunsetPestsNight(client);
+                MacroWorkerThread.sleep(1000);
                 VisitorsMacro.reenableCompactorsIfPending(client);
                 PestReturnManager.setReturningFromPestVisitor(true);
                 if (MacroWorkerThread.shouldAbortTask(client))

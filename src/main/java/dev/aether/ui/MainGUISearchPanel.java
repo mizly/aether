@@ -140,11 +140,16 @@ final class MainGUISearchPanel {
         String title = result.setting() == null
                 ? result.group() == null ? result.subtab().name() : result.group().getName()
                 : result.setting().getName();
+        owner.offerHoverHelp(
+                "search-result:" + result.mainTab() + ":" + result.subtab().name() + ":" + title,
+                AetherLang.localize(title),
+                resultTooltip(result),
+                x, y, w, RESULT_H, mx, my);
+        nvg.text(Fonts.BOLD, AetherLang.localize(title), x + 14f, y + 10f, 12.5f,
+                hovered ? Theme.TEXT_PRIMARY : Theme.TEXT_VALUE);
         String context = result.setting() == null
                 ? AetherLang.localize("Module settings")
                 : result.group() == null ? result.subtab().name() : result.group().getName();
-        nvg.text(Fonts.BOLD, AetherLang.localize(title), x + 14f, y + 10f, 12.5f,
-                hovered ? Theme.TEXT_PRIMARY : Theme.TEXT_VALUE);
         nvg.text(Fonts.REGULAR, AetherLang.localize(context), x + 14f, y + 31f, 10.5f, Theme.TEXT_MUTED);
         nvg.textRight(Fonts.REGULAR, "\u2192", x, y + 16f, w - 14f, 18f, hovered ? Theme.ACCENT_PRIMARY : Theme.TEXT_DIM);
     }
@@ -162,16 +167,17 @@ final class MainGUISearchPanel {
     private void addResults(List<SearchResult> out, int mainTab, String sourceLabel,
                             List<ModulesTab.SubTab> subtabs, String query) {
         for (ModulesTab.SubTab subtab : subtabs) {
-            boolean subtabMatched = matchesQuery(subtab.name(), null, query);
+            boolean subtabMatched = matchesQuery(subtab.name(), null, subtab.description(), query);
             boolean addedForSubtab = false;
             for (SettingGroup group : subtab.groups()) {
-                boolean groupMatched = matchesQuery(group.getName(), group.getRawName(), query);
+                boolean groupMatched = matchesQuery(group.getName(), group.getRawName(), group.getDescription(), query);
                 boolean addedForGroup = false;
                 for (Setting setting : group.getSettings()) {
                     if (!setting.isVisible()) {
                         continue;
                     }
-                    if (subtabMatched || groupMatched || matchesQuery(setting.getName(), setting.getRawName(), query)) {
+                    if (subtabMatched || groupMatched
+                            || matchesQuery(setting.getName(), setting.getRawName(), setting.getDescription(), query)) {
                         out.add(new SearchResult(mainTab, sourceLabel, subtab, group, setting));
                         addedForGroup = true;
                         addedForSubtab = true;
@@ -188,8 +194,20 @@ final class MainGUISearchPanel {
         }
     }
 
-    private static boolean matchesQuery(String localized, String raw, String query) {
-        return containsIgnoreCase(localized, query) || containsIgnoreCase(raw, query);
+    private static String resultTooltip(SearchResult result) {
+        if (result.setting() != null) {
+            return result.setting().getDescription();
+        }
+        if (result.group() != null) {
+            return result.group().getDescription();
+        }
+        return result.subtab().description();
+    }
+
+    private static boolean matchesQuery(String localized, String raw, String tooltip, String query) {
+        return containsIgnoreCase(localized, query)
+                || containsIgnoreCase(raw, query)
+                || containsIgnoreCase(tooltip, query);
     }
 
     private static boolean containsIgnoreCase(String value, String query) {
