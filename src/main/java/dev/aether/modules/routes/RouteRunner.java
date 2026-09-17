@@ -59,7 +59,7 @@ public final class RouteRunner {
     private long legRetryAt;
     private volatile boolean legFinished;
     private volatile boolean legFailed;
-    private RouteEtherwarpLeg etherwarpLeg;
+    private EtherwarpLeg etherwarpLeg;
     private BlockCentering finalCentering;
 
     public RouteRunner(Route route, boolean hopThroughHub) {
@@ -90,7 +90,7 @@ public final class RouteRunner {
         if (phase == Phase.LEG_WAIT) {
             PathfindingManager.stop(false);
             if (etherwarpLeg != null) {
-                RouteEtherwarpLeg.release(Minecraft.getInstance());
+                EtherwarpLeg.release(Minecraft.getInstance());
                 etherwarpLeg = null;
             }
         }
@@ -166,7 +166,7 @@ public final class RouteRunner {
         if (phase == Phase.LEG_WAIT) {
             PathfindingManager.stop(false);
             if (etherwarpLeg != null) {
-                RouteEtherwarpLeg.release(mc);
+                EtherwarpLeg.release(mc);
                 etherwarpLeg = null;
             }
         }
@@ -234,7 +234,7 @@ public final class RouteRunner {
                 + " (attempt " + legAttempts + ")");
         if (waypoint.type() == Route.LegType.ETHERWARP) {
             BlockPos throwFrom = legIndex == 0 ? null : floorOf(route.waypoints().get(legIndex - 1));
-            etherwarpLeg = new RouteEtherwarpLeg(waypoint, throwFrom);
+            etherwarpLeg = new EtherwarpLeg(waypoint, throwFrom);
             return;
         }
         legFinished = false;
@@ -248,13 +248,13 @@ public final class RouteRunner {
 
     private void tickLegWait(Minecraft mc, long now) {
         if (etherwarpLeg != null) {
-            RouteEtherwarpLeg.Result result = etherwarpLeg.tick(mc);
-            if (result == RouteEtherwarpLeg.Result.RUNNING) {
+            EtherwarpLeg.Result result = etherwarpLeg.tick(mc);
+            if (result == EtherwarpLeg.Result.RUNNING) {
                 return;
             }
             String reason = etherwarpLeg.failure();
             etherwarpLeg = null;
-            if (result == RouteEtherwarpLeg.Result.LANDED) {
+            if (result == EtherwarpLeg.Result.LANDED) {
                 phase = Phase.LEG;
                 nextLeg();
                 // back to back warps keep the crouch, lifting it between them is what lets a click fire unsneaked

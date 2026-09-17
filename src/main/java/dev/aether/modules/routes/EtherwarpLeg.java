@@ -21,9 +21,10 @@ import net.minecraft.world.phys.Vec3;
 import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 
-// one etherwarp straight onto the recorded block: no route search, just crouch, flick over and click
-final class RouteEtherwarpLeg {
-    enum Result { RUNNING, LANDED, FAILED }
+// one etherwarp straight onto a block: no route search, just crouch, flick over and click
+// used by routes and by the fishing macro walking home, so neither ever spams warps
+public final class EtherwarpLeg {
+    public enum Result { RUNNING, LANDED, FAILED }
 
     private enum Phase { CENTER, AIM, TURNING, CLICK_DELAY, WAIT_LAND }
 
@@ -72,19 +73,19 @@ final class RouteEtherwarpLeg {
     private Aim aim;
     private String failure = "";
 
-    // standingOn is the recorded block the warp is thrown from, or null right after an island warp
-    RouteEtherwarpLeg(Route.Waypoint waypoint, BlockPos standingOn) {
+    // standingOn is the recorded block the warp is thrown from, or null when there is none
+    public EtherwarpLeg(Route.Waypoint waypoint, BlockPos standingOn) {
         this.waypoint = waypoint;
         this.standingOn = standingOn;
         this.feet = new PathPosition(waypoint.x(), waypoint.y(), waypoint.z());
         this.block = new BlockPos(waypoint.x(), waypoint.y() - 1, waypoint.z());
     }
 
-    String failure() {
+    public String failure() {
         return failure;
     }
 
-    Result tick(Minecraft mc) {
+    public Result tick(Minecraft mc) {
         long now = System.currentTimeMillis();
         if (phaseAt == 0L) {
             MacroInput.releaseMovement(mc);
@@ -98,7 +99,8 @@ final class RouteEtherwarpLeg {
         } else {
             stillSince = 0L;
         }
-        if (mc.player.isCrouching()) {
+        // the server only needs the sneak held, and a player in lava never takes the crouching pose
+        if (mc.player.isShiftKeyDown()) {
             if (crouchedSince == 0L) {
                 crouchedSince = now;
             }
@@ -117,6 +119,11 @@ final class RouteEtherwarpLeg {
         Vec3 feetPos = mc.player.position();
         switch (phase) {
             case CENTER -> {
+                // lava is left by warping out of it, there is no floor to centre on or to stand still on
+                if (mc.player.isInLiquid()) {
+                    enter(Phase.AIM, now);
+                    return Result.RUNNING;
+                }
                 if (centering == null) {
                     centering = new BlockCentering(now, standingOn);
                 }
@@ -126,7 +133,7 @@ final class RouteEtherwarpLeg {
                 }
             }
             case AIM -> {
-                if (stillSince == 0L || now - stillSince < STILL_MS) {
+                if (!mc.player.isInLiquid() && (stillSince == 0L || now - stillSince < STILL_MS)) {
                     return Result.RUNNING;
                 }
                 double distance = EtherwarpHelper.getEyePosition(mc, feetPos).distanceTo(Vec3.atCenterOf(block));
@@ -223,7 +230,8 @@ final class RouteEtherwarpLeg {
     }
 
     private boolean hasMovedSinceAim(Vec3 feetPos) {
-        return aimedFrom != null && feetPos.distanceTo(aimedFrom) > MOVED_SINCE_AIM;
+        return aimedFrom != null && feetPos.distanceTo(aimedFrom) > MOVED_SINCE_AIM
+                && !Minecraft.getInstance().player.isInLiquid();
     }
 
     private void enter(Phase next, long now) {
@@ -237,7 +245,7 @@ final class RouteEtherwarpLeg {
         return Result.FAILED;
     }
 
-    static void release(Minecraft mc) {
+    public static void release(Minecraft mc) {
         HumanFlick.cancel();
         RotationManager.cancelRotation();
         if (mc.options != null) {
