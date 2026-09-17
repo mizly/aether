@@ -10,6 +10,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 
 // client thread only: runs the warps and legs of a route one tick at a time
@@ -17,10 +18,15 @@ public final class RouteRunner {
     private enum Phase { WARP, SETTLE, LEG, LEG_WAIT, DONE, FAILED }
 
     private static final String HUB_WARP = "/warp hub";
-    private static final long WARP_TIMEOUT_MS = 12_000L;
-    private static final int MAX_WARP_ATTEMPTS = 3;
-    // a warp inside the island we are already on only moves us, so a jump this big counts as arriving
-    private static final double SAME_WORLD_WARP_JUMP = 8.0;
+    // a warp to the island we are already on never changes the world and can land right where we stand,
+    // so once nothing else has happened by then the warp is taken as done
+    private static final long SAME_ISLAND_WARP_MS = 5_000L;
+    // no walk covers this much ground in one tick, so a jump like it can only be the warp landing
+    private static final double WARP_TICK_JUMP = 2.0;
+    private static final long SETTLE_TIMEOUT_MS = 20_000L;
+    // the walker can stop without reporting back, so a leg with nothing navigating is given this long
+    private static final long IDLE_LEG_GRACE_MS = 1_500L;
+    private static final long LEG_TIMEOUT_MS = 90_000L;
     private static final long SETTLE_MIN_MS = 1_800L;
     private static final long SETTLE_MAX_MS = 3_200L;
     private static final long LEG_RETRY_MIN_MS = 500L;
@@ -37,11 +43,13 @@ public final class RouteRunner {
     private String failure = "";
 
     private String currentWarp;
-    private int warpAttempts;
     private long warpSentAt;
     private Level warpLevel;
-    private Vec3 warpPosition;
+    private Vec3 lastTickPosition;
+    private long settleStartedAt;
     private long settleUntil;
+    private long legStartedAt;
+    private long legIdleSince;
 
     private int legIndex;
     private int legAttempts;
@@ -104,49 +112,47 @@ public final class RouteRunner {
     private void tickWarp(Minecraft mc, long now) {
         if (currentWarp == null) {
             currentWarp = warps.poll();
-            warpAttempts = 0;
             warpSentAt = 0L;
         }
         if (currentWarp == null) {
             phase = Phase.LEG;
             return;
         }
+        if (mc.player == null || mc.level == null) {
+            return;
+        }
 
         if (warpSentAt == 0L) {
-            if (mc.player == null || mc.level == null || mc.screen != null) {
-                return;
-            }
-            if (++warpAttempts > MAX_WARP_ATTEMPTS) {
-                fail("warp did not go through: " + currentWarp);
+            if (mc.screen != null) {
                 return;
             }
             warpLevel = mc.level;
-            warpPosition = mc.player.position();
+            lastTickPosition = mc.player.position();
             warpSentAt = now;
-            ClientUtils.sendDebugMessage("[Route] " + currentWarp + " (attempt " + warpAttempts + ")");
+            ClientUtils.sendDebugMessage("[Route] " + currentWarp);
             ClientUtils.sendCommand(currentWarp);
             return;
         }
 
-        if (mc.player != null && mc.level != null && hasArrived(mc)) {
+        Vec3 position = mc.player.position();
+        boolean worldChanged = mc.level != warpLevel;
+        boolean jumped = lastTickPosition != null && position.distanceTo(lastTickPosition) >= WARP_TICK_JUMP;
+        lastTickPosition = position;
+        if (worldChanged || jumped || now - warpSentAt > SAME_ISLAND_WARP_MS) {
+            ClientUtils.sendDebugMessage("[Route] warp done ("
+                    + (worldChanged ? "new world" : jumped ? "teleported" : "no change seen") + ")");
             currentWarp = null;
+            settleStartedAt = now;
             settleUntil = now + ThreadLocalRandom.current().nextLong(SETTLE_MIN_MS, SETTLE_MAX_MS + 1);
             phase = Phase.SETTLE;
-            return;
         }
-        if (now - warpSentAt > WARP_TIMEOUT_MS) {
-            warpSentAt = 0L;
-        }
-    }
-
-    private boolean hasArrived(Minecraft mc) {
-        if (mc.level != warpLevel) {
-            return true;
-        }
-        return warpPosition != null && mc.player.position().distanceTo(warpPosition) >= SAME_WORLD_WARP_JUMP;
     }
 
     private void tickSettle(Minecraft mc, long now) {
+        if (now - settleStartedAt > SETTLE_TIMEOUT_MS) {
+            fail("never got back into skyblock after the warp");
+            return;
+        }
         if (mc.player == null || mc.level == null) {
             return;
         }
@@ -160,6 +166,7 @@ public final class RouteRunner {
         if (now < settleUntil) {
             return;
         }
+        ClientUtils.sendDebugMessage("[Route] settled in " + location);
         phase = warps.isEmpty() ? Phase.LEG : Phase.WARP;
     }
 
@@ -183,6 +190,11 @@ public final class RouteRunner {
         }
 
         phase = Phase.LEG_WAIT;
+        legStartedAt = now;
+        legIdleSince = 0L;
+        ClientUtils.sendDebugMessage("[Route] " + waypoint.type().name().toLowerCase(Locale.ROOT)
+                + " to waypoint " + (legIndex + 1) + "/" + route.waypoints().size()
+                + " (attempt " + legAttempts + ")");
         if (waypoint.type() == Route.LegType.ETHERWARP) {
             etherwarpLeg = new RouteEtherwarpLeg(waypoint);
             return;
@@ -212,6 +224,19 @@ public final class RouteRunner {
             // a missed warp never falls back to another way of getting there, the route is exact or it stops
             fail("waypoint " + (legIndex + 1) + ": " + reason);
             return;
+        }
+
+        if (!legFinished && !legFailed) {
+            if (now - legStartedAt > LEG_TIMEOUT_MS) {
+                PathfindingManager.stop(false);
+                legFailed = true;
+            } else if (PathfindingManager.isNavigating()) {
+                legIdleSince = 0L;
+            } else if (legIdleSince == 0L) {
+                legIdleSince = now;
+            } else if (now - legIdleSince > IDLE_LEG_GRACE_MS) {
+                legFailed = true;
+            }
         }
 
         if (legFinished || legFailed) {
