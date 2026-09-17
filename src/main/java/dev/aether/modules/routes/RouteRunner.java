@@ -231,7 +231,7 @@ public final class RouteRunner {
                 Vec3.atBottomCenterOf(new BlockPos(waypoint.x(), waypoint.y(), waypoint.z())),
                 () -> legFinished = true,
                 () -> legFailed = true,
-                isLastLeg());
+                mustStopOnWaypoint());
     }
 
     private void tickLegWait(Minecraft mc, long now) {
@@ -273,6 +273,9 @@ public final class RouteRunner {
             boolean arrived = mc.player != null && hasReached(mc, route.waypoints().get(legIndex));
             phase = Phase.LEG;
             if (arrived) {
+                // the walker can finish with keys still down, and a warp aimed while drifting lands beside its block
+                PathfindingManager.stop(false);
+                MacroInput.releaseMovement(mc);
                 nextLeg();
                 return;
             }
@@ -289,8 +292,14 @@ public final class RouteRunner {
         return legIndex == route.waypoints().size() - 1;
     }
 
+    // a walk can brush past a waypoint, unless it ends the route or an etherwarp is thrown from it,
+    // since the warp was recorded from standing on that exact block
+    private boolean mustStopOnWaypoint() {
+        return isLastLeg() || route.waypoints().get(legIndex + 1).type() == Route.LegType.ETHERWARP;
+    }
+
     private boolean hasReached(Minecraft mc, Route.Waypoint waypoint) {
-        if (isLastLeg() || waypoint.type() == Route.LegType.ETHERWARP) {
+        if (waypoint.type() == Route.LegType.ETHERWARP || mustStopOnWaypoint()) {
             return isStandingAt(mc, waypoint);
         }
         return isWithin(mc, waypoint, PASSED_HORIZONTAL);

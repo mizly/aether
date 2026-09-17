@@ -36,6 +36,10 @@ final class RouteEtherwarpLeg {
     private static final long LAND_TIMEOUT_MS = 1_000L;
     private static final double LEFT_START_DISTANCE = 2.0;
     private static final int MAX_TURNS = 4;
+    // an aim is only as good as the spot it was worked out from, so the player has to be at rest first
+    private static final long STILL_MS = 200L;
+    private static final double STILL_SPEED = 0.003;
+    private static final double MOVED_SINCE_AIM = 0.05;
     private static final int MAX_CLICKS = 3;
     // an aim point should keep hitting the block with the crosshair this far off it at the target's distance,
     // and never tighter than a mouse sensitivity step can round
@@ -58,6 +62,8 @@ final class RouteEtherwarpLeg {
     private long phaseAt;
     private long clickAt;
     private long crouchedSince;
+    private long stillSince;
+    private Vec3 aimedFrom;
     private int turns;
     private int clicks;
     private Vec3 clickedFrom;
@@ -68,7 +74,6 @@ final class RouteEtherwarpLeg {
         this.waypoint = waypoint;
         this.feet = new PathPosition(waypoint.x(), waypoint.y(), waypoint.z());
         this.block = new BlockPos(waypoint.x(), waypoint.y() - 1, waypoint.z());
-        this.phaseAt = System.currentTimeMillis();
     }
 
     String failure() {
@@ -77,7 +82,18 @@ final class RouteEtherwarpLeg {
 
     Result tick(Minecraft mc) {
         long now = System.currentTimeMillis();
+        if (phaseAt == 0L) {
+            MacroInput.releaseMovement(mc);
+            phaseAt = now;
+        }
         MacroInput.set(mc.options.keyShift, true);
+        if (isStill(mc)) {
+            if (stillSince == 0L) {
+                stillSince = now;
+            }
+        } else {
+            stillSince = 0L;
+        }
         if (mc.player.isCrouching()) {
             if (crouchedSince == 0L) {
                 crouchedSince = now;
@@ -97,7 +113,7 @@ final class RouteEtherwarpLeg {
         Vec3 feetPos = mc.player.position();
         switch (phase) {
             case AIM -> {
-                if (!mc.player.onGround()) {
+                if (stillSince == 0L || now - stillSince < STILL_MS) {
                     return Result.RUNNING;
                 }
                 double distance = EtherwarpHelper.getEyePosition(mc, feetPos).distanceTo(Vec3.atCenterOf(block));
@@ -112,7 +128,7 @@ final class RouteEtherwarpLeg {
                 }
                 aim = findAim(mc, feetPos, block);
                 if (aim == null) {
-                    return now - phaseAt > SIGHT_GRACE_MS
+                    return now - Math.max(phaseAt, stillSince) > SIGHT_GRACE_MS
                             ? fail(mc, "no clear line of sight to the etherwarp block")
                             : Result.RUNNING;
                 }
@@ -123,11 +139,17 @@ final class RouteEtherwarpLeg {
                         "[Route] aiming at %d %d %d (%.2f %.2f %.2f) tier %d",
                         block.getX(), block.getY(), block.getZ(),
                         aim.point().x, aim.point().y, aim.point().z, aim.tier()));
+                aimedFrom = feetPos;
                 HumanFlick.start(mc, aim.yaw(), aim.pitch());
                 enter(Phase.TURNING, now);
             }
             case TURNING -> {
                 if (HumanFlick.isActive()) {
+                    return Result.RUNNING;
+                }
+                if (hasMovedSinceAim(feetPos)) {
+                    turns--;
+                    enter(Phase.AIM, now);
                     return Result.RUNNING;
                 }
                 if (!isLookingAtBlock(mc, feetPos)) {
@@ -140,6 +162,11 @@ final class RouteEtherwarpLeg {
             case CLICK_DELAY -> {
                 if (now < clickAt || crouchedSince == 0L || now - crouchedSince < CROUCH_SETTLE_MS
                         || FailsafeManager.getCurrentSelectedSlot(mc) != slot) {
+                    return Result.RUNNING;
+                }
+                if (hasMovedSinceAim(feetPos)) {
+                    turns--;
+                    enter(Phase.AIM, now);
                     return Result.RUNNING;
                 }
                 if (!isLookingAtBlock(mc, feetPos)) {
@@ -170,6 +197,15 @@ final class RouteEtherwarpLeg {
             }
         }
         return Result.RUNNING;
+    }
+
+    private static boolean isStill(Minecraft mc) {
+        Vec3 motion = mc.player.getDeltaMovement();
+        return mc.player.onGround() && motion.horizontalDistance() < STILL_SPEED;
+    }
+
+    private boolean hasMovedSinceAim(Vec3 feetPos) {
+        return aimedFrom != null && feetPos.distanceTo(aimedFrom) > MOVED_SINCE_AIM;
     }
 
     private void enter(Phase next, long now) {
