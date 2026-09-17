@@ -18,6 +18,7 @@ import dev.aether.modules.pest.helpers.PestTrackerAbility;
 import dev.aether.modules.performance.MuteManager;
 import dev.aether.modules.performance.PerformanceModeManager;
 import dev.aether.modules.profit.ProfitManager;
+import dev.aether.modules.routes.RouteEditor;
 import dev.aether.modules.visuals.StreamerModeManager;
 import dev.aether.modules.visuals.PestEspManager;
 import dev.aether.notification.NotificationManager;
@@ -59,6 +60,7 @@ public final class ClientFeatureBootstrap {
         AutoCarnivalManager.syncFromConfig(Minecraft.getInstance());
         ReconnectScheduler.clearState();
         HudRegistry.register();
+        RouteEditor.registerHud();
         MacroWorkerThread.getInstance().start();
         AetherAuthService.initialize();
         IrcManager.initialize();
@@ -75,7 +77,9 @@ public final class ClientFeatureBootstrap {
             boolean drawPestEsp = PestEspManager.hasVisibleHighlights();
             boolean drawPestTracker = PestTrackerAbility.hasVisibleArc();
             boolean drawFunEffects = FunRenderer.hasVisibleEffects();
-            if (!drawPathVisualizer && !drawPositionHighlights && !drawPestEsp && !drawPestTracker && !drawFunEffects) {
+            boolean drawRouteEditor = RouteEditor.isActive();
+            if (!drawPathVisualizer && !drawPositionHighlights && !drawPestEsp && !drawPestTracker && !drawFunEffects
+                    && !drawRouteEditor) {
                 return;
             }
             if (drawPathVisualizer) {
@@ -92,6 +96,9 @@ public final class ClientFeatureBootstrap {
             }
             if (drawFunEffects) {
                 FunRenderer.renderWorld(ctx);
+            }
+            if (drawRouteEditor) {
+                RouteEditor.renderWorld(ctx);
             }
         });
 

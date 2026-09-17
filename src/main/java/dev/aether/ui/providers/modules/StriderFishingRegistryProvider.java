@@ -1,13 +1,19 @@
 package dev.aether.ui.providers.modules;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.modules.routes.RouteStore;
 import dev.aether.ui.MainGUIRegistry;
+import dev.aether.ui.RoutesScreen;
 import dev.aether.ui.providers.base.AbstractFishingRegistryProvider;
+import dev.aether.ui.settings.ActionSetting;
+import dev.aether.ui.settings.InfoSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.TextSetting;
 import dev.aether.ui.settings.ToggleSetting;
+import dev.aether.util.AetherLang;
+import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -95,6 +101,16 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
                             AetherConfig.save();
                         })
                         .withDecimals(0).withSuffix("ms")));
+
+        groups.add(SettingGroup.alwaysOn(
+                        "Restart",
+                        "Where the macro warps and walks before it starts fishing")
+                .add(new ActionSetting("Restart Route",
+                        () -> Minecraft.getInstance().setScreen(new RoutesScreen(RouteStore.STRIDER_FISHING))))
+                .add(new InfoSetting("Selected Route", () -> {
+                    String selected = AetherConfig.STRIDER_FISHING_RESTART_ROUTE.get();
+                    return selected == null || selected.isBlank() ? AetherLang.localize("No route selected") : selected;
+                })));
 
         return groups;
     }

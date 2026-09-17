@@ -33,7 +33,10 @@ final class SettingDescriptionCatalog {
             Map.entry("Webhook URL", "Sets the notification webhook destination."),
             Map.entry("Bot Token", "Sets the integration token. Keep this value private."),
             Map.entry("Pathfinder Max Jump Height", "Sets the maximum jump height for pathfinder."),
-            Map.entry("Warp Grace Period", "Allows position checks to settle briefly after a warp.")
+            Map.entry("Warp Grace Period", "Allows position checks to settle briefly after a warp."),
+            Map.entry("Restart Route", "Opens the routes area, where the warp and walk to the fishing spot are recorded."),
+            Map.entry("Time Nearby", "How long a player has to stay within the distance before the failsafe triggers."),
+            Map.entry("Teleport Distance", "How far a single jump in position has to be to count as a teleport.")
 
     );
 

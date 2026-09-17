@@ -19,6 +19,7 @@ import dev.aether.modules.pest.helpers.PestDestroyer;
 import dev.aether.modules.pest.helpers.VacuumParticleDebug;
 import dev.aether.modules.pest.helpers.PestTrackerAbility;
 import dev.aether.modules.rotation.RotationManager;
+import dev.aether.modules.routes.RouteEditor;
 import dev.aether.modules.visuals.FreecamManager;
 import dev.aether.modules.visuals.FreelookManager;
 import dev.aether.modules.visuals.PestEspManager;
@@ -290,6 +291,16 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
     @Override
     public boolean isMouseUngrabbed() {
         return UngrabMouse.isMouseUngrabbed();
+    }
+
+    @Override
+    public boolean handleRouteEditorMouseButton(Minecraft minecraft, int button, int action) {
+        return RouteEditor.onMouseButton(minecraft, button, action);
+    }
+
+    @Override
+    public boolean handleRouteEditorKey(Minecraft minecraft, int key, int action) {
+        return RouteEditor.onKeyPress(minecraft, key, action);
     }
 
     @Override
