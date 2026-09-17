@@ -53,7 +53,7 @@ final class UnexpectedInventoryFailsafe {
         }
 
         MacroState.State state = MacroStateManager.getCurrentState();
-        boolean shouldMonitor = state == MacroState.State.FARMING || state == MacroState.State.CLEANING;
+        boolean shouldMonitor = isMonitoredState(state);
         if (!shouldMonitor) {
             inventoryOpenSince = 0L;
             inventoryOpenRandomDelayMs = 0L;
@@ -99,7 +99,7 @@ final class UnexpectedInventoryFailsafe {
         }
 
         MacroState.State state = MacroStateManager.getCurrentState();
-        if ((state != MacroState.State.FARMING && state != MacroState.State.CLEANING)
+        if (!isMonitoredState(state)
                 || !ClientUtils.isInventoryScreenOpen()
                 || isExpectedInventoryGuiOpen()) {
             return State.IDLE;
@@ -136,6 +136,12 @@ final class UnexpectedInventoryFailsafe {
                 "unexpected inventory GUI detected during " + state.name().toLowerCase(java.util.Locale.ROOT) + ".",
                 "UnexpectedInventoryFailsafe: unexpected inventory GUI detected during " + state.name());
         reset();
+    }
+
+    private static boolean isMonitoredState(MacroState.State state) {
+        return state == MacroState.State.FARMING
+                || state == MacroState.State.CLEANING
+                || state == MacroState.State.FISHING;
     }
 
     private static boolean isExpectedInventoryGuiOpen() {

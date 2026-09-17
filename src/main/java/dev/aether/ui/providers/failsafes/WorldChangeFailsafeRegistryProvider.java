@@ -12,14 +12,14 @@ import java.util.List;
 
 public final class WorldChangeFailsafeRegistryProvider extends AbstractFailsafesRegistryProvider {
     public WorldChangeFailsafeRegistryProvider() {
-        super(7);
+        super(Category.GENERAL, 3);
     }
 
     @Override
     protected ModulesTab.SubTab createSubTab() {
         SettingGroup group = SettingGroup.alwaysOn(
                         "World Change Failsafe",
-                        "Handles unexpected world changes while farming")
+                        "Handles unexpected world changes while a macro is running")
                 .add(FailsafeActionSettings.createActionDropdown("Action",
                         () -> AetherConfig.FAILSAFE_WORLD_CHANGE_ACTION.get(),
                         value -> AetherConfig.FAILSAFE_WORLD_CHANGE_ACTION.set(value)))
@@ -35,7 +35,7 @@ public final class WorldChangeFailsafeRegistryProvider extends AbstractFailsafes
 
         return MainGUIRegistry.toggleSubTab(
                 "World Change",
-                "Handles unexpected world changes while farming",
+                "Handles unexpected world changes while a macro is running",
                 () -> AetherConfig.FAILSAFE_WORLD_CHANGE.get(),
                 v -> {
                     AetherConfig.FAILSAFE_WORLD_CHANGE.set(v);

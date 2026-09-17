@@ -12,7 +12,7 @@ import java.util.List;
 
 public final class InventoryFailsafeRegistryProvider extends AbstractFailsafesRegistryProvider {
     public InventoryFailsafeRegistryProvider() {
-        super(2);
+        super(Category.GENERAL, 4);
     }
 
     @Override

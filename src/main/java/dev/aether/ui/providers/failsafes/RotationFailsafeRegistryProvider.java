@@ -13,7 +13,7 @@ import java.util.List;
 
 public final class RotationFailsafeRegistryProvider extends AbstractFailsafesRegistryProvider {
     public RotationFailsafeRegistryProvider() {
-        super(6);
+        super(Category.GENERAL, 2);
     }
 
     @Override
