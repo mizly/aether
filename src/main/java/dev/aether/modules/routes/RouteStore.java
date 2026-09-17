@@ -10,6 +10,7 @@ import dev.aether.Aether;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -20,9 +21,14 @@ import java.util.stream.Stream;
 
 // one json file per route, grouped in a folder per macro under config/aether/routes
 public final class RouteStore {
-    public record Folder(String id, String displayName) {}
+    // defaultRoute ships inside the mod and is put back whenever the folder is missing it
+    public record Folder(String id, String displayName, String defaultRoute) {
+        public boolean isDefault(String name) {
+            return defaultRoute != null && defaultRoute.equalsIgnoreCase(name);
+        }
+    }
 
-    public static final Folder STRIDER_FISHING = new Folder("strider_fishing", "Strider Fishing");
+    public static final Folder STRIDER_FISHING = new Folder("strider_fishing", "Strider Fishing", "default_strider");
     public static final List<Folder> FOLDERS = List.of(STRIDER_FISHING);
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -43,6 +49,7 @@ public final class RouteStore {
     }
 
     public List<String> list(Folder folder) {
+        ensureDefault(folder);
         Path dir = folderPath(folder);
         if (!Files.isDirectory(dir)) {
             return List.of();
@@ -63,6 +70,9 @@ public final class RouteStore {
         String safe = sanitizeName(name);
         if (safe.isEmpty()) {
             return null;
+        }
+        if (folder.isDefault(safe)) {
+            ensureDefault(folder);
         }
         Path file = folderPath(folder).resolve(safe + EXTENSION);
         if (!Files.isRegularFile(file)) {
@@ -92,6 +102,36 @@ public final class RouteStore {
         }
     }
 
+    public void ensureDefault(Folder folder) {
+        if (folder.defaultRoute() == null || Files.isRegularFile(defaultPath(folder))) {
+            return;
+        }
+        resetDefault(folder);
+    }
+
+    public boolean resetDefault(Folder folder) {
+        if (folder.defaultRoute() == null) {
+            return false;
+        }
+        String resource = "/assets/aether/routes/" + folder.id() + "/" + folder.defaultRoute() + EXTENSION;
+        try (InputStream in = RouteStore.class.getResourceAsStream(resource)) {
+            if (in == null) {
+                Aether.LOGGER.warn("Bundled route {} is missing from the jar", resource);
+                return false;
+            }
+            Files.createDirectories(folderPath(folder));
+            Files.write(defaultPath(folder), in.readAllBytes());
+            return true;
+        } catch (IOException e) {
+            Aether.LOGGER.warn("Could not restore the default route {}: {}", folder.defaultRoute(), e.getMessage());
+            return false;
+        }
+    }
+
+    private Path defaultPath(Folder folder) {
+        return folderPath(folder).resolve(folder.defaultRoute() + EXTENSION);
+    }
+
     public boolean delete(Folder folder, String name) {
         String safe = sanitizeName(name);
         if (safe.isEmpty()) {
@@ -107,7 +147,8 @@ public final class RouteStore {
 
     public boolean rename(Folder folder, Route route, String newName) {
         String safe = sanitizeName(newName);
-        if (safe.isEmpty() || safe.equalsIgnoreCase(route.name())) {
+        if (safe.isEmpty() || safe.equalsIgnoreCase(route.name()) || folder.isDefault(route.name())
+                || folder.isDefault(safe)) {
             return false;
         }
         if (list(folder).stream().anyMatch(existing -> existing.equalsIgnoreCase(safe))) {

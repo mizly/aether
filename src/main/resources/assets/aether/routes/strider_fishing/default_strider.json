@@ -1,0 +1,59 @@
+{
+  "warp": "galatea",
+  "waypoints": [
+    {
+      "x": -561,
+      "y": 125,
+      "z": -28,
+      "type": "ETHERWARP"
+    },
+    {
+      "x": -586,
+      "y": 125,
+      "z": -52,
+      "type": "ETHERWARP"
+    },
+    {
+      "x": -628,
+      "y": 112,
+      "z": -86,
+      "type": "ETHERWARP"
+    },
+    {
+      "x": -634,
+      "y": 111,
+      "z": -91,
+      "type": "ETHERWARP"
+    },
+    {
+      "x": -637,
+      "y": 109,
+      "z": -91,
+      "type": "WALK"
+    },
+    {
+      "x": -650,
+      "y": 98,
+      "z": -90,
+      "type": "ETHERWARP"
+    },
+    {
+      "x": -669,
+      "y": 89,
+      "z": -84,
+      "type": "ETHERWARP"
+    },
+    {
+      "x": -682,
+      "y": 83,
+      "z": -76,
+      "type": "ETHERWARP"
+    },
+    {
+      "x": -682,
+      "y": 79,
+      "z": -48,
+      "type": "ETHERWARP"
+    }
+  ]
+}

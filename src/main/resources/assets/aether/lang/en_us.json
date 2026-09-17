@@ -843,5 +843,6 @@
   "text.aether.pick_a_macro_to_start": "Pick a macro to start",
   "text.aether.in_use": "In Use",
   "text.aether.edit": "Edit",
-  "text.aether.route_deleted": "Route Deleted"
+  "text.aether.route_deleted": "Route Deleted",
+  "text.aether.route_reset": "Route Reset"
 }

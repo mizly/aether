@@ -1119,5 +1119,6 @@ public final class AetherConfig {
         public static final IntEntry STRIDER_FISHING_CAST_DELAY_MAX = Config.integer("striderFishingCastDelayMax", 900)
                         .range(0, 3000);
         // blank means the macro fishes wherever it was started, with no warp or route first
-        public static final StringEntry STRIDER_FISHING_RESTART_ROUTE = Config.string("striderFishingRestartRoute", "");
+        public static final StringEntry STRIDER_FISHING_RESTART_ROUTE = Config.string("striderFishingRestartRoute",
+                        "default_strider");
 }

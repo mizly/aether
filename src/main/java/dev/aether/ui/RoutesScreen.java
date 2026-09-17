@@ -179,7 +179,10 @@ public final class RoutesScreen extends CanvasPanelScreen {
         } else {
             nvg.text(Fonts.BOLD, fit(nvg, route.name(), Fonts.BOLD, 13f, textMaxW), x + 16f, y + 15f, 13f,
                     Theme.TEXT_PRIMARY);
-            addHit(x + 10f, y + 8f, textMaxW + 6f, 26f, () -> beginRename(route));
+            // the bundled route keeps its name, it is found by that name when the folder is restored
+            if (!folder.isDefault(route.name())) {
+                addHit(x + 10f, y + 8f, textMaxW + 6f, 26f, () -> beginRename(route));
+            }
         }
 
         String warp = route.warpCommand().isEmpty() ? AetherLang.localize("No rewarp") : route.warpCommand();
@@ -196,8 +199,20 @@ public final class RoutesScreen extends CanvasPanelScreen {
                 selected ? AetherButton.Kind.ACTIVE : AetherButton.Kind.NORMAL, mx, my, () -> toggleSelected(route));
         renderRowButton(nvg, AetherLang.localize("Edit"), editX, buttonY, AetherButton.ROW_W,
                 AetherButton.Kind.NORMAL, mx, my, () -> RouteEditor.begin(Minecraft.getInstance(), folder, route));
-        renderRowButton(nvg, AetherLang.localize("Delete"), deleteX, buttonY, AetherButton.ROW_W,
-                AetherButton.Kind.DANGER, mx, my, () -> deleteRoute(route));
+        if (folder.isDefault(route.name())) {
+            renderRowButton(nvg, AetherLang.localize("Reset"), deleteX, buttonY, AetherButton.ROW_W,
+                    AetherButton.Kind.NORMAL, mx, my, this::resetDefaultRoute);
+        } else {
+            renderRowButton(nvg, AetherLang.localize("Delete"), deleteX, buttonY, AetherButton.ROW_W,
+                    AetherButton.Kind.DANGER, mx, my, () -> deleteRoute(route));
+        }
+    }
+
+    private void resetDefaultRoute() {
+        if (store.resetDefault(folder)) {
+            NotificationManager.success(AetherLang.localize("Route Reset"), "\"" + folder.defaultRoute() + "\" restored");
+        }
+        reload();
     }
 
     private void createRoute() {

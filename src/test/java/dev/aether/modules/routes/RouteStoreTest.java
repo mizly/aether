@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RouteStoreTest {
-    private static final RouteStore.Folder FOLDER = RouteStore.STRIDER_FISHING;
+    private static final RouteStore.Folder FOLDER = new RouteStore.Folder("strider_fishing", "Strider Fishing", null);
 
     @TempDir
     Path root;
@@ -104,5 +104,36 @@ class RouteStoreTest {
         assertEquals("/warp galatea", new Route("a", "/warp galatea").warpCommand());
         assertEquals("/warp galatea", new Route("a", "warp galatea").warpCommand());
         assertEquals("", new Route("a", "  ").warpCommand());
+    }
+
+    @Test
+    void theBundledStriderRouteIsPutBackWhenMissing() {
+        RouteStore store = new RouteStore(root);
+
+        assertTrue(store.list(RouteStore.STRIDER_FISHING).contains("default_strider"));
+        Route route = store.load(RouteStore.STRIDER_FISHING, "default_strider");
+
+        assertNotNull(route);
+        assertEquals("/warp galatea", route.warpCommand());
+        assertEquals(9, route.waypoints().size());
+    }
+
+    @Test
+    void resetRestoresTheBundledCopyOverAnEditedOne() {
+        RouteStore store = new RouteStore(root);
+        Route edited = new Route("default_strider", "hub");
+        store.save(RouteStore.STRIDER_FISHING, edited);
+
+        assertTrue(store.resetDefault(RouteStore.STRIDER_FISHING));
+
+        assertEquals("galatea", store.load(RouteStore.STRIDER_FISHING, "default_strider").warp());
+    }
+
+    @Test
+    void theBundledRouteCannotBeRenamed() {
+        RouteStore store = new RouteStore(root);
+        Route route = store.load(RouteStore.STRIDER_FISHING, "default_strider");
+
+        assertFalse(store.rename(RouteStore.STRIDER_FISHING, route, "Mine"));
     }
 }
