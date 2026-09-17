@@ -18,6 +18,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 
 // one etherwarp straight onto the recorded block: no route search, just crouch, flick over and click
@@ -43,6 +44,13 @@ final class RouteEtherwarpLeg {
     private static final double MAX_SLACK_DEGREES = 0.3;
     private static final double[] FACE_GRID = {0.2, 0.35, 0.5, 0.65, 0.8};
 
+    // how sure an aim is: both eye heights with slack beats one of them without it
+    private record Aim(Vec3 point, float yaw, float pitch, boolean bothEyes, boolean slack) {
+        int tier() {
+            return (bothEyes ? 2 : 0) + (slack ? 1 : 0);
+        }
+    }
+
     private final Route.Waypoint waypoint;
     private final PathPosition feet;
     private final BlockPos block;
@@ -53,6 +61,7 @@ final class RouteEtherwarpLeg {
     private int turns;
     private int clicks;
     private Vec3 clickedFrom;
+    private Aim aim;
     private String failure = "";
 
     RouteEtherwarpLeg(Route.Waypoint waypoint) {
@@ -85,8 +94,7 @@ final class RouteEtherwarpLeg {
             FailsafeManager.selectHotbarSlot(mc, slot);
         }
 
-        // the server traces from its own crouched eye, which is not always where the client camera sits
-        Vec3 eye = EtherwarpHelper.getEyePosition(mc, mc.player.position());
+        Vec3 feetPos = mc.player.position();
         switch (phase) {
             case AIM -> {
                 if (!mc.player.onGround()) {
@@ -95,8 +103,8 @@ final class RouteEtherwarpLeg {
                 if (!EtherwarpHelper.isValidLandingFeet(new WalkabilityChecker(mc.level), feet)) {
                     return fail(mc, "no crouched headroom on the etherwarp block");
                 }
-                Vec3 target = findSafeAimPoint(mc, eye, block);
-                if (target == null) {
+                aim = findAim(mc, feetPos, block);
+                if (aim == null) {
                     return now - phaseAt > SIGHT_GRACE_MS
                             ? fail(mc, "no clear line of sight to the etherwarp block")
                             : Result.RUNNING;
@@ -104,15 +112,18 @@ final class RouteEtherwarpLeg {
                 if (++turns > MAX_TURNS) {
                     return fail(mc, "could not line up the etherwarp");
                 }
-                RotationUtils.Rotation look = RotationUtils.calculateLookAt(eye, target);
-                HumanFlick.start(mc, look.yaw, look.pitch);
+                ClientUtils.sendDebugMessage(String.format(Locale.ROOT,
+                        "[Route] aiming at %d %d %d (%.2f %.2f %.2f) tier %d",
+                        block.getX(), block.getY(), block.getZ(),
+                        aim.point().x, aim.point().y, aim.point().z, aim.tier()));
+                HumanFlick.start(mc, aim.yaw(), aim.pitch());
                 enter(Phase.TURNING, now);
             }
             case TURNING -> {
                 if (HumanFlick.isActive()) {
                     return Result.RUNNING;
                 }
-                if (!EtherwarpHelper.isLookingAtTarget(mc, eye, feet)) {
+                if (!isLookingAtBlock(mc, feetPos)) {
                     enter(Phase.AIM, now);
                     return Result.RUNNING;
                 }
@@ -124,7 +135,7 @@ final class RouteEtherwarpLeg {
                         || FailsafeManager.getCurrentSelectedSlot(mc) != slot) {
                     return Result.RUNNING;
                 }
-                if (!EtherwarpHelper.isLookingAtTarget(mc, eye, feet)) {
+                if (!isLookingAtBlock(mc, feetPos)) {
                     enter(Phase.AIM, now);
                     return Result.RUNNING;
                 }
@@ -138,7 +149,10 @@ final class RouteEtherwarpLeg {
                     return Result.LANDED;
                 }
                 if (mc.player.position().distanceTo(clickedFrom) > LEFT_START_DISTANCE) {
-                    return fail(mc, "etherwarp landed off the waypoint");
+                    BlockPos landed = mc.player.blockPosition().below();
+                    return fail(mc, "etherwarp landed on " + landed.getX() + " " + landed.getY() + " "
+                            + landed.getZ() + " instead of " + block.getX() + " " + block.getY() + " "
+                            + block.getZ());
                 }
                 if (now - phaseAt > LAND_TIMEOUT_MS) {
                     if (clicks >= MAX_CLICKS) {
@@ -170,38 +184,62 @@ final class RouteEtherwarpLeg {
         }
     }
 
-    // the most central point on a visible face whose ray keeps hitting the block when the aim is slightly off,
-    // so rounding to mouse steps or the server's own float maths never tips the warp onto a neighbour
-    private static Vec3 findSafeAimPoint(Minecraft mc, Vec3 eye, BlockPos block) {
-        Vec3 best = null;
+    // the server ray decides where the warp lands, and whether it starts from the modern or the legacy
+    // crouched eye is not something the client can be sure of, so the best aim hits the marked block from both
+    // and keeps hitting it with the crosshair slightly off; the most central such point on a visible face wins
+    private static Aim findAim(Minecraft mc, Vec3 feetPos, BlockPos block) {
+        Vec3 modelEye = EtherwarpHelper.getEyePosition(mc, feetPos);
+        Aim best = null;
         double bestScore = -1.0;
-        Vec3 fallback = null;
-        double fallbackScore = -1.0;
         for (Direction face : Direction.values()) {
             Vec3 normal = Vec3.atLowerCornerOf(face.getUnitVec3i());
             Vec3 faceCentre = Vec3.atCenterOf(block).add(normal.scale(0.5));
-            if (faceCentre.subtract(eye).dot(normal) >= 0.0) {
+            if (faceCentre.subtract(modelEye).dot(normal) >= 0.0) {
                 continue;
             }
             for (double u : FACE_GRID) {
                 for (double v : FACE_GRID) {
                     Vec3 point = facePoint(block, face, u, v);
-                    if (eye.distanceToSqr(point) > EtherwarpHelper.MAX_ETHERWARP_DISTANCE_SQ) {
+                    if (modelEye.distanceToSqr(point) > EtherwarpHelper.MAX_ETHERWARP_DISTANCE_SQ) {
                         continue;
                     }
-                    double score = Math.min(Math.min(u, 1.0 - u), Math.min(v, 1.0 - v));
-                    if (score > fallbackScore && hits(mc, eye, point, block, 0.0f)) {
-                        fallbackScore = score;
-                        fallback = point;
-                        if (score > bestScore && hits(mc, eye, point, block, slackDegrees(eye, point))) {
-                            bestScore = score;
-                            best = point;
-                        }
+                    RotationUtils.Rotation look = RotationUtils.calculateLookAt(modelEye, point);
+                    if (!hits(mc, modelEye, look.yaw, look.pitch, block, 0.0f)) {
+                        continue;
+                    }
+                    float slack = slackDegrees(modelEye, point);
+                    boolean bothEyes = hitsFromEveryEye(mc, feetPos, look.yaw, look.pitch, block, 0.0f);
+                    boolean withSlack = bothEyes
+                            ? hitsFromEveryEye(mc, feetPos, look.yaw, look.pitch, block, slack)
+                            : hits(mc, modelEye, look.yaw, look.pitch, block, slack);
+                    Aim candidate = new Aim(point, look.yaw, look.pitch, bothEyes, withSlack);
+                    double centrality = Math.min(Math.min(u, 1.0 - u), Math.min(v, 1.0 - v));
+                    double score = candidate.tier() + centrality;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = candidate;
                     }
                 }
             }
         }
-        return best != null ? best : fallback;
+        return best;
+    }
+
+    // after the flick the real camera angle is checked, from both eyes when the aim promised both
+    private boolean isLookingAtBlock(Minecraft mc, Vec3 feetPos) {
+        float yaw = mc.player.getYRot();
+        float pitch = mc.player.getXRot();
+        if (aim != null && aim.bothEyes()) {
+            return hitsFromEveryEye(mc, feetPos, yaw, pitch, block, 0.0f);
+        }
+        return hits(mc, EtherwarpHelper.getEyePosition(mc, feetPos), yaw, pitch, block, 0.0f);
+    }
+
+    private static boolean hitsFromEveryEye(Minecraft mc, Vec3 feetPos, float yaw, float pitch, BlockPos block,
+                                            float slack) {
+        return hits(mc, feetPos.add(0.0, EtherwarpHelper.MODERN_SNEAKING_EYE_HEIGHT, 0.0), yaw, pitch, block, slack)
+                && hits(mc, feetPos.add(0.0, EtherwarpHelper.LEGACY_SNEAKING_EYE_HEIGHT, 0.0), yaw, pitch, block,
+                slack);
     }
 
     static float slackDegrees(Vec3 eye, Vec3 point) {
@@ -220,13 +258,12 @@ final class RouteEtherwarpLeg {
         };
     }
 
-    private static boolean hits(Minecraft mc, Vec3 eye, Vec3 point, BlockPos block, float slack) {
-        RotationUtils.Rotation look = RotationUtils.calculateLookAt(eye, point);
+    private static boolean hits(Minecraft mc, Vec3 eye, float yaw, float pitch, BlockPos block, float slack) {
         float[][] offsets = slack <= 0.0f
                 ? new float[][] {{0f, 0f}}
                 : new float[][] {{slack, 0f}, {-slack, 0f}, {0f, slack}, {0f, -slack}};
         for (float[] offset : offsets) {
-            Vec3 direction = Vec3.directionFromRotation(look.pitch + offset[1], look.yaw + offset[0]);
+            Vec3 direction = Vec3.directionFromRotation(pitch + offset[1], yaw + offset[0]);
             Vec3 end = eye.add(direction.scale(EtherwarpHelper.MAX_ETHERWARP_DISTANCE + 1.0));
             BlockHitResult hit = mc.level.clip(new ClipContext(
                     eye, end, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));

@@ -47,7 +47,8 @@ public final class RouteWaypointScreen extends CanvasPanelScreen {
     void renderPanel(NVGRenderer nvg, float px, float py, float pw, float ph, float mx, float my) {
         String title = AetherLang.localize(existing == null ? "Add Waypoint" : "Change Waypoint");
         renderHeader(nvg, px, py, pw, title, null);
-        String coords = standing.getX() + ", " + standing.getY() + ", " + standing.getZ();
+        BlockPos marked = standing.below();
+        String coords = marked.getX() + ", " + marked.getY() + ", " + marked.getZ();
         nvg.textRight(Fonts.MONO, coords, px, py + (HEADER_H - 11f) / 2f, pw - PAD, 11f, Theme.TEXT_MUTED);
 
         float innerW = pw - PAD * 2f;
