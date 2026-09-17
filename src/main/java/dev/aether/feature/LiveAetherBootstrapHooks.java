@@ -18,6 +18,7 @@ import dev.aether.modules.performance.PerformanceModeManager;
 import dev.aether.modules.pest.helpers.PestDestroyer;
 import dev.aether.modules.pest.helpers.VacuumParticleDebug;
 import dev.aether.modules.pest.helpers.PestTrackerAbility;
+import dev.aether.modules.rotation.HumanFlick;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.modules.routes.RouteEditor;
 import dev.aether.modules.visuals.FreecamManager;
@@ -156,6 +157,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
             return;
         }
         RotationManager.update();
+        HumanFlick.update(minecraft);
         RotationExecutor.update();
     }
 
@@ -285,7 +287,8 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public boolean shouldCancelMouseTurn() {
-        return RotationManager.isRotating() && !FreecamManager.isEnabled() && !FreelookManager.isActive();
+        return (RotationManager.isRotating() || HumanFlick.isActive())
+                && !FreecamManager.isEnabled() && !FreelookManager.isActive();
     }
 
     @Override

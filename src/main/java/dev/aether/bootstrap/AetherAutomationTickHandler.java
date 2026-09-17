@@ -34,6 +34,7 @@ import dev.aether.modules.pest.helpers.PestReturnManager;
 import dev.aether.modules.pest.helpers.VacuumParticleDebug;
 import dev.aether.modules.profit.ProfitManager;
 import dev.aether.modules.rewarp.RewarpManager;
+import dev.aether.modules.rotation.HumanFlick;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.modules.session.DynamicRestManager;
 import dev.aether.modules.session.RecoveryManager;
@@ -144,6 +145,7 @@ public final class AetherAutomationTickHandler {
         AetherBootstrapHooks.tickFailsafes(client);
         GearManager.cleanupTick();
         RotationManager.update();
+        HumanFlick.update(client);
         RotationExecutor.update();
         BedrockPlotMaker.update(client);
         PestOnTheTrackManager.getInstance().update(client);

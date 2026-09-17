@@ -1,5 +1,6 @@
 package dev.aether.modules.routes;
 
+import dev.aether.macro.MacroInput;
 import dev.aether.macro.MacroState;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.util.ClientUtils;
@@ -244,6 +245,10 @@ public final class RouteRunner {
             if (result == RouteEtherwarpLeg.Result.LANDED) {
                 phase = Phase.LEG;
                 nextLeg();
+                // back to back warps keep the crouch, lifting it between them is what lets a click fire unsneaked
+                if (!nextIsEtherwarp()) {
+                    MacroInput.set(mc.options.keyShift, false);
+                }
                 return;
             }
             // a missed warp never falls back to another way of getting there, the route is exact or it stops
@@ -273,6 +278,11 @@ public final class RouteRunner {
             }
             legRetryAt = now + ThreadLocalRandom.current().nextLong(LEG_RETRY_MIN_MS, LEG_RETRY_MAX_MS + 1);
         }
+    }
+
+    private boolean nextIsEtherwarp() {
+        return legIndex < route.waypoints().size()
+                && route.waypoints().get(legIndex).type() == Route.LegType.ETHERWARP;
     }
 
     private boolean isLastLeg() {
