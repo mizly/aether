@@ -80,6 +80,7 @@ public final class PathfindingManager {
     private static double walkGoalCenterX = 0.5;
     private static double walkGoalCenterZ = 0.5;
     private static boolean walkSneakLatched = false;
+    private static boolean walkSneakWhileCentering = true;
     private static final AtomicBoolean abortFlag = new AtomicBoolean(false);
 
     // Held so we can abort the current async run
@@ -351,6 +352,22 @@ public final class PathfindingManager {
         doStartPathfind(mc, x, y, z, false);
     }
 
+    // walks the whole way upright: no crouch on the approach and none while centring on the goal
+    public static void startUprightWalk(Minecraft mc, Vec3 target, Runnable onFinished, Runnable onFailed,
+                                        boolean centerOnGoal) {
+        int x = Mth.floor(target.x);
+        int y = Mth.floor(target.y);
+        int z = Mth.floor(target.z);
+        disableTransientDebugRendering();
+        resetWalkExecutionOptions();
+        walkGoalCenterX = target.x - x;
+        walkGoalCenterZ = target.z - z;
+        configureWalkExecution(null, onFinished, onFailed, true, centerOnGoal ? 0.35 : 0.5, centerOnGoal);
+        walkStickySneakDistance = -1.0;
+        walkSneakWhileCentering = false;
+        doStartPathfind(mc, x, y, z, false);
+    }
+
     // runs a* without moving - results only show in PathVisualizer
     public static void startPathTest(Minecraft mc, int x, int y, int z) {
         if (mc.player == null || mc.level == null) return;
@@ -558,6 +575,7 @@ public final class PathfindingManager {
         walkGoalCenterX = 0.5;
         walkGoalCenterZ = 0.5;
         walkSneakLatched = false;
+        walkSneakWhileCentering = true;
     }
 
     private static void resetEtherwarpExecutionOptions() {
@@ -1249,6 +1267,7 @@ public final class PathfindingManager {
         executor.setExactGoalCentering(walkPreciseGoalTolerance != 0.5);
         executor.setStickySneakDistance(walkStickySneakDistance);
         executor.setSneakLatched(walkSneakLatched);
+        executor.setSneakWhileCentering(walkSneakWhileCentering);
         executor.setGoalCenterOffsets(walkGoalCenterX, walkGoalCenterZ);
         if (walkLookTarget != null) {
             executor.setLookTarget(walkLookTarget);

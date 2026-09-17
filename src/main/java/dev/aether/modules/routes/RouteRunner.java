@@ -27,6 +27,8 @@ public final class RouteRunner {
     private static final long LEG_RETRY_MAX_MS = 1_000L;
     private static final int MAX_LEG_ATTEMPTS = 3;
     private static final double ARRIVED_HORIZONTAL = 0.7;
+    // a walk that only passes through a waypoint is done once the walker calls it reached, not centred on it
+    private static final double PASSED_HORIZONTAL = 1.3;
     private static final double ARRIVED_VERTICAL = 1.1;
 
     private final Route route;
@@ -46,6 +48,7 @@ public final class RouteRunner {
     private long legRetryAt;
     private volatile boolean legFinished;
     private volatile boolean legFailed;
+    private RouteEtherwarpLeg etherwarpLeg;
 
     public RouteRunner(Route route, boolean hopThroughHub) {
         this.route = route;
@@ -74,6 +77,10 @@ public final class RouteRunner {
     public void cancel() {
         if (phase == Phase.LEG_WAIT) {
             PathfindingManager.stop(false);
+            if (etherwarpLeg != null) {
+                RouteEtherwarpLeg.release(Minecraft.getInstance());
+                etherwarpLeg = null;
+            }
         }
         phase = Phase.FAILED;
         failure = "cancelled";
@@ -166,7 +173,7 @@ public final class RouteRunner {
         }
 
         Route.Waypoint waypoint = route.waypoints().get(legIndex);
-        if (isStandingAt(mc, waypoint)) {
+        if (hasReached(mc, waypoint)) {
             nextLeg();
             return;
         }
@@ -175,26 +182,40 @@ public final class RouteRunner {
             return;
         }
 
-        legFinished = false;
-        legFailed = false;
         phase = Phase.LEG_WAIT;
-        // a warp that has already missed once walks instead, so one bad line of sight does not end the route
-        if (waypoint.type() == Route.LegType.ETHERWARP && legAttempts == 1) {
-            PathfindingManager.startConfiguredPureEtherwarp(mc, waypoint.x(), waypoint.y(), waypoint.z(),
-                    () -> legFinished = true,
-                    () -> legFailed = true);
+        if (waypoint.type() == Route.LegType.ETHERWARP) {
+            etherwarpLeg = new RouteEtherwarpLeg(waypoint);
             return;
         }
-        PathfindingManager.startConfiguredWalk(mc,
+        legFinished = false;
+        legFailed = false;
+        PathfindingManager.startUprightWalk(mc,
                 Vec3.atBottomCenterOf(new BlockPos(waypoint.x(), waypoint.y(), waypoint.z())),
                 () -> legFinished = true,
                 () -> legFailed = true,
-                true, 0.35, true, false);
+                isLastLeg());
     }
 
     private void tickLegWait(Minecraft mc, long now) {
+        if (etherwarpLeg != null) {
+            RouteEtherwarpLeg.Result result = etherwarpLeg.tick(mc);
+            if (result == RouteEtherwarpLeg.Result.RUNNING) {
+                return;
+            }
+            String reason = etherwarpLeg.failure();
+            etherwarpLeg = null;
+            if (result == RouteEtherwarpLeg.Result.LANDED) {
+                phase = Phase.LEG;
+                nextLeg();
+                return;
+            }
+            // a missed warp never falls back to another way of getting there, the route is exact or it stops
+            fail("waypoint " + (legIndex + 1) + ": " + reason);
+            return;
+        }
+
         if (legFinished || legFailed) {
-            boolean arrived = mc.player != null && isStandingAt(mc, route.waypoints().get(legIndex));
+            boolean arrived = mc.player != null && hasReached(mc, route.waypoints().get(legIndex));
             phase = Phase.LEG;
             if (arrived) {
                 nextLeg();
@@ -202,6 +223,17 @@ public final class RouteRunner {
             }
             legRetryAt = now + ThreadLocalRandom.current().nextLong(LEG_RETRY_MIN_MS, LEG_RETRY_MAX_MS + 1);
         }
+    }
+
+    private boolean isLastLeg() {
+        return legIndex == route.waypoints().size() - 1;
+    }
+
+    private boolean hasReached(Minecraft mc, Route.Waypoint waypoint) {
+        if (isLastLeg() || waypoint.type() == Route.LegType.ETHERWARP) {
+            return isStandingAt(mc, waypoint);
+        }
+        return isWithin(mc, waypoint, PASSED_HORIZONTAL);
     }
 
     private void nextLeg() {
@@ -217,15 +249,20 @@ public final class RouteRunner {
     }
 
     public static boolean isStandingAt(Minecraft mc, Route.Waypoint waypoint) {
+        return isWithin(mc, waypoint, ARRIVED_HORIZONTAL);
+    }
+
+    private static boolean isWithin(Minecraft mc, Route.Waypoint waypoint, double horizontal) {
         return isWithinWaypoint(
                 mc.player.getX() - (waypoint.x() + 0.5),
                 mc.player.getY() - waypoint.y(),
-                mc.player.getZ() - (waypoint.z() + 0.5));
+                mc.player.getZ() - (waypoint.z() + 0.5),
+                horizontal);
     }
 
-    static boolean isWithinWaypoint(double dx, double dy, double dz) {
-        return Math.abs(dx) <= ARRIVED_HORIZONTAL
-                && Math.abs(dz) <= ARRIVED_HORIZONTAL
+    static boolean isWithinWaypoint(double dx, double dy, double dz, double horizontal) {
+        return Math.abs(dx) <= horizontal
+                && Math.abs(dz) <= horizontal
                 && Math.abs(dy) <= ARRIVED_VERTICAL;
     }
 }
