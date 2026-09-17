@@ -176,11 +176,7 @@ public class EnchantmentUtils {
         }
     }
 
-    /**
-     * Attempt to find a known enchantment canonical name inside the provided text.
-     * Returns the canonical key from MAX_LEVELS when a match is found (case-insensitive),
-     * or null if no known enchantment name appears in the text.
-     */
+    // returns the canonical MAX_LEVELS key on a case-insensitive match, null when the text names no known enchantment
     public static String findEnchantmentNameIn(String text) {
         if (text == null || text.isEmpty()) return null;
         String lower = text.toLowerCase();

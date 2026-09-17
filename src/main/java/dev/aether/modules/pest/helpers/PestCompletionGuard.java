@@ -1,11 +1,6 @@
 package dev.aether.modules.pest.helpers;
 
-/**
- * Shared guard for pest completion decisions that are driven by tab-list data.
- * The tab list can lag immediately after a pest spawn/cleaning handoff, so
- * callers should ignore finish-level readings during startup and then require
- * consecutive confirmations before treating pests as cleared.
- */
+// the tab list lags right after a spawn/cleaning handoff, so ignore finish-level readings during startup and then need consecutive confirmations
 public final class PestCompletionGuard {
     public static final long STARTUP_FINISH_GRACE_MS = 5_000L;
     public static final int TAB_FINISH_CONFIRM_TICKS = 10;

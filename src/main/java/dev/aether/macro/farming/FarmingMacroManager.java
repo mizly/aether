@@ -3,12 +3,14 @@ package dev.aether.macro.farming;
 import dev.aether.config.AetherConfig;
 import dev.aether.config.ConfigHelpers;
 import dev.aether.macro.MacroState;
+import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.rewarp.RewarpManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.helpers.AutoPestExchangeManager;
+import dev.aether.modules.session.RecoveryManager;
 import dev.aether.modules.session.RestartManager;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
@@ -16,14 +18,7 @@ import net.minecraft.client.Minecraft;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Manages the lifecycle of the currently active {@link AbstractFarmingMacro}.
- *
- * <p>Call {@link #enable(Minecraft, AbstractFarmingMacro)} to start a macro and
- * {@link #disable(Minecraft)} to stop it.  {@link #tick(Minecraft)} must be
- * wired to a {@code ClientTickEvents.END_CLIENT_TICK} handler in
- * {@link dev.aether.AetherClient}.
- */
+// tick() has to be wired to END_CLIENT_TICK
 public final class FarmingMacroManager {
 
     private FarmingMacroManager() {}
@@ -37,7 +32,7 @@ public final class FarmingMacroManager {
     private static volatile boolean deferredStartPending = false;
     private static int pendingEnableTicks = 0;
 
-    /** Persists the active step within a macro's declared state cycle. */
+    // persists the active step within a macro's declared state cycle
     private static volatile Integer cachedCycleStep = null;
 
     public static void loadCycleStep() {
@@ -65,18 +60,12 @@ public final class FarmingMacroManager {
         return cachedCycleStep;
     }
 
-	/**
-	 * Restores the active macro's cached farming orientation.
-	 */
 	public static boolean restoreConfiguredOrientation(Minecraft mc) {
 		return activeMacro != null && activeMacro.restoreConfiguredOrientation(mc);
 	}
 
     // -- Public API ------------------------------------------------------------
 
-    /**
-     * Instantiates a macro instance based on the current {@link AetherConfig#FARM_TYPE}.
-     */
     public static AbstractFarmingMacro createMacroFromConfig() {
         String typeName = AetherConfig.FARM_TYPE.get();
         return switch (typeName) {
@@ -93,16 +82,16 @@ public final class FarmingMacroManager {
         };
     }
 
-    /**
-     * Enable the given macro, replacing any previously active one.
-     * Always call this on the main client thread.
-     */
+    // main client thread only
     public static void enable(Minecraft mc, AbstractFarmingMacro macro) {
         if (RestartManager.isRestartSequenceActive()) {
             return;
         }
         if (AutoPestExchangeManager.shouldBlockFarmingResume()) {
             ClientUtils.sendDebugMessage("Farming start deferred because pest exchange has priority.");
+            return;
+        }
+        if (!ensureFarmingLocation()) {
             return;
         }
 
@@ -140,6 +129,9 @@ public final class FarmingMacroManager {
     }
 
     private static void startMacroNow(Minecraft mc, AbstractFarmingMacro macro) {
+        if (!ensureFarmingLocation()) {
+            return;
+        }
         if (hasBlockingScreenOrContainer(mc)) {
             deferStartUntilReady(mc, macro);
             return;
@@ -153,6 +145,18 @@ public final class FarmingMacroManager {
         // swap + first click landing on the same tick every resume is fingerprintable
         activeMacro = macro;
         pendingEnableTicks = ConfigHelpers.getRandomizedDelay(START_DELAY_MIN_TICKS, START_DELAY_MAX_TICKS);
+    }
+
+    private static boolean ensureFarmingLocation() {
+        MacroState.State state = MacroStateManager.getCurrentState();
+        if (state == MacroState.State.OFF || state == MacroState.State.RECOVERING) {
+            return false;
+        }
+        if (ClientUtils.getCurrentLocation() != MacroState.Location.GARDEN) {
+            RecoveryManager.beginRecovery();
+            return false;
+        }
+        return true;
     }
 
     private static void deferStartUntilReady(Minecraft mc, AbstractFarmingMacro macro) {
@@ -225,10 +229,7 @@ public final class FarmingMacroManager {
                 && mc.player.containerMenu.containerId != mc.player.inventoryMenu.containerId;
     }
 
-    /**
-     * Disable the currently active macro (if any).
-     * Always call this on the main client thread.
-     */
+    // main client thread only
     public static void disable(Minecraft mc) {
         if (activeMacro != null) {
             activeMacro.onDisable(mc);
@@ -237,7 +238,6 @@ public final class FarmingMacroManager {
         }
     }
 
-    /** Returns the currently active macro, or {@code null} if none. */
     public static AbstractFarmingMacro getActiveMacro() {
         return activeMacro;
     }
@@ -246,23 +246,22 @@ public final class FarmingMacroManager {
         return activeMacro != null;
     }
 
-    /** Releases input owned by the active farm macro without disabling it. */
+    // releases the macro's keys without disabling it
     public static void releaseInputs(Minecraft mc) {
         if (activeMacro != null && mc != null && mc.options != null) {
             activeMacro.releaseAll(mc);
         }
     }
 
-    /**
-     * Advance the active macro by one tick.
-     * Wire this to {@code ClientTickEvents.END_CLIENT_TICK}.
-     */
     public static void tick(Minecraft mc) {
         if (activeMacro == null || mc.player == null) {
             return;
         }
 
         if (pendingEnableTicks > 0) {
+            if (!ensureFarmingLocation()) {
+                return;
+            }
             if (--pendingEnableTicks > 0) {
                 return;
             }

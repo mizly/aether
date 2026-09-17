@@ -36,7 +36,9 @@ public final class FailsafeCustomReplayManager {
         DIRT_CHECK("dirt_check", AetherConfig.FAILSAFE_DIRT_CHECK_CUSTOM_REPLAY),
         ROTATION("rotation", AetherConfig.FAILSAFE_ROTATION_CUSTOM_REPLAY),
         PEST_ROTATION("pest_rotation", AetherConfig.FAILSAFE_PEST_ROTATION_CUSTOM_REPLAY),
-        WORLD_CHANGE("world_change", AetherConfig.FAILSAFE_WORLD_CHANGE_CUSTOM_REPLAY);
+        WORLD_CHANGE("world_change", AetherConfig.FAILSAFE_WORLD_CHANGE_CUSTOM_REPLAY),
+        PLAYER_NEARBY("player_nearby", AetherConfig.FAILSAFE_PLAYER_NEARBY_CUSTOM_REPLAY),
+        TP_CHECK("tp_check", AetherConfig.FAILSAFE_TP_CHECK_CUSTOM_REPLAY);
 
         private final String folderName;
         private final StringEntry replayEntry;

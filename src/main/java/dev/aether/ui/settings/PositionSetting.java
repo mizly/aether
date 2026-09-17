@@ -6,9 +6,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import dev.aether.util.AetherLang;
 
-/**
- * A setting that displays X, Y, Z coordinates and has a capture button.
- */
+// x/y/z coordinates plus a capture button
 public class PositionSetting implements Setting {
 
     private final String name;

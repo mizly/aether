@@ -7,12 +7,8 @@ import java.io.Reader;
 import java.nio.file.*;
 import java.util.*;
 
-/**
- * Lightweight JSON config backed by Gson, stored in Fabric's config directory.
- *
- * <p>Register entries with {@link #register} before calling {@link #init}.
- * Missing keys are auto-filled from defaults on load.</p>
- */
+// gson-backed json config in fabric's config dir
+// register entries before init; missing keys fill in from defaults
 public final class ConfigManager {
 
     // -- Entry definition ------------------------------------------------------
@@ -60,10 +56,7 @@ public final class ConfigManager {
 
     // -- Lifecycle -------------------------------------------------------------
 
-    /**
-     * Registers built-in entries, then loads from disk.
-     * Call once during mod init.
-     */
+    // call once during mod init
     public static void init() {
         configPath = FabricLoader.getInstance().getConfigDir().resolve("aether_ui.json");
         registerDefaults();

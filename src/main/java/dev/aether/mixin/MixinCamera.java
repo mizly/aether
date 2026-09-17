@@ -8,11 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import net.minecraft.client.Camera;
 
-/**
- * Applies freelook: while freelook is active the camera reads a free yaw/pitch instead of
- * the player's real view rotation, so the view orbits the player (third-person) while the
- * body keeps facing its actual direction. Only the player's own camera is affected.
- */
+// while freelook is on the camera reads a free yaw/pitch, so the view orbits the player while the body keeps facing its real direction
 @Mixin(Camera.class)
 public class MixinCamera {
 

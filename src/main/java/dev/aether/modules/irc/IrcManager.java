@@ -123,7 +123,7 @@ public final class IrcManager {
         ClientUtils.sendMessage("§aall chat goes to irc now - §f/aether irc§a to stop", false);
     }
 
-    /** Returns true when the message was taken over, so the caller cancels the outgoing chat. */
+    // true when the message was taken over, so the caller cancels the outgoing chat
     public static boolean interceptChat(String message) {
         if (!redirecting) {
             return false;

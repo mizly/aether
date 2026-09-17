@@ -11,13 +11,7 @@ import net.minecraft.client.input.MouseButtonEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Base class for Minecraft {@link Screen}s that render their UI using NanoVG.
- *
- * <p>Subclasses override {@link #renderNVG(NVGRenderer)} to draw their content.
- * Components added via {@link #addComponent(Component)} receive input events
- * automatically.</p>
- */
+// subclasses draw in renderNVG; components added with addComponent get input events for free
 public abstract class NVGScreen extends Screen {
 
     private final List<Component> components = new ArrayList<>();
@@ -34,7 +28,6 @@ public abstract class NVGScreen extends Screen {
         initNVG();
     }
 
-    /** Called after init/resize. Add components via {@link #addComponent(Component)}. */
     protected void initNVG() {}
 
     @Override
@@ -59,7 +52,6 @@ public abstract class NVGScreen extends Screen {
         }
     }
 
-    /** Override to draw custom NanoVG content before components. */
     protected void renderNVG(NVGRenderer nvg) {}
 
     // -- Input - MC 1.21.11 event-object API ----------------------------------
@@ -145,11 +137,11 @@ public abstract class NVGScreen extends Screen {
     @Override
     public boolean isPauseScreen() { return false; }
 
-    /** Suppress MC's automatic background blur + menu backdrop - we draw our own. */
+    // we draw our own background, so suppress mc's blur and menu backdrop
     @Override
     public void extractBackground(net.minecraft.client.gui.GuiGraphicsExtractor g, int mx, int my, float delta) {}
 
-    /** Disable MC's focus-navigation system - we manage our own component focus. */
+    // we manage our own component focus
     @Override
     public java.util.List<? extends net.minecraft.client.gui.components.events.GuiEventListener> children() {
         return java.util.List.of();

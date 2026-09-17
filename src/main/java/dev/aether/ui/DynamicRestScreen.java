@@ -9,16 +9,7 @@ import dev.aether.ui.util.Colors;
 import dev.aether.ui.util.Fonts;
 import net.minecraft.client.gui.screens.TitleScreen;
 
-/**
- * A NanoVG-rendered screen displayed during dynamic rest periods.
- *
- * <p>Shows a centered panel with:
- * <ul>
- *   <li>Rest countdown timer</li>
- *   <li>Progress bar</li>
- *   <li>Cancel button to abort rest and return to title screen</li>
- * </ul>
- */
+// rest countdown, progress bar, and a cancel button back to the title screen
 public class DynamicRestScreen extends NVGScreen {
     private static final String DEFAULT_SCREEN_TITLE = "Dynamic Rest";
     private static final String DEFAULT_PANEL_TITLE = "Dynamic Rest";

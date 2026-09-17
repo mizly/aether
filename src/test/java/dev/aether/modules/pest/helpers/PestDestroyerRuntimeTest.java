@@ -1,12 +1,28 @@
 package dev.aether.modules.pest.helpers;
 
 import org.junit.jupiter.api.Test;
+import net.minecraft.world.phys.Vec3;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PestDestroyerRuntimeTest {
+    @Test
+    void anotherFlightClearsThePreviousRecoveryBudget() {
+        PestDestroyerRuntime runtime = new PestDestroyerRuntime();
+        for (long now : new long[]{0, 300, 900}) {
+            runtime.flightRecovery.update(false, Vec3.ZERO, now, 0, 30_000);
+        }
+        assertEquals(PestFlightRecovery.Action.GIVE_UP,
+                runtime.flightRecovery.update(false, Vec3.ZERO, 2_100, 0, 30_000));
+
+        runtime.transitionTo(PestDestroyer.State.FLY_TO_PEST, 2_100);
+
+        assertEquals(PestFlightRecovery.Action.RETRY,
+                runtime.flightRecovery.update(false, Vec3.ZERO, 2_100, runtime.stateEnteredAt, 30_000));
+    }
+
     @Test
     void beginRunClearsTransientAndNavigationState() {
         PestDestroyerRuntime runtime = new PestDestroyerRuntime();

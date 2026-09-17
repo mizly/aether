@@ -12,6 +12,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiFunction;
+
 public final class EtherwarpHelper {
 
     public static final double MAX_ETHERWARP_DISTANCE = 60.0;
@@ -24,7 +28,7 @@ public final class EtherwarpHelper {
     private static final double PLAYER_COLLISION_MIN = 0.2;
     private static final double PLAYER_COLLISION_MAX = 0.8;
 
-    private static final double[][] TARGET_POINT_OFFSETS = {
+    private static final double[][] CENTER_POINT_OFFSETS = {
             {0.50, 0.50, 0.50},
             {0.50, 0.98, 0.50},
             {0.50, 0.02, 0.50},
@@ -33,6 +37,7 @@ public final class EtherwarpHelper {
             {0.50, 0.50, 0.05},
             {0.50, 0.50, 0.95}
     };
+    private static final List<Vec3> TARGET_POINT_OFFSETS = createTargetPointOffsets();
 
     private EtherwarpHelper() {
     }
@@ -105,28 +110,62 @@ public final class EtherwarpHelper {
             return null;
         }
 
-        BlockPos targetBlock = getTargetBlock(toFeet);
-        for (double[] offset : TARGET_POINT_OFFSETS) {
+        return findVisibleTargetPoint(eyePos, getTargetBlock(toFeet), (from, to) -> clip(mc, from, to));
+    }
+
+    static Vec3 findVisibleTargetPoint(Vec3 eyePos, BlockPos targetBlock,
+                                       BiFunction<Vec3, Vec3, BlockHitResult> raycast) {
+        for (Vec3 offset : TARGET_POINT_OFFSETS) {
             Vec3 targetPoint = new Vec3(
-                    targetBlock.getX() + offset[0],
-                    targetBlock.getY() + offset[1],
-                    targetBlock.getZ() + offset[2]);
+                    targetBlock.getX() + offset.x,
+                    targetBlock.getY() + offset.y,
+                    targetBlock.getZ() + offset.z);
             if (eyePos.distanceToSqr(targetPoint) > MAX_ETHERWARP_DISTANCE_SQ + 1.0) {
                 continue;
             }
 
-            BlockHitResult hit = mc.level.clip(new ClipContext(
-                    eyePos,
-                    targetPoint,
-                    ClipContext.Block.COLLIDER,
-                    ClipContext.Fluid.NONE,
-                    mc.player));
+            BlockHitResult hit = raycast.apply(eyePos, targetPoint);
             if (hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(targetBlock)) {
                 return targetPoint;
             }
         }
 
         return null;
+    }
+
+    public static boolean isLookingAtTarget(Minecraft mc, Vec3 eyePos, PathPosition feet) {
+        return mc != null && mc.level != null && mc.player != null
+                && isLookingAtTarget(eyePos, mc.player.getViewVector(1.0f), getTargetBlock(feet),
+                (from, to) -> clip(mc, from, to));
+    }
+
+    static boolean isLookingAtTarget(Vec3 eyePos, Vec3 direction, BlockPos targetBlock,
+                                      BiFunction<Vec3, Vec3, BlockHitResult> raycast) {
+        BlockHitResult hit = raycast.apply(eyePos, eyePos.add(direction.scale(MAX_ETHERWARP_DISTANCE)));
+        return hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(targetBlock);
+    }
+
+    private static BlockHitResult clip(Minecraft mc, Vec3 from, Vec3 to) {
+        return mc.level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player));
+    }
+
+    private static List<Vec3> createTargetPointOffsets() {
+        List<Vec3> offsets = new ArrayList<>();
+        for (double[] offset : CENTER_POINT_OFFSETS) {
+            offsets.add(new Vec3(offset[0], offset[1], offset[2]));
+        }
+        double[] coordinates = {0.5, 0.05, 0.95};
+        for (double x : coordinates) {
+            for (double y : coordinates) {
+                for (double z : coordinates) {
+                    int edges = (x == 0.5 ? 0 : 1) + (y == 0.5 ? 0 : 1) + (z == 0.5 ? 0 : 1);
+                    if (edges >= 2) {
+                        offsets.add(new Vec3(x, y, z));
+                    }
+                }
+            }
+        }
+        return List.copyOf(offsets);
     }
 
     private static boolean hasCollisionFreeSpace(WalkabilityChecker checker, int x, int feetY, int z, double height) {

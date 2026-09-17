@@ -19,11 +19,7 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Custom-styled Add / Edit server screen.
- * Replaces {@link net.minecraft.client.gui.screens.ManageServerScreen}
- * via {@link dev.aether.mixin.MixinManageServerScreen}.
- */
+// replaces the vanilla ManageServerScreen via MixinManageServerScreen
 public class AetherManageServerScreen extends Screen {
 
     // -- Layout ----------------------------------------------------------------

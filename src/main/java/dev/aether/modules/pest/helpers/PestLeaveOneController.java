@@ -12,7 +12,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Encapsulates the optional "leave one pest alive" plot policy. */
+// the optional leave-one-pest-alive plot policy
 final class PestLeaveOneController {
     private static final Pattern PLOT_PEST_COUNT =
             Pattern.compile("(?i)\\bplot\\s*[-:#]?\\s*(\\d+)\\D+?x\\s*(\\d+)\\b");
@@ -143,6 +143,11 @@ final class PestLeaveOneController {
     static void clearRememberedPlots(PestDestroyerRuntime runtime) {
         runtime.navigation.leaveOneSkippedPlots.clear();
         resetTracking(runtime);
+    }
+
+    static int rememberedPlotCount(PestDestroyerRuntime runtime) {
+        pruneRememberedPlots(runtime);
+        return runtime.navigation.leaveOneSkippedPlots.size();
     }
 
     static boolean shouldFinishForCounts(int aliveCount, int rememberedPlotCount) {

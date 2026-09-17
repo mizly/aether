@@ -1,32 +1,54 @@
 package dev.aether.ui.providers.failsafes;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.modules.failsafe.FailsafeAction;
 import dev.aether.modules.failsafe.FailsafeCustomReplayManager;
 import dev.aether.ui.settings.DropdownSetting;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 final class FailsafeActionSettings {
-    private static final List<String> ACTION_OPTIONS = List.of("Stop", "Ignore", "Custom");
+    private static final List<FailsafeAction> ACTIONS = List.of(
+            FailsafeAction.STOP, FailsafeAction.IGNORE, FailsafeAction.CUSTOM);
+    private static final List<FailsafeAction> FISHING_ACTIONS = List.of(
+            FailsafeAction.STOP, FailsafeAction.IGNORE, FailsafeAction.CUSTOM, FailsafeAction.RESTART);
 
     private FailsafeActionSettings() {
     }
 
     static DropdownSetting createActionDropdown(String label, Supplier<String> getter, Consumer<String> setter) {
-        return new DropdownSetting(label, ACTION_OPTIONS,
-                () -> getActionIndex(getter.get()),
+        return createDropdown(label, ACTIONS, getter, setter);
+    }
+
+    static DropdownSetting createFishingActionDropdown(String label, Supplier<String> getter, Consumer<String> setter) {
+        return createDropdown(label, FISHING_ACTIONS, getter, setter);
+    }
+
+    private static DropdownSetting createDropdown(String label, List<FailsafeAction> actions,
+                                                  Supplier<String> getter, Consumer<String> setter) {
+        List<String> options = actions.stream().map(FailsafeActionSettings::optionLabel).toList();
+        return new DropdownSetting(label, options,
+                () -> Math.max(0, actions.indexOf(FailsafeAction.fromConfig(getter.get()))),
                 index -> {
-                    if (index < 0 || index >= ACTION_OPTIONS.size()) {
+                    if (index < 0 || index >= actions.size()) {
                         return;
                     }
 
-                    setter.accept(ACTION_OPTIONS.get(index).toUpperCase(Locale.ROOT));
+                    setter.accept(actions.get(index).name());
                     AetherConfig.save();
                 });
+    }
+
+    private static String optionLabel(FailsafeAction action) {
+        return switch (action) {
+            case STOP -> "Stop";
+            case IGNORE -> "Ignore";
+            case CUSTOM -> "Custom";
+            case RESTART -> "Restart In New Lobby";
+        };
     }
 
     static DropdownSetting createCustomReplayDropdown(
@@ -42,16 +64,5 @@ final class FailsafeActionSettings {
                 .addIconAction("/assets/aether/icons/refresh.svg",
                         () -> FailsafeCustomReplayManager.refreshReplayOptions(type, replayOptions))
                 .visibleWhen(() -> "CUSTOM".equalsIgnoreCase(actionGetter.get()));
-    }
-
-    private static int getActionIndex(String selected) {
-        if (selected == null || selected.isBlank()) {
-            return 0;
-        }
-
-        String normalized = selected.substring(0, 1).toUpperCase(Locale.ROOT)
-                + selected.substring(1).toLowerCase(Locale.ROOT);
-        int index = ACTION_OPTIONS.indexOf(normalized);
-        return index >= 0 ? index : 0;
     }
 }

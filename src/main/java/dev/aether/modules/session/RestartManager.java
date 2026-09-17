@@ -19,6 +19,8 @@ public class RestartManager {
     private static final long RESTART_COMMAND_GAP_MS = 2000L;
     private static final long RESTART_MIN_DELAY_SECONDS = 10L;
     private static final long RESTART_MAX_DELAY_SECONDS = 20L;
+    private static final long JACOB_CONTEST_RESTART_MIN_DELAY_SECONDS = 0L;
+    private static final long JACOB_CONTEST_RESTART_MAX_DELAY_SECONDS = 5L;
     private static final long PROXY_RESTART_MIN_DELAY_SECONDS = 15L;
     private static final long PROXY_RESTART_MAX_DELAY_SECONDS = 30L;
 
@@ -91,10 +93,11 @@ public class RestartManager {
                 && MacroStateManager.getCurrentState() != MacroState.State.RECOVERING
                 && !isRestartPending
                 && !isProxyRestartPending) {
-            restartDelaySeconds = ThreadLocalRandom.current()
-                    .nextLong(RESTART_MIN_DELAY_SECONDS, RESTART_MAX_DELAY_SECONDS + 1);
             long contestMs = isImmediate ? 0 : ClientUtils.getJacobsContestRemainingMs();
             if (contestMs > 0) {
+                restartDelaySeconds = ThreadLocalRandom.current()
+                        .nextLong(JACOB_CONTEST_RESTART_MIN_DELAY_SECONDS,
+                                JACOB_CONTEST_RESTART_MAX_DELAY_SECONDS + 1);
                 ClientUtils.sendMessage("\u00A7c" + String.format(
                                 dev.aether.util.AetherLang.localize(
                                         "Server restart detected. Delaying abort until Jacob's contest ends, then waiting %ds..."),
@@ -102,6 +105,8 @@ public class RestartManager {
                         false);
                 restartExecutionTime = System.currentTimeMillis() + contestMs + (restartDelaySeconds * 1000L);
             } else {
+                restartDelaySeconds = ThreadLocalRandom.current()
+                        .nextLong(RESTART_MIN_DELAY_SECONDS, RESTART_MAX_DELAY_SECONDS + 1);
                 ClientUtils.sendMessage("\u00A7c" + String.format(
                                 dev.aether.util.AetherLang.localize(
                                         "Server restart or evacuation detected. Waiting %ds before aborting..."),
@@ -206,7 +211,6 @@ public class RestartManager {
             ClientUtils.sendDebugMessage("Disabling farming macro: Entering recovery mode after server restart");
             client.execute(() -> dev.aether.macro.farming.FarmingMacroManager.disable(client));
             RecoveryManager.beginRecovery();
-            MacroStateManager.setCurrentState(MacroState.State.RECOVERING);
             restartSequenceStage = 0;
             isRestartPending = false;
         }
@@ -304,5 +308,4 @@ public class RestartManager {
         }
     }
 }
-
 

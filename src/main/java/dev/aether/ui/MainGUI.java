@@ -23,11 +23,7 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.*;
 
-/**
- * Full NVG config menu - Farming/Visuals main tabs, subtab sidebar,
- * scrollable SettingGroup cards with all setting types rendered inline.
- * Colors sourced from {@link Theme} for live theming support.
- */
+// main tabs, subtab sidebar, scrollable setting cards; colors come from Theme so it re-themes live
 public class MainGUI extends NVGScreen {
     public record LaunchTarget(int mainTab, String moduleName, boolean openModuleDetail) {
         public static LaunchTarget bootstrapAuthentication() {
@@ -59,9 +55,8 @@ public class MainGUI extends NVGScreen {
     private static final float GROUP_GAP   = 12f;
     static final float HEADER_H    = 46f;
     static final float HEADER_TO_FIRST_SETTING_GAP = 5f;
-    /** Height of the toggle pill bounding box. Track is 38x21 px. */
     static final float PILL_H      = 21f;
-    /** Height of a compact group-section label row used in the flat Colors/Settings renderer. */
+    // compact group-section label row in the flat colors/settings renderer
     static final float FLAT_LABEL_H = 32f;
     static final float DROPDOWN_FIELD_W = 130f;
     static final float DROPDOWN_FIELD_H = 32f;
@@ -92,9 +87,7 @@ public class MainGUI extends NVGScreen {
 
     private float px, py, pw, ph;
     float contX, contY, contW, contH;
-    /** Physical-pixel ratio (physical px per logical px). Updated each render. */
     private float pr = 1f;
-    /** Screen size in physical pixels. Updated each render. */
     private float physW, physH;
 
     // -- Entrance animation ----------------------------------------------------
@@ -103,30 +96,110 @@ public class MainGUI extends NVGScreen {
 
     // -- UI scale --------------------------------------------------------------
 
-    /**
-     * Scale multiplier for the entire menu.
-     * 1.0 = every layout unit is exactly 1 physical pixel.
-     * Increase to make the menu larger, decrease to shrink it.
-     * Persisted value lives in {@link dev.aether.ui.theme.Theme#UI_SCALE} (the source of truth);
-     * MainGUI syncs this from it each frame in syncFrameLayoutForWindowSize, except while a slider
-     * is being dragged (so the UI Scale slider can't feed back). Edit via the slider in Theme Options.
-     */
+    // 1.0 means one layout unit is one physical pixel
+    // Theme.UI_SCALE is the source of truth; this syncs from it each frame except while the slider is dragging, so the slider can't feed back
     public static float uiScale = 1.5f;
     public static float uiTextScale = 1;
+
+    private String hoverHelpCandidateKey;
+    private String hoverHelpCandidateTitle;
+    private String hoverHelpCandidateDescription;
+    private String hoverHelpLastKey;
+    private long hoverHelpStartedAt;
+    private static final long HOVER_HELP_DELAY_MS = 260L;
+
+    void offerHoverHelp(String key, String title, String description,
+                        float x, float y, float w, float h, float mx, float my) {
+        if (key == null || title == null || description == null || description.isBlank()) {
+            return;
+        }
+        if (mx < x || mx > x + w || my < y || my > y + h) {
+            return;
+        }
+        hoverHelpCandidateKey = key;
+        hoverHelpCandidateTitle = title;
+        hoverHelpCandidateDescription = description;
+    }
+
+    private void renderHoverHelp(NVGRenderer nvg, float mx, float my) {
+        if (hoverHelpCandidateKey == null
+                || openDd != null
+                || activeColor != null
+                || activeSliderField != null
+                || activeText != null
+                || activeList != null
+                || activePosField != null) {
+            hoverHelpLastKey = null;
+            hoverHelpStartedAt = 0L;
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (!hoverHelpCandidateKey.equals(hoverHelpLastKey)) {
+            hoverHelpLastKey = hoverHelpCandidateKey;
+            hoverHelpStartedAt = now;
+            return;
+        }
+        if (now - hoverHelpStartedAt < HOVER_HELP_DELAY_MS) {
+            return;
+        }
+
+        float maxTextW = Math.min(330f, Math.max(220f, pw * 0.36f));
+        float titleSize = 12.5f;
+        float bodySize = 11f;
+        float padX = 12f;
+        float padY = 10f;
+        float titleGap = 6f;
+        float bodyStep = 14f;
+        List<String> bodyLines = wrapTextForWidth(
+                nvg, hoverHelpCandidateDescription, Fonts.REGULAR, bodySize, maxTextW);
+        if (bodyLines.isEmpty()) {
+            return;
+        }
+
+        float titleW = nvg.textWidth(Fonts.BOLD, hoverHelpCandidateTitle, titleSize);
+        float bodyW = 0f;
+        for (String line : bodyLines) {
+            bodyW = Math.max(bodyW, nvg.textWidth(Fonts.REGULAR, line, bodySize));
+        }
+        float tooltipW = Math.min(maxTextW + padX * 2f, Math.max(190f, Math.max(titleW, bodyW) + padX * 2f));
+        float tooltipH = padY * 2f + titleSize + titleGap + bodyLines.size() * bodyStep;
+
+        float tx = mx + 16f;
+        float ty = my + 16f;
+        float panelRight = px + pw - 8f;
+        float panelBottom = py + ph - 8f;
+        if (tx + tooltipW > panelRight) {
+            tx = mx - tooltipW - 16f;
+        }
+        if (ty + tooltipH > panelBottom) {
+            ty = my - tooltipH - 16f;
+        }
+        tx = Math.max(px + 8f, Math.min(tx, panelRight - tooltipW));
+        ty = Math.max(py + 8f, Math.min(ty, panelBottom - tooltipH));
+
+        nvg.shadow(tx, ty, tooltipW, tooltipH, 7f, 12f, Theme.withAlpha(0xFF000000, 0.55f));
+        nvg.roundedRect(tx, ty, tooltipW, tooltipH, 7f, Theme.BG_SECONDARY);
+        nvg.rectOutlineSolid(tx, ty, tooltipW, tooltipH, 7f, 1f,
+                Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.42f));
+        nvg.text(Fonts.BOLD, hoverHelpCandidateTitle, tx + padX, ty + padY, titleSize, Theme.TEXT_PRIMARY);
+        float bodyY = ty + padY + titleSize + titleGap;
+        for (int i = 0; i < bodyLines.size(); i++) {
+            nvg.text(Fonts.REGULAR, bodyLines.get(i), tx + padX, bodyY + i * bodyStep, bodySize, Theme.TEXT_SECONDARY);
+        }
+    }
 
     // -- Sidebar ---------------------------------------------------------------
 
     private float sidebarAnim = 0f;   // 0 = collapsed, 1 = expanded
-    /** Computed once on first frame to fit the longest tab label. */
+    // computed once on the first frame to fit the longest tab label
     private float computedSidebarExpanded = 0f;
 
     // -- Navigation ------------------------------------------------------------
 
     private int   activeMain   = 0;
     private int   activeSubtab = 0;
-    /** Animated selection index for the main tabs (slides smoothly). */
     private float animMainSel  = 0f;
-    /** Animated selection index for the subtab list (slides smoothly). */
     private float animSubSel   = 0f;
 
     // -- Search ----------------------------------------------------------------
@@ -182,7 +255,7 @@ public class MainGUI extends NVGScreen {
     private long  lastFrameTimeNanos = System.nanoTime();
 
     // -- Scrollbar drag --------------------------------------------------------
-    /** 0=none  1=main  2=search  3=profile  4=subtab */
+    // 0=none 1=main 2=search 3=profile 4=subtab
     private int   sbDragging        = 0;
     private float sbDragThumbOffset = 0f;
     // Cached track geometry written during render (for hit-testing)
@@ -211,7 +284,7 @@ public class MainGUI extends NVGScreen {
     int           activeListIndex = -1;
     PositionSetting activePosField;
     KeybindSetting activeKeybindCapture;
-    /** 0=X, 1=Y, 2=Z */
+    // 0=X 1=Y 2=Z
     int           activePosIdx;
     StringBuilder textBuf    = new StringBuilder();
     int           textCursor = 0;
@@ -245,16 +318,15 @@ public class MainGUI extends NVGScreen {
 
     // -- HSV Color picker ------------------------------------------------------
 
-    /** The color swatch the mouse is currently hovering over (updated each frame). */
     ColorSetting  hoveredColor;
     ColorSetting  activeColor;
     private float cpHue = 0f, cpSat = 1f, cpVal = 1f, cpAlpha = 1f;
-    /** 0=none 1=SV 2=Hue 3=Alpha */
+    // 0=none 1=SV 2=Hue 3=Alpha
     private int cpDrag = 0;
     static final int CP_SV = 1, CP_HUE = 2, CP_ALPHA = 3;
     boolean cpHexFocus = false;
     private final StringBuilder cpHexBuf = new StringBuilder();
-    /** Picker layout bounds (written each frame). */
+    // written each frame
     private float cpPX, cpPY, cpPW, cpPH;
     private float cpSvX, cpSvY, cpSvW, cpSvH;
     private float cpHBarY, cpABarY, cpBarH;
@@ -263,26 +335,18 @@ public class MainGUI extends NVGScreen {
     // -- Toggle pill animations ------------------------------------------------
 
     private record Section(String name, List<ModulesTab.SubTab> subtabs) {}
-    /** Card hover progress per subtab (0 = not hovered, 1 = fully hovered). */
+    // 0 = not hovered, 1 = fully hovered
     private final IdentityHashMap<ModulesTab.SubTab, Float> cardHoverAnim = new IdentityHashMap<>();
 
     // -- Module detail view ----------------------------------------------------
 
-    /** Non-null when the user has opened a module's settings view. */
+    // non-null once the user opens a module's settings view
     private ModulesTab.SubTab activeSubTab = null;
-    /** Index of the selected category (SettingGroup) within activeSubTab. */
     private int activeCategoryIdx = 0;
-    /** Hover animation per category item in the left panel (keyed by SettingGroup or this for "All"). */
+    // keyed by SettingGroup, or this for "All"
     private final IdentityHashMap<Object, Float> catHoverAnim = new IdentityHashMap<>();
     private final IdentityHashMap<Object, Float> subTabBarAnim = new IdentityHashMap<>();
     boolean suppressNestedContentScissor = false;
-    /** Animated Y position for the selected category bar. */
-    private float catBarAnimY = 0f;
-    private float catBarFromY = 0f;
-    private float catBarTargetY = 0f;
-    private float catBarAnimT = 1f;
-    private boolean catBarInited = false;
-    private long catBarStartNanos = 0L;
 
     // -- Panel drag ------------------------------------------------------------
 
@@ -336,7 +400,7 @@ public class MainGUI extends NVGScreen {
     @Override
     protected void initNVG() {
         Minecraft client = Minecraft.getInstance();
-        if (MacroStateManager.isMacroRunning()) {
+        if (MacroStateManager.isAutomationRunning()) {
             MacroStateManager.stopMacro(client, "MainGUI opened", false);
         }
         MainGUIRegistry.refresh();
@@ -432,6 +496,16 @@ public class MainGUI extends NVGScreen {
         enterModuleDetail(subTab);
     }
 
+    void openSearchResult(int mainTab, ModulesTab.SubTab subTab, SettingGroup group, Setting setting) {
+        actions.openSearchResult(mainTab, subTab, group, setting);
+    }
+
+    void ensureSearchGroupVisible(SettingGroup group) {
+        if (group != null && !group.isAlwaysOn() && !showChildren(group)) {
+            forcedOverride.add(group);
+        }
+    }
+
     private List<ModulesTab.SubTab> flatSubtabsForFilter() {
         List<ModulesTab.SubTab> subs = subtabs();
         if (activeMain != 1) return subs;
@@ -484,10 +558,6 @@ public class MainGUI extends NVGScreen {
         profilesPanel.commitRename();
     }
 
-    /**
-     * Returns the list of sections (name + groups) to display in the Modules
-     * card grid based on the active filter.
-     */
     private List<Section> sectionsForFilter() {
         List<Section> availableSections = availableModuleSections();
         if (availableSections.size() <= 1) {
@@ -515,7 +585,6 @@ public class MainGUI extends NVGScreen {
         return sections;
     }
 
-    /** Whether children of {@code group} should currently be visible. */
     private boolean showChildren(SettingGroup group) {
         if (group.isAlwaysOn()) return true;
         boolean forced = forcedOverride.contains(group);
@@ -872,9 +941,13 @@ public class MainGUI extends NVGScreen {
         refreshContext();
         clickAreas.clear();
         hoveredColor = null;
+        hoverHelpCandidateKey = null;
+        hoverHelpCandidateTitle = null;
+        hoverHelpCandidateDescription = null;
         transitionRenderer.syncContentTransition();
         transitionRenderer.renderContentWithTransition(nvg, mx, my);
         renderSidebar(nvg, mx, my);
+        renderHoverHelp(nvg, mx, my);
     }
 
     private void syncContentTransition() {
@@ -889,17 +962,15 @@ public class MainGUI extends NVGScreen {
 
 
     // -- Sidebar layout constants ----------------------------------------------
-    /** Horizontal padding inside the sidebar (icon box starts here from panel left). */
+    // icon box starts here from the panel left
     static final float SB_H_PAD    = 12f;
-    /** Size of each tab's icon pill (highlight square). */
     static final float SB_PILL     = 36f;
-    /** Height of the logo section (logo + spacing below it). */
+    // logo plus the spacing below it
     static final float SB_LOGO_H   = 56f;
-    /** Gap between the logo separator and the first tab row. */
     static final float SB_SEP_GAP  = 8f;
-    /** Vertical padding within a tab row (pill inset from row top). */
+    // pill inset from the row top
     static final float SB_ROW_PAD  = (44f - SB_PILL) / 2f;   // = 4f
-    /** Vertical bottom margin for the bottom section (Settings row to panel bottom). */
+    // settings row to panel bottom
     static final float SB_BOT_PAD  = 8f;
 
     private void renderSidebar(NVGRenderer nvg, float mx, float my) {
@@ -932,34 +1003,6 @@ public class MainGUI extends NVGScreen {
         contentRenderer.renderModuleDetailBody(nvg, mx, my);
     }
 
-
-    private void syncCategoryBarAnimation(float targetY) {
-        if (!catBarInited) {
-            catBarAnimY = targetY;
-            catBarFromY = targetY;
-            catBarTargetY = targetY;
-            catBarAnimT = 1f;
-            catBarStartNanos = System.nanoTime();
-            catBarInited = true;
-            return;
-        }
-
-        if (Math.abs(catBarTargetY - targetY) > 0.5f) {
-            catBarFromY = catBarAnimY;
-            catBarTargetY = targetY;
-            catBarStartNanos = System.nanoTime();
-        }
-
-        float durationMs = Math.max(1f, Theme.ANIM_TIME_MS);
-        float elapsedMs = Math.max(0f, (System.nanoTime() - catBarStartNanos) / 1_000_000f);
-        float rawT = Math.max(0f, Math.min(1f, elapsedMs / durationMs));
-        catBarAnimT = rawT * rawT * (3f - 2f * rawT);
-        catBarAnimY = catBarFromY + (catBarTargetY - catBarFromY) * catBarAnimT;
-        if (rawT >= 1f) {
-            catBarFromY = catBarTargetY;
-            catBarAnimT = 1f;
-        }
-    }
 
     // -- Module card grid (View 1) ----------------------------------------------
 
@@ -1000,7 +1043,6 @@ public class MainGUI extends NVGScreen {
         renderPrimitives.renderSectionHeader(nvg, name, x, y, w);
     }
 
-    /** Derives the display name for a module card from its SubTab. */
     private static String moduleCardName(ModulesTab.SubTab sub) {
         return AetherLang.localize(sub.name());
     }
@@ -1045,16 +1087,16 @@ public class MainGUI extends NVGScreen {
                                    boolean interactive) {
         nvg.roundedRect(x, y, w, HEADER_H, 6f, Theme.BG_SECONDARY);
 
-        int stripe;
         float lerp = subTabBarAnimValue(group, (group.isEnabled() && !group.isAlwaysOn()) || (group.isAlwaysOn() && interactive));
-        stripe = Theme.blend(0xFFFFFFFF, Theme.ACCENT_PRIMARY, lerp);
-
-        nvg.rectOutlineVerticalSides(x, y, w, HEADER_H, 7f, 1f, Theme.withAlpha(stripe, 0.15f + 0.25f * lerp), lerp * 0.4f);
+        nvg.rectOutline(x, y, w, HEADER_H, 6f, 0.8f,
+                Theme.blend(Theme.SEPARATOR, Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.22f), lerp));
 
         int titleColor = interactive ? Theme.TEXT_PRIMARY : Theme.withAlpha(Theme.TEXT_DIM, 210);
         int descColor = interactive ? Theme.TEXT_SECONDARY : Theme.withAlpha(Theme.TEXT_DIM, 170);
         nvg.text(Fonts.BOLD,    AetherLang.localize(group.getName()),        x + 12f, y +  9f, 13f, titleColor);
         nvg.text(Fonts.REGULAR, AetherLang.localize(group.getDescription()), x + 12f, y + 26f, 10f, descColor);
+        offerHoverHelp("group:" + group.getRawName(), group.getName(), group.getDescription(),
+                x, y, w, HEADER_H, mx, my);
 
         if (isPetTrackerGroup(group)) {
             renderPetTrackerHeaderButtons(nvg, group, x + w - 12f, y + 12f, 22f, mx, my);
@@ -1427,12 +1469,10 @@ public class MainGUI extends NVGScreen {
         settingInteractionController.handleContentClick(mx, my);
     }
 
-    /** Click handler for the flat Colors / Settings renderer. */
     private void handleFlatContentClick(float mx, float my) {
         settingInteractionController.handleFlatContentClick(mx, my);
     }
 
-    /** Click handler for module detail view (right settings panel). */
     private void handleModuleSettingsPanelClick(float mx, float my) {
         settingInteractionController.handleModuleSettingsPanelClick(mx, my);
     }
@@ -1636,12 +1676,6 @@ public class MainGUI extends NVGScreen {
         context.animation.filterBarTargetW = filterBarTargetW;
         context.animation.filterBarInited = filterBarInited;
         context.animation.ddAnimAmt = ddAnimAmt;
-        context.animation.catBarAnimY = catBarAnimY;
-        context.animation.catBarFromY = catBarFromY;
-        context.animation.catBarTargetY = catBarTargetY;
-        context.animation.catBarAnimT = catBarAnimT;
-        context.animation.catBarInited = catBarInited;
-        context.animation.catBarStartNanos = catBarStartNanos;
 
         context.editor.activeSliderField = activeSliderField;
         context.editor.activeText = activeText;
@@ -2086,6 +2120,15 @@ public class MainGUI extends NVGScreen {
         return settingH(setting, width);
     }
 
+    float moduleSettingsWidth() {
+        float rightW = contW - MODULE_CAT_W - 1f;
+        return rightW - ITEM_PAD * 2f;
+    }
+
+    float moduleSettingsHeight() {
+        return contH - TOP_BAR_H - 1f - MOD_HEADER_H - 1f;
+    }
+
     void renderMainScrollbar(NVGRenderer nvg, float totalContentHeight, float scrollTop, float scrollH, float barX) {
         maxScrollY = Math.max(0f, totalContentHeight - scrollH + 16f);
         targetScrollY = Math.max(0f, Math.min(maxScrollY, targetScrollY));
@@ -2117,10 +2160,6 @@ public class MainGUI extends NVGScreen {
 
     int getActiveCategoryIndex() {
         return activeCategoryIdx;
-    }
-
-    void syncModuleCategoryBarAnimation(float targetY) {
-        syncCategoryBarAnimation(targetY);
     }
 
     Object moduleCategoryAnimationKey(SettingGroup group, boolean isAll) {
@@ -2238,6 +2277,7 @@ public class MainGUI extends NVGScreen {
         // own coordinate space under the cursor and run the value away to max.
         if (dragSetting == null && dragRangeSetting == null) {
             uiScale = Theme.UI_SCALE;
+            uiTextScale = Theme.TEXT_SCALE;
         }
         boolean sizeChanged = context.layout.lastWidth != width
                 || context.layout.lastHeight != height
@@ -2692,6 +2732,11 @@ public class MainGUI extends NVGScreen {
         float settClickY = profileClickY - 44f - SB_SEP_GAP;
         float keybindsClickY = settClickY - 44f;
         float hudPosClickY = keybindsClickY - 44f;
+        float macrosClickY = hudPosClickY - 44f;
+        if (mx >= px && mx <= px + sbClickW && my >= macrosClickY && my <= macrosClickY + 44f) {
+            dev.aether.bootstrap.AetherUiActions.toggleMacroStartMenu();
+            return true;
+        }
         if (mx >= px && mx <= px + sbClickW && my >= hudPosClickY && my <= hudPosClickY + 44f) {
             openOptionalHudEditor(minecraft);
             return true;
@@ -2714,7 +2759,7 @@ public class MainGUI extends NVGScreen {
 
     private void renderOptionalFeatureHud(NVGRenderer nvg, float dt) {
         AetherBootstrapHooks.renderConfigScreenOverlay(nvg, (float) width, (float) height, dt);
-        NotificationRenderer.render(nvg, (float) width, (float) height, dt);
+        NotificationRenderer.render(nvg, (float) width, (float) height);
     }
 
     private void openOptionalHudEditor(Minecraft minecraft) {
@@ -3141,4 +3186,3 @@ public class MainGUI extends NVGScreen {
         return cpHexH;
     }
 }
-

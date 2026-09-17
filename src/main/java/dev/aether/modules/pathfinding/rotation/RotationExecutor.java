@@ -1,13 +1,11 @@
 package dev.aether.modules.pathfinding.rotation;
 
 import dev.aether.modules.failsafe.FailsafeManager;
+import dev.aether.modules.pathfinding.rotation.strategy.TrackingRotationStrategy;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 
-/**
- * Handles smooth player rotations with GCD (game cursor distance) simulation.
- * Call {@link #update(Minecraft)} every client tick.
- */
+// smooth rotations with gcd simulation; update() every client tick
 public final class RotationExecutor {
 
     private static final Minecraft mc = Minecraft.getInstance();
@@ -18,7 +16,7 @@ public final class RotationExecutor {
     private static float             targetPitch;
     private static IRotationStrategy currStrat;
     private static boolean           isRotating = false;
-    /** GCD cached per navigation start - recomputed in rotateTo() when strategy changes. */
+    // cached per navigation start, recomputed in rotateTo() when the strategy changes
     private static double            cachedGcd  = Double.NaN;
     private static float             lastAppliedYaw;
     private static float             lastAppliedPitch;
@@ -48,11 +46,21 @@ public final class RotationExecutor {
         hasLastApplied = false;
     }
 
+    public static void track(Rotation target, float degreesPerSecond) {
+        if (FailsafeManager.shouldSuppressPestCleanerRotation(mc)) return;
+        if (isRotating && currStrat instanceof TrackingRotationStrategy tracking) {
+            targetYaw = target.yaw;
+            targetPitch = target.pitch;
+            tracking.setSpeed(degreesPerSecond);
+        } else {
+            rotateTo(target, new TrackingRotationStrategy(degreesPerSecond));
+        }
+    }
+
     public static boolean isRotating()  { return isRotating; }
     public static float   getTargetYaw() { return targetYaw; }
     public static float   getTargetPitch() { return targetPitch; }
 
-    /** Called every client tick from AetherClient. */
     public static void update() {
         Minecraft mc = Minecraft.getInstance();
         var player = mc.player;
@@ -93,7 +101,7 @@ public final class RotationExecutor {
                 || pitchDrift > EXTERNAL_ROTATION_TOLERANCE_DEGREES;
     }
 
-    /** Simulates Minecraft's GCD (game cursor distance) rounding. */
+    // simulates minecraft's gcd rounding
     private static float applyGCD(float rotation, float prevRotation) {
         return applyGCD(rotation, prevRotation, null, null);
     }

@@ -6,16 +6,7 @@ import dev.aether.renderer.NVGRenderer;
 
 import java.util.function.Consumer;
 
-/**
- * A sliding pill toggle with smooth on/off animation.
- *
- * <pre>{@code
- * Toggle t = new Toggle("Enable macro", true, v -> config.enabled = v);
- * t.setBounds(x, y, 200, 20);
- * }</pre>
- *
- * <p>The component draws a label on the left and the pill track on the right.</p>
- */
+// label on the left, sliding pill track on the right
 public class Toggle extends Component {
 
     // -- Layout ----------------------------------------------------------------

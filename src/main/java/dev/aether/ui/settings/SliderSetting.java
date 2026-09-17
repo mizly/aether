@@ -4,15 +4,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import dev.aether.util.AetherLang;
 
-/**
- * Numeric slider setting backed by a getter/setter.
- *
- * Example:
- *   new SliderSetting("Pest Threshold", 1, 20,
- *       () -> (float) AetherConfig.pestThreshold,
- *       v -> AetherConfig.pestThreshold = v.intValue())
- *     .withDecimals(0).withSuffix(" pests")
- */
+// numeric slider backed by a getter/setter
 public class SliderSetting implements Setting {
 
     private final String name;

@@ -366,6 +366,10 @@ public class AutoSellManager {
             if (shouldAbort()) {
                 return;
             }
+            if (ClientUtils.isInventoryScreenOpen()) {
+                ClientUtils.sendDebugMessage("AutoSell: closing a lingering container before resuming.");
+                ClientUtils.closeGui(client);
+            }
 
             if (MacroStateManager.getCurrentState() == MacroState.State.AUTOSELLING || isTriggeredBeforeVisitors) {
                 if (isTriggeredBeforeVisitors) {

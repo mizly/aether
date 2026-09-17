@@ -20,6 +20,7 @@ final class MainGUITextLayout {
     float settingHeight(Setting setting, float rowW) {
         float extraLines = Math.max(0, wrappedSettingLabelLineCount(setting, rowW) - 1);
         return switch (setting.getType()) {
+            case SECTION -> 46f;
             case TEXT -> {
                 TextSetting textSetting = (TextSetting) setting;
                 if (!textSetting.isMultiline()) {

@@ -6,6 +6,10 @@ import dev.aether.modules.pathfinding.debug.PathVisualizer;
 import dev.aether.modules.pathfinding.etherwarp.EtherwarpHelper;
 import dev.aether.modules.pathfinding.execution.EtherwarpExecutor;
 import dev.aether.modules.pathfinding.execution.FlyExecutor;
+import dev.aether.modules.pathfinding.execution.FlightGuidance;
+import dev.aether.modules.pathfinding.execution.FlightPathClearance;
+import dev.aether.modules.pathfinding.movement.FlightPathSmoother;
+import dev.aether.modules.pathfinding.movement.FlightCollisionChecker;
 import dev.aether.modules.pathfinding.execution.PathExecutor;
 import dev.aether.modules.pathfinding.movement.PathSmoother;
 import dev.aether.modules.pathfinding.movement.WalkabilityChecker;
@@ -26,8 +30,6 @@ import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -37,9 +39,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/**
- * Central coordinator for all pathfinding operations.
- */
 public final class PathfindingManager {
 
     private enum NavigationMode {
@@ -60,6 +59,8 @@ public final class PathfindingManager {
     private static final double ETHERWARP_WALK_ASSIST_GOAL_TOLERANCE = 0.2;
     private static final int ETHERWARP_WALK_ASSIST_MAX_CANDIDATES = 12;
     private static final int ETHERWARP_REPATH_MAX_RETRIES = 3;
+    private static final int FLY_REPATH_MAX_RETRIES = 3;
+    private static int flyRepathCount;
 
     private static volatile boolean navigating = false;
     private static volatile int goalX, goalY, goalZ;
@@ -79,11 +80,12 @@ public final class PathfindingManager {
     private static double walkGoalCenterX = 0.5;
     private static double walkGoalCenterZ = 0.5;
     private static boolean walkSneakLatched = false;
+    private static boolean walkSneakWhileCentering = true;
     private static final AtomicBoolean abortFlag = new AtomicBoolean(false);
 
     // Held so we can abort the current async run
     private static volatile AStarPathfinder currentPathfinder = null;
-    /** Invalidates late async A* results when a newer route has already started. */
+    // invalidates late async a* results when a newer route already started
     private static volatile long pathSearchToken = 0L;
     private static volatile EtherwarpPathfinder currentEtherwarpPathfinder = null;
     private static volatile long etherwarpSearchToken = 0L;
@@ -145,6 +147,7 @@ public final class PathfindingManager {
 
         // Detect re-plan requests from PathExecutor
         if (activeMode == NavigationMode.WALK && executor.getState() == PathExecutor.State.REPLANNING) {
+            walkSneakLatched = executor.isSneakLatched();
             doStartPathfind(mc, goalX, goalY, goalZ, false);
             return;
         }
@@ -186,6 +189,11 @@ public final class PathfindingManager {
                 mc.player.onUpdateAbilities();
             }
             flyExecutor.tick(mc);
+            if (flyExecutor.getState() == FlyExecutor.State.IDLE && flyRepathCount < FLY_REPATH_MAX_RETRIES) {
+                flyRepathCount++;
+                doStartPathfind(mc, goalX, goalY, goalZ, true, true);
+                return;
+            }
             if (flyExecutor.getState() == FlyExecutor.State.FINISHED
                     || flyExecutor.getState() == FlyExecutor.State.IDLE) {
                 navigating = false;
@@ -202,21 +210,29 @@ public final class PathfindingManager {
             activeMode = NavigationMode.NONE;
             clearTransientDebugRenderingIfActive();
             return;
-        } else {
-            NavigationMode modeBeforeTick = activeMode;
-            executor.tick(mc);
-            if (PathVisualizer.shouldRender() && activeMode == modeBeforeTick) {
-                PathVisualizer.updateExecution(executor.getWaypointIndex(), executor.getCamTargetIdx());
+        } else if (activeMode == NavigationMode.WALK) {
+            if (currentPathfinder != null) {
+                return;
             }
-            if (activeMode == modeBeforeTick
-                    && (executor.getState() == PathExecutor.State.FINISHED
-                    || executor.getState() == PathExecutor.State.FAILED)) {
-                if (executor.getState() == PathExecutor.State.FAILED && walkFailureCallback != null) {
-                    walkFailureCallback.run();
-                }
+            long searchTokenBeforeTick = pathSearchToken;
+            executor.tick(mc);
+            if (activeMode != NavigationMode.WALK || searchTokenBeforeTick != pathSearchToken) {
+                return;
+            }
+            if (PathVisualizer.shouldRender()) {
+                PathVisualizer.updateExecution(executor.getWaypointIndex(), executor.getCamTargetIdx());
+                PathVisualizer.updateWalkingTargets(executor.getAimPoint(), executor.getMovementDirection());
+            }
+            if (executor.getState() == PathExecutor.State.FINISHED
+                    || executor.getState() == PathExecutor.State.FAILED) {
+                Runnable failureCallback = executor.getState() == PathExecutor.State.FAILED
+                        ? walkFailureCallback : null;
                 navigating = false;
                 activeMode = NavigationMode.NONE;
                 clearTransientDebugRenderingIfActive();
+                if (failureCallback != null) {
+                    failureCallback.run();
+                }
             }
         }
     }
@@ -336,9 +352,23 @@ public final class PathfindingManager {
         doStartPathfind(mc, x, y, z, false);
     }
 
-    /**
-     * Runs A* without any movement - results are shown in PathVisualizer only.
-     */
+    // walks the whole way upright: no crouch on the approach and none while centring on the goal
+    public static void startUprightWalk(Minecraft mc, Vec3 target, Runnable onFinished, Runnable onFailed,
+                                        boolean centerOnGoal) {
+        int x = Mth.floor(target.x);
+        int y = Mth.floor(target.y);
+        int z = Mth.floor(target.z);
+        disableTransientDebugRendering();
+        resetWalkExecutionOptions();
+        walkGoalCenterX = target.x - x;
+        walkGoalCenterZ = target.z - z;
+        configureWalkExecution(null, onFinished, onFailed, true, centerOnGoal ? 0.35 : 0.5, centerOnGoal);
+        walkStickySneakDistance = -1.0;
+        walkSneakWhileCentering = false;
+        doStartPathfind(mc, x, y, z, false);
+    }
+
+    // runs a* without moving - results only show in PathVisualizer
     public static void startPathTest(Minecraft mc, int x, int y, int z) {
         if (mc.player == null || mc.level == null) return;
 
@@ -447,6 +477,8 @@ public final class PathfindingManager {
         int ty = (int) Math.floor(target.y);
         int tz = (int) Math.floor(target.z);
 
+        rotationTarget = null;
+        walkRequireFullPath = false;
         configureWalkExecution(target.add(0, -10.0, 0), onFinished, null, !isFirst, 0.25, true);
         walkGoalCenterX = target.x - tx;
         walkGoalCenterZ = target.z - tz;
@@ -516,7 +548,22 @@ public final class PathfindingManager {
         executor.setSneakLatched(walkSneakLatched);
     }
 
+    public static void setWalkLookTarget(Vec3 lookTarget) {
+        walkLookTarget = lookTarget;
+        rotationTarget = null;
+        executor.setRotationTarget(null);
+        executor.setLookTarget(lookTarget);
+    }
+
+    public static void setWalkRotationTarget(Entity target) {
+        rotationTarget = target;
+        walkLookTarget = null;
+        executor.setLookTarget(null);
+        executor.setRotationTarget(target);
+    }
+
     private static void resetWalkExecutionOptions() {
+        rotationTarget = null;
         walkLookTarget = null;
         walkFinishedCallback = null;
         walkFailureCallback = null;
@@ -528,6 +575,7 @@ public final class PathfindingManager {
         walkGoalCenterX = 0.5;
         walkGoalCenterZ = 0.5;
         walkSneakLatched = false;
+        walkSneakWhileCentering = true;
     }
 
     private static void resetEtherwarpExecutionOptions() {
@@ -608,6 +656,11 @@ public final class PathfindingManager {
     // --- Internal ------------------------------------------------------------
 
     private static void doStartPathfind(Minecraft mc, int x, int y, int z, boolean fly) {
+        doStartPathfind(mc, x, y, z, fly, false);
+    }
+
+    private static void doStartPathfind(Minecraft mc, int x, int y, int z, boolean fly, boolean retry) {
+        if (!retry) flyRepathCount = 0;
         if (navigating || currentPathfinder != null) {
             abortCurrentNavigation(mc);
         }
@@ -622,7 +675,9 @@ public final class PathfindingManager {
         // Create checker once; reused for solid-check, pathfinding, and smoothing.
         final WalkabilityChecker sharedChecker = mc.level != null ? new WalkabilityChecker(mc.level) : null;
         final int finalY;
-        FlyPathProcessor flyProcessor = fly && sharedChecker != null ? new FlyPathProcessor(sharedChecker) : null;
+        FlightCollisionChecker flightChecker = fly && sharedChecker != null
+                ? new FlightCollisionChecker(sharedChecker) : null;
+        FlyPathProcessor flyProcessor = flightChecker != null ? new FlyPathProcessor(flightChecker) : null;
         if (flyProcessor != null && !flyProcessor.hasFlightClearance(x, y, z)
                 && flyProcessor.hasFlightClearance(x, y + 1, z)) {
             finalY = y + 1;
@@ -636,16 +691,11 @@ public final class PathfindingManager {
         goalY = finalY;
         goalZ = z;
 
-        if (mc.player != null) {
+        if (mc.player != null && (!fly || PathVisualizer.isTransientSessionActive() && flyRepathCount == 0)) {
             ClientUtils.sendMessage("\u00A7eFinding path to "
                             + x + ", " + finalY + ", " + z + "...", false);
         }
 
-        final int sx = (int) Math.floor(mc.player.getX());
-        final int sz = (int) Math.floor(mc.player.getZ());
-        final int sy = resolveStartY(sharedChecker, mc.player.getX(), mc.player.getY(), mc.player.getZ());
-
-        PathPosition start  = new PathPosition(sx, sy, sz);
         PathPosition target = new PathPosition(x, finalY, z);
 
         if (fly) {
@@ -656,6 +706,17 @@ public final class PathfindingManager {
                 if (mc.player != null) {
                     ClientUtils.sendMessage("\u00A7cCannot fly pathfind without a loaded world.", false);
                 }
+                return;
+            }
+
+            PathPosition start = flightChecker.findStart(mc.player.position(), mc.player.getBoundingBox());
+            if (start == null) {
+                boolean announce = PathVisualizer.isTransientSessionActive();
+                navigating = false;
+                activeMode = NavigationMode.NONE;
+                clearTransientDebugRenderingIfActive();
+                ClientUtils.sendDebugMessage("No reachable fly route start near the player.");
+                if (announce) ClientUtils.sendMessage("\u00A7cNo fly path found!", false);
                 return;
             }
 
@@ -673,6 +734,9 @@ public final class PathfindingManager {
                         handleFlyResult(mc, result, config, x, finalY, z, startMs, pathfinder);
                     }));
         } else {
+            PathPosition start = new PathPosition(Mth.floor(mc.player.getX()),
+                    resolveStartY(sharedChecker, mc.player.getX(), mc.player.getY(), mc.player.getZ()),
+                    Mth.floor(mc.player.getZ()));
             // Walk pathfinding - async via CompletableFuture work-stealing pool
             // sharedChecker is reused for pathfinding and smoothing (no redundant allocation)
             PathfinderConfiguration config = createWalkPathfinderConfiguration(sharedChecker, true);
@@ -1030,21 +1094,24 @@ public final class PathfindingManager {
                     false);
         }
 
+        resetWalkExecutionOptions();
+        configureWalkExecution(null, () -> mc.execute(() -> {
+            if (abortFlag.get() || searchToken != etherwarpSearchToken) {
+                return;
+            }
+            List<Node> etherwarpPath = new ArrayList<>(plan.etherwarpPath());
+            if (etherwarpPath.isEmpty() || etherwarpPath.size() <= 1) {
+                clearEtherwarpSneakState(mc);
+                navigating = false;
+                activeMode = NavigationMode.NONE;
+                clearTransientDebugRenderingIfActive();
+                return;
+            }
+            startEtherwarpExecution(mc, etherwarpPath, finalTarget);
+        }), etherwarpFailureCallback, true, ETHERWARP_WALK_ASSIST_GOAL_TOLERANCE, false);
+        walkStickySneakDistance = -1.0;
         executor.start(navPath, launch.flooredX(), launch.flooredY(), launch.flooredZ(), true, null,
-                () -> mc.execute(() -> {
-                    if (abortFlag.get() || searchToken != etherwarpSearchToken) {
-                        return;
-                    }
-                    List<Node> etherwarpPath = new ArrayList<>(plan.etherwarpPath());
-                    if (etherwarpPath.isEmpty() || etherwarpPath.size() <= 1) {
-                        clearEtherwarpSneakState(mc);
-                        navigating = false;
-                        activeMode = NavigationMode.NONE;
-                        clearTransientDebugRenderingIfActive();
-                        return;
-                    }
-                    startEtherwarpExecution(mc, etherwarpPath, finalTarget);
-                }));
+                walkFinishedCallback);
         executor.setAllowRotation(true);
         executor.setAllowReplan(true);
         executor.setPreciseGoalTolerance(ETHERWARP_WALK_ASSIST_GOAL_TOLERANCE);
@@ -1083,6 +1150,12 @@ public final class PathfindingManager {
                     ClientUtils.sendMessage("\u00A7cEtherwarp " + failureLabel + " after "
                                     + ETHERWARP_REPATH_MAX_RETRIES + " replans. Cancelling.",
                             false);
+                }
+                navigating = false;
+                activeMode = NavigationMode.NONE;
+                clearTransientDebugRenderingIfActive();
+                if (etherwarpFailureCallback != null) {
+                    etherwarpFailureCallback.run();
                 }
                 return true;
             }
@@ -1194,6 +1267,7 @@ public final class PathfindingManager {
         executor.setExactGoalCentering(walkPreciseGoalTolerance != 0.5);
         executor.setStickySneakDistance(walkStickySneakDistance);
         executor.setSneakLatched(walkSneakLatched);
+        executor.setSneakWhileCentering(walkSneakWhileCentering);
         executor.setGoalCenterOffsets(walkGoalCenterX, walkGoalCenterZ);
         if (walkLookTarget != null) {
             executor.setLookTarget(walkLookTarget);
@@ -1220,10 +1294,12 @@ public final class PathfindingManager {
         }
 
         if (!hasPath || positions.isEmpty()) {
+            boolean announce = PathVisualizer.isTransientSessionActive();
             navigating = false;
             activeMode = NavigationMode.NONE;
             clearTransientDebugRenderingIfActive();
-            if (mc.player != null) {
+            ClientUtils.sendDebugMessage("No fly path found.");
+            if (mc.player != null && announce) {
                 ClientUtils.sendMessage("\u00A7cNo fly path found!", false);
             }
             return;
@@ -1240,10 +1316,12 @@ public final class PathfindingManager {
         }
 
         if (smoothed.isEmpty()) {
+            boolean announce = PathVisualizer.isTransientSessionActive();
             navigating = false;
             activeMode = NavigationMode.NONE;
             clearTransientDebugRenderingIfActive();
-            if (mc.player != null) {
+            ClientUtils.sendDebugMessage("Fly path build failed.");
+            if (mc.player != null && announce) {
                 ClientUtils.sendMessage("\u00A7cFly path build failed!", false);
             }
             return;
@@ -1258,7 +1336,7 @@ public final class PathfindingManager {
 
         ClientUtils.sendDebugMessage("fly path built: " + smoothed.size() + " waypoint(s), "
                 + exploredCount + " explored, " + elapsedMs + "ms search");
-        if (mc.player != null) {
+        if (mc.player != null && PathVisualizer.isTransientSessionActive() && flyRepathCount == 0) {
             ClientUtils.sendMessage("\u00A7eFly path result: " + resultTypeStr
                             + "\u00A7e | explored: " + exploredCount
                             + " | waypoints: " + smoothed.size()
@@ -1326,11 +1404,7 @@ public final class PathfindingManager {
         return node;
     }
 
-    /**
-     * Normalizes the player's current feet Y onto the walk layer used by the pathfinder.
-     * Thin floor blocks like carpet should keep the player on the current block, while
-     * slabs/stairs still bump the start node up into the air block above them.
-     */
+    // thin floors like carpet keep the player on the current block, slabs and stairs bump the start node into the air block above
     private static int resolveStartY(WalkabilityChecker checker, double playerX, double playerY, double playerZ) {
         int x = Mth.floor(playerX);
         int y = Mth.floor(playerY);
@@ -1347,83 +1421,20 @@ public final class PathfindingManager {
         return Mth.ceil(playerY);
     }
 
-    /**
-     * Simplifies a fly path using line-of-sight raycasting (FarmHelper smoothPath style).
-     * For each node, tries to skip as many subsequent nodes as possible while still
-     * having a clear 4-corner hitbox path. Drastically reduces waypoint count on
-     * open paths (e.g. straight flight at altitude).
-     */
     private static List<Node> smoothFlyPath(Minecraft mc, List<Node> path) {
-        if (mc.level == null || path.size() < 3) return path;
-
-        List<Node> smoothed = new ArrayList<>();
-        smoothed.add(path.get(0));
-        int lowerIdx = 0;
-
-        while (lowerIdx < path.size() - 1) {
-            PathPosition from = path.get(lowerIdx).position;
-            int lastValid = lowerIdx + 1;
-
-            // Try extending as far forward as possible with clear LOS
-            for (int upper = lowerIdx + 2; upper < path.size(); upper++) {
-                PathPosition to = path.get(upper).position;
-                if (hasFreePath(mc, from, to)) {
-                    lastValid = upper;
-                } else {
-                    break; // path is blocked - stop extending
-                }
-            }
-
-            smoothed.add(path.get(lastValid));
-            lowerIdx = lastValid;
-        }
-
-        return smoothed;
+        if (mc.level == null) return List.of();
+        return FlightPathSmoother.smooth(path, (from, to) -> hasFreePath(mc, from, to));
     }
 
-    /**
-     * Checks 4-corner line-of-sight between two path positions at feet+head height.
-     * Uses the same offsets as FarmHelper's traversable() check.
-     */
-    private static final double[][] LOS_OFFSETS = {
-        {0.05, 0.05}, {0.05, 0.95}, {0.95, 0.05}, {0.95, 0.95}
-    };
-
     private static boolean hasFreePath(Minecraft mc, PathPosition from, PathPosition to) {
-        double fx = from.flooredX(), fz = from.flooredZ();
-        double tx = to.flooredX(),   tz = to.flooredZ();
-        double fy = from.flooredY(), ty = to.flooredY();
-
-        // Check at 4 heights: feet bottom, feet top, head bottom, head top
-        double[] checkY = { fy + 0.1, fy + 0.9, fy + 1.1, fy + 1.9 };
-        double[] checkTY = { ty + 0.1, ty + 0.9, ty + 1.1, ty + 1.9 };
-
-        for (double[] xzOff : LOS_OFFSETS) {
-            for (int h = 0; h < checkY.length; h++) {
-                Vec3 start = new Vec3(
-                        fx + xzOff[0], checkY[h], fz + xzOff[1]);
-                Vec3 end = new Vec3(
-                        tx + xzOff[0], checkTY[h], tz + xzOff[1]);
-                HitResult hit = mc.level.clip(
-                        new ClipContext(
-                                start, end,
-                                ClipContext.Block.COLLIDER,
-                                ClipContext.Fluid.NONE,
-                                mc.player));
-                if (hit.getType() == HitResult.Type.BLOCK) {
-                    return false;
-                }
-            }
-        }
-        return true;
+        return FlightPathClearance.isClear(mc,
+                FlightGuidance.waypoint(from.flooredX(), from.flooredY(), from.flooredZ()),
+                FlightGuidance.waypoint(to.flooredX(), to.flooredY(), to.flooredZ()), 0.05);
     }
 
     // --- Utilities -----------------------------------------------------------
 
-    /**
-     * Converts a PathPosition collection (from PathfinderResult) to a Node list
-     * with inferred MoveTypes for PathVisualizer coloring.
-     */
+    // infers MoveTypes so PathVisualizer can colour them
     private static List<Node> toNodeList(Collection<PathPosition> positions,
                                           PathfinderConfiguration config) {
         if (positions == null || positions.isEmpty()) return Collections.emptyList();
@@ -1487,16 +1498,11 @@ public final class PathfindingManager {
     private static final int  SHIFT_Z = 12;
     private static final int  SHIFT_X = 38;
 
-    /** Minimum distance between keynodes on straight segments. */
     private static final double KEYNODE_MIN_SPACING  = 12.0;
-    /** Direction change (degrees) that forces a new keynode regardless of distance. */
+    // degrees of direction change that forces a keynode regardless of distance
     private static final double KEYNODE_ANGLE_THRESH = 25.0;
 
-    /**
-     * Subsamples a smoothed path so keynodes are spaced >= KEYNODE_MIN_SPACING apart,
-     * but always kept when the horizontal direction changes by >= KEYNODE_ANGLE_THRESH degrees.
-     * First and last nodes are always kept.
-     */
+    // spaces keynodes at least KEYNODE_MIN_SPACING apart, but always keeps a turn past KEYNODE_ANGLE_THRESH, plus the first and last node
     private static List<Node> subsampleKeynodes(List<Node> smoothed) {
         if (smoothed.size() <= 2) return new ArrayList<>(smoothed);
         List<Node> result = new ArrayList<>();

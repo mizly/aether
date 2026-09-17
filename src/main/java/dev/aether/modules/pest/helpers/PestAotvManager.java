@@ -64,10 +64,7 @@ public class PestAotvManager {
         finishPreparationAotv(client, false);
     }
 
-    /**
-     * Drives the roof AOTV used by the shared PRE stage. PestDestroyer keeps
-     * ownership of roof rescans that happen later during automatic cleaning.
-     */
+    // drives the roof aotv for the shared PRE stage; PestDestroyer keeps the rescans that happen later during cleaning
     public static void updatePreparationAotv(Minecraft client) {
         if (!preparationAotvActive || client == null || client.player == null
                 || client.level == null || client.options == null) {
@@ -154,6 +151,7 @@ public class PestAotvManager {
     }
 
     private static void performAotvToRoof(Minecraft client, boolean preparation) throws InterruptedException {
+        if (MacroWorkerThread.getInstance().isCancelled()) return;
         boolean ready = PestClientThread.call(
                 client, () -> client.player != null && client.gameMode != null, false);
         if (!ready) return;
@@ -164,7 +162,7 @@ public class PestAotvManager {
             ClientUtils.sendDebugMessage("PestAotv: no roof detected above player (2..20). Aborting AOTV.");
             isSneakingForAotv = false;
             // Ensure sneak key is released on the client thread
-            client.execute(() -> {
+            MacroWorkerThread.runOnClient(client, () -> {
                 if (client.options != null) ClientUtils.setKeyMappingState(client.options.keyShift, false);
                 if (preparation) {
                     finishPreparationAotv(client, false);
@@ -180,12 +178,13 @@ public class PestAotvManager {
         if (AetherConfig.BREAK_BLOCKS_BEFORE_AOTV.get()) {
             Vec3 breakTarget = PestClientThread.call(client,
                     () -> Vec3.atCenterOf(client.player.blockPosition().above(2)), Vec3.ZERO);
-            client.execute(() -> ClientUtils.lookAt(client.player, breakTarget));
+            MacroWorkerThread.runOnClient(client, () -> ClientUtils.lookAt(client.player, breakTarget));
             PestClientThread.run(client, ClientUtils::performAttackClick);
             Thread.sleep(100);
         }
 
-        isSneakingForAotv = true;
+        if (MacroWorkerThread.getInstance().isCancelled()) return;
+        PestClientThread.run(client, () -> isSneakingForAotv = true);
         AimOrigin aimOrigin = PestClientThread.call(client,
                 () -> new AimOrigin(client.player.getEyePosition(), client.player.getYRot()),
                 null);
@@ -211,14 +210,16 @@ public class PestAotvManager {
 
         PestClientThread.run(client, () -> RotationManager.initiateRotation(client, targetPos, rotTime));
         ClientUtils.waitForRotationToComplete(targetMcPitch, rotTime);
+        if (MacroWorkerThread.getInstance().isCancelled()) return;
 
         int aotvSlot = GearManager.findAspectOfTheVoidSlot(client);
         if (aotvSlot != -1 && aotvSlot < 9) {
             GearManager.swapToAOTVSync(client);
+            if (MacroWorkerThread.getInstance().isCancelled()) return;
 
             // Capture Y on the main thread (via execute) so visibility is guaranteed,
             // then fire the normal use key path immediately after.
-            ClientUtils.performUseClick(() -> {
+            MacroWorkerThread.runOnClient(client, () -> ClientUtils.performUseClick(() -> {
                 double startY = client.player.getY();
                 if (preparation) {
                     preparationAotvStartY = startY;
@@ -228,12 +229,12 @@ public class PestAotvManager {
                 }
                 ClientUtils.sendDebugMessage("[PestAotv] Firing AOTV (slot=" + aotvSlot
                         + ", startY=" + String.format("%.2f", startY) + ")");
-            });
+            }));
             // Worker thread exits immediately - no sleep needed
             } else {
                 ClientUtils.sendDebugMessage("[PestAotv] No AOTV found in hotbar. Aborting AOTV sequence.");
                 isSneakingForAotv = false;
-                client.execute(() -> {
+                MacroWorkerThread.runOnClient(client, () -> {
                     if (client.options != null) ClientUtils.setKeyMappingState(client.options.keyShift, false);
                     if (preparation) {
                         finishPreparationAotv(client, false);
@@ -249,13 +250,13 @@ public class PestAotvManager {
             }
     }
 
-    /** Performs the post-roof view reset on the worker after its AOTV phase has ended. */
+    // runs on the worker after its aotv phase has ended
     public static void rotateDownAfterAotv(Minecraft client) throws InterruptedException {
         rotateDownAfterAotv(client, false);
     }
 
     public static void rotateDownAfterAotv(Minecraft client, boolean ballsackOnPlot) throws InterruptedException {
-        if (client == null || client.player == null) {
+        if (client == null || client.player == null || MacroWorkerThread.getInstance().isCancelled()) {
             return;
         }
 
@@ -266,7 +267,7 @@ public class PestAotvManager {
                 : (float) (-30.0 + Math.random() * 60.0);
         int rotTime = (int) (AetherConfig.ROTATION_TIME.get() * (0.92 + Math.random() * 0.16));
         AtomicBoolean started = new AtomicBoolean(false);
-        client.execute(() -> {
+        MacroWorkerThread.runOnClient(client, () -> {
             if (client.player == null) {
                 return;
             }
@@ -275,10 +276,11 @@ public class PestAotvManager {
         });
 
         long deadline = System.currentTimeMillis() + Math.max(1_500L, rotTime + 1_000L);
-        while (!started.get() && System.currentTimeMillis() < deadline) {
+        while (!MacroWorkerThread.getInstance().isCancelled() && !started.get() && System.currentTimeMillis() < deadline) {
             MacroWorkerThread.sleep(10);
         }
-        while (started.get() && RotationManager.isRotating() && System.currentTimeMillis() < deadline) {
+        while (!MacroWorkerThread.getInstance().isCancelled() && started.get()
+                && RotationManager.isRotating() && System.currentTimeMillis() < deadline) {
             MacroWorkerThread.sleep(20);
         }
 

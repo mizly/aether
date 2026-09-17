@@ -8,15 +8,8 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/**
- * Sends native desktop notifications when a failsafe fires.
- *
- * <p>On Linux this shells out to {@code notify-send} (libnotify), which delivers over the
- * {@code org.freedesktop.Notifications} D-Bus interface. That is exactly what Wayland
- * notification daemons used on Hyprland - mako, dunst, swaync - implement, so this is
- * Hyprland-compatible out of the box as long as one of those daemons is running.
- * macOS uses {@code osascript} and Windows uses a PowerShell toast as best-effort fallbacks.
- */
+// linux shells out to notify-send, which is what mako/dunst/swaync implement, so wayland works out of the box
+// macos uses osascript and windows a powershell toast as best-effort fallbacks
 public final class DesktopNotificationManager {
 
     private static final String APP_NAME = "Aether";
@@ -26,21 +19,13 @@ public final class DesktopNotificationManager {
         return thread;
     });
 
-    /**
-     * Resolved absolute path to {@code notify-send}, or {@code null} once we've looked and found
-     * nothing. Wrapped so {@code null} inside the holder is distinguishable from "not yet resolved".
-     */
+    // wrapped so null inside the holder means "looked and found nothing" rather than "not resolved yet"
     private static volatile String[] notifySendPathHolder;
 
     private DesktopNotificationManager() {
     }
 
-    /**
-     * Posts a desktop notification off the game thread.
-     *
-     * @param critical {@code true} for a "stop" failsafe (higher urgency), {@code false} for
-     *     an "ignore"/detected failsafe.
-     */
+    // critical raises the urgency for a stop failsafe
     public static void notify(String title, String body, boolean critical) {
         String safeTitle = title == null ? APP_NAME : title;
         String safeBody = body == null ? "" : body;
@@ -88,15 +73,7 @@ public final class DesktopNotificationManager {
                 body);
     }
 
-    /**
-     * Resolves an absolute path to {@code notify-send}.
-     *
-     * <p>We can't rely on {@code PATH} alone: when the game is started from a GUI launcher
-     * (rather than a shell) the JVM often inherits a minimal {@code PATH} that omits per-user
-     * package dirs. This is especially common on Nix/NixOS, where binaries live under
-     * {@code ~/.nix-profile/bin} or {@code /etc/profiles/per-user/<user>/bin}. So we search
-     * {@code PATH} first, then a set of well-known locations, and cache the result.
-     */
+    // a gui launcher hands the jvm a minimal PATH that often misses per-user package dirs (nix especially), so search PATH first then the well-known locations
     private static String resolveNotifySend() {
         String[] holder = notifySendPathHolder;
         if (holder != null) {

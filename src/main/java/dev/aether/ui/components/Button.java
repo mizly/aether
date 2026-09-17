@@ -4,18 +4,7 @@ import dev.aether.ui.util.Colors;
 import dev.aether.ui.util.Fonts;
 import dev.aether.renderer.NVGRenderer;
 
-/**
- * A rounded button with lerped hover and press colour transitions.
- *
- * <h3>Builder usage</h3>
- * <pre>{@code
- * Button btn = Button.builder("Save", 120, 32)
- *         .accent(true)
- *         .onPress(() -> saveConfig())
- *         .build();
- * btn.setPosition(x, y);
- * }</pre>
- */
+// rounded button with lerped hover and press transitions
 public class Button extends Component {
 
     // -- Animation -------------------------------------------------------------
@@ -65,10 +54,8 @@ public class Button extends Component {
             this.height = height;
         }
 
-        /** Makes the button use the accent (red) colour. */
         public Builder accent(boolean accent) { this.accent = accent; return this; }
 
-        /** Callback invoked when the button is clicked. */
         public Builder onPress(Runnable onPress) { this.onPress = onPress; return this; }
 
         public Button build() { return new Button(label, width, height, accent, onPress); }

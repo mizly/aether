@@ -8,9 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/**
- * Prevent null from becoming the focused widget, avoiding NPEs in focus navigation.
- */
+// stops null becoming the focused widget, which npes in focus navigation
 @Mixin(AbstractContainerEventHandler.class)
 public abstract class MixinContainerEventHandler {
 

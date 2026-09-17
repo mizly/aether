@@ -1,7 +1,9 @@
 package dev.aether.modules.failsafe;
 
 import dev.aether.config.AetherConfig;
+import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
+import dev.aether.macro.fishing.FishingMacroManager;
 import dev.aether.modules.discord.DiscordRemoteControlManager;
 import dev.aether.modules.discord.DiscordStatusManager;
 import dev.aether.modules.pest.ManualPestManager;
@@ -58,6 +60,8 @@ public final class FailsafeManager {
         GhostBlockFailsafe.reset();
         DirtFailsafe.reset();
         RotationFailsafe.reset();
+        PlayerNearbyFailsafe.reset();
+        TeleportFailsafe.reset();
         FailsafeTestManager.reset();
     }
 
@@ -68,6 +72,8 @@ public final class FailsafeManager {
         GhostBlockFailsafe.reset();
         DirtFailsafe.reset();
         RotationFailsafe.reset();
+        PlayerNearbyFailsafe.reset();
+        TeleportFailsafe.reset();
     }
 
     public static void syncSelectedSlotFromClient(Minecraft client) {
@@ -95,6 +101,8 @@ public final class FailsafeManager {
         GhostBlockFailsafe.tick(client);
         DirtFailsafe.tick(client);
         RotationFailsafe.tick(client);
+        PlayerNearbyFailsafe.tick(client);
+        TeleportFailsafe.tick(client);
     }
 
     public static void onBlockBreak() {
@@ -322,6 +330,21 @@ public final class FailsafeManager {
                         : AetherConfig.FAILSAFE_ROTATION_ACTION.get());
     }
 
+    public static FailsafeAction getPlayerNearbyAction() {
+        return FailsafeAction.fromConfig(AetherConfig.FAILSAFE_PLAYER_NEARBY_ACTION.get());
+    }
+
+    public static FailsafeAction getTpCheckAction() {
+        return FailsafeAction.fromConfig(AetherConfig.FAILSAFE_TP_CHECK_ACTION.get());
+    }
+
+    // the fishing failsafes only look while the fish are being caught, not while a restart route is walked
+    static boolean isFishingMonitored() {
+        return MacroStateManager.getCurrentState() == MacroState.State.FISHING
+                && FishingMacroManager.isActive()
+                && !FishingMacroManager.isRestarting();
+    }
+
     public static FailsafeAction getWorldChangeAction() {
         return FailsafeAction.fromConfig(AetherConfig.FAILSAFE_WORLD_CHANGE_ACTION.get());
     }
@@ -372,6 +395,20 @@ public final class FailsafeManager {
             return;
         }
 
+        if (action == FailsafeAction.RESTART) {
+            if (!FishingMacroManager.canRestartInNewLobby()) {
+                ClientUtils.sendMessage("\u00A7cFailsafe triggered: " + details + " "
+                        + AetherLang.localize("No restart route selected, macro stopped."), false);
+                MacroStateManager.stopMacro(client, debugReason + " (no restart route)", false);
+                return;
+            }
+            ClientUtils.sendMessage("\u00A7eFailsafe triggered: " + details + " "
+                    + AetherLang.localize("Restarting in a new lobby."), false);
+            FishingMacroManager.restartInNewLobby(client);
+            ClientUtils.sendDebugMessage(debugReason + " (restart in new lobby)");
+            return;
+        }
+
         if (action == FailsafeAction.CUSTOM) {
             ClientUtils.sendMessage("\u00A7eFailsafe triggered: " + details + " " + AetherLang.localize("Running custom replay."),
                     false);
@@ -389,6 +426,7 @@ public final class FailsafeManager {
             case STOP -> "Macro stopped.";
             case CUSTOM -> "Custom replay started.";
             case IGNORE -> "Ignored.";
+            case RESTART -> "Restarting in a new lobby.";
         };
     }
 

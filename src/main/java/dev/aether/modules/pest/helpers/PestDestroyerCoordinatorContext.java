@@ -7,10 +7,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.Set;
 
-/**
- * Bridges the destroyer runtime to its specialized controllers. This keeps
- * controller wiring out of the state-machine coordinator.
- */
+// keeps controller wiring out of the state-machine coordinator
 final class PestDestroyerCoordinatorContext
         implements PestTargetController.Context,
                 PestEquipmentController.Context,

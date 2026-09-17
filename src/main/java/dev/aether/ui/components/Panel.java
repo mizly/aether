@@ -7,18 +7,7 @@ import dev.aether.renderer.NVGRenderer;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A draggable, rounded panel window that clips its children.
- *
- * <p>Children are positioned relative to the panel's top-left corner and
- * clipped to the content area (below the title bar).</p>
- *
- * <h3>Example</h3>
- * <pre>{@code
- * Panel panel = new Panel("Settings", 100, 100, 300, 400);
- * panel.add(new Button(...));
- * }</pre>
- */
+// children are positioned relative to the panel's top-left and clipped to the content area below the title bar
 public class Panel extends Component {
 
     // -- Layout constants ------------------------------------------------------
@@ -188,8 +177,6 @@ public class Panel extends Component {
     public String getTitle() { return title; }
     public Panel setTitle(String title) { this.title = title; return this; }
 
-    /** Returns the Y coordinate of the top of the content area (below the title bar). */
     public float getContentY() { return y + TITLE_H; }
-    /** Returns the height of the content area (panel height minus title bar). */
     public float getContentHeight() { return height - TITLE_H; }
 }

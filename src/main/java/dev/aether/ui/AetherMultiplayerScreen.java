@@ -22,11 +22,7 @@ import net.minecraft.client.multiplayer.ServerList;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.network.chat.Component;
 
-/**
- * Custom-styled multiplayer server list screen.
- * Fully replaces {@link net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen}
- * via {@link dev.aether.mixin.MixinJoinMultiplayerScreen}.
- */
+// replaces the vanilla JoinMultiplayerScreen via MixinJoinMultiplayerScreen
 public class AetherMultiplayerScreen extends Screen {
 
     // -- Layout ----------------------------------------------------------------

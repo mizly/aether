@@ -115,16 +115,11 @@ public final class EtherwarpExecutor {
             return;
         }
 
-        if (!RotationUtils.isLookingAt(
-                mc.player.getYRot(),
-                mc.player.getXRot(),
-                eyePos,
-                targetPoint,
-                2.0f)) {
+        if (!EtherwarpHelper.isLookingAtTarget(mc, eyePos, next.position)) {
             if (!RotationManager.isRotating() || now - stateSince > ROTATION_RETRY_MS) {
                 RotationManager.cancelRotation();
                 RotationUtils.Rotation lookRotation = RotationUtils.calculateLookAt(eyePos, targetPoint);
-                RotationManager.rotateToYawPitch(mc, lookRotation.yaw, lookRotation.pitch, 80L);
+                RotationManager.rotateToExactYawPitch(mc, lookRotation.yaw, lookRotation.pitch, 80L);
                 state = State.ROTATING;
                 stateSince = now;
             }
@@ -136,7 +131,8 @@ public final class EtherwarpExecutor {
             return;
         }
 
-        ClientUtils.performUseClick();
+        RotationManager.cancelRotation();
+        ClientUtils.performUseClickInstant();
         warpAttempts++;
         warpStartPos = mc.player.position();
         state = State.WAITING_FOR_WARP;

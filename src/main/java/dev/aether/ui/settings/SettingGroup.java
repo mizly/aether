@@ -6,17 +6,7 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import dev.aether.util.AetherLang;
 
-/**
- * Represents a named group of settings (analogous to a Module) that can be
- * enabled/disabled and expanded in the GUI.
- *
- * Example:
- *   SettingGroup.of("Auto Visitor", "Automates visitor interactions",
- *       () -> AetherConfig.autoVisitor,
- *       v -> { AetherConfig.autoVisitor = v; AetherConfig.save(); })
- *     .add(new SliderSetting("Threshold", 1, 20, ...))
- *     .add(new ToggleSetting("Swap Armor", ...));
- */
+// a named group of settings that can be toggled and expanded, roughly one module
 public class SettingGroup {
 
     private final String name;
@@ -45,7 +35,7 @@ public class SettingGroup {
         return new SettingGroup(name, description, enabledGetter, enabledSetter, false);
     }
 
-    /** For groups with no enable/disable (always visible in UI, no toggle). */
+    // no enable/disable toggle; always visible
     public static SettingGroup alwaysOn(String name, String description) {
         return new SettingGroup(name, description, () -> true, v -> {}, true);
     }

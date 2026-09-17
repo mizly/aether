@@ -7,10 +7,6 @@ import dev.aether.modules.pathfinding.rotation.Rotation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 
-/**
- * Time-based rotation strategy with configurable easing functions.
- * Interpolates smoothly from start rotation to target over the given duration.
- */
 public final class TimedEaseStrategy implements IRotationStrategy {
 
     private final EasingType yawEasing;
@@ -27,7 +23,7 @@ public final class TimedEaseStrategy implements IRotationStrategy {
         this.duration    = durationMs;
     }
 
-    /** Convenience: same easing for yaw and pitch. */
+    // same easing for yaw and pitch
     public TimedEaseStrategy(EasingType easing, long durationMs) {
         this(easing, easing, durationMs);
     }

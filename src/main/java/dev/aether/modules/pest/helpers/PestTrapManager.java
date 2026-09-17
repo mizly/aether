@@ -9,11 +9,13 @@ import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
+import dev.aether.util.RotationUtils;
 import dev.aether.util.CommandUtils;
 import dev.aether.util.TablistUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
@@ -35,6 +37,8 @@ public class PestTrapManager {
 
     private static final Pattern FULL_TRAPS_PATTERN = Pattern.compile("(?i)Full Traps:\\s*(.*)");
     private static final Pattern NO_BAIT_PATTERN = Pattern.compile("(?i)No Bait:\\s*(.*)");
+    private static final float TRAP_AIM_TOLERANCE_DEGREES = 3.0f;
+    private static final long RELEASED_PEST_KILL_TIMEOUT_MS = 5_000L;
     private static volatile boolean isRunning = false;
     private static volatile boolean cancelRequested = false;
     private static volatile Operation currentOperation = Operation.NONE;
@@ -216,7 +220,7 @@ public class PestTrapManager {
                 ClientUtils.sendDebugMessage("Interacting with trap entity #" + trapId
                         + " (dist=" + String.format("%.2f", trapTarget.distance()) + ")");
 
-                boolean guiOpened = openTrapGui(client, trapEyePos);
+                boolean guiOpened = openTrapGui(client, trapId, trapEyePos);
 
                 if (shouldAbort()) {
                     return;
@@ -230,11 +234,15 @@ public class PestTrapManager {
                         }
                         return -1;
                     }, -1);
+                    boolean released = false;
+                    Set<Integer> preReleasePestIds = Set.of();
                     if (releaseSlot != -1) {
                         ClientUtils.sendDebugMessage("Clicking 'Release All Pests' button at slot " + releaseSlot);
+                        preReleasePestIds = snapshotLivePestIds(client);
                         clickCurrentScreenSlot(client, releaseSlot);
                         clearedTrapIds.add(trapId);
                         clearedThisPass++;
+                        released = true;
                     } else {
                         ClientUtils.sendDebugMessage("Could not find 'Release All Pests' button.");
                     }
@@ -242,7 +250,11 @@ public class PestTrapManager {
                     MacroWorkerThread.sleep(200);
                     waitForTrapGuiClosed(client);
                     ensurePetEquippedAfterTrapOpen(client);
-                    MacroWorkerThread.sleep(200);
+                    if (released) {
+                        awaitReleasedPestKill(client, preReleasePestIds);
+                    } else {
+                        MacroWorkerThread.sleep(200);
+                    }
                 } else {
                     ClientUtils.sendDebugMessage("Failed to open trap GUI for #" + trapId
                             + " (dist=" + String.format("%.2f", trapTarget.distance()) + ")");
@@ -315,7 +327,7 @@ public class PestTrapManager {
                 }
 
                 Vec3 trapEyePos = trapTarget.eyePosition();
-                boolean guiOpened = openTrapGui(client, trapEyePos);
+                boolean guiOpened = openTrapGui(client, trapId, trapEyePos);
 
                 if (shouldAbort()) {
                     return;
@@ -473,7 +485,7 @@ public class PestTrapManager {
         return PestLoadoutHelper.findVacuumHotbarSlot(client);
     }
 
-    private static boolean openTrapGui(Minecraft client, Vec3 trapEyePos) {
+    private static boolean openTrapGui(Minecraft client, int trapId, Vec3 trapEyePos) throws InterruptedException {
         for (int attempt = 0; attempt < 3 && isRunning && !shouldAbort(); attempt++) {
             ensureGuiClosed(client);
             Vec3 target = getTrapInteractTarget(trapEyePos, attempt);
@@ -483,8 +495,10 @@ public class PestTrapManager {
             }
 
             int rotationTime = attempt == 0 ? 200 : 150;
-            PestClientThread.run(client, () -> RotationManager.initiateRotation(client, target, rotationTime));
-            MacroWorkerThread.sleep(attempt == 0 ? 250 : 200);
+            if (!aimAtTrap(client, target, rotationTime)) {
+                ClientUtils.sendDebugMessage("Could not aim at trap #" + trapId + ", retrying.");
+                continue;
+            }
             PestClientThread.run(client, () -> ClientUtils.setKeyMappingState(client.options.keyUse, true));
             MacroWorkerThread.sleep(100);
             PestClientThread.run(client, () -> ClientUtils.setKeyMappingState(client.options.keyUse, false));
@@ -503,6 +517,43 @@ public class PestTrapManager {
         }
         ensureGuiClosed(client);
         return false;
+    }
+
+    // initiateRotation silently no-ops when another rotation holds the lock or the failsafe suppresses
+    // it, so aim is verified against the player's real angles rather than trusting the call landed
+    private static boolean aimAtTrap(Minecraft client, Vec3 target, int rotationTime)
+            throws InterruptedException {
+        long freeDeadline = System.currentTimeMillis() + 1_000L;
+        while (RotationManager.isRotating() && System.currentTimeMillis() < freeDeadline
+                && isRunning && !shouldAbort()) {
+            MacroWorkerThread.sleep(50);
+        }
+        if (RotationManager.isRotating()) {
+            return false;
+        }
+
+        PestClientThread.run(client, () -> RotationManager.initiateRotation(client, target, rotationTime));
+        long settleDeadline = System.currentTimeMillis() + rotationTime + 800L;
+        while (System.currentTimeMillis() < settleDeadline && isRunning && !shouldAbort()) {
+            if (!RotationManager.isRotating() && isAimedAtTrap(client, target)) {
+                MacroWorkerThread.sleep(150);
+                return isAimedAtTrap(client, target);
+            }
+            MacroWorkerThread.sleep(25);
+        }
+
+        RotationManager.cancelRotation();
+        return false;
+    }
+
+    private static boolean isAimedAtTrap(Minecraft client, Vec3 target) {
+        return PestClientThread.call(client, () -> client.player != null
+                && RotationUtils.isLookingAt(
+                        client.player.getYRot(),
+                        client.player.getXRot(),
+                        client.player.getEyePosition(),
+                        target,
+                        TRAP_AIM_TOLERANCE_DEGREES), false);
     }
 
     private static void clickCurrentScreenSlot(Minecraft client, int slot) {
@@ -647,6 +698,57 @@ public class PestTrapManager {
         if (closed && !client.isSameThread()) {
             MacroWorkerThread.sleep(200);
         }
+    }
+
+    private static Set<Integer> snapshotLivePestIds(Minecraft client) {
+        Set<Integer> ids = new HashSet<>();
+        ids.addAll(PestClientThread.call(client,
+                () -> PestTargetTracker.getLoadedPests(client).stream()
+                        .map(Entity::getId)
+                        .toList(),
+                List.of()));
+        return ids;
+    }
+
+    // the interact right-click that opens a trap also vacuums the stack that trap releases, so one
+    // confirmed kill means the release landed and the next trap's interact ray is clear again
+    private static void awaitReleasedPestKill(Minecraft client, Set<Integer> preReleasePestIds)
+            throws InterruptedException {
+        long deadline = System.currentTimeMillis() + RELEASED_PEST_KILL_TIMEOUT_MS;
+        List<Entity> released = List.of();
+        while (System.currentTimeMillis() < deadline && isRunning && !shouldAbort()) {
+            released = PestClientThread.call(client,
+                    () -> PestTargetTracker.getLoadedPests(client).stream()
+                            .filter(pest -> !preReleasePestIds.contains(pest.getId()))
+                            .toList(),
+                    List.of());
+            if (!released.isEmpty()) {
+                break;
+            }
+            MacroWorkerThread.sleep(50);
+        }
+
+        if (released.isEmpty()) {
+            ClientUtils.sendDebugMessage("No released pests appeared after the trap release, continuing.");
+            return;
+        }
+
+        List<Entity> tracked = released;
+        ClientUtils.sendDebugMessage("Waiting for one of " + tracked.size() + " released pests to die.");
+        while (System.currentTimeMillis() < deadline && isRunning && !shouldAbort()) {
+            boolean killed = PestClientThread.call(client,
+                    () -> tracked.stream().anyMatch(PestTrapManager::isPestDead), false);
+            if (killed) {
+                ClientUtils.sendDebugMessage("Released pest confirmed dead, moving to the next trap.");
+                return;
+            }
+            MacroWorkerThread.sleep(50);
+        }
+        ClientUtils.sendDebugMessage("Timed out waiting for a released pest to die, moving on anyway.");
+    }
+
+    private static boolean isPestDead(Entity entity) {
+        return entity.isRemoved() || entity instanceof LivingEntity living && living.isDeadOrDying();
     }
 
     private record TrapTarget(Vec3 eyePosition, double distance) {

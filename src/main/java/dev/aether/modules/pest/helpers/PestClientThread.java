@@ -1,5 +1,6 @@
 package dev.aether.modules.pest.helpers;
 
+import dev.aether.macro.MacroWorkerThread;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 
@@ -29,9 +30,11 @@ final class PestClientThread {
         }
 
         CompletableFuture<T> result = new CompletableFuture<>();
+        Runnable guardedAction = MacroWorkerThread.getInstance().cancellable(() -> result.complete(action.get()));
         client.execute(() -> {
             try {
-                result.complete(action.get());
+                guardedAction.run();
+                result.complete(fallback);
             } catch (RuntimeException error) {
                 result.completeExceptionally(error);
             }

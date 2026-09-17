@@ -6,6 +6,7 @@ import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.ComposterManager;
 import dev.aether.modules.SupercraftManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
+import dev.aether.modules.inventorymanager.AutoSellManager;
 import dev.aether.modules.inventorymanager.BookCombineManager;
 import dev.aether.modules.inventorymanager.GeorgeManager;
 import dev.aether.modules.pest.helpers.GardenTimeManager;
@@ -13,6 +14,7 @@ import dev.aether.modules.pest.helpers.PestExchangeManager;
 import dev.aether.modules.pest.helpers.PestTrapManager;
 import dev.aether.modules.visitor.VisitorsMacro;
 import dev.aether.notification.NotificationManager;
+import dev.aether.util.BazaarUtils;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -51,7 +53,7 @@ final class UnexpectedInventoryFailsafe {
         }
 
         MacroState.State state = MacroStateManager.getCurrentState();
-        boolean shouldMonitor = state == MacroState.State.FARMING || state == MacroState.State.CLEANING;
+        boolean shouldMonitor = isMonitoredState(state);
         if (!shouldMonitor) {
             inventoryOpenSince = 0L;
             inventoryOpenRandomDelayMs = 0L;
@@ -97,7 +99,7 @@ final class UnexpectedInventoryFailsafe {
         }
 
         MacroState.State state = MacroStateManager.getCurrentState();
-        if ((state != MacroState.State.FARMING && state != MacroState.State.CLEANING)
+        if (!isMonitoredState(state)
                 || !ClientUtils.isInventoryScreenOpen()
                 || isExpectedInventoryGuiOpen()) {
             return State.IDLE;
@@ -136,6 +138,12 @@ final class UnexpectedInventoryFailsafe {
         reset();
     }
 
+    private static boolean isMonitoredState(MacroState.State state) {
+        return state == MacroState.State.FARMING
+                || state == MacroState.State.CLEANING
+                || state == MacroState.State.FISHING;
+    }
+
     private static boolean isExpectedInventoryGuiOpen() {
         return LoadoutManager.isSwappingLoadout
                 || PestExchangeManager.isExchanging()
@@ -148,7 +156,11 @@ final class UnexpectedInventoryFailsafe {
                 || isPestTrapGuiOpen()
                 || VisitorsMacro.isRunning
                 || GeorgeManager.isPreparingToSell
-                || GeorgeManager.isSelling;
+                || GeorgeManager.isSelling
+                || AutoSellManager.isPreparingToSell
+                || AutoSellManager.isSelling
+                || BazaarUtils.isSellingBazaar
+                || BazaarUtils.isBuying;
     }
 
     private static boolean isPestTrapGuiOpen() {

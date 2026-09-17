@@ -14,7 +14,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 
-/** Dedicated pre-cleaning AOTV route used by Ballsack Shredder. */
+// dedicated pre-cleaning aotv route for ballsack shredder
 public final class PestBallsackShredder {
     private static final long AOTV_TIMEOUT_MS = 10_000L;
     private static final long RESULT_CONFIRM_TIMEOUT_MS = 2_000L;
@@ -58,6 +58,12 @@ public final class PestBallsackShredder {
                     + positionChanges + " of " + requiredWarps
                     + " position change(s); continuing pest cleaning.");
             return Result.unmeasured(true, startingPests);
+        }
+
+        if (!AetherConfig.BALLSACK_LOOK_DOWN.get()) {
+            ClientUtils.sendDebugMessage("Ballsack Shredder: look-down disabled; "
+                    + "skipping vacuum hold and entering pest cleaning immediately.");
+            return Result.unmeasured(!shouldAbort(client, sessionId), startingPests);
         }
 
         List<Entity> trackedPests = PestClientThread.call(

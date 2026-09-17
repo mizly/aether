@@ -265,7 +265,7 @@ public final class PositionHighlighter {
                 2.0f);
     }
 
-    private static void renderBlockHighlight(LevelRenderContext ctx, Minecraft mc,
+    public static void renderBlockHighlight(LevelRenderContext ctx, Minecraft mc,
                                              MultiBufferSource.BufferSource textBuffer,
                                              AABB box, String label, int strokeColor,
                                              int fillColor, float lineWidth) {

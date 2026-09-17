@@ -1,21 +1,15 @@
 package dev.aether.ui.util;
 
-/**
- * Font name constants for use with {@link dev.aether.renderer.NVGRenderer}.
- *
- * <p>These names correspond to fonts loaded by {@link dev.aether.renderer.NanoVGManager}
- * from the mod's resources.</p>
- */
+// names of the fonts NanoVGManager loads from the mod's resources
 public final class Fonts {
     
-    /** Regular weight font (Inter-Regular). */
     public static final String REGULAR = "Inter-Regular";
     
-    /** Bold weight font (Inter-Bold). */
     public static final String BOLD = "Inter-Bold";
     
-    /** Monospace font (Inter-Mono). */
     public static final String MONO = "Inter-Mono";
+
+    public static final String SCOREBOARD_BOLD = "Scoreboard-Bold";
     
     private Fonts() {}
 }

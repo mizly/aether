@@ -10,13 +10,17 @@ import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.ReconnectScheduler;
 import dev.aether.modules.failsafe.FailsafeColourFlashManager;
 import dev.aether.modules.failsafe.FailsafeManager;
+import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.farming.UngrabMouse;
 import dev.aether.modules.pathfinding.rotation.RotationExecutor;
 import dev.aether.modules.performance.MuteManager;
 import dev.aether.modules.performance.PerformanceModeManager;
 import dev.aether.modules.pest.helpers.PestDestroyer;
 import dev.aether.modules.pest.helpers.VacuumParticleDebug;
+import dev.aether.modules.pest.helpers.PestTrackerAbility;
+import dev.aether.modules.rotation.HumanFlick;
 import dev.aether.modules.rotation.RotationManager;
+import dev.aether.modules.routes.RouteEditor;
 import dev.aether.modules.visuals.FreecamManager;
 import dev.aether.modules.visuals.FreelookManager;
 import dev.aether.modules.visuals.PestEspManager;
@@ -41,17 +45,25 @@ import dev.aether.util.ProgrammaticMovementTracker;
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket;
 
 import java.io.File;
+import java.util.function.Consumer;
 
 public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.FeatureHooks {
     @Override
     public boolean isAttackSuppressed() {
         return PestDestroyer.isCatchInProgress();
+    }
+
+    @Override
+    public void onAttack(Minecraft minecraft) {
+        SqueakyMousematManager.onAttack(minecraft);
+        PestTrackerAbility.onAttack(minecraft);
     }
 
     @Override
@@ -61,7 +73,11 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public void onUnexpectedDisconnect() {
-        if (MacroStateManager.isMacroRunning() && !MacroStateManager.isIntentionalDisconnect()) {
+        // Dynamic rests and proxy restarts mark their disconnect as intentional and
+        // schedule their own reconnect; this preference only controls unexpected loss.
+        if (AetherConfig.AUTO_RECONNECT.get()
+                && MacroStateManager.isMacroRunning()
+                && !MacroStateManager.isIntentionalDisconnect()) {
             long delay = 30 + (long) (Math.random() * 30);
             ReconnectScheduler.scheduleReconnect(delay, true);
         }
@@ -141,6 +157,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
             return;
         }
         RotationManager.update();
+        HumanFlick.update(minecraft);
         RotationExecutor.update();
     }
 
@@ -152,6 +169,11 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
     @Override
     public void renderFailsafeColourFlash() {
         FailsafeColourFlashManager.render();
+    }
+
+    @Override
+    public int pestOutlineColor(net.minecraft.world.entity.Entity entity) {
+        return PestEspManager.outlineColor(entity);
     }
 
     @Override
@@ -167,6 +189,12 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
     @Override
     public boolean shouldSuppressVanillaHud(Screen screen) {
         return AetherBootstrapHooks.isBootstrapConfigScreen(screen) || screen instanceof MainGUI || screen instanceof HudEditScreen;
+    }
+
+    @Override
+    public void extractScoreboardSidebar(GuiGraphicsExtractor graphics, Consumer<GuiGraphicsExtractor> vanilla) {
+        if (HudRegistry.scoreboardHud == null) vanilla.accept(graphics);
+        else HudRegistry.scoreboardHud.extract(graphics, vanilla);
     }
 
     @Override
@@ -259,12 +287,23 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public boolean shouldCancelMouseTurn() {
-        return RotationManager.isRotating() && !FreecamManager.isEnabled() && !FreelookManager.isActive();
+        return (RotationManager.isRotating() || HumanFlick.isActive())
+                && !FreecamManager.isEnabled() && !FreelookManager.isActive();
     }
 
     @Override
     public boolean isMouseUngrabbed() {
         return UngrabMouse.isMouseUngrabbed();
+    }
+
+    @Override
+    public boolean handleRouteEditorMouseButton(Minecraft minecraft, int button, int action) {
+        return RouteEditor.onMouseButton(minecraft, button, action);
+    }
+
+    @Override
+    public boolean handleRouteEditorKey(Minecraft minecraft, int key, int action) {
+        return RouteEditor.onKeyPress(minecraft, key, action);
     }
 
     @Override
@@ -360,7 +399,9 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public void onParticlePacket(Minecraft minecraft, ClientboundLevelParticlesPacket packet) {
+        if (!minecraft.isSameThread()) return;
         VacuumParticleDebug.onParticlePacket(packet);
+        PestTrackerAbility.onParticlePacket(minecraft, packet);
     }
 
     @Override

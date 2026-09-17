@@ -22,7 +22,7 @@ public abstract class ConfigEntry<T> {
     public T getDefault()       { return defaultValue; }
     public boolean isPersistent() { return persistent; }
 
-    /** Mark this entry as volatile - not written to the config file. */
+    // volatile: never written to the config file
     @SuppressWarnings("unchecked")
     public <E extends ConfigEntry<T>> E nonPersistent() {
         this.persistent = false;

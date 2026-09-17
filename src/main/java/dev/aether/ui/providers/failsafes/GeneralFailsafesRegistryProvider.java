@@ -16,11 +16,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class GeneralFailsafesRegistryProvider extends AbstractFailsafesRegistryProvider {
-    /** Sentinel shown for per-action sounds that fall back to the shared default. */
+    // sentinel for per-action sounds that fall back to the shared default
     private static final String SAME_AS_DEFAULT = "Same as Default";
 
     public GeneralFailsafesRegistryProvider() {
-        super(0);
+        super(Category.GENERAL, 0);
     }
 
     @Override
@@ -128,7 +128,7 @@ public final class GeneralFailsafesRegistryProvider extends AbstractFailsafesReg
                         .withDecimals(1).withSuffix("s"));
 
         return MainGUIRegistry.subTab(
-                "General",
+                "Failsafe Settings",
                 "Shared settings for failsafes",
                 List.of(group));
     }
@@ -174,7 +174,7 @@ public final class GeneralFailsafesRegistryProvider extends AbstractFailsafesReg
         return defaultIndex >= 0 ? defaultIndex : 0;
     }
 
-    /** Index into the sentinel-prefixed list; 0 (Same as Default) when the override is blank. */
+    // index into the sentinel-prefixed list; 0 when the override is blank
     private static int getOverrideIndex(List<String> options, StringEntry entry) {
         String selected = entry.get();
         if (selected == null || selected.isBlank()) {

@@ -14,9 +14,6 @@ import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.AABB;
 
-/**
- * Manual fast lane switching based on user-configured X/Z boundaries.
- */
 public final class FastLaneSwitchManager {
     private static final int PLOT_SIZE = 96;
     private static final int PLOT_OFFSET = 48;

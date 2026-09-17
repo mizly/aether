@@ -4,7 +4,7 @@ import dev.aether.config.AetherConfig;
 
 import java.util.Map;
 
-/** Standard s-shape crop pattern, with optional forward movement held throughout each row. */
+// standard s-shape, optionally holding forward through each row
 public class SShapeCropMacro extends AbstractFarmingMacro {
     private final StateCycle states = stateCycle(0.02, 2,
             AetherConfig.MACRO_HOLD_W_WHILE_FARMING.get()

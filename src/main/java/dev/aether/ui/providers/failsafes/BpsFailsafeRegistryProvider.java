@@ -12,7 +12,7 @@ import java.util.List;
 
 public final class BpsFailsafeRegistryProvider extends AbstractFailsafesRegistryProvider {
     public BpsFailsafeRegistryProvider() {
-        super(2);
+        super(Category.FARMING, 0);
     }
 
     @Override

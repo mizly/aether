@@ -20,6 +20,8 @@ final class PestNavigationCoordinator {
         default double getVacuumRange() { return runtime().vacuumRange; }
         default int getStuckTicks() { return runtime().stuckTicks; }
         default void setStuckTicks(int value) { runtime().stuckTicks = value; }
+        default int getFlyTapTicks() { return runtime().flyTapTicks; }
+        default void setFlyTapTicks(int value) { runtime().flyTapTicks = value; }
         int findVacuumHotbarSlot(Minecraft client);
         void setState(PestDestroyer.State state);
         Entity findClosestPest(Minecraft client);
@@ -99,27 +101,21 @@ final class PestNavigationCoordinator {
             int maxPlotSweeps,
             int maxScanWaypoints
     ) {
-        long elapsed = System.currentTimeMillis() - context.getStateEnteredAt();
 
         if (!client.player.getAbilities().flying && client.player.getAbilities().mayfly) {
-            long flyElapsed = elapsed % 250;
-            if (flyElapsed < 50) {
-                ClientUtils.setKeyMappingState(client.options.keyJump, true);
-            } else if (flyElapsed < 100) {
-                ClientUtils.setKeyMappingState(client.options.keyJump, false);
-            } else if (flyElapsed < 150) {
-                ClientUtils.setKeyMappingState(client.options.keyJump, true);
+            if (context.getFlyTapTicks() < PestFlightTapper.TIMEOUT_TICKS) {
+                PestFlightTapper.tick(client, context.getFlyTapTicks());
+                context.setFlyTapTicks(context.getFlyTapTicks() + 1);
             } else {
-                ClientUtils.setKeyMappingState(client.options.keyJump, false);
-            }
-            if (elapsed > 3000) {
-                ClientUtils.setKeyMappingState(client.options.keyJump, false);
-            }
-            if (client.player.getAbilities().flying) {
-                ClientUtils.setKeyMappingState(client.options.keyJump, false);
-                context.setStateEnteredAt(System.currentTimeMillis());
+                PestFlightTapper.release(client);
             }
             return;
+        }
+
+        if (context.getFlyTapTicks() != 0) {
+            PestFlightTapper.release(client);
+            context.setFlyTapTicks(0);
+            context.setStateEnteredAt(System.currentTimeMillis());
         }
 
         ClientUtils.setKeyMappingState(client.options.keyAttack, false);
@@ -132,8 +128,14 @@ final class PestNavigationCoordinator {
             return;
         }
 
-        // Nothing is loaded here, so the remaining pests are outside entity tracking range.
-        Vec3 waypoint = PestPlotNavigator.nextScanWaypoint(client, navigationState);
+        PestTrackerSearch trackerSearch = navigationState.trackerSearch;
+        if (trackerSearch.tick(client, context.runtime(), System.currentTimeMillis())) return;
+        Vec3 waypoint = trackerSearch.waypoint();
+        boolean tracked = waypoint != null;
+        if (!tracked) {
+            trackerSearch.onSweepWaypoint();
+            waypoint = PestPlotNavigator.nextScanWaypoint(client, navigationState);
+        }
         if (waypoint == null) {
             navigationState.scanPointIdx = 0;
             // Having covered the plot and found nothing, a pest we timed out on
@@ -169,7 +171,8 @@ final class PestNavigationCoordinator {
         }
 
         navigationState.calculatedWaypoint = waypoint;
-        ClientUtils.sendDebugMessage("[PestDestroyer] No pests loaded. Sweeping to "
+        ClientUtils.sendDebugMessage("[PestDestroyer] No pests loaded. "
+                + (tracked ? "Following Pest Tracker to " : "Sweeping to ")
                 + String.format("%.0f, %.0f, %.0f", waypoint.x, waypoint.y, waypoint.z)
                 + " (point " + navigationState.scanPointIdx + "/" + PestPlotNavigator.scanPointCount()
                 + ", waypoint " + navigationState.waypointCycleCount + "/" + maxScanWaypoints + ")");
@@ -244,6 +247,8 @@ final class PestNavigationCoordinator {
         navigationState.plotTpWindow = null;
         // Re-anchor the sweep grid on the first scan, once the TP has actually landed.
         navigationState.plotAnchor = null;
+        navigationState.trackerSearch.reset();
+        PestTrackerAbility.clear();
         navigationState.scanPointIdx = 0;
         navigationState.getLocationAttempts = 0;
         if (PestManager.isBallsackShredderActiveForCurrentCycle()) {

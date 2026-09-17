@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
-/** Selects whether a pest is caught with a lasso or killed with the vacuum. */
+// picks lasso or vacuum per pest
 final class PestHuntingPolicy {
     static final List<String> PEST_TYPES = List.of(
             "Fly", "Cricket", "Locust", "Rat", "Mosquito", "Earthworm",
@@ -30,10 +30,7 @@ final class PestHuntingPolicy {
         return typeIndex < 0 || (AetherConfig.PEST_HUNTING_VACUUM_PEST_MASK.get() & (1 << typeIndex)) == 0;
     }
 
-    /**
-     * Resolves the type from the pest's nameplate rather than its mob class: several
-     * Hypixel pests share the same underlying Bat or Silverfish entity.
-     */
+    // reads the type off the nameplate, not the mob class: several hypixel pests share the same bat or silverfish entity
     static int findPestTypeIndex(Minecraft client, Entity target) {
         if (target == null) {
             return -1;

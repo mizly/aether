@@ -156,7 +156,7 @@ public class RewarpPointPair {
         return endSet;
     }
 
-    /** Returns the nearest block-center coordinate (..., -1.5, -0.5, 0.5, 1.5, ...). */
+    // nearest block center: ..., -1.5, -0.5, 0.5, 1.5, ...
     public static double snapToBlockCenter(double coordinate) {
         return Math.floor(coordinate) + 0.5;
     }

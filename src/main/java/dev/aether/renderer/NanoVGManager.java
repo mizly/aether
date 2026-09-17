@@ -13,6 +13,7 @@ import org.lwjgl.nanovg.NanoVG;
 import org.lwjgl.nanovg.NanoVGGL3;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
+import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL33C;
 
@@ -26,18 +27,8 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Singleton manager for the NanoVG rendering context.
- *
- * <p>Call {@link #init()} once during client startup (before any rendering),
- * and {@link #destroy()} during shutdown. Every screen frame that wants to use
- * NanoVG should call {@link #beginFrame(float, float)} before drawing and
- * {@link #endFrame()} when finished.</p>
- *
- * <p>Font files are loaded automatically from the mod's resources. Use
- * {@link #getFontId(String)} with a name constant from {@link Fonts}
- * to retrieve the registered font ID.</p>
- */
+// init() once at client startup and destroy() at shutdown; every frame pairs beginFrame with endFrame
+// fonts load from the mod's resources - look them up with getFontId and a Fonts constant
 public final class NanoVGManager {
 
     // -- Singleton state -------------------------------------------------------
@@ -47,38 +38,38 @@ public final class NanoVGManager {
     private static boolean initialized = false;
     private static boolean drawing = false;
 
-    /** Current pixel ratio (physical px per logical px), updated every beginFrame(). */
     private static float pxRatio = 1f;
 
-    /** GL sampler ID bound to unit 0 before we clear it - restored in endFrame(). */
+    // restored in endFrame()
     private static int savedSampler = 0;
 
-    /** GL framebuffer bound when beginFrame() was called - restored in endFrame(). */
+    // restored in endFrame()
     private static int savedFbo = 0;
+    private static int savedReadFbo;
+    private static final int[] savedViewport = new int[4];
+    private static final ByteBuffer savedColorMask = ByteBuffer.allocateDirect(4);
+    private static boolean savedDepthTest;
+    private static boolean savedCull;
+    private static boolean savedBlend;
+    private static boolean savedScissor;
+    private static int savedSrcRgb, savedDstRgb, savedSrcAlpha, savedDstAlpha;
+    private static int savedEquationRgb, savedEquationAlpha;
+    private static int savedActiveTexture, savedTexture;
 
-    /** MC's main render target FBO, resolved each beginFrame(). Used by RippleEffect. */
+    // resolved each beginFrame(); used by RippleEffect
     private static int mainRtFbo = 0;
 
-    /**
-     * When >= 0, {@link #beginFrame} renders into this FBO instead of MC's main RT.
-     * Automatically reset to {@code -1} after one use.
-     * Set by {@link RippleEffect} to redirect NVG into its offscreen scene buffer.
-     */
+    // reset to -1 after one use; RippleEffect sets it to redirect nvg into its offscreen scene buffer
     private static int overrideTargetFbo = -1;
 
-    /** GL program active when beginFrame() was called - restored in endFrame().
-     *  NanoVG's GL3 backend calls glUseProgram(0) internally at the end of nvgEndFrame(),
-     *  which would leave MC's pipeline with no active shader. */
+    // nanovg's gl3 backend calls glUseProgram(0) at the end of nvgEndFrame, which would leave mc's pipeline with no shader
     private static int savedProgram = 0;
 
-    /** VAO bound when beginFrame() was called - restored in endFrame().
-     *  NanoVG binds its own VAO and does not restore the previous one, which causes
-     *  MC's font renderer (debug overlay etc.) to read the wrong vertex state. */
+    // nanovg binds its own vao and never restores the previous one, which makes mc's font renderer read the wrong vertex state
     private static int savedVao = 0;
 
-    /** Maps font name -> NanoVG font ID. */
     private static final Map<String, Integer> fontIds = new HashMap<>();
-    /** Keep ByteBuffers alive so NanoVG doesn't read freed memory. */
+    // keeps the ByteBuffers alive so nanovg doesn't read freed memory
     private static final Map<String, ByteBuffer> fontBuffers = new HashMap<>();
     private static final String UNICODE_FALLBACK_FONT = "Aether-Unicode-Fallback";
 
@@ -86,12 +77,7 @@ public final class NanoVGManager {
 
     // -- Lifecycle -------------------------------------------------------------
 
-    /**
-     * Initialises the NanoVG context and loads the built-in fonts.
-     * Must be called once on the main render thread before any NVG rendering.
-     *
-     * @throws RuntimeException if the NanoVG context could not be created
-     */
+    // main render thread, once, before any nvg rendering
     public static void init() {
         if (initialized) return;
 
@@ -106,15 +92,12 @@ public final class NanoVGManager {
         loadFont("Inter-Regular", "/assets/aether/fonts/Inter-Regular.otf");
         loadFont("Inter-Bold",    "/assets/aether/fonts/Inter-Bold.otf");
         loadFont("Inter-Mono",    "/assets/aether/fonts/Inter-Mono.otf");
+        loadFont(Fonts.SCOREBOARD_BOLD, "/assets/aether/fonts/scoreboard/Inter-Bold.otf");
         loadUnicodeFallbackFont();
 
         initialized = true;
     }
 
-    /**
-     * Destroys the NanoVG context and releases all resources.
-     * Should be called during client shutdown.
-     */
     public static void destroy() {
         if (!initialized) return;
         SVGRenderer.destroy(vg);
@@ -129,20 +112,12 @@ public final class NanoVGManager {
 
     // -- Frame lifecycle -------------------------------------------------------
 
-    /**
-     * Begins a new NanoVG frame, binding MC's main render target as the draw target.
-     *
-     * <p>This must be called before any {@link NVGRenderer} drawing calls and must be
-     * paired with exactly one {@link #endFrame()} call.</p>
-     *
-     * @param width  logical screen width in pixels
-     * @param height logical screen height in pixels
-     * @throws IllegalStateException if {@code init()} has not been called or a frame is already open
-     */
+    // binds mc's main render target; pair with exactly one endFrame()
     public static void beginFrame(float width, float height) {
         if (!initialized) throw new IllegalStateException("[Aether] NanoVGManager.init() must be called first");
         if (drawing)      throw new IllegalStateException("[Aether] endFrame() was not called before beginFrame()");
 
+        saveFrameState();
         float computedRatio = 1f;
         try {
             var rt = Minecraft.getInstance().getMainRenderTarget();
@@ -150,7 +125,6 @@ public final class NanoVGManager {
             // the game. Without this bind the title screen is invisible (NVG writes to FBO=0
             // which is the window framebuffer, but MC blits from the RT's FBO).
 
-            savedFbo = GL30.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
             int mcFbo = ((GlTexture) rt.getColorTexture()).getFbo(resolveDirectStateAccess(), null);
             mainRtFbo = mcFbo;
             int targetFbo = overrideTargetFbo >= 0 ? overrideTargetFbo : mcFbo;
@@ -160,88 +134,104 @@ public final class NanoVGManager {
             computedRatio = (float) rt.width / width;
         } catch (RuntimeException | LinkageError e) {
             System.err.println("[Aether] Failed to bind main render target for NanoVG: " + e.getMessage());
-            savedFbo = GL30.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
             overrideTargetFbo = -1;
         }
 
         pxRatio = computedRatio;
 
-        // Save the active GL program. NanoVG's GL3 backend calls glUseProgram(0)
-        // internally when it finishes rendering - we restore here so MC's pipeline
-        // doesn't lose its active shader between Screen.render() and Gui.render().
-        savedProgram = GL11.glGetInteger(0x8B8D /* GL_CURRENT_PROGRAM */);
-
-        // Save the VAO. NanoVG binds its own and never restores the previous one.
-        savedVao = GL30.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
-
         // Unbind MC's sampler from unit 0 so NanoVG can bind its font atlas texture.
-        GlStateManager._activeTexture(GL30.GL_TEXTURE0);
-        savedSampler = GL33C.glGetInteger(GL33C.GL_SAMPLER_BINDING);
         GL33C.glBindSampler(0, 0);
 
+        renderer.beginMinecraftTextFrame();
+        GlStateManager._disableDepthTest();
         NanoVG.nvgBeginFrame(vg, width, height, pxRatio);
         NanoVG.nvgTextAlign(vg, NanoVG.NVG_ALIGN_LEFT | NanoVG.NVG_ALIGN_TOP);
         drawing = true;
     }
 
-    /**
-     * Ends the current NanoVG frame and flushes all queued drawing commands.
-     * Restores the minimum GL state Minecraft expects after NanoVG rendering.
-     *
-     * @throws IllegalStateException if no frame is currently open
-     */
     public static void endFrame() {
         if (!drawing) throw new IllegalStateException("[Aether] beginFrame() was not called before endFrame()");
 
-        NanoVG.nvgEndFrame(vg);
+        try {
+            NanoVG.nvgEndFrame(vg);
+        } finally {
+            try {
+                renderer.endMinecraftTextFrame();
+            } finally {
+                restoreFrameState();
+            }
+        }
+    }
 
-        // Restore GL state expected by Minecraft's rendering pipeline.
-        // nvgEndFrame() internally calls glUseProgram(0) - restore MC's shader so
-        // anything that runs after (tooltip flush, Gui.render debug overlay, etc.)
-        // doesn't hit GL_INVALID_OPERATION from having no active program.
+    private static void saveFrameState() {
+        savedFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        savedReadFbo = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, savedViewport);
+        GL11.glGetBooleanv(GL11.GL_COLOR_WRITEMASK, savedColorMask);
+        savedDepthTest = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+        savedCull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        savedBlend = GL11.glIsEnabled(GL11.GL_BLEND);
+        savedScissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+        savedSrcRgb = GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB);
+        savedDstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
+        savedSrcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
+        savedDstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
+        savedEquationRgb = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_RGB);
+        savedEquationAlpha = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_ALPHA);
+        savedProgram = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
+        savedVao = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
+        savedActiveTexture = GL11.glGetInteger(GL30.GL_ACTIVE_TEXTURE);
+        GlStateManager._activeTexture(GL30.GL_TEXTURE0);
+        savedTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        savedSampler = GL11.glGetInteger(GL33C.GL_SAMPLER_BINDING);
+    }
+
+    private static void restoreFrameState() {
         GlStateManager._glUseProgram(savedProgram);
-        GlStateManager._disableCull();
-        GlStateManager._disableDepthTest();
-        GlStateManager._enableBlend();
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
+        if (savedDepthTest) GlStateManager._enableDepthTest();
+        else GlStateManager._disableDepthTest();
 
-        GL14.glBlendEquation(GL14.GL_FUNC_ADD);
+        // NanoVG bypasses Minecraft's cache; restore these without a cached setter skipping the GL call.
+        restoreCapability(GL11.GL_CULL_FACE, savedCull);
+        restoreCapability(GL11.GL_BLEND, savedBlend);
+        restoreCapability(GL11.GL_SCISSOR_TEST, savedScissor);
+        GL14.glBlendFuncSeparate(savedSrcRgb, savedDstRgb, savedSrcAlpha, savedDstAlpha);
+        GL20.glBlendEquationSeparate(savedEquationRgb, savedEquationAlpha);
 
         GL11.glDisable(GL11.GL_STENCIL_TEST);
-        GL11.glColorMask(true, true, true, true);
+        GL11.glColorMask(savedColorMask.get(0) != 0, savedColorMask.get(1) != 0,
+                savedColorMask.get(2) != 0, savedColorMask.get(3) != 0);
 
-        GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, savedFbo);
-        GlStateManager._activeTexture(GL30.GL_TEXTURE0);
-        GlStateManager._bindTexture(0);
+        GlStateManager._glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, savedFbo);
+        GlStateManager._glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, savedReadFbo);
+        GlStateManager._viewport(savedViewport[0], savedViewport[1], savedViewport[2], savedViewport[3]);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, savedTexture);
 
         GL33C.glBindSampler(0, savedSampler);
+        GlStateManager._activeTexture(savedActiveTexture);
 
         GL30.glBindVertexArray(savedVao);
 
         drawing = false;
     }
 
+    private static void restoreCapability(int capability, boolean enabled) {
+        if (enabled) GL11.glEnable(capability);
+        else GL11.glDisable(capability);
+    }
+
     // -- Accessors -------------------------------------------------------------
 
-    /** Returns the singleton {@link NVGRenderer} for this context. */
     public static NVGRenderer getRenderer() { return renderer; }
 
-    /** Returns the raw NanoVG context handle ({@code long vg}). */
     public static long getVg() { return vg; }
 
-    /** @return {@code true} if {@link #init()} has been called successfully */
     public static boolean isInitialized() { return initialized; }
 
-    /**
-     * Redirects the next {@link #beginFrame} call to render into {@code fbo} instead
-     * of MC's main render target. Consumed after one use. Used by {@link RippleEffect}.
-     */
+    // consumed after one use; used by RippleEffect
     public static void setOverrideTargetFbo(int fbo) { overrideTargetFbo = fbo; }
 
-    /**
-     * Returns MC's main render target FBO, resolved during the last {@link #beginFrame}.
-     * Valid after the first frame; used by {@link RippleEffect#composite} as the output target.
-     */
+    // valid after the first frame; RippleEffect.composite uses it as the output target
     public static int getMainRtFbo() { return mainRtFbo; }
 
     private static DirectStateAccess resolveDirectStateAccess() {
@@ -249,33 +239,18 @@ public final class NanoVGManager {
                 .aether$directStateAccess();
     }
 
-    /** @return {@code true} if a frame has been opened with {@link #beginFrame} */
     public static boolean isDrawing() { return drawing; }
 
-    /** Returns the current pixel ratio (physical pixels per logical pixel). Updated each frame. */
     public static float getPxRatio() { return pxRatio; }
 
-    /**
-     * Returns the NanoVG font ID registered under {@code name}, or {@code -1}
-     * if the font has not been loaded.
-     *
-     * @param name font name as defined in {@link Fonts}
-     */
+    // -1 when the font has not been loaded
     public static int getFontId(String name) {
         return fontIds.getOrDefault(name, -1);
     }
 
     // -- Font loading ----------------------------------------------------------
 
-    /**
-     * Loads a font from the mod's resources and registers it with NanoVG.
-     *
-     * <p>The font's byte buffer is kept in memory for the lifetime of the context
-     * because NanoVG holds a raw pointer into it.</p>
-     *
-     * @param name         the name to register the font under
-     * @param resourcePath absolute path within the jar, e.g. {@code "/assets/aether/fonts/Inter-Regular.otf"}
-     */
+    // the byte buffer stays in memory for the lifetime of the context, because nanovg holds a raw pointer into it
     public static void loadFont(String name, String resourcePath) {
         if (fontIds.containsKey(name)) return;
         try (InputStream in = AetherResources.open(resourcePath)) {
@@ -324,11 +299,11 @@ public final class NanoVGManager {
             String winDir = System.getenv("WINDIR");
             String fontDir = (winDir == null || winDir.isBlank()) ? "C:\\Windows\\Fonts" : winDir + "\\Fonts";
             return new String[] {
-                    fontDir + "\\YuGothR.ttc",
-                    fontDir + "\\msgothic.ttc",
                     fontDir + "\\msyh.ttc",
                     fontDir + "\\msjh.ttc",
                     fontDir + "\\simsun.ttc",
+                    fontDir + "\\YuGothR.ttc",
+                    fontDir + "\\msgothic.ttc",
                     fontDir + "\\malgun.ttf",
                     fontDir + "\\seguisym.ttf",
                     fontDir + "\\seguiemj.ttf",
@@ -394,6 +369,7 @@ public final class NanoVGManager {
         addFallback(Fonts.REGULAR, fallbackId);
         addFallback(Fonts.BOLD, fallbackId);
         addFallback(Fonts.MONO, fallbackId);
+        addFallback(Fonts.SCOREBOARD_BOLD, fallbackId);
     }
 
     private static void addFallback(String baseFont, int fallbackId) {
@@ -403,4 +379,3 @@ public final class NanoVGManager {
         }
     }
 }
-

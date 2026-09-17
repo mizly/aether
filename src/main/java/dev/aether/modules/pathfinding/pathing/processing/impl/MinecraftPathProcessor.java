@@ -11,13 +11,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.shapes.CollisionContext;
 
-/*
- * most logic in this file is derived from minecraft code
- * or writeups on pathfinding algorithms, if you want to help contribute
- * id prefer for you to keep it the same idea or whatever, but if not
- * please write a comment explaining WHY you did it that way. i dont like
- * magic numbers that i cant understand.
- */
+// most of this is derived from minecraft code or pathfinding writeups; if you change it, keep the idea or
+// write a comment saying why. no magic numbers nobody can follow
 public final class MinecraftPathProcessor implements NodeProcessor {
 
     private static final double DEFAULT_MOB_JUMP_HEIGHT = 1.125; // WalkNodeEvaluator

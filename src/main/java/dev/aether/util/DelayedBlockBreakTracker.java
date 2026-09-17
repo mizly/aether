@@ -9,9 +9,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
-/**
- * Tracks recent mining clicks that may only be confirmed by a later server block update.
- */
+// tracks mining clicks that may only be confirmed by a later server block update
 public final class DelayedBlockBreakTracker {
     private static final long CLICK_EXPIRY_MS = 1000L;
     private static final Map<BlockPos, Long> recentClicks = new HashMap<>();

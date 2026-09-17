@@ -10,6 +10,9 @@ import dev.aether.util.AetherLang;
 
 final class MainGUIChromeRenderer {
     private final MainGUI owner;
+    private final SelectionAnimation sidebarSelection = new SelectionAnimation();
+    private final SelectionAnimation filterPosition = new SelectionAnimation();
+    private final SelectionAnimation filterWidth = new SelectionAnimation();
 
     MainGUIChromeRenderer(MainGUI owner) {
         this.owner = owner;
@@ -58,6 +61,21 @@ final class MainGUIChromeRenderer {
         float[] tabIconW = { 16f, 16f, 14f };
         float[] tabIconH = { 19f, 16f, 18f };
         float tabsY = sepY + MainGUI.SB_SEP_GAP;
+        float profileTabY = context.layout.py + context.layout.ph - MainGUI.SB_BOT_PAD - 44f;
+        float settingsTabY = profileTabY - 44f - MainGUI.SB_SEP_GAP;
+        float keybindsTabY = settingsTabY - 44f;
+        float hudPositionsTabY = keybindsTabY - 44f;
+        float macrosTabY = hudPositionsTabY - 44f;
+        float selectedY = switch (context.navigation.activeMain) {
+            case 3 -> keybindsTabY;
+            case 4 -> settingsTabY;
+            default -> tabsY + context.navigation.activeMain * 44f;
+        };
+        float highlightY = sidebarSelection.update(selectedY - context.layout.py,
+                Theme.ANIM_TIME_MS, System.nanoTime());
+        nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD,
+                context.layout.py + highlightY + MainGUI.SB_ROW_PAD, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
+                Theme.withAlpha(Theme.ACCENT_PRIMARY, 0x55));
 
         for (int i = 0; i < tabLabels.length; i++) {
             float tabY = tabsY + i * 44f;
@@ -67,10 +85,7 @@ final class MainGUIChromeRenderer {
                     && my >= tabY && my <= tabY + 44f;
             int color = selected ? Theme.ACCENT_PRIMARY : (hovered ? sidebarHoverColor : Theme.TEXT_MUTED);
 
-            if (selected) {
-                nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, pillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
-                        Theme.withAlpha(Theme.ACCENT_PRIMARY, 0x55));
-            } else if (hovered) {
+            if (hovered) {
                 nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, pillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
                         Theme.withAlpha(Theme.TEXT_MUTED, 0x33));
             }
@@ -87,14 +102,34 @@ final class MainGUIChromeRenderer {
                 nvg.text(Fonts.REGULAR, tabLabels[i], textX, pillY + (MainGUI.SB_PILL - 12f) / 2f, 12f, color);
                 nvg.restore();
             }
+            owner.offerHoverHelp("sidebar:" + tabIds[i], tabLabels[i],
+                    switch (i) {
+                        case 0 -> AetherLang.localize("Manage and configure modules");
+                        case 1 -> AetherLang.localize("Customise HUD and menu colors");
+                        default -> AetherLang.localize("Save and manage config and theme profiles");
+                    }, context.layout.px, tabY, sbW, 44f, mx, my);
         }
 
-        float profileTabY = context.layout.py + context.layout.ph - MainGUI.SB_BOT_PAD - 44f;
-        float settingsTabY = profileTabY - 44f - MainGUI.SB_SEP_GAP;
-        float keybindsTabY = settingsTabY - 44f;
-        float hudPositionsTabY = keybindsTabY - 44f;
-        nvg.rect(context.layout.px + MainGUI.SB_H_PAD, hudPositionsTabY - MainGUI.SB_SEP_GAP,
+        nvg.rect(context.layout.px + MainGUI.SB_H_PAD, macrosTabY - MainGUI.SB_SEP_GAP,
                 sbW - MainGUI.SB_H_PAD * 2f, 1f, Theme.SEPARATOR);
+
+        // icon only on purpose; this one opens the macro start menu rather than switching tab
+        float macrosPillY = macrosTabY + MainGUI.SB_ROW_PAD;
+        boolean macrosHovered = mx >= context.layout.px && mx < context.layout.px + sbW
+                && my >= macrosTabY && my <= macrosTabY + 44f;
+        int macrosColor = macrosHovered ? sidebarHoverColor : Theme.TEXT_MUTED;
+        if (macrosHovered) {
+            nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, macrosPillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
+                    Theme.withAlpha(Theme.TEXT_MUTED, 0x33));
+        }
+        float macrosIconSize = 16f;
+        nvg.renderSVG("/assets/aether/icons/play.svg",
+                context.layout.px + MainGUI.SB_H_PAD + (MainGUI.SB_PILL - macrosIconSize) / 2f,
+                macrosPillY + (MainGUI.SB_PILL - macrosIconSize) / 2f,
+                macrosIconSize, macrosIconSize, macrosColor);
+        owner.offerHoverHelp("sidebar:macros", AetherLang.localize("Macros"),
+                AetherLang.localize("Open the macro start menu."),
+                context.layout.px, macrosTabY, sbW, 44f, mx, my);
 
         float hudPillY = hudPositionsTabY + MainGUI.SB_ROW_PAD;
         boolean hudHovered = mx >= context.layout.px && mx < context.layout.px + sbW
@@ -116,6 +151,9 @@ final class MainGUIChromeRenderer {
             nvg.text(Fonts.REGULAR, AetherLang.localize("HUD Positions"), textX, hudPillY + (MainGUI.SB_PILL - 12f) / 2f, 12f, hudColor);
             nvg.restore();
         }
+        owner.offerHoverHelp("sidebar:hud_positions", AetherLang.localize("HUD Positions"),
+                AetherLang.localize("Open the HUD layout editor to move and arrange Aether overlays."),
+                context.layout.px, hudPositionsTabY, sbW, 44f, mx, my);
 
         float keybindsPillY = keybindsTabY + MainGUI.SB_ROW_PAD;
         boolean keybindsSelected = context.navigation.activeMain == 3;
@@ -123,10 +161,7 @@ final class MainGUIChromeRenderer {
                 && my >= keybindsTabY && my <= keybindsTabY + 44f;
         int keybindsColor = keybindsSelected ? Theme.ACCENT_PRIMARY
                 : (keybindsHovered ? sidebarHoverColor : Theme.TEXT_MUTED);
-        if (keybindsSelected) {
-            nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, keybindsPillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
-                    Theme.withAlpha(Theme.ACCENT_PRIMARY, 0x55));
-        } else if (keybindsHovered) {
+        if (keybindsHovered) {
             nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, keybindsPillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
                     Theme.withAlpha(Theme.TEXT_MUTED, 0x33));
         }
@@ -142,6 +177,9 @@ final class MainGUIChromeRenderer {
             nvg.text(Fonts.REGULAR, AetherLang.localize("Keybinds"), textX, keybindsPillY + (MainGUI.SB_PILL - 12f) / 2f, 12f, keybindsColor);
             nvg.restore();
         }
+        owner.offerHoverHelp("sidebar:keybinds", AetherLang.localize("Keybinds"),
+                AetherLang.localize("Edit Aether keybinds and keep them synced with Minecraft controls."),
+                context.layout.px, keybindsTabY, sbW, 44f, mx, my);
 
         float settingsPillY = settingsTabY + MainGUI.SB_ROW_PAD;
         boolean settingsSelected = context.navigation.activeMain == 4;
@@ -149,10 +187,7 @@ final class MainGUIChromeRenderer {
                 && my >= settingsTabY && my <= settingsTabY + 44f;
         int settingsColor = settingsSelected ? Theme.ACCENT_PRIMARY
                 : (settingsHovered ? sidebarHoverColor : Theme.TEXT_MUTED);
-        if (settingsSelected) {
-            nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, settingsPillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
-                    Theme.withAlpha(Theme.ACCENT_PRIMARY, 0x55));
-        } else if (settingsHovered) {
+        if (settingsHovered) {
             nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, settingsPillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
                     Theme.withAlpha(Theme.TEXT_MUTED, 0x33));
         }
@@ -168,6 +203,9 @@ final class MainGUIChromeRenderer {
             nvg.text(Fonts.REGULAR, AetherLang.localize("Settings"), textX, settingsPillY + (MainGUI.SB_PILL - 12f) / 2f, 12f, settingsColor);
             nvg.restore();
         }
+        owner.offerHoverHelp("sidebar:settings", AetherLang.localize("Settings"),
+                AetherLang.localize("General client settings."),
+                context.layout.px, settingsTabY, sbW, 44f, mx, my);
 
         nvg.rect(context.layout.px + MainGUI.SB_H_PAD, profileTabY - MainGUI.SB_SEP_GAP,
                 sbW - MainGUI.SB_H_PAD * 2f, 1f, Theme.SEPARATOR);
@@ -238,6 +276,9 @@ final class MainGUIChromeRenderer {
         }
 
         owner.addClickArea(searchX, searchY, searchW, searchH, owner::activateSearchField);
+        owner.offerHoverHelp("search", AetherLang.localize("Search settings..."),
+                AetherLang.localize("Search all Aether settings by name and jump directly to matching controls."),
+                searchX, searchY, searchW, searchH, mx, my);
         nvg.rect(context.layout.contX, context.layout.contY + MainGUI.TOP_BAR_H, context.layout.contW, 1f, Theme.SEPARATOR);
     }
 
@@ -302,7 +343,6 @@ final class MainGUIChromeRenderer {
 
     void renderFilterBar(NVGRenderer nvg, float mx, float my) {
         MainGUIContext context = owner.context();
-        float animationStep = Math.min(1f, Theme.animationFactor() * 6f);
         String[] options = owner.currentTabFilters();
         int selectedIndex = Math.max(0, Math.min(context.navigation.activeFilter, options.length - 1));
 
@@ -324,17 +364,16 @@ final class MainGUIChromeRenderer {
         float targetW = nvg.textWidth(Fonts.REGULAR, options[selectedIndex], 12f);
         owner.setFilterBarTarget(targetX, targetW);
 
+        long nowNanos = System.nanoTime();
         if (!context.animation.filterBarInited) {
-            owner.setFilterBarAnimation(targetX, targetW);
+            filterPosition.reset(targetX - context.layout.contX, nowNanos);
+            filterWidth.reset(targetW, nowNanos);
             owner.setFilterBarInitialized(true);
-            context = owner.context();
-        } else {
-            owner.setFilterBarAnimation(
-                    context.animation.filterBarAnimX + (targetX - context.animation.filterBarAnimX) * animationStep,
-                    context.animation.filterBarAnimW + (targetW - context.animation.filterBarAnimW) * animationStep
-            );
-            context = owner.context();
         }
+        owner.setFilterBarAnimation(
+                context.layout.contX + filterPosition.update(targetX - context.layout.contX, Theme.ANIM_TIME_MS, nowNanos),
+                filterWidth.update(targetW, Theme.ANIM_TIME_MS, nowNanos));
+        context = owner.context();
 
         for (int i = 0; i < options.length; i++) {
             boolean selected = context.navigation.activeFilter == i;

@@ -19,13 +19,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
 
-/**
- * Handles the Pest Exchange flow:
- * 1. /plottp barn
- * 2. Pathfind walk to Phillip's desk (configurable position)
- * 3. Interact with Phillip NPC
- * 4. Click "Empty Vacuum Bag" in the Pesthunter GUI
- */
+// plottp barn, walk to phillip's desk, interact, then click empty vacuum bag in the pesthunter gui
 public class PestExchangeManager {
     private static final int MAX_ABIPHONE_CALL_ATTEMPTS = 3;
     private static final long ABIPHONE_GUI_WAIT_MS = 10000L;
@@ -234,9 +228,9 @@ public class PestExchangeManager {
             return false;
         }
 
-        handlePesthunterGuiActions(client);
+        boolean exchanged = handlePesthunterGuiActions(client);
         isExchanging = false;
-        return true;
+        return exchanged;
     }
 
     private static boolean runAbiphoneExchange(Minecraft client) {
@@ -250,9 +244,9 @@ public class PestExchangeManager {
 
             if (waitForPesthunterGui(client, ABIPHONE_GUI_WAIT_MS)) {
                 ClientUtils.sendDebugMessage("PestExchange: Pesthunter GUI opened via Abiphone");
-                handlePesthunterGuiActions(client);
+                boolean exchanged = handlePesthunterGuiActions(client);
                 isExchanging = false;
-                return true;
+                return exchanged;
             }
         }
 
@@ -290,41 +284,11 @@ public class PestExchangeManager {
         return false;
     }
 
-    private static void handlePesthunterGuiActions(Minecraft client) {
-        // This method assumes the Pesthunter GUI is currently open.
+    // assumes the pesthunter gui is open, reports whether the bag actually reached phillip
+    private static boolean handlePesthunterGuiActions(Minecraft client) {
         MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(true));
 
-        client.execute(() -> {
-            if (!(client.screen instanceof AbstractContainerScreen<?> screen)) return;
-
-            int vacuumSlot = findVacuumSlot(screen);
-            if (vacuumSlot == -1) {
-                if (client.player != null)
-                    ClientUtils.sendMessage("§cCould not find 'Empty Vacuum Bag' slot. Closing.", false);
-                client.player.closeContainer();
-                return;
-            }
-
-            ItemStack vacuumStack = screen.getMenu().slots.get(vacuumSlot).getItem();
-            List<Component> tooltipLines = vacuumStack.getTooltipLines(
-                    net.minecraft.world.item.Item.TooltipContext.EMPTY, client.player,
-                    net.minecraft.world.item.TooltipFlag.NORMAL);
-            String lore = tooltipLinesToString(tooltipLines);
-
-            if (lore.contains("Click to empty")) {
-                if (client.player != null)
-                    ClientUtils.sendMessage("§aEmptying vacuum bag!", false);
-                dev.aether.util.ClientUtils.performSlotClick(screen, vacuumSlot, 0, ContainerInput.PICKUP);
-            } else if (lore.contains("exchanged enough Pests")) {
-                if (client.player != null)
-                    ClientUtils.sendMessage("§eAlready emptied the vacuum recently!", false);
-                client.player.closeContainer();
-            } else {
-                if (client.player != null)
-                    ClientUtils.sendMessage("§cVacuum bag state unknown. Closing.", false);
-                client.player.closeContainer();
-            }
-        });
+        boolean exchanged = PestClientThread.call(client, () -> emptyVacuumBag(client), false);
 
         MacroWorkerThread.sleep(1500);
 
@@ -338,8 +302,45 @@ public class PestExchangeManager {
 
         client.execute(() -> {
             if (client.player != null)
-                ClientUtils.sendMessage("§aPest exchange complete!", false);
+                ClientUtils.sendMessage(exchanged
+                        ? "§aPest exchange complete!"
+                        : "§cPest exchange did not go through.", false);
         });
+        return exchanged;
+    }
+
+    private static boolean emptyVacuumBag(Minecraft client) {
+        if (!(client.screen instanceof AbstractContainerScreen<?> screen) || client.player == null) {
+            return false;
+        }
+
+        int vacuumSlot = findVacuumSlot(screen);
+        if (vacuumSlot == -1) {
+            ClientUtils.sendMessage("§cCould not find 'Empty Vacuum Bag' slot. Closing.", false);
+            client.player.closeContainer();
+            return false;
+        }
+
+        ItemStack vacuumStack = screen.getMenu().slots.get(vacuumSlot).getItem();
+        List<Component> tooltipLines = vacuumStack.getTooltipLines(
+                net.minecraft.world.item.Item.TooltipContext.EMPTY, client.player,
+                net.minecraft.world.item.TooltipFlag.NORMAL);
+        String lore = tooltipLinesToString(tooltipLines);
+
+        if (lore.contains("Click to empty")) {
+            ClientUtils.sendMessage("§aEmptying vacuum bag!", false);
+            dev.aether.util.ClientUtils.performSlotClick(screen, vacuumSlot, 0, ContainerInput.PICKUP);
+            return true;
+        }
+        if (lore.contains("exchanged enough Pests")) {
+            ClientUtils.sendMessage("§eAlready emptied the vacuum recently!", false);
+            client.player.closeContainer();
+            return true;
+        }
+
+        ClientUtils.sendMessage("§cVacuum bag state unknown. Closing.", false);
+        client.player.closeContainer();
+        return false;
     }
 
     private static int findVacuumSlot(AbstractContainerScreen<?> screen) {

@@ -1,5 +1,6 @@
 dev.aether.ui.providers.modules.AutoUpdateRegistryProvider
 dev.aether.ui.providers.modules.FarmingMacroRegistryProvider
+dev.aether.ui.providers.modules.StriderFishingRegistryProvider
 dev.aether.ui.providers.modules.RewarpRegistryProvider
 dev.aether.ui.providers.modules.PestManagerRegistryProvider
 dev.aether.ui.providers.modules.MiningRegistryProvider
@@ -25,6 +26,7 @@ dev.aether.ui.providers.visuals.PipVisualsRegistryProvider
 dev.aether.ui.providers.visuals.UngrabMouseVisualsRegistryProvider
 dev.aether.ui.providers.visuals.ProfitCalculatorRegistryProvider
 dev.aether.ui.providers.visuals.FunVisualsRegistryProvider
+dev.aether.ui.providers.visuals.SkyboxVisualsRegistryProvider
 dev.aether.ui.providers.failsafes.GeneralFailsafesRegistryProvider
 dev.aether.ui.providers.failsafes.InventoryFailsafeRegistryProvider
 dev.aether.ui.providers.failsafes.GuiOpenedFailsafeRegistryProvider
@@ -33,6 +35,8 @@ dev.aether.ui.providers.failsafes.GhostBlockFailsafeRegistryProvider
 dev.aether.ui.providers.failsafes.DirtFailsafeRegistryProvider
 dev.aether.ui.providers.failsafes.RotationFailsafeRegistryProvider
 dev.aether.ui.providers.failsafes.WorldChangeFailsafeRegistryProvider
+dev.aether.ui.providers.failsafes.PlayerNearbyFailsafeRegistryProvider
+dev.aether.ui.providers.failsafes.TpCheckFailsafeRegistryProvider
 dev.aether.ui.providers.colors.HudColorsRegistryProvider
 dev.aether.ui.providers.colors.MenuColorsRegistryProvider
 dev.aether.ui.providers.settings.AccountSettingsRegistryProvider

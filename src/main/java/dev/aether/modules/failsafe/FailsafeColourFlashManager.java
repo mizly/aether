@@ -21,6 +21,10 @@ public final class FailsafeColourFlashManager {
         active = false;
     }
 
+    public static boolean isActive() {
+        return active;
+    }
+
     public static void render() {
         if (!AetherConfig.FAILSAFE_COLOUR_FLASH_ENABLED.get()) {
             active = false;

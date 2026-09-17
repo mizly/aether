@@ -1,6 +1,10 @@
 package dev.aether.ui;
 
 import dev.aether.ui.settings.ModulesTab;
+import dev.aether.ui.settings.Setting;
+import dev.aether.ui.settings.SettingGroup;
+
+import java.util.List;
 
 final class MainGUIActions {
     private final MainGUI owner;
@@ -66,8 +70,114 @@ final class MainGUIActions {
     void clearSearch() {
         owner.setSearchMode(false);
         owner.setSearchQuery("");
+        owner.setSearchScroll(0f, 0f);
         owner.clearInlineTextSelection();
         owner.refreshContext();
+    }
+
+    void openSearchResult(int mainTab, ModulesTab.SubTab subTab, SettingGroup group, Setting setting) {
+        owner.commitText();
+        owner.commitColor();
+        owner.closeOpenDropdown();
+        owner.setSearchMode(false);
+        owner.setSearchQuery("");
+        owner.setSearchScroll(0f, 0f);
+        owner.clearInlineTextSelection();
+
+        if (mainTab == 0) {
+            openModuleSearchResult(subTab, group, setting);
+        } else {
+            openFlatSearchResult(mainTab, subTab, group, setting);
+        }
+        owner.refreshContext();
+    }
+
+    private void openModuleSearchResult(ModulesTab.SubTab subTab, SettingGroup group, Setting setting) {
+        owner.setActiveMainTab(0);
+        owner.setActiveFilterIndex(0);
+        owner.setActiveSubtabIndex(indexOf(MainGUIRegistry.MODULE_SUBTABS, subTab));
+        owner.setActiveModuleSubTab(subTab);
+        owner.setActiveScroll(0f, 0f);
+
+        int groupIndex = subTab.groups().indexOf(group);
+        if (groupIndex >= 0) {
+            owner.setActiveCategoryIndex(groupIndex + 1);
+            owner.ensureSearchGroupVisible(group);
+        } else {
+            owner.setActiveCategoryIndex(0);
+        }
+        float targetScroll = moduleSettingScrollOffset(subTab, group, setting);
+        owner.setActiveScroll(0f, targetScroll);
+        owner.setModuleDetailScroll(0f, targetScroll);
+    }
+
+    private void openFlatSearchResult(int mainTab, ModulesTab.SubTab subTab, SettingGroup group, Setting setting) {
+        owner.setActiveMainTab(mainTab);
+        owner.setActiveFilterIndex(0);
+        owner.setActiveSubtabIndex(indexOf(owner.flatSubtabsForCurrentFilter(), subTab));
+        owner.setActiveModuleSubTab(null);
+        owner.setActiveCategoryIndex(0);
+        owner.ensureSearchGroupVisible(group);
+        owner.setActiveScroll(0f, flatSettingScrollOffset(subTab, group, setting));
+    }
+
+    private float moduleSettingScrollOffset(ModulesTab.SubTab subTab, SettingGroup targetGroup, Setting targetSetting) {
+        if (targetGroup == null) {
+            return 0f;
+        }
+
+        float offset = 14f + MainGUI.HEADER_H + MainGUI.HEADER_TO_FIRST_SETTING_GAP;
+        if (owner.isPetTrackerSettingsGroup(targetGroup)) {
+            return Math.max(0f, offset - owner.moduleSettingsHeight() / 3f);
+        }
+        for (Setting setting : targetGroup.getSettings()) {
+            if (!setting.isVisible()) {
+                continue;
+            }
+            if (setting == targetSetting) {
+                return Math.max(0f, offset - owner.moduleSettingsHeight() / 3f);
+            }
+            offset += owner.settingHeightFor(setting, owner.moduleSettingsWidth());
+        }
+        return Math.max(0f, offset - owner.moduleSettingsHeight() / 3f);
+    }
+
+    private float flatSettingScrollOffset(ModulesTab.SubTab targetSubtab, SettingGroup targetGroup, Setting targetSetting) {
+        float offset = 0f;
+        float groupW = owner.contentW() - MainGUI.ITEM_PAD * 2f;
+        for (ModulesTab.SubTab subtab : owner.flatSubtabsForCurrentFilter()) {
+            for (SettingGroup group : subtab.groups()) {
+                offset += 14f + MainGUI.FLAT_LABEL_H;
+                if (!owner.shouldShowChildren(group) || !group.hasSettings()) {
+                    continue;
+                }
+
+                offset += MainGUI.HEADER_TO_FIRST_SETTING_GAP;
+                for (Setting setting : group.getSettings()) {
+                    if (!setting.isVisible()) {
+                        continue;
+                    }
+                    if (subtab == targetSubtab && group == targetGroup && setting == targetSetting) {
+                        return Math.max(0f, offset - owner.contentScrollHeight() / 3f);
+                    }
+                    offset += owner.settingHeightFor(setting, groupW);
+                }
+                if (subtab == targetSubtab && group == targetGroup) {
+                    return Math.max(0f, offset - owner.contentScrollHeight() / 3f);
+                }
+                offset += 4f;
+            }
+        }
+        return 0f;
+    }
+
+    private static int indexOf(List<ModulesTab.SubTab> subtabs, ModulesTab.SubTab target) {
+        for (int i = 0; i < subtabs.size(); i++) {
+            if (subtabs.get(i) == target) {
+                return i;
+            }
+        }
+        return 0;
     }
 
     MainGUIContext context() {

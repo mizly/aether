@@ -86,6 +86,7 @@ public final class MetalDetectorSolver {
     private static final long PATH_IDLE_GRACE_MS = 300L;
     private static final long PATH_TIMEOUT_MS = 20_000L;
     private static final long ANCHOR_SCAN_COOLDOWN_MS = 3000L;
+    private static final int MAX_ETHERWARP_PATH_FAILURES = 3;
     private static final int AUTO_SCAN_HORIZONTAL_RADIUS = 50;
     private static final int AUTO_SCAN_VERTICAL_RADIUS = 35;
     private static final float ROTATION_TOLERANCE = 4.0f;
@@ -117,6 +118,7 @@ public final class MetalDetectorSolver {
     private static long lastAutomationStartAt;
     private static boolean pathCallbackTriggered;
     private static boolean openAttemptTriggered;
+    private static int etherwarpPathFailures;
 
     private enum AutomationState {
         IDLE,
@@ -389,16 +391,12 @@ public final class MetalDetectorSolver {
 
         long now = System.currentTimeMillis();
         if (now - phaseStartedAt > PATH_TIMEOUT_MS) {
-            failCurrentTarget(client,
-                    "MetalDetector: walk timed out",
-                    PATH_RETRY_DELAY_MS);
+            handleEtherwarpPathFailure(client, "MetalDetector: etherwarp path timed out");
             return;
         }
 
         if (!PathfindingManager.isNavigating() && !pathCallbackTriggered && now - phaseStartedAt > PATH_IDLE_GRACE_MS) {
-            failCurrentTarget(client,
-                    "MetalDetector: walk interrupted",
-                    PATH_RETRY_DELAY_MS);
+            handleEtherwarpPathFailure(client, "MetalDetector: etherwarp path interrupted");
         }
     }
 
@@ -541,6 +539,7 @@ public final class MetalDetectorSolver {
         automationGoal = null;
         activeGoals = List.of(automationTarget);
         activeGoalIndex = 0;
+        etherwarpPathFailures = 0;
         phaseStartedAt = System.currentTimeMillis();
         lastAutomationStartAt = phaseStartedAt;
         pathCallbackTriggered = false;
@@ -563,21 +562,22 @@ public final class MetalDetectorSolver {
             return;
         }
 
-        BlockPos goal = activeGoals.get(activeGoalIndex++);
+        BlockPos goal = activeGoals.get(activeGoalIndex);
         automationGoal = goal.immutable();
         phaseStartedAt = System.currentTimeMillis();
         pathCallbackTriggered = false;
 
-        ClientUtils.sendDebugMessage("MetalDetector: walking to "
+        ClientUtils.sendDebugMessage("MetalDetector: etherwarping to "
                         + automationTarget.getX() + " "
                         + automationTarget.getY() + " "
                         + automationTarget.getZ());
-        PathfindingManager.startConfiguredWalk(client,
+        PathfindingManager.startConfiguredEtherwarp(client,
                 goal.getX(), goal.getY(), goal.getZ(),
                 () -> {
                     if (opId != operationId || automationState != AutomationState.PATHING) {
                         return;
                     }
+                    activeGoalIndex++;
                     pathCallbackTriggered = true;
                     automationState = AutomationState.ROTATING;
                     phaseStartedAt = System.currentTimeMillis();
@@ -586,11 +586,22 @@ public final class MetalDetectorSolver {
                     if (opId != operationId || automationState != AutomationState.PATHING) {
                         return;
                     }
-                    pathCallbackTriggered = true;
-                    startNextGoalPath(client, opId);
-                },
-                true,
-                0.25);
+                    handleEtherwarpPathFailure(client, "MetalDetector: etherwarp path failed");
+                });
+    }
+
+    private static void handleEtherwarpPathFailure(Minecraft client, String debugReason) {
+        etherwarpPathFailures++;
+        ClientUtils.sendDebugMessage(debugReason + " (failure "
+                + etherwarpPathFailures + "/" + MAX_ETHERWARP_PATH_FAILURES + ")");
+        if (etherwarpPathFailures >= MAX_ETHERWARP_PATH_FAILURES) {
+            failCurrentTarget(client, "MetalDetector: etherwarp path failed 3 times", RETRY_SAME_TARGET_AFTER_MS);
+            return;
+        }
+
+        pathCallbackTriggered = false;
+        phaseStartedAt = System.currentTimeMillis();
+        startNextGoalPath(client, operationId);
     }
 
     private static void failCurrentTarget(Minecraft client, String debugReason, long retryDelayMs) {
@@ -612,6 +623,7 @@ public final class MetalDetectorSolver {
         lastAutomationStartAt = System.currentTimeMillis();
         pathCallbackTriggered = false;
         openAttemptTriggered = false;
+        etherwarpPathFailures = 0;
 
         if (client != null && client.options != null) {
             ClientUtils.setKeyMappingState(client.options.keyAttack, false);

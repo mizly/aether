@@ -62,11 +62,7 @@ public final class FreecamManager {
         return enabled;
     }
 
-    /**
-     * Whether the freecam feature is switched on in the UI. Turning this on does not detach
-     * the camera by itself - it only lets the freecam keybind toggle the camera on/off, in
-     * the same spirit as {@link FreelookManager}. Turning it off also stops any active freecam.
-     */
+    // on its own this does not detach the camera, it only lets the keybind toggle it; turning it off also stops an active freecam
     public static boolean isFeatureEnabled() {
         return AetherConfig.FREECAM_ENABLED.get();
     }
@@ -223,11 +219,7 @@ public final class FreecamManager {
         client.execute(() -> ((MixinMinecraft) client).aether$setMissTime(0));
     }
 
-    /**
-     * Rising-edge poll of the freecam keybinds straight from the physical key state, the same
-     * way {@link FreelookManager} reads its bind. This avoids relying on {@code consumeClick()},
-     * which never fires when the key mapping ends up in the detached fallback path.
-     */
+    // rising-edge poll straight off the physical key state, because consumeClick() never fires when the mapping ends up in the detached fallback path
     private static void pollKeybinds(Minecraft client) {
         if (client == null || client.player == null || client.level == null || client.screen != null) {
             toggleKeyWasDown = false;

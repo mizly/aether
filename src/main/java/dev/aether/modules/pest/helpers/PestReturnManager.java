@@ -27,6 +27,7 @@ public class PestReturnManager {
     private static volatile boolean isStoppingFlight = false;
     private static volatile boolean isFinishingInProgress = false;
     private static volatile long finishingStartedAtMs = 0L;
+    private static final long FINISHING_STALL_TIMEOUT_MS = 60_000L;
     private static volatile String finishingStage = "idle";
     private static int flightStopStage = 0;
     private static int flightStopTicks = 0;
@@ -107,6 +108,22 @@ public class PestReturnManager {
         isReturnToLocationActive = false;
     }
 
+    // every path inside the finisher releases the flag, so the only way it strands is the task
+    // never starting - and while it is stuck the pest trigger claim is refused on every tick
+    public static void tickFinishingWatchdog() {
+        if (!isFinishingInProgress
+                || finishingStartedAtMs == 0L
+                || System.currentTimeMillis() - finishingStartedAtMs < FINISHING_STALL_TIMEOUT_MS
+                || MacroWorkerThread.getInstance().getCurrentTaskName().startsWith("PestFinish")) {
+            return;
+        }
+
+        ClientUtils.sendDebugMessage("Finisher watchdog: stuck at stage " + finishingStage + " for "
+                + FINISHING_STALL_TIMEOUT_MS + "ms with no finisher task running; releasing it.");
+        clearCleaningFlags();
+        releaseFinishingSequence();
+    }
+
     private static void releaseFinishingSequence() {
         isFinishingInProgress = false;
         finishingStartedAtMs = 0L;
@@ -167,7 +184,7 @@ public class PestReturnManager {
         setFinishingStage("starting");
         ClientUtils.sendDebugMessage("Pest cleaning finished sequence started.");
         ClientUtils.sendMessage("Pest cleaning finished detected.", true);
-        MacroWorkerThread.getInstance().submit("PestFinish-Initial", () -> {
+        MacroWorkerThread.getInstance().submitCritical("PestFinish-Initial", () -> {
             try {
                 setFinishingStage("initial checks");
                 if (abortFinisherIfNeeded(client, "initial finish")) {
@@ -392,7 +409,9 @@ public class PestReturnManager {
 
     static boolean restoreFarmingLoadout(Minecraft client) throws InterruptedException {
         int targetSlot = AetherConfig.LOADOUT_SLOT_FARMING.get();
-        if (targetSlot <= 0 || LoadoutManager.trackedLoadoutSlot == targetSlot) {
+        if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()
+                || targetSlot <= 0
+                || LoadoutManager.trackedLoadoutSlot == targetSlot) {
             return true;
         }
 

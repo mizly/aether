@@ -2,9 +2,6 @@ package dev.aether.modules.pathfinding.rotation;
 
 import java.util.function.Function;
 
-/**
- * 28 standard easing functions
- */
 public enum EasingType {
 
     LINEAR           (t -> t),

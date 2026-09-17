@@ -1,10 +1,8 @@
 package dev.aether.bootstrap;
 
-import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.ReconnectScheduler;
 import dev.aether.modules.session.RecoveryManager;
-import dev.aether.util.AetherResources;
 import dev.aether.ui.DynamicRestScreen;
 import dev.aether.util.ClientUtils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -24,7 +22,7 @@ public final class AetherReconnectTickHandler {
 
     public static void register() {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-                        if (client.player == null) {
+            if (client.player == null || client.level == null || client.getConnection() == null) {
                 hasCheckedPersistenceOnJoin = false;
                 if (!(client.screen instanceof TitleScreen)
                         && !(client.screen instanceof DisconnectedScreen)
@@ -71,9 +69,8 @@ public final class AetherReconnectTickHandler {
                 if (ReconnectScheduler.shouldResume()) {
                     RecoveryManager.beginRecovery();
                     ClientUtils.sendMessage("Session persistence detected! Initializing recovery...");
-                    MacroStateManager.setCurrentState(MacroState.State.RECOVERING);
                 }
-                ReconnectScheduler.clearState();
+                ReconnectScheduler.cancel();
             }
             hasCheckedPersistenceOnJoin = true;
             MacroStateManager.setIntentionalDisconnect(false);

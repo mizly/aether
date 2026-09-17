@@ -15,9 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Debug helper for identifying particle packet types while left-clicking a vacuum.
- */
+// identifies particle packet types while left-clicking a vacuum
 public final class VacuumParticleDebug {
     private static final Logger LOGGER = LoggerFactory.getLogger("aether");
     private static final Object CAPTURE_LOCK = new Object();

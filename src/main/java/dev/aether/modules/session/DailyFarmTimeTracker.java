@@ -6,9 +6,6 @@ import dev.aether.macro.MacroStateManager;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
-/**
- * Tracks active macro time for the current local calendar day.
- */
 public final class DailyFarmTimeTracker {
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE;
 
@@ -62,14 +59,8 @@ public final class DailyFarmTimeTracker {
         return accumulatedMs;
     }
 
-    /**
-     * Commits the in-progress segment into the accumulated total and flushes it to disk.
-     *
-     * <p>Call this on game shutdown. {@link #onMacroStop()} only runs on an explicit macro
-     * stop, so a macro that is left running until the game is closed would otherwise lose the
-     * current day's un-committed farming time. The segment origin is advanced to now so this
-     * is safe to call more than once without double-counting.</p>
-     */
+    // call on shutdown: onMacroStop only runs on an explicit stop, so a macro left running until the game closes would lose the day's uncommitted time
+    // the segment origin moves to now, so calling twice cannot double-count
     public static void persistNow() {
         maybeRolloverDate();
         if (segmentStartMs != 0L) {

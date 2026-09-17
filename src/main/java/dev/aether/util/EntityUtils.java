@@ -9,22 +9,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 
-/**
- * Utility methods for finding and interacting with entities in the world.
- */
 public final class EntityUtils {
 
     private EntityUtils() {}
 
-    /**
-     * Finds the closest entity whose visible name matches the given substring.
-     * Prefers exact matches, then partial matches, and resolves NPC nameplate
-     * armor stands back to the nearby character when possible.
-     *
-     * @param client The Minecraft instance.
-     * @param nameSubstring Substring to match against visible entity names.
-     * @return The closest matching entity, or {@code null} if none found.
-     */
+    // prefers exact matches over partial ones, and resolves npc nameplate armor stands back to the nearby character where it can
     public static Entity findEntity(Minecraft client, String nameSubstring) {
         if (client.level == null || client.player == null) {
             return null;

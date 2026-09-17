@@ -12,6 +12,7 @@ import dev.aether.ui.settings.ListSetting;
 import dev.aether.ui.settings.PositionSetting;
 import dev.aether.ui.settings.RangeSliderSetting;
 import dev.aether.ui.settings.Setting;
+import dev.aether.ui.settings.SectionSetting;
 import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.TextSetting;
 import dev.aether.ui.settings.ToggleSetting;
@@ -29,7 +30,16 @@ final class MainGUISettingRowRenderer {
     }
 
     void render(NVGRenderer nvg, Setting setting, float x, float y, float w, float h, float mx, float my) {
+        if (setting instanceof SectionSetting section) {
+            renderSection(nvg, section, x, y, w, h);
+            return;
+        }
         float cardH = h - 5f;
+        owner.offerHoverHelp(
+                "setting:" + setting.getRawName(),
+                setting.getName(),
+                setting.getDescription(),
+                x, y, w, cardH, mx, my);
 
         nvg.roundedRect(x, y, w, cardH, 7f, Theme.CARD_BG);
         nvg.rectOutlineSolid(x, y, w, cardH, 7f, 1f, Theme.withAlpha(0xFFFFFFFF, 0.12f));
@@ -58,6 +68,15 @@ final class MainGUISettingRowRenderer {
             case POSITION -> renderPosition(nvg, (PositionSetting) setting, innerX, innerW, y, cardH, midY, labelLines, labelFontSize, labelLineStep, labelBlockH, mx, my);
             case KEYBIND -> renderKeybind(nvg, (KeybindSetting) setting, innerX, innerW, y, cardH, labelLines, labelFontSize, labelLineStep, labelBlockH);
         }
+    }
+
+    private void renderSection(NVGRenderer nvg, SectionSetting setting, float x, float y, float w, float h) {
+        float titleY = y + 7f;
+        nvg.text(Fonts.BOLD, setting.getName().toUpperCase(), x + 4f, titleY, 10f, Theme.ACCENT_PRIMARY);
+        if (!setting.getDescription().isBlank()) {
+            nvg.text(Fonts.REGULAR, setting.getDescription(), x + 4f, titleY + 15f, 11.5f, Theme.TEXT_SECONDARY);
+        }
+        nvg.rect(x + 4f, y + h - 7f, Math.max(0f, w - 8f), 1f, Theme.SEPARATOR);
     }
 
     private void renderToggle(NVGRenderer nvg, ToggleSetting setting, float x, float w, float y, float cardH,

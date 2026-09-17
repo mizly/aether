@@ -8,16 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-/**
- * A dropdown selector that expands a list of options when clicked and
- * collapses when an item is selected or the user clicks outside.
- *
- * <pre>{@code
- * Dropdown<String> dd = new Dropdown<>(List.of("Option A", "Option B"), 0);
- * dd.setBounds(x, y, 160, 28);
- * dd.setOnSelect(v -> config.mode = v);
- * }</pre>
- */
+// expands its options on click, collapses on select or on a click outside
 public class Dropdown<T> extends Component {
 
     // -- Layout ----------------------------------------------------------------
@@ -130,7 +121,6 @@ public class Dropdown<T> extends Component {
         return false;
     }
 
-    /** Collapse without selecting when a click is detected outside this component. */
     public void closeIfOutside(double mouseX, double mouseY) {
         if (expanded) {
             float listH = options.size() * ITEM_H;
@@ -161,6 +151,5 @@ public class Dropdown<T> extends Component {
         }
     }
 
-    /** Returns {@code true} if the option list is currently shown. */
     public boolean isExpanded() { return expanded; }
 }

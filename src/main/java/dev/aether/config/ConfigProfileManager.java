@@ -7,13 +7,8 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.List;
 
-/**
- * Manages named config profiles stored as JSON files under
- * {@code config/aether/profiles/}.
- *
- * <p>Each profile stores a snapshot of the live config values. Loading a
- * profile applies it to memory and writes it to the main config file.</p>
- */
+// named config profiles under config/aether/profiles
+// loading applies the snapshot to memory and writes the main config file
 public final class ConfigProfileManager {
 
     private static final Path DIR = FabricLoader.getInstance().getConfigDir()
@@ -40,7 +35,6 @@ public final class ConfigProfileManager {
         }
     }
 
-    /** Saves the current config as a named profile. */
     public static void save(String name) {
         if (name.isBlank()) return;
         Path profilePath = DIR.resolve(sanitize(name) + ".json");
@@ -52,7 +46,6 @@ public final class ConfigProfileManager {
         }
     }
 
-    /** Loads a named profile and applies it to the live config. */
     public static boolean load(String name) {
         Path src = DIR.resolve(sanitize(name) + ".json");
         if (!Files.exists(src)) return false;
@@ -102,13 +95,13 @@ public final class ConfigProfileManager {
 
     // -- Export / Import -------------------------------------------------------
 
-    /** Returns the raw JSON of a saved profile (for clipboard export). */
+    // raw json for clipboard export
     public static String exportJson(String name) {
         try { return Files.readString(DIR.resolve(sanitize(name) + ".json")); }
         catch (IOException e) { return ""; }
     }
 
-    /** Returns the raw JSON of a saved profile (for clipboard export), with sensitive fields blanked. */
+    // raw json for clipboard export, sensitive fields blanked
     public static String exportJsonSanitized(String name) {
         String json = exportJson(name);
         if (json.isBlank()) return json;
@@ -128,15 +121,13 @@ public final class ConfigProfileManager {
         }
     }
 
-    /** Saves a JSON string as a named profile (for clipboard import). */
     public static void importJson(String name, String json) {
         if (name.isBlank() || json.isBlank()) return;
         try { Files.writeString(DIR.resolve(sanitize(name) + ".json"), json); }
         catch (IOException e) { e.printStackTrace(); }
     }
 
-    /** Imports from clipboard JSON using the same name embedded in the JSON filename,
-     *  falling back to {@code name} if the JSON has no filename. */
+    // uses the name embedded in the json filename, falling back to name
     public static void importFromClipboard(String name, String json) {
         importJson(name.isBlank() ? "imported" : name, json);
     }

@@ -1,5 +1,6 @@
 package dev.aether.modules.pest.helpers;
 
+import com.mojang.authlib.properties.Property;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.component.DataComponents;
@@ -21,8 +22,8 @@ import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.IdentityHashMap;
 import java.util.function.Predicate;
+import java.util.function.ToDoubleFunction;
 
 public final class PestTargetTracker {
     private static final List<String> PEST_TEXTURE_FRAGMENTS = List.of(
@@ -53,15 +54,12 @@ public final class PestTargetTracker {
             Collection<Entity> killedEntities,
             Predicate<Entity> eligible
     ) {
-        while (!pestTargetQueue.isEmpty()) {
-            Entity next = pestTargetQueue.peekFirst();
-            if (isUnavailable(client, next, killedEntities) || !eligible.test(next)) {
-                pestTargetQueue.pollFirst();
-                continue;
-            }
-            return next;
+        if (client == null || client.player == null) {
+            return null;
         }
-        return null;
+        return nearestQueuedTarget(pestTargetQueue,
+                target -> !isUnavailable(client, target, killedEntities) && eligible.test(target),
+                client.player::distanceToSqr);
     }
 
     static Entity getNextQueuedPest(
@@ -70,13 +68,72 @@ public final class PestTargetTracker {
             Collection<Entity> killedEntities,
             Predicate<Entity> eligible
     ) {
-        while (!pestTargetQueue.isEmpty()) {
-            Entity next = pestTargetQueue.pollFirst();
-            if (!isUnavailable(client, next, killedEntities) && eligible.test(next)) {
-                return next;
+        Entity next = peekNextQueuedPest(client, pestTargetQueue, killedEntities, eligible);
+        if (next != null) {
+            pestTargetQueue.remove(next);
+        }
+        return next;
+    }
+
+    static List<Entity> buildNearestRoute(
+            Minecraft client,
+            Collection<Entity> killedEntities,
+            int reservedEntityId,
+            Predicate<Entity> eligible,
+            Entity currentTarget) {
+        if (client == null || client.player == null) {
+            return List.of();
+        }
+
+        List<Entity> remaining = availableTargets(client, killedEntities, eligible);
+        remaining.removeIf(target -> target.getId() == reservedEntityId);
+        List<Entity> route = new ArrayList<>(remaining.size());
+        Vec3 cursor = client.player.position();
+
+        if (currentTarget != null) {
+            Entity active = remaining.stream()
+                    .filter(target -> target.getId() == currentTarget.getId())
+                    .findFirst()
+                    .orElse(null);
+            if (active != null) {
+                route.add(active);
+                remaining.remove(active);
+                cursor = active.position();
             }
         }
-        return null;
+
+        while (!remaining.isEmpty()) {
+            Vec3 origin = cursor;
+            Entity next = remaining.stream()
+                    .min(Comparator.comparingDouble(target -> origin.distanceToSqr(target.position())))
+                    .orElse(null);
+            if (next == null) {
+                break;
+            }
+            route.add(next);
+            remaining.remove(next);
+            cursor = next.position();
+        }
+        return List.copyOf(route);
+    }
+
+    static <T> T nearestQueuedTarget(Deque<T> queue, Predicate<T> eligible, ToDoubleFunction<T> distanceSquared) {
+        T closest = null;
+        double closestDistance = Double.POSITIVE_INFINITY;
+        var iterator = queue.iterator();
+        while (iterator.hasNext()) {
+            T candidate = iterator.next();
+            if (!eligible.test(candidate)) {
+                iterator.remove();
+                continue;
+            }
+            double distance = distanceSquared.applyAsDouble(candidate);
+            if (distance < closestDistance) {
+                closest = candidate;
+                closestDistance = distance;
+            }
+        }
+        return closest;
     }
 
     static void rebuildPestTargetQueue(
@@ -88,16 +145,9 @@ public final class PestTargetTracker {
     ) {
         List<Entity> pests = availableTargets(client, killedEntities, eligible);
         if (reservedEntityId != -1) {
-            Map<Entity, Double> nearestNeighborDistances = new IdentityHashMap<>();
-            List<Vec3> positions = pests.stream().map(Entity::position).toList();
-            for (int i = 0; i < pests.size(); i++) {
-                nearestNeighborDistances.put(pests.get(i), nearestNeighborDistanceSqr(i, positions));
-            }
             pests.removeIf(pest -> pest.getId() == reservedEntityId);
-            pests.sort(Comparator
-                    .comparingDouble((Entity pest) -> nearestNeighborDistances.get(pest))
-                    .thenComparingDouble(client.player::distanceToSqr));
-        } else if (client.player != null) {
+        }
+        if (client != null && client.player != null) {
             pests.sort(Comparator.comparingDouble(client.player::distanceToSqr));
         }
         pestTargetQueue.clear();
@@ -220,9 +270,12 @@ public final class PestTargetTracker {
         return closest;
     }
 
-    /** Returns the pest entities currently visible to the client. */
     public static List<Entity> getLoadedPests(Minecraft client) {
         return snapshot(client).targets();
+    }
+
+    public static List<ArmorStand> getLoadedPestMarkers(Minecraft client) {
+        return snapshot(client).markers();
     }
 
     public static List<Entity> getLoadedPestMobs(Minecraft client) {
@@ -280,7 +333,7 @@ public final class PestTargetTracker {
         List<ArmorStand> markers = rawEntities.stream()
                 .filter(ArmorStand.class::isInstance)
                 .map(ArmorStand.class::cast)
-                .filter(marker -> !marker.isRemoved() && marker.getY() >= 50 && isPestArmorStand(marker))
+                .filter(marker -> !marker.isRemoved() && marker.getY() >= 50 && isPestArmorStand(marker, rawEntities))
                 .toList();
         Map<Integer, Entity> targetsById = new LinkedHashMap<>();
         for (Entity entity : rawEntities) {
@@ -323,9 +376,9 @@ public final class PestTargetTracker {
         return closest;
     }
 
-    private static boolean isPestArmorStand(ArmorStand armorStand) {
+    private static boolean isPestArmorStand(ArmorStand armorStand, List<Entity> entities) {
         ItemStack headItem = armorStand.getItemBySlot(EquipmentSlot.HEAD);
-        if (headItem.isEmpty() || headItem.has(DataComponents.CUSTOM_NAME)) {
+        if (headItem.isEmpty()) {
             return false;
         }
         ResolvableProfile profile = headItem.get(DataComponents.PROFILE);
@@ -333,11 +386,18 @@ public final class PestTargetTracker {
             return false;
         }
         var textures = profile.partialProfile().properties().get("textures");
-        if (textures == null) {
+        if (textures == null || textures.isEmpty()) {
             return false;
         }
+        if (!headItem.has(DataComponents.CUSTOM_NAME) && hasKnownPestTexture(textures)) {
+            return true;
+        }
+        // Texture hashes drift; any custom head riding a pest mob is its skull.
+        return findRealEntityNear(entities, armorStand) != null;
+    }
 
-        for (var property : textures) {
+    private static boolean hasKnownPestTexture(Collection<Property> textures) {
+        for (Property property : textures) {
             try {
                 String decoded = new String(
                         java.util.Base64.getDecoder().decode(property.value()),

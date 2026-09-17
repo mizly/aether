@@ -14,16 +14,8 @@ import java.util.Random;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 
-/**
- * Implements the Dynamic Rest feature.
- *
- * Flow:
- * 1. Timer counts down whenever the macro is enabled.
- * 2. When the timer expires, the rest sequence is queued immediately.
- * 3. The staged shutdown begins once the macro is back in FARMING.
- * 4. After the break, the existing reconnect recovery path warps back to the
- * Garden and restarts the script.
- */
+// timer counts down while the macro is enabled; when it expires the rest is queued and the staged shutdown starts once farming resumes
+// after the break the reconnect recovery path warps back to the garden and restarts
 public class DynamicRestManager {
 
     private record RestWindow(long durationMs, long triggerMs) {
@@ -33,13 +25,9 @@ public class DynamicRestManager {
         return AetherConfig.DYNAMIC_REST_ENABLED.get();
     }
 
-    /** Epoch-ms when the next rest should be triggered. 0 = not scheduled yet. */
+    // 0 = not scheduled yet
     private static long nextRestTriggerMs = 0;
 
-    /**
-     * Total duration of the current scripting period (ms). Used for the progress
-     * bar.
-     */
     private static long scheduledDurationMs = 0;
 
     private static boolean restSequencePending = false;
@@ -49,10 +37,7 @@ public class DynamicRestManager {
     private static CommandUtils.ChatWindow restSetSpawnWindow = null;
     private static boolean dailyThresholdTriggered = false;
 
-    /**
-     * Called when the macro starts (or after a recovery reconnect).
-     * Schedules the next rest timer using the configured scripting time +/- offset.
-     */
+    // called on macro start or after a recovery reconnect
     public static void scheduleNextRest() {
         if (!isEnabled()) {
             reset();
@@ -73,10 +58,7 @@ public class DynamicRestManager {
         lastTimerUpdateMs = System.currentTimeMillis();
     }
 
-    /**
-     * Reapplies the current scripting settings to the active countdown while
-     * preserving elapsed session time.
-     */
+    // keeps the elapsed session time
     public static void refreshCurrentSession() {
         if (!isEnabled()) {
             reset();
@@ -95,7 +77,6 @@ public class DynamicRestManager {
         lastTimerUpdateMs = now;
     }
 
-    /** Clears the rest timer entirely (called when the macro is stopped manually). */
     public static void reset() {
         nextRestTriggerMs = 0;
         scheduledDurationMs = 0;
@@ -107,20 +88,16 @@ public class DynamicRestManager {
         dailyThresholdTriggered = false;
     }
 
-    /** Returns true while a rest sequence is actively in progress. */
     public static boolean isRestPending() {
         return isEnabled() && restSequencePending;
     }
 
-    /** Returns the scheduled rest trigger time (epoch ms), or 0 if not set. */
+    // 0 when not set
     public static long getNextRestTriggerMs() {
         return isEnabled() ? nextRestTriggerMs : 0;
     }
 
-    /**
-     * Returns the total scripting duration that was scheduled (ms), or 0 if not
-     * set.
-     */
+    // 0 when not set
     public static long getScheduledDurationMs() {
         return isEnabled() ? scheduledDurationMs : 0;
     }
@@ -134,10 +111,7 @@ public class DynamicRestManager {
         return new RestWindow(durationMs, nowMs + remainingMs);
     }
 
-    /**
-     * Must be called every client END_CLIENT_TICK while player != null.
-     * Handles both the countdown HUD and the shutdown sequence.
-     */
+    // call every END_CLIENT_TICK while player != null; drives both the countdown hud and the shutdown sequence
     public static void update() {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null) {

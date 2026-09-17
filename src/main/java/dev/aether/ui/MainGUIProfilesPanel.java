@@ -5,6 +5,7 @@ import dev.aether.config.ThemeProfileManager;
 import dev.aether.notification.NotificationManager;
 import dev.aether.renderer.NVGRenderer;
 import dev.aether.ui.theme.Theme;
+import dev.aether.ui.theme.ThemePreset;
 import dev.aether.ui.util.Fonts;
 import dev.aether.util.AetherLang;
 import net.minecraft.client.Minecraft;
@@ -108,6 +109,12 @@ final class MainGUIProfilesPanel {
         y += MainGUI.SECT_SEP;
         tot += MainGUI.SECT_SEP;
 
+        if (!isConfig) {
+            float presetsHeight = renderThemePresets(nvg, mx, my, gx, gw, y);
+            y += presetsHeight;
+            tot += presetsHeight;
+        }
+
         nvg.text(Fonts.BOLD, AetherLang.localize("Save Profile"), gx, y, 10f, Theme.TEXT_MUTED);
         y += 16f;
         tot += 16f;
@@ -116,7 +123,7 @@ final class MainGUIProfilesPanel {
         float fieldH = 32f;
         boolean nameFocused = owner.isProfileNameFocused(isConfig);
         nvg.roundedRect(gx, y, fieldW, fieldH, 7f, Theme.BG_FIELD);
-        nvg.rectOutline(gx, y, fieldW, fieldH, 7f, 1f, nameFocused ? Theme.BORDER_ACTIVE : Theme.BORDER_DEFAULT);
+        nvg.rectOutline(gx, y, fieldW, fieldH, 7f, 1f, nameFocused ? Theme.ACCENT_PRIMARY : Theme.BORDER_DEFAULT);
         String nameDisp = owner.profileNameInput.isEmpty() && !nameFocused ? AetherLang.localize("Profile name...") : owner.profileNameInput;
         int nameColor = owner.profileNameInput.isEmpty() && !nameFocused ? Theme.TEXT_MUTED : Theme.TEXT_LABEL;
         boolean clipProfileName = owner.pushContentLocalScissor(nvg, gx + 10f, y + 1f, fieldW - 20f, fieldH - 2f);
@@ -146,6 +153,12 @@ final class MainGUIProfilesPanel {
         nvg.roundedRect(saveBtnX, y, saveBtnW, fieldH, 7f, saveBg);
         nvg.rectOutline(saveBtnX, y, saveBtnW, fieldH, 7f, 1f, saveBrd);
         nvg.textCentered(Fonts.REGULAR, AetherLang.localize("Save"), saveBtnX, y, saveBtnW, fieldH, 12.5f, saveTxt);
+        owner.offerHoverHelp("profile-save:" + (isConfig ? "config" : "theme"),
+                AetherLang.localize("Save"),
+                AetherLang.localize(isConfig
+                        ? "Saves the current client configuration as a named profile."
+                        : "Saves the current menu and HUD theme as a named profile."),
+                saveBtnX, y, saveBtnW, fieldH, mx, my);
         final String capturedName = owner.profileNameInput;
         owner.addClickArea(saveBtnX, y, saveBtnW, fieldH, () -> {
             if (!capturedName.isBlank()) {
@@ -195,7 +208,7 @@ final class MainGUIProfilesPanel {
                 boolean renaming = owner.isProfileRenameFocused(isConfig, profileName);
                 if (renaming) {
                     nvg.roundedRect(nameX, nameY, nameW, nameH, 5f, Theme.BG_FIELD);
-                    nvg.rectOutline(nameX, nameY, nameW, nameH, 5f, 1f, Theme.BORDER_ACTIVE);
+                    nvg.rectOutline(nameX, nameY, nameW, nameH, 5f, 1f, Theme.ACCENT_PRIMARY);
                     boolean clipRename = owner.pushContentLocalScissor(nvg, nameX + 8f, nameY, nameW - 16f, nameH);
                     nvg.text(Fonts.REGULAR, owner.profileRenameInput, nameX + 8f, rowY + (rowH - 12f) / 2f, 12f, Theme.TEXT_LABEL);
                     owner.popContentLocalScissor(nvg, clipRename);
@@ -234,6 +247,13 @@ final class MainGUIProfilesPanel {
                     nvg.roundedRect(actionX, btnY, btnW, btnH, 5f, bgColor);
                     nvg.rectOutline(actionX, btnY, btnW, btnH, 5f, 1f, borderColor);
                     nvg.textCentered(Fonts.REGULAR, label, actionX, btnY, btnW, btnH, 11.5f, textColor);
+                    String help = switch (index) {
+                        case 0 -> isConfig ? "Loads this saved configuration profile." : "Loads this saved theme profile.";
+                        case 1 -> "Copies this profile as JSON so it can be backed up or shared.";
+                        default -> "Deletes this saved profile.";
+                    };
+                    owner.offerHoverHelp("profile-action:" + (isConfig ? "config:" : "theme:") + profileName + ":" + index,
+                            label, AetherLang.localize(help), actionX, btnY, btnW, btnH, mx, my);
                     final int action = index;
                     owner.addClickArea(actionX, btnY, btnW, btnH, () -> {
                         Minecraft mc = Minecraft.getInstance();
@@ -301,5 +321,43 @@ final class MainGUIProfilesPanel {
         tot += importH + 16f;
 
         return new LayoutCursor(y, tot);
+    }
+
+    private float renderThemePresets(NVGRenderer nvg, float mx, float my, float gx, float gw, float y) {
+        nvg.text(Fonts.BOLD, AetherLang.localize("Colour Presets"), gx, y, 10f, Theme.TEXT_MUTED);
+        ThemePreset[] presets = ThemePreset.values();
+        float gap = 8f;
+        float buttonH = 32f;
+        float minButtonW = nvg.textWidth(Fonts.REGULAR, AetherLang.localize("Default Colours"), 12.5f) + 24f;
+        for (ThemePreset preset : presets) {
+            minButtonW = Math.max(minButtonW, nvg.textWidth(Fonts.REGULAR, AetherLang.localize(preset.label()), 12.5f) + 24f);
+        }
+        int columns = Math.clamp((int) ((gw + gap) / (minButtonW + gap)), 1, presets.length + 1);
+        float buttonW = (gw - gap * (columns - 1)) / columns;
+        for (int i = 0; i <= presets.length; i++) {
+            ThemePreset preset = i < presets.length ? presets[i] : null;
+            String label = AetherLang.localize(preset == null ? "Default Colours" : preset.label());
+            float buttonX = gx + (i % columns) * (buttonW + gap);
+            float buttonY = y + 16f + (i / columns) * (buttonH + gap);
+            boolean hovered = mx >= buttonX && mx <= buttonX + buttonW && my >= buttonY && my <= buttonY + buttonH;
+            int bg = hovered ? Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.15f) : Theme.ELEMENT_BG;
+            int border = hovered ? Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.35f) : Theme.withAlpha(0xFFFFFFFF, 0.06f);
+            int text = hovered ? Theme.ACCENT_PRIMARY : Theme.TEXT_VALUE;
+            nvg.roundedRect(buttonX, buttonY, buttonW, buttonH, 7f, bg);
+            nvg.rectOutline(buttonX, buttonY, buttonW, buttonH, 7f, 1f, border);
+            nvg.textCentered(Fonts.REGULAR, label, buttonX, buttonY, buttonW, buttonH, 12.5f, text);
+            owner.addClickArea(buttonX, buttonY, buttonW, buttonH, () -> {
+                owner.commitText();
+                owner.commitColor();
+                if (preset == null) {
+                    Theme.resetColorsToDefaults();
+                } else {
+                    preset.apply();
+                }
+                Theme.saveTheme();
+            });
+        }
+        int rows = (presets.length + columns) / columns;
+        return 16f + rows * (buttonH + gap) - gap + 18f;
     }
 }

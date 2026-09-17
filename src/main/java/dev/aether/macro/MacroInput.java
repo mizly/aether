@@ -6,7 +6,7 @@ import dev.aether.util.ProgrammaticMovementTracker;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 
-/** Keeps macro trackers and raw key state in sync. */
+// keeps macro trackers and raw key state in sync
 public final class MacroInput {
 
     private MacroInput() {

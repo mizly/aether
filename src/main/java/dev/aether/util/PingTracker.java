@@ -3,12 +3,8 @@ package dev.aether.util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.protocol.game.ServerboundClientCommandPacket;
 
-/**
- * Measures real client<->server round-trip latency by timing a vanilla
- * REQUEST_STATS packet against its ClientboundAwardStatsPacket reply, instead
- * of relying on the server-reported tab-list latency field (which Hypixel pins
- * near 0-1ms). Approach mirrors Skytils' Ping feature.
- */
+// times a vanilla REQUEST_STATS packet against its reply, because hypixel pins the tab-list latency field near 0-1ms
+// same approach as skytils' ping feature
 public final class PingTracker {
     private static final long INTERVAL_MS = 5000L;
     private static final long TIMEOUT_MS = 10_000L;

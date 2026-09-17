@@ -31,7 +31,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class AetherLanguageManager {
-    private static final URI REPO_CONTENTS_URI = URI.create("https://api.github.com/repos/iceangelsaint/aether-language-packs/contents");
+    private static final URI REPO_CONTENTS_URI = URI.create("https://api.github.com/repos/mizly/aether/contents/translations?ref=main");
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .followRedirects(HttpClient.Redirect.NORMAL)

@@ -17,16 +17,8 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Freelook / "perspective" camera in the style of Lunar Client and Taunahi: while the
- * bind is held the mouse orbits the camera around the player without touching the player's
- * real yaw/pitch, so the body keeps facing (and moving/farming) in its actual direction.
- * Releasing the bind snaps the view back to the player.
- *
- * <p>Unlike {@link FreecamManager} this never detaches the camera entity, so picking and
- * interactions stay anchored to the player and nothing new is sent to the server - it is
- * purely a client-side view rotation and is anticheat-safe.
- */
+// the mouse orbits the camera while the bind is held, without touching the player's real yaw/pitch, so the body keeps facing and farming where it was
+// unlike freecam the camera entity never detaches, so picking stays anchored to the player and nothing new is sent to the server
 public final class FreelookManager {
     private static boolean registered;
     private static boolean active;
@@ -58,14 +50,8 @@ public final class FreelookManager {
         return pitch;
     }
 
-    /**
-     * Consumes a mouse movement delta while freelook is active, accumulating it into the
-     * free camera rotation instead of turning the player. Matches vanilla {@code turn}
-     * feel (0.15 scale, pitch clamped to [-90, 90]).
-     *
-     * @return {@code true} if the delta was consumed (freelook active), so the caller
-     *     should not turn the player.
-     */
+    // matches vanilla turn feel (0.15 scale, pitch clamped to +-90)
+    // true when the delta was consumed, so the caller should not turn the player
     public static boolean turn(double yRot, double xRot) {
         if (!active) {
             return false;
@@ -112,10 +98,7 @@ public final class FreelookManager {
         keyWasDown = keyDown;
     }
 
-    /**
-     * Resets {@code Minecraft.missTime} to 0. Queued via {@code execute} so it runs after any
-     * pending {@code grabMouse()} task (which sets it to 10000) rather than before it.
-     */
+    // queued via execute so it runs after any pending grabMouse(), which sets missTime to 10000
     private static void clearMissTime(Minecraft client) {
         if (client == null) {
             return;
@@ -123,7 +106,6 @@ public final class FreelookManager {
         client.execute(() -> ((MixinMinecraft) client).aether$setMissTime(0));
     }
 
-    /** Whether freelook may run right now (feature on, in-world, no screen, freecam off, streamer mode off). */
     private static boolean isAvailable(Minecraft client) {
         if (client.player == null || client.level == null || client.screen != null) {
             return false;

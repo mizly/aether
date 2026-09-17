@@ -23,7 +23,7 @@ public final class ThemeOptionsSettingsRegistryProvider extends AbstractSettings
         List<SettingGroup> groups = new ArrayList<>();
         groups.add(SettingGroup.alwaysOn(
                         "Theme Options",
-                        "Animation speed and theme presets")
+                        "Animation speed and interface scale")
                 .add(new SliderSetting("Animation Time", Theme.ANIM_TIME_MIN_MS, Theme.ANIM_TIME_MAX_MS,
                         () -> Theme.ANIM_TIME_MS,
                         value -> {
@@ -40,6 +40,20 @@ public final class ThemeOptionsSettingsRegistryProvider extends AbstractSettings
                             Theme.saveTheme();
                         })
                         .withDecimals(2).withSuffix("x"))
+                .add(new SliderSetting("Text Scale", Theme.TEXT_SCALE_MIN, Theme.TEXT_SCALE_MAX,
+                        () -> Theme.TEXT_SCALE,
+                        value -> {
+                            Theme.TEXT_SCALE = value;
+                            MainGUI.uiTextScale = value;
+                            Theme.saveTheme();
+                        })
+                        .withDecimals(2).withSuffix("x"))
+                .add(new ActionSetting("Reset Theme", () -> {
+                    Theme.resetToDefaults();
+                    MainGUI.uiScale = Theme.UI_SCALE;
+                    MainGUI.uiTextScale = Theme.TEXT_SCALE;
+                    Theme.saveTheme();
+                }))
                 .add(new ActionSetting("Export Theme (Copy)", () -> {
                     String json = Theme.exportJson();
                     Minecraft.getInstance().keyboardHandler.setClipboard(json);
@@ -48,10 +62,9 @@ public final class ThemeOptionsSettingsRegistryProvider extends AbstractSettings
                     String json = Minecraft.getInstance().keyboardHandler.getClipboard();
                     if (json != null && !json.isBlank()) {
                         Theme.importJson(json);
-                        MainGUI.uiScale = Theme.UI_SCALE; // apply imported scale to the live panel
                         Theme.saveTheme();
                     }
                 })));
-        return MainGUIRegistry.subTab("Theme Options", "Animation speed and theme presets", groups);
+        return MainGUIRegistry.subTab("Theme Options", "Animation speed and interface scale", groups);
     }
 }

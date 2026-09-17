@@ -32,6 +32,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.item.component.ItemLore;
+import net.minecraft.world.level.block.FlowerPotBlock;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -43,24 +44,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Standalone visitors macro triggered by {@code /aether visitors}.
- * <p>
- * Flow:
- * <ol>
- * <li>TP to barn ({@code /plottp barn})</li>
- * <li>Scan tab-list for visitor names</li>
- * <li>For each visitor NPC in the barn area:
- * <ul>
- * <li>Walk close, rotate, interact (right-click)</li>
- * <li>Read the "Accept Offer" lore to extract required items</li>
- * <li>Buy each item from Bazaar via {@link BazaarUtils}</li>
- * <li>Re-open visitor GUI and click "Accept Offer"</li>
- * </ul>
- * </li>
- * <li>When all visitors are served, stop.</li>
- * </ol>
- */
+// plottp barn, scan tab for visitor names, then per npc: walk close, interact, read the accept offer lore, buy the items off bazaar, and accept
 public class VisitorsMacro {
 
     private static final Pattern ITEM_PATTERN = Pattern.compile("^(.+?)\\s+x([\\d,]+)$");
@@ -76,6 +60,11 @@ public class VisitorsMacro {
     private static final float VISITOR_INTERACTION_RANGE = 2.5f;
     private static final float VISITOR_RETRY_RANGE = 2.0f;
     private static final int MAX_VISITOR_INTERACTION_RETRIES = 3;
+    private static final Pattern TIP_JAR_PATTERN =
+            Pattern.compile("Copper:\\s*([\\d,]+)\\s*/\\s*([\\d,]+)", Pattern.CASE_INSENSITIVE);
+    private static final double TIP_JAR_MAX_RANGE = 5.0;
+    private static final double TIP_JAR_FILL_THRESHOLD = 0.50;
+    private static final int TIP_JAR_FALLBACK_THRESHOLD = 50;
 
     public static volatile boolean isRunning = false;
     private static volatile boolean shouldStop = false;
@@ -204,6 +193,12 @@ public class VisitorsMacro {
             }
         }
 
+        // still standing at the desk from the barn teleport, so do this before walking off
+        emptyFungalTipJar(client);
+        if (shouldStop) {
+            return;
+        }
+
         // Step 2+: Re-scan the queue each round and process from the back of the line.
         int totalServed = 0;
         int roundsWithoutProgress = 0;
@@ -283,6 +278,9 @@ public class VisitorsMacro {
         // Step 4: Done
         msg(client, "\u00A7aVisitors macro complete. Served \u00A7e" + totalServed + " \u00A7avisitor(s).");
         if (!shouldStop && wasRunningBefore) {
+            if (compactorsDisabled) {
+                compactorsPendingReenable = true;
+            }
             VisitorManager.handleVisitorScriptFinished(client);
         } else {
             MacroStateManager.setCurrentState(MacroState.State.OFF);
@@ -657,6 +655,126 @@ public class VisitorsMacro {
 
     // -- Entity Finding --
 
+    // -- Fungal Tip Jar --
+
+    private static void emptyFungalTipJar(Minecraft client) {
+        if (!AetherConfig.VISITOR_EMPTY_TIP_JAR.get() || client.player == null) {
+            return;
+        }
+
+        Entity label = findTipJarLabel(client);
+        if (label == null) {
+            ClientUtils.sendDebugMessage("[VisitorsMacro] Fungal Tip Jar label not found nearby; skipping.");
+            return;
+        }
+
+        int copper = readTipJarCopper(label);
+        int threshold = tipJarThreshold(label);
+        if (copper < threshold) {
+            ClientUtils.sendDebugMessage("[VisitorsMacro] Fungal Tip Jar at " + copper + "/"
+                    + readTipJarCapacity(label) + ", below the " + threshold + " threshold; skipping.");
+            return;
+        }
+
+        BlockPos pot = findTipJarPot(client);
+        if (pot == null) {
+            ClientUtils.sendDebugMessage("[VisitorsMacro] Fungal Tip Jar pot not found nearby; skipping.");
+            return;
+        }
+
+        msg(client, "\u00A7eEmptying Fungal Tip Jar (\u00A76" + copper + " \u00A7ecopper)...");
+        // the pot model is only ~6px tall, so aim low in the block, not at its centre
+        Vec3 aim = new Vec3(pot.getX() + 0.5, pot.getY() + 0.25, pot.getZ() + 0.5);
+        client.execute(() -> RotationManager.initiateRotation(client, aim,
+                AetherConfig.ROTATION_TIME.get(), AetherConfig.VISITOR_FOV_RANGE.get()));
+        MacroWorkerThread.sleep(AetherConfig.ROTATION_TIME.get() + 50L);
+        waitForRotationToFinish();
+
+        client.execute(() -> ((MixinMinecraft) client).aether$startUseItem());
+        MacroWorkerThread.sleep(600);
+    }
+
+    // the nearest vanilla flower pot block - empty or potted - is the tip jar
+    private static BlockPos findTipJarPot(Minecraft client) {
+        if (client.level == null || client.player == null) {
+            return null;
+        }
+
+        int radius = (int) Math.ceil(TIP_JAR_MAX_RANGE);
+        BlockPos base = client.player.blockPosition();
+        BlockPos best = null;
+        double bestDistSq = TIP_JAR_MAX_RANGE * TIP_JAR_MAX_RANGE;
+        for (int x = -radius; x <= radius; x++) {
+            for (int y = -radius; y <= radius; y++) {
+                for (int z = -radius; z <= radius; z++) {
+                    BlockPos pos = base.offset(x, y, z);
+                    if (!(client.level.getBlockState(pos).getBlock() instanceof FlowerPotBlock)) {
+                        continue;
+                    }
+                    double distSq = client.player.getEyePosition()
+                            .distanceToSqr(pos.getX() + 0.5, pos.getY() + 0.25, pos.getZ() + 0.5);
+                    if (distSq < bestDistSq) {
+                        bestDistSq = distSq;
+                        best = pos;
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
+    // the floating "Copper: x/y" nameplate; deliberately not resolved to a nearby NPC
+    private static Entity findTipJarLabel(Minecraft client) {
+        if (client.level == null || client.player == null) {
+            return null;
+        }
+
+        Entity best = null;
+        double bestDistSq = Double.MAX_VALUE;
+        for (Entity entity : client.level.entitiesForRendering()) {
+            if (entity == client.player || readTipJarCopper(entity) < 0) {
+                continue;
+            }
+            double distSq = entity.distanceToSqr(client.player);
+            if (distSq < bestDistSq) {
+                bestDistSq = distSq;
+                best = entity;
+            }
+        }
+        return best;
+    }
+
+    private static int readTipJarCopper(Entity entity) {
+        return readTipJarGroup(entity, 1);
+    }
+
+    private static int readTipJarCapacity(Entity entity) {
+        return readTipJarGroup(entity, 2);
+    }
+
+    // only worth a click once it is half full, since each visitor tips 2-5
+    private static int tipJarThreshold(Entity entity) {
+        int capacity = readTipJarCapacity(entity);
+        return capacity > 0
+                ? (int) Math.ceil(capacity * TIP_JAR_FILL_THRESHOLD)
+                : TIP_JAR_FALLBACK_THRESHOLD;
+    }
+
+    private static int readTipJarGroup(Entity entity, int group) {
+        if (entity == null || entity.getDisplayName() == null) {
+            return -1;
+        }
+        Matcher matcher = TIP_JAR_PATTERN.matcher(stripColors(entity.getDisplayName().getString()));
+        if (!matcher.find()) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(matcher.group(group).replace(",", ""));
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
     private static Entity findVisitorEntity(Minecraft client, String visitorName) {
         // Keep visitor targeting consistent with /aether interact, including
         // exact-name preference and armor-stand-to-NPC resolution.
@@ -864,10 +982,7 @@ public class VisitorsMacro {
         return client.player != null && client.player.distanceTo(visitor) <= retryRange;
     }
 
-    /**
-     * Repeatedly right-clicks the entity every 500ms until a container GUI opens or
-     * timeout.
-     */
+    // right-clicks every 500ms until a container gui opens or it times out
     private static boolean interactUntilGui(Minecraft client, String visitorName, Entity entity, long timeoutMs) {
         long deadline = System.currentTimeMillis() + timeoutMs;
         int prepRetries = 0;
@@ -1151,7 +1266,8 @@ public class VisitorsMacro {
     }
 
     private static boolean ensureVisitorLoadout(Minecraft client) {
-        if (AetherConfig.LOADOUT_SLOT_VISITOR.get() > 0
+        if (AetherConfig.AUTO_LOADOUT_ENABLED.get()
+                && AetherConfig.LOADOUT_SLOT_VISITOR.get() > 0
                 && LoadoutManager.trackedLoadoutSlot != AetherConfig.LOADOUT_SLOT_VISITOR
                         .get()) {
             msg(client, "\u00A7eSwapping to visitor loadout (Slot " + AetherConfig.LOADOUT_SLOT_VISITOR.get()

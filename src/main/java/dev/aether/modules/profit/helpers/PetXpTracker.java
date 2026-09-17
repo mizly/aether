@@ -15,9 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import dev.aether.modules.profit.ProfitManager;
 
-/**
- * Tracks Pet XP from the tab list based on configured pet name and rarity.
- */
+// reads pet xp off the tab list for the configured pet name and rarity
 public class PetXpTracker {
     private record TrackedPet(PetInfo info, Pattern pattern, long[] xpTable) {}
 

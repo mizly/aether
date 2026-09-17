@@ -6,6 +6,7 @@ import dev.aether.ui.MainGUI;
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.core.BlockPos;
@@ -14,11 +15,15 @@ import net.minecraft.network.protocol.game.ClientboundLevelParticlesPacket;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.io.File;
+import java.util.function.Consumer;
 
 public final class AetherBootstrapHooks {
     public interface FeatureHooks {
         default boolean isAttackSuppressed() {
             return false;
+        }
+
+        default void onAttack(Minecraft minecraft) {
         }
 
         default void onConfigProfileLoaded(File profileFile) {
@@ -63,6 +68,8 @@ public final class AetherBootstrapHooks {
         default void renderFailsafeColourFlash() {
         }
 
+        default int pestOutlineColor(net.minecraft.world.entity.Entity entity) { return 0; }
+
         default void renderPestEspTracerOverlay() {
         }
 
@@ -71,6 +78,10 @@ public final class AetherBootstrapHooks {
 
         default boolean shouldSuppressVanillaHud(Screen screen) {
             return false;
+        }
+
+        default void extractScoreboardSidebar(GuiGraphicsExtractor graphics, Consumer<GuiGraphicsExtractor> vanilla) {
+            vanilla.accept(graphics);
         }
 
         default void renderConfigScreenOverlay(NVGRenderer renderer, float width, float height, float deltaTime) {
@@ -129,6 +140,14 @@ public final class AetherBootstrapHooks {
         }
 
         default boolean shouldCancelMouseTurn() {
+            return false;
+        }
+
+        default boolean handleRouteEditorMouseButton(Minecraft minecraft, int button, int action) {
+            return false;
+        }
+
+        default boolean handleRouteEditorKey(Minecraft minecraft, int key, int action) {
             return false;
         }
 
@@ -214,6 +233,10 @@ public final class AetherBootstrapHooks {
         return hooks.isAttackSuppressed();
     }
 
+    public static void onAttack(Minecraft minecraft) {
+        hooks.onAttack(minecraft);
+    }
+
     public static void onUnexpectedDisconnect() {
         hooks.onUnexpectedDisconnect();
     }
@@ -262,6 +285,10 @@ public final class AetherBootstrapHooks {
         hooks.renderFailsafeColourFlash();
     }
 
+    public static int pestOutlineColor(net.minecraft.world.entity.Entity entity) {
+        return hooks.pestOutlineColor(entity);
+    }
+
     public static void renderPestEspTracerOverlay() {
         hooks.renderPestEspTracerOverlay();
     }
@@ -272,6 +299,10 @@ public final class AetherBootstrapHooks {
 
     public static boolean shouldSuppressVanillaHud(Screen screen) {
         return isBootstrapConfigScreen(screen) || hooks.shouldSuppressVanillaHud(screen);
+    }
+
+    public static void extractScoreboardSidebar(GuiGraphicsExtractor graphics, Consumer<GuiGraphicsExtractor> vanilla) {
+        hooks.extractScoreboardSidebar(graphics, vanilla);
     }
 
     public static boolean isBootstrapConfigScreen(Screen screen) {
@@ -380,6 +411,14 @@ public final class AetherBootstrapHooks {
 
     public static boolean isMouseUngrabbed() {
         return hooks.isMouseUngrabbed();
+    }
+
+    public static boolean handleRouteEditorMouseButton(Minecraft minecraft, int button, int action) {
+        return hooks.handleRouteEditorMouseButton(minecraft, button, action);
+    }
+
+    public static boolean handleRouteEditorKey(Minecraft minecraft, int key, int action) {
+        return hooks.handleRouteEditorKey(minecraft, key, action);
     }
 
     public static boolean hasCustomScreenBackground(Screen screen) {

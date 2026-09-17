@@ -24,43 +24,21 @@ import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
-/**
- * Loads, rasterizes, and renders SVG images using NanoSVG + NanoVG.
- *
- * <p>SVGs are rasterized at the physical pixel resolution (logical size x pixel ratio)
- * for crisp rendering on high-DPI displays, then cached by
- * {@code "resourcePath@physWxphysH"} so that the correct texture is always used.</p>
- *
- * <p>Color tinting works for any fill color, including white SVGs, by overriding
- * the paint's inner/outer color channels after {@code nvgImagePattern}.</p>
- *
- * <p>All methods are package-private; call them through {@link NVGRenderer}.</p>
- */
+// rasterized at physical resolution and cached per "path@physWxphysH", so high-dpi stays crisp
+// tinting works on any fill, white included, by overriding the paint's colors after nvgImagePattern
 final class SVGRenderer {
 
     private static final Pattern SVG_LENGTH_PATTERN = Pattern.compile(
             "^\\s*([+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[eE][+-]?\\d+)?)\\s*([a-zA-Z%]*)\\s*$"
     );
 
-    /** Maps cache key (path + physical dimensions) -> NanoVG image handle. */
     private static final Map<String, Integer> imageCache = new HashMap<>();
 
     private SVGRenderer() {}
 
     // -- Render ----------------------------------------------------------------
 
-    /**
-     * Renders an SVG resource as an image pattern fill, tinted by {@code argbColor}.
-     *
-     * @param vg           NanoVG context handle
-     * @param resourcePath absolute resource path, e.g. {@code "/assets/aether/icons/clock.svg"}
-     * @param x            left edge in logical pixels
-     * @param y            top edge in logical pixels
-     * @param width        render width in logical pixels
-     * @param height       render height in logical pixels
-     * @param argbColor    ARGB tint color - alpha controls opacity; R/G/B tint white-filled SVGs
-     * @param paintScratch pre-allocated {@link NVGPaint} scratch buffer
-     */
+    // argbColor alpha is opacity; rgb tints white-filled svgs
     static void render(long vg, String resourcePath,
                        float x, float y, float width, float height,
                        int argbColor, NVGPaint paintScratch) {
@@ -235,7 +213,7 @@ final class SVGRenderer {
 
     // -- Lifecycle -------------------------------------------------------------
 
-    /** Deletes all cached GPU images. Call when destroying the NanoVG context. */
+    // call when destroying the nanovg context
     static void destroy(long vg) {
         for (int handle : imageCache.values()) {
             NanoVG.nvgDeleteImage(vg, handle);

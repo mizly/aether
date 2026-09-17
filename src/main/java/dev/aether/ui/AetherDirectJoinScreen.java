@@ -18,11 +18,7 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Custom-styled Direct Connect screen.
- * Replaces {@link net.minecraft.client.gui.screens.DirectJoinServerScreen}
- * via {@link dev.aether.mixin.MixinDirectJoinServerScreen}.
- */
+// replaces the vanilla DirectJoinServerScreen via MixinDirectJoinServerScreen
 public class AetherDirectJoinScreen extends Screen {
 
     // -- Layout ----------------------------------------------------------------

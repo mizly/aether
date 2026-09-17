@@ -6,13 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Aether is a Fabric client-side mod for Hypixel Skyblock (farming QoL: auto farming,
 pest handling, failsafes, visual spoofers). It targets **Minecraft 26.1.2** and
-**Java 25**. There is no test suite; verification is done by building and running in-game.
+**Java 25**. A JUnit 5 suite covers the logic that can be pulled away from Minecraft's
+singletons; anything touching rendering or live game state is still verified in-game.
 
 ## Commands
 
 ```bash
-./gradlew build            # compile + produce the mod jar in build/libs/
+./gradlew build            # compile + run tests + produce the mod jar in build/libs/
 ./gradlew clean build
+./gradlew test             # JUnit 5 only
 ./gradlew runClient        # launch a dev Minecraft client with the mod (fabric-loom)
 ```
 
@@ -59,6 +61,11 @@ managers/tick handlers here.
 `syncFromConfig` / tick / start-stop methods called from bootstrap and tick handlers. `pathfinding`
 is a large self-contained subsystem (pather, movement, etherwarp, rotation strategies).
 
+Fly routes steer through `execution/FlightGuidance`, which reads the world only through the
+`FlightView` interface so it can run outside the game. `test/.../pathfinding/harness` flies the real
+guidance over voxel replicas of tight builds and asserts on replans, waypoint counts and stalled
+ticks, so changes to fly steering or the fly cost model should be measured there first.
+
 ### Macros
 
 `dev.aether.macro`: `AbstractMacro` is a per-tick state machine (`updateState` decides state,
@@ -97,6 +104,11 @@ that services file** — it is not auto-discovered otherwise. `/aether` opens th
 
 ## Core Rules
 
+### Translations
+
+When making changes, update only the base `en_us.json` translation file. Do not run or
+update translations for other locales; those updates are handled on GitHub.
+
 ### Commits
 
 	•	Commit frequently. Small, focused commits over large batched ones.
@@ -115,3 +127,14 @@ that services file** — it is not auto-discovered otherwise. `/aether` opens th
 
 	•	Skip comments on self-explanatory code (getters, simple loops, obvious assignments).
 	•	Do comment: non-obvious business logic, workarounds for bugs/quirks, magic numbers, anything a future reader would ask “wait, why?” about.
+
+### Comment Style
+
+	•	No javadoc, ever. No `/** ... */`, no `/* ... */` block comments, no `@param`/`@return`/`@throws`.
+	•	Only `//` line comments. Two lines max, and lowercase — including the first word.
+	•	Bad: `/** Returns true if the point is inside the element's bounds. */`
+	•	Bad: `// Releases the cursor while the macro is active.`
+	•	Good: `// vanilla grabMouse() resets bindings to physical key state, dropping macro-held keys`
+	•	The only block comments left in the tree are inline constant annotations
+		(`GL11.glGetInteger(0x8B8D /* GL_CURRENT_PROGRAM */)`). Don't add new ones.
+	•	When a javadoc block would only restate the name, delete it instead of rewriting it.

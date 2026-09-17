@@ -1,6 +1,7 @@
 package dev.aether.ui.settings;
 
 public enum SettingType {
+    SECTION,
     TOGGLE,
     SLIDER,
     RANGE_SLIDER,

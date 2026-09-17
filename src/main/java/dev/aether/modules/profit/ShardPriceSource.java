@@ -1,6 +1,6 @@
 package dev.aether.modules.profit;
 
-/** Market side used when valuing Pest Shards from the SkyCofl snapshot. */
+// market side used when valuing pest shards from the skycofl snapshot
 public enum ShardPriceSource {
     INSTA_SELL("Insta Sell"),
     BUY_OFFER("Buy Offer");

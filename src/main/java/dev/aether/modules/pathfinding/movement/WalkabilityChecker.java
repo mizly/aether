@@ -12,10 +12,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.FluidState;
 import net.minecraft.world.phys.shapes.VoxelShape;
 
-/**
- * Centralises all block-state queries for the pathfinder.
- * Results are cached per session via packed-long keys to avoid redundant world lookups.
- */
+// every block-state query for the pathfinder, cached per session by packed-long key
 public final class WalkabilityChecker {
 
     // Bit flags used in the byte cache
@@ -62,31 +59,19 @@ public final class WalkabilityChecker {
 
     // --- Public query methods ------------------------------------------------
 
-    /**
-     * True if the block has a solid collision surface (maxY of VoxelShape >= 0.5 and block is not passable).
-     */
     public boolean isSolid(int x, int y, int z) {
         return (getFlags(x, y, z) & FLAG_SOLID) != 0;
     }
 
-    /**
-     * True if an entity can move through this position (air, water, plants, etc.).
-     */
     public boolean isPassable(int x, int y, int z) {
         return (getFlags(x, y, z) & FLAG_PASSABLE) != 0;
     }
 
-    /**
-     * True if the block state is air (no block).
-     */
     public boolean isAir(int x, int y, int z) {
         return getState(x, y, z).isAir();
     }
 
-    /**
-     * True if the block at y is a good standing position:
-     * feet (y) is passable, head (y+1) is passable, floor (y-1) is solid.
-     */
+    // feet and head passable, floor below solid
     public boolean isWalkable(int x, int y, int z) {
         return isPassable(x, y, z)
                 && isPassable(x, y + 1, z)
@@ -95,44 +80,25 @@ public final class WalkabilityChecker {
                 && !isDangerous(x, y + 1, z);
     }
 
-    /**
-     * True if the block contains a hazard (lava, fire, magma, cactus, sweet berry bush).
-     */
+    // lava, fire, magma, cactus, sweet berry bush
     public boolean isDangerous(int x, int y, int z) {
         return (getFlags(x, y, z) & FLAG_DANGEROUS) != 0;
     }
 
-    /**
-     * True if the block is a water source or flowing water.
-     */
     public boolean isWater(int x, int y, int z) {
         return (getFlags(x, y, z) & FLAG_WATER) != 0;
     }
 
-    /**
-     * True if the block is a ladder or vine (climbable).
-     */
     public boolean isClimbable(int x, int y, int z) {
         return (getFlags(x, y, z) & FLAG_CLIMBABLE) != 0;
     }
 
-    /**
-     * True if the block has a top collision surface at or above y=0.5.
-     * More reliable than {@link #isSolid} for partial blocks such as stairs,
-     * slabs, and walls, because it uses the actual VoxelShape from the level
-     * rather than the cached flag which uses a null-context fallback.
-     */
+    // reads the real VoxelShape rather than the cached flag, so it beats isSolid on stairs, slabs and walls
     public boolean hasWalkableTop(int x, int y, int z) {
         return getTopY(x, y, z) >= 0.5;
     }
 
-    /**
-     * True if the block is solid AND has a full-height collision shape (maxY >= 0.95)
-     * AND canOcclude + isCollisionShapeFullBlock.
-     * Partial blocks such as slabs, stairs, and half-walls return false even when solid.
-     * Use this instead of {@link #isSolid} for wall-proximity checks so that slab edges
-     * and stair surfaces are not incorrectly treated as impassable walls.
-     */
+    // partial blocks (slabs, stairs, half-walls) return false even when solid, so their edges are not treated as impassable
     public boolean isFullWallBlock(int x, int y, int z) {
         long key = BlockPosUtil.pack(x, y, z);
         byte cached = fullWallCache.get(key);
@@ -144,26 +110,17 @@ public final class WalkabilityChecker {
         return result;
     }
 
-    /**
-     * True if the block is solid AND has a full-height collision shape (maxY >= 0.95).
-     * Partial blocks such as slabs, stairs, and half-walls return false even when solid.
-     */
+    // partial blocks return false even when solid
     public boolean isFullWall(int x, int y, int z) {
         if (!isSolid(x, y, z)) return false;
         return getTopY(x, y, z) >= 0.95;
     }
 
-    /**
-     * True if a solid block at y+1 would cause suffocation.
-     */
     public boolean wouldSuffocate(int x, int y, int z) {
         return isSolid(x, y + 1, z) && !isPassable(x, y + 1, z);
     }
 
-    /**
-     * Returns false if falling from fromY to toY would deal fall damage,
-     * unless water is present at the landing block.
-     */
+    // water at the landing block makes any drop safe
     public boolean safeToFall(int fromX, int fromY, int fromZ, int toX, int toY, int toZ) {
         int fallDistance = fromY - toY;
         if (fallDistance <= 3) return true;
@@ -176,10 +133,7 @@ public final class WalkabilityChecker {
         return false;
     }
 
-    /**
-     * Returns the VoxelShape collision maxY for the block at (x, y, z), in block-local units [0..1].
-     * Returns 0 for an empty/passable shape. Cached per session.
-     */
+    // block-local [0..1], 0 for an empty shape; cached per session
     public double getTopY(int x, int y, int z) {
         long key = BlockPosUtil.pack(x, y, z);
         double cached = topYCache.get(key);
@@ -192,16 +146,10 @@ public final class WalkabilityChecker {
         return topY;
     }
 
-    /**
-     * Returns true if the block state at (x,y,z) can occlude (used for ceiling proximity checks).
-     */
     public boolean canOcclude(int x, int y, int z) {
         return getState(x, y, z).canOcclude();
     }
 
-    /**
-     * Returns the cached (or freshly fetched) BlockState at the given coordinates.
-     */
     public BlockState getState(int x, int y, int z) {
         long key = BlockPosUtil.pack(x, y, z);
         BlockState state = stateCache.get(key);
@@ -278,11 +226,7 @@ public final class WalkabilityChecker {
         return flags;
     }
 
-    /**
-     * Determines if an entity can move through the given block state (no solid collision, not a full cube).
-     * Instance method - uses {@code this.level} and {@code this.mutablePos} to avoid
-     * context-dependent blocks (doors, fence gates) throwing on null context.
-     */
+    // instance method so context-dependent blocks (doors, fence gates) don't throw on a null context
     private boolean isStatePassable(BlockState state, int x, int y, int z) {
         if (state.isAir()) return true;
         Block block = state.getBlock();
@@ -310,6 +254,19 @@ public final class WalkabilityChecker {
         // Vines and ladders - entity CAN be in same position
         if (block instanceof VineBlock) return true;
         if (block instanceof LadderBlock) return true;
+
+        // an open trapdoor or door is a thin slab against one side, so the block is traversable
+        // even though its collision shape is not empty. without this a hole covered by open
+        // trapdoors reads as sealed and no route through it exists.
+        if (block instanceof TrapDoorBlock) {
+            return state.getValue(TrapDoorBlock.OPEN);
+        }
+        if (block instanceof DoorBlock) {
+            return state.getValue(DoorBlock.OPEN);
+        }
+        if (block instanceof FenceGateBlock) {
+            return state.getValue(FenceGateBlock.OPEN);
+        }
 
         // General: no full solid collision - use actual level + position (no exceptions)
         VoxelShape shape = state.getCollisionShape(level, mutablePos.set(x, y, z));

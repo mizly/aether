@@ -220,7 +220,6 @@ public final class MinecraftNavigationProvider implements NavigationPointProvide
         return belowY + topY;
     }
 
-    /** Detect blocks that deal damage on contact. */
     private static boolean isDangerous(BlockState state) {
         Block block = state.getBlock();
         if (block == Blocks.LAVA

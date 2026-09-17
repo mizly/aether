@@ -7,6 +7,7 @@
         "AccessorInventory"
     ],
     "client": [
+        "GuiAccessor",
         "AccessorAbstractContainerScreen",
         "AccessorEntity",
         "AccessorGlDevice",
@@ -17,6 +18,9 @@
         "AccessorWindow",
         "PlayerTabOverlayAccessor",
         "MixinEntityTurn",
+        "MixinAetherCape",
+        "MixinPestOutline",
+        "MixinPestSkullOutline",
         "MixinPlayer",
         "MixinPlayerInfo",
         "MixinPlayerTeam",
@@ -27,6 +31,8 @@
         "MixinFreecamInteractionBlocker",
         "MixinClientLevel",
         "MixinGameRenderer",
+        "MixinSkybox",
+        "MixinSkyboxClouds",
         "MixinCamera",
         "MixinMouseHandler",
         "MixinLocalPlayer",

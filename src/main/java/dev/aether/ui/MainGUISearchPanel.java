@@ -4,22 +4,23 @@ import dev.aether.renderer.NVGRenderer;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.Setting;
 import dev.aether.ui.settings.SettingGroup;
-import dev.aether.ui.settings.ToggleSetting;
 import dev.aether.ui.theme.Theme;
 import dev.aether.ui.util.Fonts;
 import dev.aether.util.AetherLang;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 
 final class MainGUISearchPanel {
+    private static final float RESULT_H = 54f;
+    private static final float RESULT_GAP = 6f;
+    private static final float MODULE_GAP = 10f;
+
     private final MainGUI owner;
     private final List<SearchResult> searchResults = new ArrayList<>();
-    private final Map<SettingGroup, ToggleSetting> searchGroupToggles = new IdentityHashMap<>();
 
-    private record SearchResult(String tabLabel, String subtabLabel, SettingGroup group, Setting setting) {}
+    private record SearchResult(int mainTab, String sourceLabel, ModulesTab.SubTab subtab,
+                                SettingGroup group, Setting setting) {}
 
     MainGUISearchPanel(MainGUI owner) {
         this.owner = owner;
@@ -34,40 +35,32 @@ final class MainGUISearchPanel {
         buildResults(owner.searchQuery.toLowerCase());
 
         float y = resultsTop + 10f - owner.searchScrollY;
-        float tot = 10f;
+        float total = 10f;
 
         nvg.pushScissor(owner.contX, resultsTop, owner.contW, resultsH);
 
-        SettingGroup lastGroup = null;
+        ModulesTab.SubTab lastSubtab = null;
         for (SearchResult result : searchResults) {
-            if (result.group() != lastGroup) {
-                if (lastGroup != null) {
-                    y += 4f;
-                    tot += 4f;
+            if (result.subtab() != lastSubtab) {
+                if (lastSubtab != null) {
+                    y += MODULE_GAP;
+                    total += MODULE_GAP;
                 }
-                nvg.roundedRect(gx, y, gw, MainGUI.HEADER_H, 6f, Theme.BG_SECONDARY);
-                int stripe = result.group().isAlwaysOn()
-                        ? Theme.withAlpha(Theme.TEXT_SECONDARY, 160)
-                        : result.group().isEnabled() ? Theme.ACCENT_PRIMARY
-                        : Theme.withAlpha(Theme.TEXT_DIM, 180);
-                nvg.roundedRect(gx, y + 10f, 3f, MainGUI.HEADER_H - 20f, 2f, stripe);
-                nvg.text(Fonts.BOLD, AetherLang.localize(result.group().getName()), gx + 12f, y + 9f, 13f, Theme.TEXT_PRIMARY);
-                String ctx = AetherLang.localize(result.tabLabel()) + " > " + AetherLang.localize(result.subtabLabel());
-                nvg.textRight(Fonts.REGULAR, ctx, gx, y + 9f, gw - 8f, 10f, Theme.TEXT_DIM);
+                renderModuleHeader(nvg, result, gx, y, gw);
                 y += MainGUI.HEADER_H;
-                tot += MainGUI.HEADER_H;
+                total += MainGUI.HEADER_H;
                 y += MainGUI.HEADER_TO_FIRST_SETTING_GAP;
-                tot += MainGUI.HEADER_TO_FIRST_SETTING_GAP;
-                lastGroup = result.group();
+                total += MainGUI.HEADER_TO_FIRST_SETTING_GAP;
+                lastSubtab = result.subtab();
             }
-            float settingH = owner.settingH(result.setting(), gw);
-            if (result.setting().isVisible()) {
-                if (y + settingH > resultsTop && y < resultsTop + resultsH) {
-                    owner.renderSettingRow(nvg, result.setting(), gx, y, gw, settingH, mx, my);
-                }
-                y += settingH;
-                tot += settingH;
+
+            if (y + RESULT_H > resultsTop && y < resultsTop + resultsH) {
+                renderResult(nvg, result, gx, y, gw, mx, my);
+                owner.addClickArea(gx, y, gw, RESULT_H,
+                        () -> owner.openSearchResult(result.mainTab(), result.subtab(), result.group(), result.setting()));
             }
+            y += RESULT_H + RESULT_GAP;
+            total += RESULT_H + RESULT_GAP;
         }
 
         if (searchResults.isEmpty()) {
@@ -83,11 +76,11 @@ final class MainGUISearchPanel {
             );
         }
 
-        owner.searchMaxScrollY = Math.max(0f, tot - resultsH + 16f);
+        owner.searchMaxScrollY = Math.max(0f, total - resultsH + 16f);
         nvg.popScissor();
 
         if (owner.searchMaxScrollY > 0f) {
-            float ratio = resultsH / (tot + 16f);
+            float ratio = resultsH / (total + 16f);
             float thumbH = Math.max(30f, resultsH * ratio);
             float trackT = resultsTop + MainGUI.RADIUS;
             float trackH = resultsH - MainGUI.RADIUS * 2f;
@@ -102,68 +95,119 @@ final class MainGUISearchPanel {
     void handleClick(float mx, float my) {
         float gx = owner.contX + MainGUI.ITEM_PAD;
         float gw = owner.contW - MainGUI.ITEM_PAD * 2f;
-        float y = owner.contY + MainGUI.TOP_BAR_H + 10f - owner.searchScrollY;
-        SettingGroup lastGroup = null;
+        if (mx < gx || mx > gx + gw) {
+            return;
+        }
+
+        float resultsTop = owner.contY + MainGUI.TOP_BAR_H + 1f;
+        float y = resultsTop + 10f - owner.searchScrollY;
+        ModulesTab.SubTab lastSubtab = null;
         for (SearchResult result : searchResults) {
-            if (result.group() != lastGroup) {
-                if (lastGroup != null) {
-                    y += 4f;
+            if (result.subtab() != lastSubtab) {
+                if (lastSubtab != null) {
+                    y += MODULE_GAP;
                 }
-                y += MainGUI.HEADER_H;
-                y += MainGUI.HEADER_TO_FIRST_SETTING_GAP;
-                lastGroup = result.group();
+                y += MainGUI.HEADER_H + MainGUI.HEADER_TO_FIRST_SETTING_GAP;
+                lastSubtab = result.subtab();
             }
-            if (!result.setting().isVisible()) {
-                continue;
-            }
-            float settingH = owner.settingH(result.setting(), gw);
-            if (my >= y && my <= y + settingH) {
-                owner.handleSettingClick(result.setting(), mx, my, gx, y, gw, settingH);
+            if (my >= y && my <= y + RESULT_H) {
+                owner.openSearchResult(result.mainTab(), result.subtab(), result.group(), result.setting());
                 return;
             }
-            y += settingH;
+            y += RESULT_H + RESULT_GAP;
         }
+    }
+
+    private void renderModuleHeader(NVGRenderer nvg, SearchResult result, float x, float y, float w) {
+        nvg.roundedRect(x, y, w, MainGUI.HEADER_H, 6f, Theme.BG_SECONDARY);
+        nvg.roundedRect(x, y + 10f, 3f, MainGUI.HEADER_H - 20f, 2f, Theme.ACCENT_PRIMARY);
+        nvg.text(Fonts.BOLD, result.subtab().name(), x + 12f, y + 9f, 13f, Theme.TEXT_PRIMARY);
+        String context = AetherLang.localize(result.sourceLabel()) + " > " + result.subtab().name();
+        nvg.textRight(Fonts.REGULAR, context, x, y + 9f, w - 8f, 10f, Theme.TEXT_DIM);
+    }
+
+    private void renderResult(NVGRenderer nvg, SearchResult result, float x, float y, float w, float mx, float my) {
+        boolean hovered = mx >= x && mx <= x + w && my >= y && my <= y + RESULT_H;
+        int background = hovered
+                ? Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.12f)
+                : Theme.BG_SECONDARY;
+        int border = hovered
+                ? Theme.withAlpha(Theme.ACCENT_PRIMARY, 0.55f)
+                : Theme.BORDER_DEFAULT;
+        nvg.roundedRect(x, y, w, RESULT_H, 7f, background);
+        nvg.rectOutline(x, y, w, RESULT_H, 7f, 1f, border);
+
+        String title = result.setting() == null
+                ? result.group() == null ? result.subtab().name() : result.group().getName()
+                : result.setting().getName();
+        owner.offerHoverHelp(
+                "search-result:" + result.mainTab() + ":" + result.subtab().name() + ":" + title,
+                AetherLang.localize(title),
+                resultTooltip(result),
+                x, y, w, RESULT_H, mx, my);
+        nvg.text(Fonts.BOLD, AetherLang.localize(title), x + 14f, y + 10f, 12.5f,
+                hovered ? Theme.TEXT_PRIMARY : Theme.TEXT_VALUE);
+        String context = result.setting() == null
+                ? AetherLang.localize("Module settings")
+                : result.group() == null ? result.subtab().name() : result.group().getName();
+        nvg.text(Fonts.REGULAR, AetherLang.localize(context), x + 14f, y + 31f, 10.5f, Theme.TEXT_MUTED);
+        nvg.textRight(Fonts.REGULAR, "\u2192", x, y + 16f, w - 14f, 18f, hovered ? Theme.ACCENT_PRIMARY : Theme.TEXT_DIM);
     }
 
     private void buildResults(String query) {
         searchResults.clear();
-        searchGroupToggles.clear();
         for (MainGUIRegistry.ModuleSection section : MainGUIRegistry.MODULE_SECTIONS) {
-            addResults(searchResults, query, AetherLang.localize(section.displayName()), section.subtabs());
+            addResults(searchResults, 0, section.displayName(), section.subtabs(), query);
         }
-        addResults(searchResults, query, AetherLang.localize("Colors"), MainGUIRegistry.COLORS_SUBTABS);
-        addResults(searchResults, query, AetherLang.localize("Keybinds"), MainGUIRegistry.KEYBINDS_SUBTABS);
-        addResults(searchResults, query, AetherLang.localize("Settings"), MainGUIRegistry.SETTINGS_SUBTABS);
+        addResults(searchResults, 1, AetherLang.localize("Colors"), MainGUIRegistry.COLORS_SUBTABS, query);
+        addResults(searchResults, 3, AetherLang.localize("Keybinds"), MainGUIRegistry.KEYBINDS_SUBTABS, query);
+        addResults(searchResults, 4, AetherLang.localize("Settings"), MainGUIRegistry.SETTINGS_SUBTABS, query);
     }
 
-    private void addResults(List<SearchResult> out, String query, String tab, List<ModulesTab.SubTab> subtabs) {
+    private void addResults(List<SearchResult> out, int mainTab, String sourceLabel,
+                            List<ModulesTab.SubTab> subtabs, String query) {
         for (ModulesTab.SubTab subtab : subtabs) {
+            boolean subtabMatched = matchesQuery(subtab.name(), null, subtab.description(), query);
+            boolean addedForSubtab = false;
             for (SettingGroup group : subtab.groups()) {
-                boolean groupMatched = matchesQuery(group.getName(), group.getRawName(), query);
-                boolean addedGroupToggle = false;
+                boolean groupMatched = matchesQuery(group.getName(), group.getRawName(), group.getDescription(), query);
+                boolean addedForGroup = false;
                 for (Setting setting : group.getSettings()) {
-                    if (groupMatched || matchesQuery(setting.getName(), setting.getRawName(), query)) {
-                        if (!group.isAlwaysOn() && !addedGroupToggle) {
-                            out.add(new SearchResult(tab, subtab.name(), group, searchToggleFor(group)));
-                            addedGroupToggle = true;
-                        }
-                        out.add(new SearchResult(tab, subtab.name(), group, setting));
+                    if (!setting.isVisible()) {
+                        continue;
+                    }
+                    if (subtabMatched || groupMatched
+                            || matchesQuery(setting.getName(), setting.getRawName(), setting.getDescription(), query)) {
+                        out.add(new SearchResult(mainTab, sourceLabel, subtab, group, setting));
+                        addedForGroup = true;
+                        addedForSubtab = true;
                     }
                 }
-                if (groupMatched && !group.isAlwaysOn() && !addedGroupToggle) {
-                    out.add(new SearchResult(tab, subtab.name(), group, searchToggleFor(group)));
+                if (groupMatched && !addedForGroup) {
+                    out.add(new SearchResult(mainTab, sourceLabel, subtab, group, null));
+                    addedForSubtab = true;
                 }
+            }
+            if (subtabMatched && !addedForSubtab) {
+                out.add(new SearchResult(mainTab, sourceLabel, subtab, null, null));
             }
         }
     }
 
-    private ToggleSetting searchToggleFor(SettingGroup group) {
-        return searchGroupToggles.computeIfAbsent(group,
-                key -> new ToggleSetting("Enabled", key::isEnabled, key::setEnabled));
+    private static String resultTooltip(SearchResult result) {
+        if (result.setting() != null) {
+            return result.setting().getDescription();
+        }
+        if (result.group() != null) {
+            return result.group().getDescription();
+        }
+        return result.subtab().description();
     }
 
-    private static boolean matchesQuery(String localized, String raw, String query) {
-        return containsIgnoreCase(localized, query) || containsIgnoreCase(raw, query);
+    private static boolean matchesQuery(String localized, String raw, String tooltip, String query) {
+        return containsIgnoreCase(localized, query)
+                || containsIgnoreCase(raw, query)
+                || containsIgnoreCase(tooltip, query);
     }
 
     private static boolean containsIgnoreCase(String value, String query) {

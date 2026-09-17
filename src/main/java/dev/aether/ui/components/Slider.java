@@ -6,17 +6,7 @@ import dev.aether.renderer.NVGRenderer;
 
 import java.util.function.Consumer;
 
-/**
- * A horizontal slider with a draggable thumb.
- *
- * <p>Layout: one row - label on the left, formatted value on the right,
- * track filling the full width on the row below.</p>
- *
- * <pre>{@code
- * Slider s = new Slider("Speed", 0, 10, 1, 3, v -> config.speed = v.intValue());
- * s.setBounds(x, y, 240, 40);
- * }</pre>
- */
+// one row: label left, formatted value right, track filling the width below
 public class Slider extends Component {
 
     // -- Layout ----------------------------------------------------------------
@@ -38,14 +28,7 @@ public class Slider extends Component {
 
     // -- Construction ----------------------------------------------------------
 
-    /**
-     * @param label    display label
-     * @param min      minimum value (inclusive)
-     * @param max      maximum value (inclusive)
-     * @param step     snap increment (use {@code 1} for integer steps, {@code 0} for continuous)
-     * @param initial  initial value
-     * @param onChange callback invoked when the value changes
-     */
+    // step 1 for integer steps, 0 for continuous
     public Slider(String label, double min, double max, double step,
                   double initial, Consumer<Double> onChange) {
         this.label    = label;
@@ -151,7 +134,6 @@ public class Slider extends Component {
         return this;
     }
 
-    /** Sets the printf-style format string used to display the value (default {@code "%.1f"}). */
     public Slider setFormat(String fmt) { this.format = fmt; return this; }
 
     public Slider setLabel(String label) { this.label = label; return this; }

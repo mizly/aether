@@ -6,13 +6,7 @@ import dev.aether.renderer.NVGRenderer;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A top-level tab that holds content components and optional sub-tabs.
- *
- * <p>Tabs are managed by a {@link TabBar}. The tab itself does not render its
- * header - the {@link TabBar} handles that. Only {@link #renderContent(NVGRenderer)}
- * is called when this tab is active.</p>
- */
+// the TabBar draws the header; only renderContent runs when this tab is active
 public class Tab {
 
     private final String            label;
@@ -38,7 +32,7 @@ public class Tab {
         return this;
     }
 
-    /** Call after all sub-tabs are added to build the {@link SubTabBar}. */
+    // call after all sub-tabs are added
     public Tab buildSubTabBar(float x, float y, float width) {
         if (!subTabs.isEmpty()) {
             subTabBar = new SubTabBar(subTabs, x, y, width);
@@ -48,15 +42,6 @@ public class Tab {
 
     // -- Rendering -------------------------------------------------------------
 
-    /**
-     * Renders the content of this tab (sub-tab bar + active sub-tab or direct content).
-     *
-     * @param nvg     active renderer
-     * @param x       content area left
-     * @param y       content area top
-     * @param width   content area width
-     * @param height  content area height
-     */
     public void renderContent(NVGRenderer nvg, float x, float y, float width, float height) {
         if (subTabBar != null) {
             subTabBar.setBounds(x, y, width, subTabBar.getHeight());

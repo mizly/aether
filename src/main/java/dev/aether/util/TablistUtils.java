@@ -11,11 +11,7 @@ import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.regex.Pattern;
 
-/**
- * Centralized tab-list reading helpers.
- * Every module that inspects the player tab list should use these methods
- * instead of re-implementing iteration, color stripping, and sorting.
- */
+// every module reading the tab list should come through here instead of redoing iteration, colour stripping and sorting
 public final class TablistUtils {
 
     private static final Pattern STRIP_HEX_COLOR = Pattern.compile("(?i)\u00A7x(?:\u00A7[0-9a-f]){6}");
@@ -33,7 +29,6 @@ public final class TablistUtils {
 
     private TablistUtils() {}
 
-    /** Strip Minecraft color codes from a string. */
     public static String stripColors(String s) {
         if (s == null || s.isEmpty()) {
             return "";
@@ -44,9 +39,7 @@ public final class TablistUtils {
         return stripped.replace("\u00A7", "");
     }
 
-    /**
-     * Returns tab-list entries in the same order the vanilla overlay uses.
-     */
+    // same order the vanilla overlay uses
     public static List<String> getTabLines(Minecraft client) {
         if (client.getConnection() == null || client.player == null) return List.of();
 
@@ -71,9 +64,7 @@ public final class TablistUtils {
         }
     }
 
-    /**
-     * Returns tab-list entries without sorting.
-     */
+    // unsorted
     public static List<String> getRawTabLines(Minecraft client) {
         if (client.getConnection() == null || client.player == null) return List.of();
 
@@ -101,9 +92,7 @@ public final class TablistUtils {
         }
     }
 
-    /**
-     * Returns the first tab-list line containing the substring, case-insensitive.
-     */
+    // case-insensitive
     public static String findLine(Minecraft client, String substring) {
         String lower = substring.toLowerCase();
         for (String line : getRawTabLines(client)) {
@@ -112,9 +101,7 @@ public final class TablistUtils {
         return null;
     }
 
-    /**
-     * Returns the raw PlayerInfo entries in vanilla tab order.
-     */
+    // raw PlayerInfo entries in vanilla tab order
     public static List<PlayerInfo> getSortedPlayerInfo(Minecraft client) {
         if (client.getConnection() == null || client.player == null) return List.of();
 

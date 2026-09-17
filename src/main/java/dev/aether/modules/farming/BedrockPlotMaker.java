@@ -9,6 +9,7 @@ import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.rotation.RotationManager;
+import dev.aether.notification.NotificationManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.GardenPlots;
 import net.minecraft.client.Minecraft;
@@ -68,10 +69,10 @@ public final class BedrockPlotMaker {
     private static final float PICKAXE_UP_PITCH = -90.0f;
     private static final float YAW_TOLERANCE = 4.0f;
     private static final float PITCH_TOLERANCE = 2.0f;
-    /** Exact center of the drop block one column east of the inclusive west edge. */
+    // one column east of the inclusive west edge
     private static final double STAND_EAST_OFFSET = 1.5;
-    /** Slightly left/north of center so the Builder drop stays aligned in the trench. */
-    private static final double STAND_Z_OFFSET = -0.7;
+    // centered on the south-interior block so the ruler drops cleanly
+    private static final double STAND_Z_OFFSET = -0.5;
     private static final double TARGET_TOLERANCE = 0.08;
     private static final double BEDROCK_RAY_DISTANCE = 8.0;
     private static final Pattern REMOVED_BLOCKS =
@@ -353,7 +354,21 @@ public final class BedrockPlotMaker {
                 return;
             }
             if (!holdRulerUntilBedrock(client, dropCenter)) {
-                return;
+                if (shouldStop(client)) {
+                    return;
+                }
+                clearRotationLock();
+                releaseHeldKeysSync(client);
+                if (!descendToBedrock(client, dropCenter)) {
+                    int stoppedY = client.player != null
+                            ? client.player.blockPosition().getY()
+                            : BEDROCK_STANDING_Y;
+                    ClientUtils.sendDebugMessage("Bedrock Plot Maker: failed to reach bedrock level.");
+                    NotificationManager.error(
+                            "Bedrock Plot Maker",
+                            "Couldn't reach bedrock (stopped at Y=" + stoppedY + "). Macro halted.");
+                    return;
+                }
             }
             clearAcrossPlot(client, bounds);
         } finally {
@@ -518,6 +533,30 @@ public final class BedrockPlotMaker {
             client.execute(() -> PathfindingManager.stop(false));
             return false;
         }
+        return true;
+    }
+
+    private static final int BEDROCK_STANDING_Y = MIN_Y + 1;
+
+    private static boolean descendToBedrock(Minecraft client, Vec3 dropCenter) {
+        if (client.player == null || shouldStop(client)) {
+            return false;
+        }
+
+        int playerY = client.player.blockPosition().getY();
+        if (playerY <= BEDROCK_STANDING_Y) {
+            return true;
+        }
+
+        Vec3 playerPos = client.player.position();
+        Vec3 bedrockTarget = new Vec3(playerPos.x, BEDROCK_STANDING_Y, playerPos.z);
+        if (!walkToCommandPoint(client, bedrockTarget)) {
+            ClientUtils.sendDebugMessage(
+                    "Bedrock Plot Maker: pathfinding to bedrock level (Y=" + BEDROCK_STANDING_Y + ") failed.");
+            return false;
+        }
+
+        ClientUtils.sendDebugMessage("Bedrock Plot Maker: descended to bedrock at Y=" + BEDROCK_STANDING_Y + ".");
         return true;
     }
 
@@ -688,13 +727,15 @@ public final class BedrockPlotMaker {
                     ClientUtils.setKeyMappingState(client.options.keyUse, true);
                 }
             });
-            reachedBedrock = isCrosshairOnBedrock(client);
+            reachedBedrock = isCrosshairOnBedrock(client) && currentY <= BEDROCK_STANDING_Y;
             if (reachedBedrock && removedMessages.get() > 0) {
                 break;
             }
             MacroWorkerThread.sleep(50);
         }
         countingRemovals = false;
+        clearRotationLock();
+        releaseHeldKeysSync(client);
         if ((!reachedBedrock || removedMessages.get() == 0) && !shouldStop(client)) {
             ClientUtils.sendDebugMessage(
                     "Bedrock Plot Maker: stopped with bedrock=" + reachedBedrock
@@ -800,7 +841,7 @@ public final class BedrockPlotMaker {
         });
     }
 
-    /** Returns the number of removal chat messages seen while clearing, i.e. rows broken. */
+    // returns removal chat messages seen while clearing, i.e. rows broken
     private static int clearCurrentTrenchBlock(Minecraft client) {
         if (!isCrosshairOnBlock(client)) {
             return 0;
@@ -852,7 +893,7 @@ public final class BedrockPlotMaker {
         clearHeldRowFacing(client, RETURN_YAW, RETURN_PITCH, 1, Integer.MAX_VALUE, null);
     }
 
-    /** Holds right-click like vanilla until the requested row removals complete. */
+    // holds right-click like vanilla until the requested row removals land
     private static boolean clearHeldRowFacing(Minecraft client, float yaw, float pitch,
                                               int maxRemovals, int maxBreakY,
                                               BlockPos advanceTarget) {
@@ -1000,13 +1041,8 @@ public final class BedrockPlotMaker {
         releaseHeldKeysSync(client);
     }
 
-    /**
-     * After the corner rows are gone: break the return row (180 / 40), turn south and
-     * open that wall the same way the corner start does (top rows at the up angle,
-     * then the bottom row), pathfind onto the broken spot, turn west and break that
-     * wall, then pathfind to the south-west corner, turn north, and break that wall
-     * the same way. Returns {@code true} only if every leg completed.
-     */
+    // breaks the return row, then opens the south wall the same way the corner start does, pathfinds onto the broken spot, and repeats west and north
+    // true only if every leg completed
     private static boolean clearFinalReturnRows(Minecraft client, PlotBounds bounds) {
         if (!rotateAndClearRow(client, RETURN_YAW, RETURN_PITCH, 1, false)) {
             return false;
@@ -1025,11 +1061,8 @@ public final class BedrockPlotMaker {
         return breakWallFacing(client, NORTH_YAW);
     }
 
-    /**
-     * Same motion as the corner start, aimed at the given yaw: the up angle takes the
-     * top three rows of the first wall row, then the down angle takes the bottom one.
-     * Capped by removal count so the ruler never chews into the rows behind it.
-     */
+    // same motion as the corner start: the up angle takes the top three rows, the down angle the bottom one
+    // capped by removal count so the ruler never chews into the rows behind it
     private static boolean breakWallFacing(Minecraft client, float yaw) {
         if (!rotateAndClearRow(client, yaw, TRENCH_PITCH, CORNER_FINISH_ROWS, false)) {
             return false;
@@ -1095,7 +1128,6 @@ public final class BedrockPlotMaker {
         return reachedX && reachedZ;
     }
 
-    /** Releases keys and rotation, then pathfinds to the given finish point. */
     private static boolean walkToFinishPoint(Minecraft client, Vec3 point) {
         clearRotationLock();
         releaseHeldKeysSync(client);
@@ -1109,7 +1141,7 @@ public final class BedrockPlotMaker {
         return false;
     }
 
-    /** Mines all four perimeter legs and returns to the exact starting X/Z. */
+    // mines all four perimeter legs and returns to the exact starting x/z
     private static void clearPerimeterWithShovel(Minecraft client, PlotBounds bounds) {
         releaseHeldKeysSync(client);
         if (!GearManager.swapToNamedHotbarItemSync(client, "Golden Shovel")) {
@@ -1704,12 +1736,7 @@ public final class BedrockPlotMaker {
         return boundsForPlot(plot);
     }
 
-    /**
-     * Resolves the target plot for a macro run, reporting how it was resolved and
-     * failing loudly when the plot number or bounds cannot be derived. The
-     * configured plot wins over the detected one; a mismatch prints a warning.
-     * Render paths must keep using the quiet {@link #targetBounds}.
-     */
+    // the configured plot wins over the detected one and a mismatch warns; render paths keep using the quiet targetBounds
     private static PlotBounds resolveBoundsForRun(Minecraft client) {
         String configured = AetherConfig.BEDROCK_PLOT_MAKER_PLOT.get();
         String scoreboard = ClientUtils.getCurrentPlot();
@@ -1792,72 +1819,51 @@ public final class BedrockPlotMaker {
         }
     }
 
-    /**
-     * Axis-aligned plot footprint. IMPORTANT: {@code maxX}/{@code maxZ} are EXCLUSIVE
-     * (one past the last block), which matches AABB rendering but not block math -
-     * use the *BlockX/*BlockZ accessors for anything that names a block. Orientation
-     * is shared by every Garden plot: north = -Z, west = -X.
-     */
+    // maxX/maxZ are EXCLUSIVE, which matches aabb rendering but not block math - use the *BlockX/*BlockZ accessors for anything naming a block
+    // every garden plot shares the orientation: north = -Z, west = -X
     private record PlotBounds(int minX, int minZ, int maxX, int maxZ) {
 
-        /** First (west-most) block column inside the plot. */
         int westBlockX() {
             return minX;
         }
 
-        /** Last (east-most) block column inside the plot (maxX is exclusive). */
+        // maxX is exclusive
         int eastBlockX() {
             return maxX - 1;
         }
 
-        /** First (north-most) block row inside the plot. */
         int northBlockZ() {
             return minZ;
         }
 
-        /** Last (south-most) block row inside the plot (maxZ is exclusive). */
+        // maxZ is exclusive
         int southBlockZ() {
             return maxZ - 1;
         }
 
-        /**
-         * Surface stand point at the south-west corner where the Builder ruler
-         * drills down, offset from the west edge and south row by the field-tuned
-         * stand offsets.
-         */
+        // where the builder ruler drills down, offset by the field-tuned stand offsets
         Vec3 standPoint() {
             return new Vec3(westBlockX() + STAND_EAST_OFFSET, TARGET_Y, southBlockZ() + STAND_Z_OFFSET);
         }
 
-        /** Trench pass stops moving east one block short of the east-most column. */
         int trenchRightStopX() {
             return eastBlockX() - 1;
         }
 
-        /** Return pass stops moving west one block east of the west-most column. */
         int returnLeftStopX() {
             return westBlockX() + 1;
         }
 
-        /**
-         * South-east corner pocket at trench level for the corner-finish legs.
-         * Intentionally one block PAST the inclusive east edge (the pathfinder
-         * floors this); field-tuned on plot 1.
-         */
+        // intentionally one block PAST the inclusive east edge (the pathfinder floors this); field-tuned on plot 1
         Vec3 cornerPocket() {
             return new Vec3(eastBlockX() + 1, CORNER_FINISH_Y, southBlockZ());
         }
 
-        /**
-         * South-west corner at trench level for the final north-facing break.
-         * Intentionally one block PAST the inclusive south edge; field-tuned on
-         * plot 1.
-         */
+        // intentionally one block PAST the inclusive south edge; field-tuned on plot 1
         Vec3 southWestCorner() {
             return new Vec3(westBlockX(), CORNER_FINISH_Y - 1, southBlockZ() + 1);
         }
 
-        /** Human-readable inclusive extent for debug chat. */
         String describe() {
             return "x " + westBlockX() + ".." + eastBlockX() + ", z " + northBlockZ() + ".." + southBlockZ();
         }

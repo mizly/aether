@@ -5,13 +5,10 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import dev.aether.util.AetherLang;
 
-/**
- * Container for the SubTab record used by ClickGuiRegistry and NvgMenuScreen.
- * The old rendering logic has been replaced by NvgMenuScreen.
- */
+// just holds the SubTab record now; MainGUI does the rendering
 public class ModulesTab {
 
-    /** Named grouping of SettingGroups with independent header metadata/state. */
+    // named grouping of SettingGroups with its own header metadata and state
     public record SubTab(
             String name,
             String description,

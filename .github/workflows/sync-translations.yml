@@ -1,0 +1,45 @@
+name: Sync translations
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-translations:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync locale files and README coverage
+        run: python scripts/sync_translations.py
+
+      - name: Check generated changes
+        id: changes
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit generated translation updates
+        if: github.event_name == 'push' && steps.changes.outputs.has_changes == 'true'
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: Sync translation keys and coverage
+          file_pattern: "translations/*.json README.md"
+
+      - name: Require generated files to be committed
+        if: github.event_name == 'pull_request' && steps.changes.outputs.has_changes == 'true'
+        run: |
+          git diff -- README.md 'translations/*.json'
+          echo "Run python scripts/sync_translations.py and commit the generated changes."
+          exit 1

@@ -1,6 +1,6 @@
 package dev.aether.macro.farming;
 
-/** Farms alternating A/D rows. */
+// farms alternating a/d rows
 public class ADFarmMacro extends AbstractFarmingMacro {
     private final StateCycle rows = stateCycle(0.005, 2, State.LEFT, State.RIGHT);
 

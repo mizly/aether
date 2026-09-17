@@ -32,7 +32,7 @@ final class PestPlotNavigator {
         return SCAN_OFFSETS.length;
     }
 
-    /** Next plot sweep point, or null once the whole plot has been covered. */
+    // null once the whole plot has been covered
     static Vec3 nextScanWaypoint(Minecraft client, PestNavigationState navigationState) {
         if (client == null || client.player == null) {
             return null;
@@ -62,16 +62,13 @@ final class PestPlotNavigator {
         return new Vec3(x, client.player.getY(), z);
     }
 
-    /** Bounds of the plot being cleaned, or null when the plot number is unknown. */
+    // null when the plot number is unknown
     static GardenPlots.Bounds currentPlotBounds(Minecraft client, PestNavigationState navigationState) {
         String plot = getEffectivePlot(client, navigationState);
         return PestPlotId.isUsable(plot) ? GardenPlots.boundsForPlot(plot) : null;
     }
 
-    /**
-     * Pests on a neighbouring plot are in entity range but chasing them leaves the
-     * plot, which the tab-list plot check answers with a teleport back.
-     */
+    // pests on a neighbouring plot are in entity range, but chasing them leaves the plot and the tab-list check answers with a teleport back
     static Predicate<Entity> currentPlotFilter(
             Minecraft client, PestNavigationState navigationState) {
         GardenPlots.Bounds bounds = currentPlotBounds(client, navigationState);

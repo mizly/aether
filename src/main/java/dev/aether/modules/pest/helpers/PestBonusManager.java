@@ -16,13 +16,21 @@ public class PestBonusManager {
 
     private static volatile boolean isBonusInactive = false;
     private static volatile boolean isReactivatingBonus = false;
+    private static volatile long bonusActiveSeenAtMs = 0L;
 
     public static boolean isBonusInactive() {
         return isBonusInactive;
     }
 
-    public static void setBonusInactive(boolean inactive) {
+    public static void applyTabBonusState(boolean inactive) {
         isBonusInactive = inactive;
+        if (!inactive) {
+            bonusActiveSeenAtMs = System.currentTimeMillis();
+        }
+    }
+
+    public static boolean hasSeenBonusActiveSince(long timestampMs) {
+        return bonusActiveSeenAtMs != 0L && bonusActiveSeenAtMs >= timestampMs;
     }
 
     public static void beginReactivation() {
@@ -32,6 +40,7 @@ public class PestBonusManager {
     public static void resetState() {
         isBonusInactive = false;
         isReactivatingBonus = false;
+        bonusActiveSeenAtMs = 0L;
     }
 
     public static void updateFromTab() {
@@ -42,7 +51,7 @@ public class PestBonusManager {
 
         Boolean bonusInactive = readBonusState(client);
         if (bonusInactive != null) {
-            isBonusInactive = bonusInactive;
+            applyTabBonusState(bonusInactive);
         }
     }
 
@@ -62,7 +71,7 @@ public class PestBonusManager {
     }
 
     public static void handlePhillipMessage(Minecraft client, String text, String currentInfestedPlot) {
-        if (!isReactivatingBonus || client.player == null) {
+        if (client.player == null) {
             return;
         }
 
@@ -72,6 +81,12 @@ public class PestBonusManager {
                 .replaceAll("\\s+", " ")
                 .trim();
         if (!PHILLIP_REACTIVATION_PATTERN.matcher(plain).matches()) {
+            return;
+        }
+
+        AutoPestExchangeManager.rememberExchange();
+
+        if (!isReactivatingBonus) {
             return;
         }
 

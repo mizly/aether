@@ -132,12 +132,11 @@ public final class FailsafeSoundManager {
         });
     }
 
-    /** Which sound file the user picked for this action, falling back to the shared default. */
     private static String requestedSoundFor(FailsafeAction action) {
         String perAction = switch (action) {
             case STOP -> AetherConfig.FAILSAFE_SOUND_FILE_STOP.get();
-            // A CUSTOM replay keeps the macro alive, so it shares the "ignore" cue.
-            case IGNORE, CUSTOM -> AetherConfig.FAILSAFE_SOUND_FILE_IGNORE.get();
+            // A CUSTOM replay or a restart keeps the macro alive, so it shares the "ignore" cue.
+            case IGNORE, CUSTOM, RESTART -> AetherConfig.FAILSAFE_SOUND_FILE_IGNORE.get();
         };
         String sanitized = sanitizeSoundName(perAction);
         if (!sanitized.isBlank()) {
@@ -146,10 +145,7 @@ public final class FailsafeSoundManager {
         return sanitizeSoundName(AetherConfig.FAILSAFE_SOUND_FILE.get());
     }
 
-    /**
-     * Resolves a requested sound name to a playable file without mutating config, trying the
-     * request, then the shared default, then the bundled sounds, then any other playable file.
-     */
+    // tries the request, then the shared default, then the bundled sounds, then anything playable, without touching config
     private static Path resolvePlayableSound(String requested) {
         List<String> available = getAvailableSounds();
         if (available.isEmpty()) {

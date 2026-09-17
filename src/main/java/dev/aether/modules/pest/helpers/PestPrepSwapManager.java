@@ -38,6 +38,11 @@ public class PestPrepSwapManager {
 
     public static void updatePrepSwapFlag(int cooldownSeconds, boolean isCleaningInProgress,
             boolean thresholdMet) {
+        if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()) {
+            prepSwappedForCurrentPestCycle = false;
+            isPrepSwapping = false;
+            return;
+        }
         if (cooldownSeconds > getPrepSwapResetCooldownSeconds()
                 && prepSwappedForCurrentPestCycle
                 && !isCleaningInProgress) {
@@ -68,6 +73,9 @@ public class PestPrepSwapManager {
     }
 
     public static void triggerPrepSwap() {
+        if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()) {
+            return;
+        }
         prepSwappedForCurrentPestCycle = true;
         isPrepSwapping = true;
         ClientUtils.sendDebugMessage("Pest cooldown detected. Triggering prep-swap...");
@@ -89,7 +97,8 @@ public class PestPrepSwapManager {
     }
 
     private static boolean hasAnyPrepSwapTasksEnabled() {
-        return AetherConfig.LOADOUT_SLOT_PEST.get() != AetherConfig.LOADOUT_SLOT_FARMING.get();
+        return AetherConfig.AUTO_LOADOUT_ENABLED.get()
+                && AetherConfig.LOADOUT_SLOT_PEST.get() != AetherConfig.LOADOUT_SLOT_FARMING.get();
     }
 
     private static int getPrepSwapTriggerCooldownSeconds() {
@@ -101,7 +110,10 @@ public class PestPrepSwapManager {
     }
 
     private static void restoreFarmingLoadout() {
-        if (isPrepSwapping) {
+        if (!AetherConfig.AUTO_LOADOUT_ENABLED.get() || isPrepSwapping) {
+            if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()) {
+                prepSwappedForCurrentPestCycle = false;
+            }
             return;
         }
 
@@ -110,14 +122,16 @@ public class PestPrepSwapManager {
         MacroWorkerThread.getInstance().submit("PrepSwap-RestoreFarming", () -> {
             try {
                 Minecraft client = client();
-                if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING)
+                if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()
+                        || MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING)
                         || PestManager.isCleaningInProgress()) {
                     return;
                 }
 
                 client.execute(() -> dev.aether.macro.farming.FarmingMacroManager.disable(client));
                 MacroWorkerThread.sleep(400);
-                if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING)
+                if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()
+                        || MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING)
                         || PestManager.isCleaningInProgress()) {
                     return;
                 }
@@ -139,8 +153,9 @@ public class PestPrepSwapManager {
 
     private static boolean shouldAbortPrepSwap() {
         Minecraft client = client();
-        if ((MacroWorkerThread.shouldAbortTask(client)
-                && !LoadoutManager.isSwappingLoadout)
+        if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()
+                || (MacroWorkerThread.shouldAbortTask(client)
+                        && !LoadoutManager.isSwappingLoadout)
                 || (MacroStateManager.getCurrentState() != MacroState.State.FARMING
                         && !LoadoutManager.isSwappingLoadout)
                 || PestManager.isCleaningInProgress()) {
@@ -155,6 +170,10 @@ public class PestPrepSwapManager {
 
     private static boolean runPrepLoadoutSwap() throws InterruptedException {
         Minecraft client = client();
+        if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()) {
+            prepSwappedForCurrentPestCycle = false;
+            return true;
+        }
         if (AetherConfig.LOADOUT_SLOT_PEST.get() <= 0) {
             return !shouldAbortPrepSwap();
         }

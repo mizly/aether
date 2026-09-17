@@ -6,9 +6,7 @@ import dev.aether.renderer.NVGRenderer;
 
 import java.util.List;
 
-/**
- * Renders a horizontal row of sub-tab labels with an animated underline indicator.
- */
+// row of sub-tab labels with an animated underline
 public class SubTabBar {
 
     private static final float HEIGHT    = 34f;

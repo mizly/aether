@@ -6,14 +6,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import dev.aether.util.AetherLang;
 
-/**
- * Dropdown selection setting backed by index getter/setter.
- * Example:
- *   new DropdownSetting("Gear Swap Mode",
- *       List.of("None", "Wardrobe", "Rod"),
- *       () -> AetherConfig.gearSwapMode.ordinal(),
- *       i -> AetherConfig.gearSwapMode = AetherConfig.GearSwapMode.values()[i])
- */
+// dropdown backed by an index getter/setter
 public class DropdownSetting implements Setting {
 
     private final String name;

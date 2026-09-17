@@ -7,7 +7,7 @@ import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
 import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 
-/** Single source of truth for which screens show the animated background. */
+// single source of truth for which screens show the animated background
 public final class AetherBackgroundScreens {
     private AetherBackgroundScreens() {}
 

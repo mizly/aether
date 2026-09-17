@@ -5,10 +5,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import dev.aether.util.AetherLang;
 
-/**
- * Multi-select setting backed by a bitmask integer.
- * Option at index N maps to bit N (value 1 &lt;&lt; N).
- */
+// multi-select backed by a bitmask; option N is bit N
 public class MultiDropdownSetting implements Setting {
 
     // Shared layout constants used by renderer and interaction handler
@@ -63,7 +60,7 @@ public class MultiDropdownSetting implements Setting {
         setter.accept(getter.get() ^ (1 << index));
     }
 
-    /** Estimated total width of all chips, using font-size approximation (no NVG needed). */
+    // font-size approximation, so it needs no nvg context
     public float estimateTotalWidth() {
         float total = 0f;
         for (int i = 0; i < options.size(); i++) {

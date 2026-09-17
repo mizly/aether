@@ -4,10 +4,7 @@ import dev.aether.renderer.NVGRenderer;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 
-/**
- * Lightweight NVG-rendered text input field.
- * No vanilla widgets - handles its own keyboard input and rendering.
- */
+// no vanilla widgets - handles its own keyboard input and rendering
 public class TextInput {
 
     private String  value     = "";
@@ -117,10 +114,7 @@ public class TextInput {
 
     // -- Render ----------------------------------------------------------------
 
-    /**
-     * Draws the text and blinking cursor inside the given bounds.
-     * Caller is responsible for drawing the field background behind this.
-     */
+    // the caller draws the field background behind this
     public void render(NVGRenderer nvg, float x, float y, float w, float h,
                        float fontSize, int textColor) {
         float padX   = 8f;

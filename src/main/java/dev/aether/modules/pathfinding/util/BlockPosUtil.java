@@ -1,9 +1,6 @@
 package dev.aether.modules.pathfinding.util;
 
-/**
- * Packs BlockPos coordinates into a single long using bit layout [X:26][Y:12][Z:26].
- * X and Z each support range [-33554432, 33554431], Y supports [-2048, 2047].
- */
+// bit layout [X:26][Y:12][Z:26], so x/z hold +-33.5m and y holds +-2048
 public final class BlockPosUtil {
 
     private static final int X_OFFSET = 33554432; // 2^25

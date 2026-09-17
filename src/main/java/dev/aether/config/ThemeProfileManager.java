@@ -7,14 +7,7 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.List;
 
-/**
- * Manages named theme profiles stored as JSON files under
- * {@code config/aether/themes/}.
- *
- * <p>Each profile is the output of {@link Theme#exportJson()}.
- * Loading applies the JSON via {@link Theme#importJson(String)} and
- * persists via {@link Theme#saveTheme()}.</p>
- */
+// named theme profiles under config/aether/themes, each one a Theme.exportJson payload
 public final class ThemeProfileManager {
 
     private static final Path DIR = FabricLoader.getInstance().getConfigDir()
@@ -40,14 +33,12 @@ public final class ThemeProfileManager {
         }
     }
 
-    /** Saves the current theme as a named profile. */
     public static void save(String name) {
         if (name.isBlank()) return;
         try { Files.writeString(DIR.resolve(sanitize(name) + ".json"), Theme.exportJson()); }
         catch (IOException e) { e.printStackTrace(); }
     }
 
-    /** Loads a named theme profile and applies it live. */
     public static void load(String name) {
         Path src = DIR.resolve(sanitize(name) + ".json");
         if (!Files.exists(src)) return;

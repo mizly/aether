@@ -5,11 +5,7 @@ import net.minecraft.world.entity.Entity;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Pests the destroyer gave up on. A timeout means unreachable right now, not
- * dead, so it has to expire: blacklisting for the whole run left the cleaner
- * sweeping a plot whose remaining pests it had made invisible to itself.
- */
+// a timeout means unreachable right now, not dead, so it has to expire: blacklisting for the whole run left the cleaner sweeping a plot whose remaining pests it had made invisible to itself
 final class PestTargetDeferrals {
     private static final long BASE_DEFER_MS = 8_000L;
     private static final long MAX_DEFER_MS = 30_000L;
@@ -36,10 +32,7 @@ final class PestTargetDeferrals {
         return entry != null && System.currentTimeMillis() < entry.until();
     }
 
-    /**
-     * Ends the wait for every pest we have not given up on too many times, for
-     * when a full plot sweep turned up nothing else to do.
-     */
+    // for when a full plot sweep turned up nothing else to do
     boolean releaseRetryable() {
         boolean released = false;
         long now = System.currentTimeMillis();

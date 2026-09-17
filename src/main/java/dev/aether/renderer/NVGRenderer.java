@@ -13,20 +13,8 @@ import java.util.Map;
 
 import static org.lwjgl.nanovg.NanoVG.*;
 
-/**
- * High-level NanoVG rendering API.
- *
- * <p>All drawing methods in this class are safe to call only between
- * {@link NanoVGManager#beginFrame(float, float)} and {@link NanoVGManager#endFrame()}.
- * The renderer is obtained via {@link NanoVGManager#getRenderer()} - do not instantiate
- * directly.
- *
- * <p>All coordinates are in logical screen pixels (floats). All colors are ARGB ints:
- * {@code 0xAARRGGBB} - the high byte is alpha, next is red, then green, then blue.
- *
- * <p>Pre-allocated {@link NVGColor} and {@link NVGPaint} objects are reused each frame
- * to avoid allocations in the render loop.
- */
+// only safe to call between NanoVGManager.beginFrame and endFrame; get it from NanoVGManager.getRenderer()
+// coords are logical pixels, colors are 0xAARRGGBB ints, and the NVGColor/NVGPaint scratch objects are reused each frame
 public class NVGRenderer {
 
     private final long vg;
@@ -35,6 +23,7 @@ public class NVGRenderer {
     private final NVGColor c1   = NVGColor.malloc();
     private final NVGColor c2   = NVGColor.malloc();
     private final NVGPaint paint = NVGPaint.malloc();
+    private final MinecraftTextRenderer minecraftText;
 
     // Font measurement scratch buffer
     private final float[] fontBounds = new float[4];
@@ -42,7 +31,7 @@ public class NVGRenderer {
     // Scissor stack for nested clipping
     private ScissorRegion scissorStack = null;
 
-    // Per-font cached text width (key = fontName + "|" + text + "|" + size + "|" + textScale)
+    // Per-font cached text width at the effective render size.
     private static final int MAX_TEXT_WIDTH_CACHE = 512;
     private final Map<String, Float> textWidthCache = new LinkedHashMap<>(256, 0.75f, true) {
         @Override
@@ -56,19 +45,18 @@ public class NVGRenderer {
 
     NVGRenderer(long vg) {
         this.vg = vg;
+        this.minecraftText = new MinecraftTextRenderer(vg, paint);
+    }
+
+    void beginMinecraftTextFrame() { minecraftText.beginFrame(); }
+    void endMinecraftTextFrame() { minecraftText.endFrame(); }
+
+    public void minecraftText(net.minecraft.client.gui.Font.PreparedText text) {
+        text.visit(minecraftText);
     }
 
     // -- Basic shapes ----------------------------------------------------------
 
-    /**
-     * Fills an axis-aligned rectangle.
-     *
-     * @param x     left edge
-     * @param y     top edge
-     * @param w     width
-     * @param h     height
-     * @param color ARGB fill color
-     */
     public void rect(float x, float y, float w, float h, int color) {
         nvgBeginPath(vg);
         nvgRect(vg, x, y, w, h);
@@ -77,16 +65,6 @@ public class NVGRenderer {
         nvgFill(vg);
     }
 
-    /**
-     * Fills a rectangle with rounded corners.
-     *
-     * @param x      left edge
-     * @param y      top edge
-     * @param w      width
-     * @param h      height
-     * @param radius corner radius (clamped internally by NanoVG to min(w,h)/2)
-     * @param color  ARGB fill color
-     */
     public void roundedRect(float x, float y, float w, float h, float radius, int color) {
         nvgBeginPath(vg);
         nvgRoundedRect(vg, x, y, w, h, radius);
@@ -95,17 +73,6 @@ public class NVGRenderer {
         nvgFill(vg);
     }
 
-    /**
-     * Strokes (outlines) a rounded rectangle.
-     *
-     * @param x         left edge
-     * @param y         top edge
-     * @param w         width
-     * @param h         height
-     * @param radius    corner radius
-     * @param thickness stroke width in pixels
-     * @param color     ARGB stroke color
-     */
 
     public void rectOutline(float x, float y, float w, float h, float radius, float thickness, int color) {
         float half = thickness / 2f;
@@ -141,28 +108,12 @@ public class NVGRenderer {
         nvgStroke(vg);
     }
 
-    /**
-     * Strokes a rounded rectangle outline, baking the alpha into the RGB channels
-     * (premultiplied against black) so the stroke is fully opaque - avoids all
-     * semi-transparent stroke artefacts in NanoVG at the cost of assuming a dark background.
-     *
-     * @see #rectOutline(float, float, float, float, float, float, int)
-     */
+    // bakes alpha into rgb premultiplied against black so the stroke is fully opaque, which dodges nanovg's semi-transparent stroke artefacts but assumes a dark background
     public void rectOutlineSolid(float x, float y, float w, float h, float radius, float thickness, int color) {
         rectOutline(x, y, w, h, radius, thickness, opaqueFromAlpha(color));
     }
 
-    /**
-     * Draws a rounded rectangle outline (identical to {@link #rectOutlineSolid}) clipped
-     * by a scissor that expands vertically from the midpoint based on {@code ratio}:
-     * <ul>
-     *   <li>{@code 0.0} — nothing drawn</li>
-     *   <li>{@code 0.5} — scissor covers only the vertical centre; horizontal edges clipped</li>
-     *   <li>{@code 1.0} — full outline, no clipping</li>
-     * </ul>
-     *
-     * @param ratio blend factor in [0, 1]
-     */
+    // scissor expands vertically from the midpoint: 0 draws nothing, 0.5 clips the horizontal edges, 1 is the full outline
     public void rectOutlineVerticalSides(float x, float y, float w, float h, float radius, float thickness, int color, float ratio) {
         if (ratio <= 0f) return;
         if (ratio >= 1f) {
@@ -211,13 +162,7 @@ public class NVGRenderer {
         }
     }
 
-    /**
-     * Like {@link #rectOutlineVerticalSides} but strokes with a top-left → bottom-right
-     * linear gradient instead of a solid color.
-     *
-     * @param colorTL ARGB color at the top-left corner
-     * @param colorBR ARGB color at the bottom-right corner
-     */
+    // same, stroked with a top-left to bottom-right gradient
     public void rectOutlineVerticalSidesGradient(float x, float y, float w, float h, float radius,
                                                    float thickness, int colorTL, int colorBR, float ratio) {
         if (ratio <= 0f) return;
@@ -287,8 +232,7 @@ public class NVGRenderer {
 
     private static final float HALF_PI = (float) (Math.PI / 2);
 
-    /** Premultiplies alpha against black, returning a fully-opaque ARGB color.
-     *  e.g. 0x80FF0000 (50% red) -> 0xFF7F0000 (dark red, fully opaque). */
+    // premultiplies alpha against black, e.g. 0x80FF0000 -> 0xFF7F0000
     private static int opaqueFromAlpha(int argb) {
         int a = (argb >> 24) & 0xFF;
         if (a == 0xFF) return argb;
@@ -298,14 +242,6 @@ public class NVGRenderer {
         return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
-    /**
-     * Fills a circle.
-     *
-     * @param cx     centre X
-     * @param cy     centre Y
-     * @param radius circle radius
-     * @param color  ARGB fill color
-     */
     public void circle(float cx, float cy, float radius, int color) {
         nvgBeginPath(vg);
         nvgCircle(vg, cx, cy, radius);
@@ -314,16 +250,6 @@ public class NVGRenderer {
         nvgFill(vg);
     }
 
-    /**
-     * Draws a straight line between two points.
-     *
-     * @param x1        start X
-     * @param y1        start Y
-     * @param x2        end X
-     * @param y2        end Y
-     * @param thickness line width in pixels
-     * @param color     ARGB stroke color
-     */
     public void line(float x1, float y1, float x2, float y2, float thickness, int color) {
         nvgBeginPath(vg);
         nvgMoveTo(vg, x1, y1);
@@ -334,19 +260,19 @@ public class NVGRenderer {
         nvgStroke(vg);
     }
 
+    public void polyline(float[] points, int count, float thickness, int color) {
+        if (count < 2) return;
+        nvgBeginPath(vg);
+        nvgMoveTo(vg, points[0], points[1]);
+        for (int i = 1; i < count; i++) nvgLineTo(vg, points[i * 2], points[i * 2 + 1]);
+        nvgStrokeWidth(vg, thickness);
+        color(color, c1);
+        nvgStrokeColor(vg, c1);
+        nvgStroke(vg);
+    }
+
     // -- Gradients -------------------------------------------------------------
 
-    /**
-     * Fills a rounded rectangle with a vertical linear gradient (top -> bottom).
-     *
-     * @param x          left edge
-     * @param y          top edge
-     * @param w          width
-     * @param h          height
-     * @param radius     corner radius
-     * @param colorTop   ARGB color at the top edge
-     * @param colorBottom ARGB color at the bottom edge
-     */
     public void linearGradient(float x, float y, float w, float h, float radius,
                                 int colorTop, int colorBottom) {
         color(colorTop,    c1);
@@ -358,17 +284,6 @@ public class NVGRenderer {
         nvgFill(vg);
     }
 
-    /**
-     * Fills a rounded rectangle with a horizontal linear gradient (left -> right).
-     *
-     * @param x         left edge
-     * @param y         top edge
-     * @param w         width
-     * @param h         height
-     * @param radius    corner radius
-     * @param colorLeft ARGB color at the left edge
-     * @param colorRight ARGB color at the right edge
-     */
     public void horizontalGradient(float x, float y, float w, float h, float radius,
                                     int colorLeft, int colorRight) {
         color(colorLeft,  c1);
@@ -382,19 +297,7 @@ public class NVGRenderer {
 
     // -- Shadow / Glow ---------------------------------------------------------
 
-    /**
-     * Renders a soft drop shadow behind a rounded rectangle using {@code nvgBoxGradient}.
-     *
-     * <p>Draw the shadow <em>before</em> the element it belongs to so it appears beneath it.
-     *
-     * @param x      element left edge
-     * @param y      element top edge
-     * @param w      element width
-     * @param h      element height
-     * @param radius element corner radius
-     * @param blur   shadow feather distance - larger values produce softer shadows
-     * @param color  ARGB shadow color (typically semi-transparent black, e.g. {@code 0x60000000})
-     */
+    // draw this before the element it belongs to so it lands underneath
     public void shadow(float x, float y, float w, float h, float radius, float blur, int color) {
         color(color, c1);
         color(color & 0x00FFFFFF, c2); // same RGB, zero alpha
@@ -405,20 +308,7 @@ public class NVGRenderer {
         nvgFill(vg);
     }
 
-    /**
-     * Renders a coloured glow effect around a rectangle using layered box gradients.
-     *
-     * <p>Higher {@code intensity} values produce more layers with a wider, brighter spread.
-     * Use {@code intensity} in [0.2, 1.0] for subtle to strong glows.
-     *
-     * @param x         element left edge
-     * @param y         element top edge
-     * @param w         element width
-     * @param h         element height
-     * @param radius    element corner radius
-     * @param color     ARGB glow color (alpha controls base opacity per layer)
-     * @param intensity glow strength; higher = more layers, wider spread [0.1, 1.0]
-     */
+    // layered box gradients; intensity in [0.2, 1.0] goes from subtle to strong
     public void glow(float x, float y, float w, float h, float radius, int color, float intensity) {
         intensity = Math.max(0.1f, Math.min(1f, intensity));
         int layers = (int) (intensity * 4) + 1;        // 1-5 layers
@@ -440,15 +330,6 @@ public class NVGRenderer {
         }
     }
 
-    /**
-     * Renders a coloured circular glow using layered radial gradients.
-     *
-     * @param cx        centre X of the circle
-     * @param cy        centre Y of the circle
-     * @param radius    inner circle radius
-     * @param color     ARGB glow color
-     * @param intensity glow strength [0.1, 1.0]
-     */
     public void glowCircle(float cx, float cy, float radius, int color, float intensity) {
         intensity = Math.max(0.1f, Math.min(1f, intensity));
         int layers = (int) (intensity * 3) + 1;
@@ -472,19 +353,8 @@ public class NVGRenderer {
         circle(cx, cy, radius, color);
     }
 
-    /**
-     * Renders a frosted-glass blur approximation over a region.
-     *
-     * <p><strong>Note:</strong> this is a visual approximation, not a true Gaussian blur.
-     * It composites a semi-transparent overlay that visually suggests depth/frosting.
-     * For a true two-pass Gaussian blur, see {@link BlurFramebuffer}.
-     *
-     * @param x          left edge
-     * @param y          top edge
-     * @param w          width
-     * @param h          height
-     * @param blurRadius controls how "heavy" the frost overlay appears
-     */
+    // an approximation, not a real gaussian - it composites a semi-transparent overlay that suggests frosting
+    // for a true two-pass blur see BlurFramebuffer
 
     public void blur(float x, float y, float w, float h, float blurRadius) {
         float clampedBlur = Math.min(blurRadius, 30f);
@@ -496,11 +366,7 @@ public class NVGRenderer {
         rect(x, y, w, h, 0x0CFFFFFF);
     }
 
-    /**
-     * Rounded-corner variant of {@link #blur(float, float, float, float, float)}.
-     * Everything (base, vignette, frost) is clipped to the rounded shape, so no
-     * scissor is needed and nothing bleeds past the corners.
-     */
+    // everything is clipped to the rounded shape, so no scissor is needed and nothing bleeds past the corners
     public void blur(float x, float y, float w, float h, float radius, float blurRadius) {
         float clampedBlur = Math.min(blurRadius, 30f);
         // Dark semi-transparent base
@@ -518,17 +384,7 @@ public class NVGRenderer {
     }
 
 
-    /**
-     * Renders a frosted-glass blur approximation over a circular region.
-     *
-     * <p><strong>Note:</strong> visual approximation (no real Gaussian). It mirrors
-     * {@link #blur(float, float, float, float, float)} but in a circular shape.</p>
-     *
-     * @param cx         circle center X
-     * @param cy         circle center Y
-     * @param radius     circle radius (px)
-     * @param blurRadius controls how "heavy" the frosting/vignette appears (px)
-     */
+    // same approximation as blur(), circular
     public void blurCircle(float cx, float cy, float radius, float blurRadius) {
         // Limit "weight" to keep it tasteful & avoid overdraw spikes
         float b = Math.min(Math.max(blurRadius, 0f), 30f);
@@ -584,19 +440,7 @@ public class NVGRenderer {
 
     // -- SVG rendering ---------------------------------------------------------
 
-    /**
-     * Loads and renders an SVG file from the mod's resources.
-     *
-     * <p>SVGs are parsed, rasterized, and cached as NVG images on first access.
-     * Subsequent calls with the same path use the cached image.
-     *
-     * @param resourcePath absolute resource path, e.g. {@code "/assets/aether/icons/star.svg"}
-     * @param x            left edge
-     * @param y            top edge
-     * @param width        target render width
-     * @param height       target render height
-     * @param color        ARGB tint color ({@code 0} means no tint)
-     */
+    // svgs are parsed, rasterized and cached as nvg images on first use; color 0 means no tint
     public void renderSVG(String resourcePath, float x, float y, float width, float height, int color) {
         SVGRenderer.render(vg, resourcePath, x, y, width, height, color, paint);
     }
@@ -622,102 +466,57 @@ public class NVGRenderer {
 
     // -- Text ------------------------------------------------------------------
 
-    /**
-     * Draws a single line of left-aligned text.
-     *
-     * @param fontName font name constant from {@link Fonts}
-     * @param text     the string to draw
-     * @param x        left baseline-start X
-     * @param y        top Y (text is drawn top-aligned)
-     * @param size     font size in pixels
-     * @param color    ARGB text color
-     */
     public void text(String fontName, String text, float x, float y, float size, int color) {
-        text = AetherLang.localize(text);
+        textLiteral(fontName, AetherLang.localize(text), x, y, size * textScale, color);
+    }
+
+    // Server text must not be localized or inherit the settings menu's text scale.
+    public void textLiteral(String fontName, String text, float x, float y, float size, int color) {
         int fontId = NanoVGManager.getFontId(fontName);
         if (fontId == -1) return;
         nvgFontFaceId(vg, fontId);
-        nvgFontSize(vg, size * textScale);
+        nvgFontSize(vg, size);
         color(color, c1);
         nvgFillColor(vg, c1);
         nvgText(vg, x, y + 0.5f, text);
     }
 
-    /**
-     * Draws text centred both horizontally and vertically within a bounding box.
-     *
-     * @param fontName font name constant from {@link Fonts}
-     * @param text     the string to draw
-     * @param x        bounding box left edge
-     * @param y        bounding box top edge
-     * @param w        bounding box width
-     * @param h        bounding box height
-     * @param size     font size in pixels
-     * @param color    ARGB text color
-     */
     public void textCentered(String fontName, String text, float x, float y, float w, float h,
                               float size, int color) {
         float tw = textWidth(fontName, text, size);
         float tx = x + (w - tw) / 2f;
-        float ty = y + (h - size) / 2f;
+        float renderedSize = size * textScale;
+        float ty = y + (h - renderedSize) / 2f;
         text(fontName, text, tx, ty, size, color);
     }
 
-    /**
-     * Draws text right-aligned so its right edge is at {@code x + w}.
-     *
-     * @param fontName font name constant
-     * @param text     string to draw
-     * @param x        bounding box left edge
-     * @param y        top edge
-     * @param w        bounding box width
-     * @param size     font size
-     * @param color    ARGB color
-     */
     public void textRight(String fontName, String text, float x, float y, float w,
                           float size, int color) {
         float tw = textWidth(fontName, text, size);
         text(fontName, text, x + w - tw, y, size, color);
     }
 
-    /**
-     * Measures the rendered width of a string at a given font size.
-     *
-     * <p>Results are cached by {@code (fontName + text + size)} to avoid repeated
-     * NanoVG measurement calls for the same string.
-     *
-     * @param fontName font name constant
-     * @param text     string to measure
-     * @param size     font size in pixels
-     * @return width in pixels
-     */
+    // cached by (fontName + text + size) so the same string is not re-measured
     public float textWidth(String fontName, String text, float size) {
-        text = AetherLang.localize(text);
-        String key = fontName + "|" + text + "|" + size + "|" + textScale;
+        return textWidthLiteral(fontName, AetherLang.localize(text), size * textScale);
+    }
+
+    public float textWidthLiteral(String fontName, String text, float size) {
+        String key = fontName + "|" + text + "|" + size;
         if (key.equals(lastTextKey)) {
             return textWidthCache.getOrDefault(key, 0f);
         }
         int fontId = NanoVGManager.getFontId(fontName);
         if (fontId == -1) return 0f;
         nvgFontFaceId(vg, fontId);
-        nvgFontSize(vg, size / textScale);
+        nvgFontSize(vg, size);
         float w = nvgTextBounds(vg, 0, 0, text, fontBounds);
         textWidthCache.put(key, w);
         lastTextKey = key;
         return w;
     }
 
-    /**
-     * Wraps text to fit within a maximum width using the current font metrics.
-     *
-     * <p>Existing line breaks are preserved. Long words are split as needed.
-     *
-     * @param fontName font name constant
-     * @param text     string to wrap
-     * @param size     font size
-     * @param maxWidth maximum line width in pixels
-     * @return wrapped lines, never empty
-     */
+    // existing line breaks are kept, long words are split; never returns empty
     public List<String> wrapTextToWidth(String fontName, String text, float size, float maxWidth) {
         text = AetherLang.localize(text);
         List<String> lines = new ArrayList<>();
@@ -777,84 +576,42 @@ public class NVGRenderer {
 
     // -- Scissor / clipping ----------------------------------------------------
 
-    /**
-     * Pushes a scissor (clip) region onto the scissor stack.
-     *
-     * <p>Nested scissor regions are intersected automatically, so content outside
-     * the innermost intersection is clipped. Always pair with {@link #popScissor()}.
-     *
-     * @param x left edge
-     * @param y top edge
-     * @param w width
-     * @param h height
-     */
+    // nested regions intersect automatically; always pair with popScissor()
     public void pushScissor(float x, float y, float w, float h) {
         scissorStack = new ScissorRegion(scissorStack, x, y, x + w, y + h);
         scissorStack.apply(vg);
     }
 
-    /**
-     * Pops the topmost scissor region, restoring the previous clip or resetting
-     * to no scissor if the stack is empty.
-     */
+    // resets the scissor entirely when the stack empties
     public void popScissor() {
         nvgResetScissor(vg);
         scissorStack = scissorStack != null ? scissorStack.parent : null;
         if (scissorStack != null) scissorStack.apply(vg);
     }
 
-    /**
-     * Sets a scissor region without pushing onto the stack (single-level clip).
-     * Use {@link #resetScissor()} to remove it.
-     *
-     * @param x left edge
-     * @param y top edge
-     * @param w width
-     * @param h height
-     */
+    // single-level clip that skips the stack; clear it with resetScissor()
     public void scissor(float x, float y, float w, float h) {
         nvgScissor(vg, x, y, w, h);
     }
 
-    /** Removes the current single-level scissor region set via {@link #scissor}. */
     public void resetScissor() {
         nvgResetScissor(vg);
     }
 
     // -- Transform state -------------------------------------------------------
 
-    /**
-     * Saves the current NanoVG transform/style state.
-     * Must be paired with {@link #restore()}.
-     */
+    // pair with restore()
     public void save() { nvgSave(vg); }
 
-    /**
-     * Restores the previously saved NanoVG transform/style state.
-     */
     public void restore() { nvgRestore(vg); }
 
-    /**
-     * Translates the coordinate origin by {@code (dx, dy)}.
-     *
-     * @param dx horizontal offset
-     * @param dy vertical offset
-     */
     public void translate(float dx, float dy) { nvgTranslate(vg, dx, dy); }
 
-    /**
-     * Scales the coordinate system uniformly.
-     *
-     * @param sx horizontal scale factor
-     * @param sy vertical scale factor
-     */
     public void scale(float sx, float sy) { nvgScale(vg, sx, sy); }
 
-    /**
-     * Sets a global alpha multiplier applied to all subsequent draw calls.
-     *
-     * @param alpha normalised alpha in [0, 1]
-     */
+    public void skewX(float radians) { nvgSkewX(vg, radians); }
+
+    // alpha is clamped to [0, 1]
     public void globalAlpha(float alpha) { nvgGlobalAlpha(vg, Math.max(0f, Math.min(1f, alpha))); }
 
     public void setTextScale(float s) {
@@ -867,11 +624,8 @@ public class NVGRenderer {
 
     // -- Internal --------------------------------------------------------------
 
-    /**
-     * Converts an ARGB int into the pre-allocated {@link NVGColor} structure.
-     * The NVGColor is only valid until the next call to this method with the same slot.
-     */
-    private void color(int argb, NVGColor out) {
+    // only valid until the next call using the same slot
+    static void color(int argb, NVGColor out) {
         nvgRGBA(
                 (byte) ((argb >> 16) & 0xFF),
                 (byte) ((argb >>  8) & 0xFF),

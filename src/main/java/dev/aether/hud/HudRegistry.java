@@ -19,42 +19,24 @@ import net.minecraft.resources.Identifier;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Central registry for all {@link HudElement}s.
- *
- * <p>Call {@link #register()} once during mod init to create all elements and
- * hook into Fabric's {@code HudElementRegistry}.</p>
- *
- * <p>The {@link HudEditScreen} calls {@link #renderEditMode(NVGRenderer)} within
- * its own NVG frame - the gameplay callback skips rendering when the edit screen
- * is open to prevent double-draws.</p>
- */
+// the edit screen calls renderEditMode inside its own frame, so the gameplay callback skips rendering while it is open
 public class HudRegistry {
     private static final float FADE_EPSILON = 0.01f;
 
     public static final List<HudElement> ELEMENTS = new ArrayList<>();
     private static float hudAlpha = 1f;
 
-    /** The singleton macro-status panel. */
     public static MacroHudElement macroHud;
-    /** Session profit panel. */
     public static ProfitHudElement sessionHud;
-    /** Lifetime profit panel. */
     public static ProfitHudElement lifetimeHud;
-    /** Daily profit panel. */
     public static ProfitHudElement dailyHud;
-    /** Intermediary task status panel. */
     public static TaskGroupHudElement intermediariesHud;
-    /** Mid-farming task status panel. */
     public static TaskGroupHudElement midFarmingHud;
-    /** Failsafe status panel. */
     public static TaskGroupHudElement failsafesHud;
-    /** Inventory preview panel. */
     public static InventoryHudElement inventoryHud;
-    /** Watermark panel. */
     public static WatermarkHudElement watermarkHud;
-    /** Main status panel (Main theme). */
     public static MainStatusHudElement mainStatusHud;
+    public static ScoreboardHudElement scoreboardHud;
 
     private HudRegistry() {}
 
@@ -71,6 +53,7 @@ public class HudRegistry {
         inventoryHud = new InventoryHudElement();
         watermarkHud  = new WatermarkHudElement();
         mainStatusHud = new MainStatusHudElement();
+        scoreboardHud = new ScoreboardHudElement();
         ELEMENTS.add(macroHud);
         ELEMENTS.add(sessionHud);
         ELEMENTS.add(lifetimeHud);
@@ -79,8 +62,10 @@ public class HudRegistry {
         ELEMENTS.add(midFarmingHud);
         ELEMENTS.add(failsafesHud);
         ELEMENTS.add(inventoryHud);
+        ELEMENTS.add(new PestTargetHudElement());
         ELEMENTS.add(watermarkHud);
         ELEMENTS.add(mainStatusHud);
+        ELEMENTS.add(scoreboardHud);
 
         HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("aether", "hud"), (guiGraphics, delta) -> {
                         Minecraft mc = Minecraft.getInstance();
@@ -107,19 +92,22 @@ public class HudRegistry {
             var win = mc.getWindow();
             float sw = win.getGuiScaledWidth();
             float sh = win.getGuiScaledHeight();
-            float frameDelta = delta.getGameTimeDeltaTicks();
 
-            // Extract MC-rendered parts now; queued NVG draws after MC flushes GUI state.
+            // Keep themed inventory surfaces below the native item and player-model pass.
             if (alpha > FADE_EPSILON) {
+                guiGraphics.nextStratum();
                 renderMcElements(guiGraphics);
+                if (ELEMENTS.stream().anyMatch(e -> e.rendersBeforeMinecraft() && e.isVisible())) {
+                    AetherRenderQueue.enqueueBeforeGui(() -> renderBackgroundFrame(sw, sh, alpha));
+                }
             }
-            AetherRenderQueue.enqueue(() -> renderGameplayFrame(sw, sh, alpha, frameDelta));
+            AetherRenderQueue.enqueue(() -> renderGameplayFrame(sw, sh, alpha));
         });
     }
 
     private static void renderMcElements(net.minecraft.client.gui.GuiGraphicsExtractor graphics) {
         for (HudElement e : ELEMENTS) {
-            if (e.isVisible()) {
+            if (e.rendersWithHud() && e.isVisible()) {
                 e.renderMinecraft(graphics, false);
             }
         }
@@ -144,10 +132,7 @@ public class HudRegistry {
 
     // -- Edit-mode helper ------------------------------------------------------
 
-    /**
-     * Renders all enabled elements in edit mode.
-     * Must be called <em>within</em> an already-open NVG frame.
-     */
+    // must be called inside an already-open nvg frame
     public static void renderEditMode(NVGRenderer nvg) {
                 if (StreamerModeManager.isEnabled()) {
             return;
@@ -160,10 +145,10 @@ public class HudRegistry {
     }
 
     private static boolean hasVisibleElements() {
-        return ELEMENTS.stream().anyMatch(HudElement::isVisible);
+        return ELEMENTS.stream().anyMatch(e -> e.rendersWithHud() && e.isVisible());
     }
 
-    private static boolean canRenderInGameplay(Minecraft mc) {
+    static boolean canRenderInGameplay(Minecraft mc) {
         if (AetherConfig.HUD_ONLY_WHILE_MACRO_RUNNING.get() && !MacroStateManager.isMacroRunning()) {
             return false;
         }
@@ -187,19 +172,34 @@ public class HudRegistry {
         nvg.save();
         nvg.globalAlpha(alpha);
         for (HudElement e : ELEMENTS) {
-            e.render(nvg, false);
+            if (e.rendersWithHud() && !e.rendersBeforeMinecraft()) e.render(nvg, false);
         }
         nvg.restore();
     }
 
     // -- Queued render pass ----------------------------------------------------
 
+    private static void renderBackgroundFrame(float width, float height, float alpha) {
+        if (StreamerModeManager.isEnabled() || NanoVGManager.isDrawing()) return;
+        if (!NanoVGManager.isInitialized()) NanoVGManager.init();
+        NanoVGManager.beginFrame(width, height);
+        NVGRenderer nvg = NanoVGManager.getRenderer();
+        try {
+            nvg.globalAlpha(alpha);
+            for (HudElement element : ELEMENTS) {
+                if (element.rendersBeforeMinecraft()) element.render(nvg, false);
+            }
+        } finally {
+            NanoVGManager.endFrame();
+        }
+    }
+
     public static void onGuiGraphicsClosed() {
         // Kept for the bootstrap hook ABI. Gameplay HUD drawing is queued from
         // the Fabric HUD extraction callback and flushed from GameRenderer.render.
     }
 
-    private static void renderGameplayFrame(float width, float height, float alpha, float deltaTicks) {
+    private static void renderGameplayFrame(float width, float height, float alpha) {
         if (StreamerModeManager.isEnabled()) {
             return;
         }
@@ -214,7 +214,7 @@ public class HudRegistry {
         NVGRenderer nvg = NanoVGManager.getRenderer();
         try {
             renderHudElements(nvg, alpha);
-            NotificationRenderer.render(nvg, width, height, deltaTicks);
+            NotificationRenderer.render(nvg, width, height);
             if (alpha > FADE_EPSILON) {
                 renderOverlayElements(nvg, alpha);
             }
@@ -227,7 +227,7 @@ public class HudRegistry {
         nvg.save();
         nvg.globalAlpha(alpha);
         for (HudElement e : ELEMENTS) {
-            if (!e.isVisible()) continue;
+            if (!e.rendersWithHud() || !e.isVisible()) continue;
             nvg.save();
             nvg.translate(e.getX(), e.getY());
             nvg.scale(e.getScale(), e.getScale());
@@ -249,7 +249,7 @@ public class HudRegistry {
         inventoryHud = null;
         watermarkHud = null;
         mainStatusHud = null;
+        scoreboardHud = null;
         hudAlpha = 0f;
     }
 }
-

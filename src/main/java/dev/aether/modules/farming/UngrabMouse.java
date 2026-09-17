@@ -3,31 +3,18 @@ package dev.aether.modules.farming;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 
-/**
- * Releases (un-grabs) the mouse cursor while the farming macro is active,
- * so the player can freely interact with other applications.
- *
- * <p>Works by calling {@link net.minecraft.client.MouseHandler#releaseMouse()}
- * and setting a flag that {@link dev.aether.mixin.MixinMouseHandler} watches to
- * prevent the game from re-grabbing the cursor automatically.
- */
+// releases the cursor while the macro farms, and sets the flag MixinMouseHandler watches so the game cannot re-grab it
 public final class UngrabMouse {
     private UngrabMouse() {}
 
-    /** {@code true} while the mouse is intentionally un-grabbed by the macro. */
     private static volatile boolean mouseUngrabbed = false;
-    /** {@code true} while a macro wants the cursor released. */
     private static volatile boolean macroRequested = false;
-    /** {@code true} while the visuals module wants the cursor released. */
     private static volatile boolean visualRequested = false;
-    /** {@code true} while freecam temporarily owns cursor grab behavior. */
     private static volatile boolean freecamSuspend = false;
-    /** {@code true} while freelook temporarily owns cursor grab behavior. */
     private static volatile boolean freelookSuspend = false;
-    /** Remembers whether ungrab was active before suspension, or was requested during it. */
+    // remembers whether ungrab was active before suspension, or was asked for during it
     private static volatile boolean restoreOnResume = false;
 
-    /** {@code true} while any overlay (freecam / freelook) needs the cursor grabbed. */
     private static boolean isSuspended() {
         return freecamSuspend || freelookSuspend;
     }
@@ -45,18 +32,12 @@ public final class UngrabMouse {
         return visualRequested;
     }
 
-    /**
-     * Releases the mouse cursor. Safe to call even when already released.
-     * Must be called on the main client thread (or via {@code mc.execute(...)}).
-     */
+    // main client thread only, or via mc.execute
     public static void ungrabMouse() {
         requestMacroUngrab();
     }
 
-    /**
-     * Re-grabs the mouse cursor if it was previously un-grabbed by the macro.
-     * Must be called on the main client thread (or via {@code mc.execute(...)}).
-     */
+    // main client thread only, or via mc.execute
     public static void regrabMouse() {
         clearMacroUngrab();
     }

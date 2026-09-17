@@ -6,12 +6,7 @@ import dev.aether.renderer.NVGRenderer;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A secondary tab nested inside a {@link Tab}.
- *
- * <p>Its header is rendered by the parent {@link SubTabBar}; only
- * {@link #renderContent} is called when this sub-tab is active.</p>
- */
+// the parent Tab renders the header; only renderContent runs when this one is active
 public class SubTab {
 
     private final String          label;

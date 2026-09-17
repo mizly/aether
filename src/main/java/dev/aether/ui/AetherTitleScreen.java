@@ -13,22 +13,20 @@ import dev.aether.util.AetherLang;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.screens.ConnectScreen;
 import net.minecraft.client.gui.screens.multiplayer.JoinMultiplayerScreen;
 import net.minecraft.client.gui.screens.options.OptionsScreen;
 import net.minecraft.client.gui.screens.worldselection.SelectWorldScreen;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.client.multiplayer.resolver.ServerAddress;
 
-/**
- * Custom NVG-rendered title screen that replaces the vanilla {@code TitleScreen}.
- *
- * <p>Injected via {@link dev.aether.mixin.MixinTitleScreen}. All animation state
- * is driven by wall-clock time ({@link System#currentTimeMillis()}).</p>
- */
+// replaces the vanilla title screen via MixinTitleScreen; all animation runs off wall-clock time
 public class AetherTitleScreen extends NVGScreen {
 
 
     // -- Buttons ----------------------------------------------------------------
-    private static final String[] LABELS  = {"Singleplayer", "Multiplayer", "Options", "Quit"};
+    private static final String[] LABELS  = {"Singleplayer", "Multiplayer", "Hypixel", "Options", "Quit"};
     private static final float    BTN_W   = 220f;
     private static final float    BTN_H   = 40f;
     private static final float    BTN_GAP = 10f;
@@ -128,7 +126,6 @@ public class AetherTitleScreen extends NVGScreen {
             float tW    = nvg.textWidth(Fonts.BOLD, "Aether", tSize);
             float tx    = cx - tW / 2f;
             nvg.text(Fonts.BOLD, "Aether", tx, titleY, tSize, 0xFFFFFFFF);
-            /* nvg.glow(tx, titleY, tW, tSize, 16f, Theme.withAlpha(0xFFFFFFFF, (int)(10)), 0.66f); */
             float ulW = tW * Math.min(1f, elapsed / 600f);
             if (ulW > 0f)
                 nvg.rect(tx, titleY + tSize + 5f, ulW, 1f,
@@ -243,8 +240,15 @@ public class AetherTitleScreen extends NVGScreen {
         switch (i) {
             case 0 -> mc.setScreen(new SelectWorldScreen(this));
             case 1 -> mc.setScreen(new JoinMultiplayerScreen(this));
-            case 2 -> mc.setScreen(new OptionsScreen(this, mc.options, false));
-            case 3 -> mc.stop();
+            case 2 -> {
+                if (mc.allowsMultiplayer()) {
+                    String address = "mc.hypixel.net";
+                    ConnectScreen.startConnecting(this, mc, ServerAddress.parseString(address),
+                            new ServerData("Hypixel", address, ServerData.Type.OTHER), false, null);
+                }
+            }
+            case 3 -> mc.setScreen(new OptionsScreen(this, mc.options, false));
+            case 4 -> mc.stop();
         }
     }
 
@@ -259,4 +263,3 @@ public class AetherTitleScreen extends NVGScreen {
 
     @Override public boolean isPauseScreen() { return false; }
 }
-

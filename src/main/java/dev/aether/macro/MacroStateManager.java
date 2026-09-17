@@ -1,13 +1,17 @@
 package dev.aether.macro;
 
 import dev.aether.macro.farming.FarmingMacroManager;
+import dev.aether.macro.fishing.FishingMacroManager;
 
 import dev.aether.util.ClientUtils;
 import dev.aether.config.AetherConfig;
 import dev.aether.modules.ComposterManager;
 import dev.aether.modules.GreenhouseManager;
 import dev.aether.modules.SupercraftManager;
+import dev.aether.modules.TablistSetupManager;
 import dev.aether.modules.failsafe.FailsafeManager;
+import dev.aether.modules.farming.BedrockPlotMaker;
+import dev.aether.modules.forge.ForgeManager;
 import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.farming.UngrabMouse;
 import dev.aether.modules.gear.GearManager;
@@ -17,6 +21,7 @@ import dev.aether.modules.inventorymanager.GeorgeManager;
 import dev.aether.modules.inventorymanager.JunkManager;
 import dev.aether.modules.metaldetector.MetalDetectorSolver;
 import dev.aether.modules.misc.AutoCarnivalManager;
+import dev.aether.modules.movement.MovementPlaybackManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.performance.MuteManager;
 import dev.aether.modules.performance.PerformanceModeManager;
@@ -28,6 +33,7 @@ import dev.aether.modules.pest.helpers.PestExchangeManager;
 import dev.aether.modules.pest.helpers.PestOnTheTrackManager;
 import dev.aether.modules.pest.helpers.PestTrapManager;
 import dev.aether.modules.profit.ProfitManager;
+import dev.aether.modules.rotation.RotationManager;
 import dev.aether.modules.session.DailyFarmTimeTracker;
 import dev.aether.modules.session.DynamicRestManager;
 import dev.aether.modules.session.RecoveryManager;
@@ -35,6 +41,7 @@ import dev.aether.modules.session.RestartManager;
 import dev.aether.modules.visitor.VisitorsMacro;
 import dev.aether.telemetry.AetherTelemetryService;
 import dev.aether.util.BpsTracker;
+import dev.aether.util.BazaarUtils;
 import net.minecraft.client.Minecraft;
 
 public class MacroStateManager {
@@ -109,6 +116,25 @@ public class MacroStateManager {
         return currentState != MacroState.State.OFF;
     }
 
+    public static boolean isAutomationRunning() {
+        return isMacroRunning()
+                || PathfindingManager.isNavigating()
+                || PestDestroyer.isActive()
+                || PestExchangeManager.isExchanging()
+                || PestTrapManager.isRunning()
+                || VisitorsMacro.isRunning
+                || BedrockPlotMaker.isRunning()
+                || ForgeManager.isRunning
+                || ComposterManager.isRunning()
+                || GreenhouseManager.isRunning()
+                || SupercraftManager.isRunning()
+                || AutoSellManager.isSelling || AutoSellManager.isPreparingToSell
+                || TablistSetupManager.isActive()
+                || RotationManager.isRotating()
+                || MovementPlaybackManager.isPlaying()
+                || MacroWorkerThread.getInstance().hasActiveWork();
+    }
+
     public static boolean isIntentionalDisconnect() {
         return intentionalDisconnect;
     }
@@ -125,15 +151,32 @@ public class MacroStateManager {
         MacroState.State prevState = currentState;
         Minecraft client = Minecraft.getInstance();
 
+        // Late worker callbacks must not leave recovery before arrival is confirmed.
+        if (prevState == MacroState.State.RECOVERING
+                && state != MacroState.State.OFF && state != MacroState.State.RECOVERING
+                && !RecoveryManager.isResumeReady()) {
+            return;
+        }
+
         if (state == MacroState.State.FARMING && prevState != MacroState.State.FARMING) {
             MacroWorkerThread.getInstance().clearPendingTasks();
             PathfindingManager.stop();
         }
 
+        if (state == MacroState.State.FISHING && prevState != MacroState.State.FISHING) {
+            MacroWorkerThread.getInstance().clearPendingTasks();
+            PathfindingManager.stop();
+        }
+
         currentState = state;
+        ProfitManager.updateSessionGraphClock();
 
         if (prevState == MacroState.State.FARMING && state != MacroState.State.FARMING) {
             runOnClientThread(client, () -> FarmingMacroManager.releaseInputs(client));
+        }
+
+        if (prevState == MacroState.State.FISHING && state != MacroState.State.FISHING) {
+            runOnClientThread(client, () -> FishingMacroManager.releaseInputs(client));
         }
 
         if (prevState == MacroState.State.OFF && state != MacroState.State.OFF
@@ -202,8 +245,14 @@ public class MacroStateManager {
 
     public static void stopMacro(Minecraft client, String debugReason, boolean closeScreen) {
         MacroWorkerThread.getInstance().cancelCurrent();
+        if (BedrockPlotMaker.isRunning()) BedrockPlotMaker.stop(client);
+        if (ForgeManager.isRunning) ForgeManager.stop();
+        if (MovementPlaybackManager.isPlaying()) MovementPlaybackManager.stop();
+        TablistSetupManager.stop();
+        BazaarUtils.cancel();
         // Stop any active internal farming macro.
         runOnClientThread(client, () -> FarmingMacroManager.disable(client));
+        runOnClientThread(client, () -> FishingMacroManager.disable(client));
         MetalDetectorSolver.stopForMacro(client);
         AutoCarnivalManager.stopForMacro(client);
         FailsafeManager.reset();
@@ -245,6 +294,8 @@ public class MacroStateManager {
         ReconnectScheduler.cancel();
         PathfindingManager.stop();
         VisitorsMacro.stop(client);
+        RotationManager.cancelRotation();
+        ClientUtils.forceReleaseKeys();
     }
 
     private static void runOnClientThread(Minecraft client, Runnable action) {

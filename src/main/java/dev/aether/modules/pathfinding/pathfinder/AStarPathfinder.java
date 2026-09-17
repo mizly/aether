@@ -180,11 +180,10 @@ public final class AStarPathfinder extends AbstractPathfinder {
         currentSession.remove();
     }
 
-    /** Used by PathfindingManager for pathtest visualization. */
+    // used by PathfindingManager for pathtest visualization
     public LongSet getClosedSet()    { return lastClosedSet; }
     public long    getExploredCount(){ return exploredCount; }
 
-    /** Profiling data from the last search run. */
     public String getProfilingReport() {
         return String.format(
                 "neighbors=%d | isValid=%.0fms (rejects=%d) | costCalc=%.0fms | nodeCreate=%.0fms | heap=%.0fms | gRejects=%d",
@@ -203,7 +202,7 @@ public final class AStarPathfinder extends AbstractPathfinder {
         return s;
     }
 
-    /** Infer MoveType from the offset vector for PathVisualizer coloring. */
+    // infers MoveType from the offset vector for PathVisualizer colouring
     private static MoveType inferMoveType(PathVector offset) {
         int dy = (int) offset.y;
         int dx = Math.abs((int) offset.x);
@@ -216,12 +215,8 @@ public final class AStarPathfinder extends AbstractPathfinder {
         return MoveType.WALK;
     }
 
-    /**
-     * Single map replaces the former openSetNodes + allNodes + bestGByPos triple.
-     * Node flags (inOpen, inClosed) replace set membership lookups;
-     * Node.gCost IS the best-known g-cost (POSITIVE_INFINITY = not yet settled).
-     * The closedSet is only populated when PathVisualizer is enabled to avoid GC overhead.
-     */
+    // node flags replace set membership, and gCost is the best-known cost (infinity = unsettled)
+    // closedSet is only filled when PathVisualizer is on, to avoid the gc
     private static final class PathfindingSession {
         final Long2ObjectOpenHashMap<Node> nodes      = new Long2ObjectOpenHashMap<>();
         final LongSet                      closedSet  = new LongOpenHashSet();

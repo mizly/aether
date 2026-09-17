@@ -1,5 +1,6 @@
 package dev.aether.renderer;
 
+import com.mojang.blaze3d.opengl.GlStateManager;
 import dev.aether.ui.theme.Theme;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.nanovg.NanoVG;
@@ -7,10 +8,7 @@ import org.lwjgl.nanovg.NanoVG;
 import java.util.ArrayDeque;
 import java.util.Random;
 
-/**
- * Singleton manager for the menu background (particles and ripples).
- * Centrally manages state so that animations persist when switching between screens.
- */
+// state lives here so the animation persists across screen switches
 public final class AetherBackground {
 
     public static final AetherBackground INSTANCE = new AetherBackground();
@@ -129,7 +127,7 @@ public final class AetherBackground {
 
         // Disable any active scissor so the full-screen background isn't clipped
         // (e.g. SelectWorldScreen enables scissor for its list widget).
-        org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_SCISSOR_TEST);
+        GlStateManager._disableScissorTest();
 
         NanoVGManager.beginFrame(width, height);
         NVGRenderer nvg = NanoVGManager.getRenderer();
@@ -152,9 +150,11 @@ public final class AetherBackground {
         // --- Post-process ripples ---------------------------------------------------
         if (hasRipples) {
             int mcFbo = NanoVGManager.getMainRtFbo();
+            GlStateManager._activeTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);
+            GlStateManager._bindTexture(0);
             rippleEffect.ensureReady(rtW, rtH);
 
-            org.lwjgl.opengl.GL11.glDisable(org.lwjgl.opengl.GL11.GL_SCISSOR_TEST);
+            GlStateManager._disableScissorTest();
 
             // Copy scene to offscreen texture
             int prevReadFbo = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL30.GL_READ_FRAMEBUFFER_BINDING);

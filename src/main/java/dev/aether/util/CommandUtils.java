@@ -18,7 +18,7 @@ public class CommandUtils {
     private static final long MESSAGE_TIMEOUT_MS = 10000; // 10 second timeout
     private static long lastPlotTpTime = 0;
     private static long nextChatSequence = 0;
-    /** Tracked from chat messages like "Teleported you to Plot - 6!" */
+    // tracked from chat lines like "Teleported you to Plot - 6!"
     public static volatile String lastKnownPlotChat = "Unknown";
     public static volatile long lastKnownPlotChatAt = 0L;
 
@@ -52,10 +52,7 @@ public class CommandUtils {
         }
     }
 
-    /**
-     * Register a chat message to the queue.
-     * This is called from AetherClient when a chat message is received.
-     */
+    // called from AetherClient on every chat message
     public static void onChatMessage(String message) {
         String plain = message == null ? "" : message.trim();
         long now = System.currentTimeMillis();
@@ -76,14 +73,7 @@ public class CommandUtils {
         }
     }
 
-    /**
-     * Wait for a chat message containing the specified substring.
-     * Blocks until the message is found or timeout is reached.
-     *
-     * @param client           The Minecraft instance
-     * @param messageSubstring The substring to search for in chat messages
-     * @return true if the message was found, false if timeout occurred
-     */
+    // blocks until the message shows up or it times out
     public static boolean waitForChatMessage(String messageSubstring) {
         return waitForChatMessage(null, messageSubstring, MESSAGE_TIMEOUT_MS);
     }
@@ -122,13 +112,6 @@ public class CommandUtils {
         return false;
     }
 
-    /**
-     * Non-blocking method to check if a message has been received.
-     * Returns immediately with true if the message was found, false otherwise.
-     *
-     * @param messageSubstring The substring to search for
-     * @return true if the message has been received, false otherwise
-     */
     public static boolean hasReceivedMessage(String messageSubstring) {
         return hasReceivedMessage(null, messageSubstring);
     }
@@ -137,13 +120,6 @@ public class CommandUtils {
         return hasReceivedMessageMatching(window, msg -> msg.contains(messageSubstring));
     }
 
-    /**
-     * Non-blocking method to check if a queued message matches a predicate.
-     * Returns immediately with true if found, false otherwise.
-     *
-     * @param matcher The predicate to match queued messages
-     * @return true if a matching message was found, false otherwise
-     */
     public static boolean hasReceivedMessageMatching(Predicate<String> matcher) {
         return hasReceivedMessageMatching(null, matcher);
     }
@@ -163,14 +139,7 @@ public class CommandUtils {
         return false;
     }
 
-    /**
-     * Wait for a queued message to match a predicate.
-     * Blocks until found or timeout.
-     *
-     * @param matcher   The predicate to match queued messages
-     * @param timeoutMs Timeout in milliseconds
-     * @return true if matched message found before timeout
-     */
+    // blocks until matched or timed out
     public static boolean waitForChatMessageMatching(Predicate<String> matcher, long timeoutMs) {
         return waitForChatMessageMatching(null, matcher, timeoutMs);
     }
@@ -179,13 +148,6 @@ public class CommandUtils {
         return waitForChatMessageMatchingInternal(window, matcher, timeoutMs);
     }
 
-    /**
-     * Check if a message receipt is being awaited (non-blocking check for async
-     * operations).
-     *
-     * @param messageSubstring The substring to check
-     * @return true if the message has been received, false otherwise
-     */
     public static boolean isMessageReceived(String messageSubstring) {
         return hasReceivedMessage(messageSubstring);
     }
@@ -194,13 +156,7 @@ public class CommandUtils {
         return AetherConfig.MACRO_DISABLE_SETSPAWN.get();
     }
 
-    /**
-     * Execute /setspawn and wait for the confirmation message.
-     * Blocks until the spawn location is confirmed or timeout occurs.
-     *
-     * @param client The Minecraft instance
-     * @return true if spawn was set successfully, false if timeout occurred
-     */
+    // blocks until the spawn is confirmed or it times out
     public static boolean setSpawn() {
         return setSpawn(MESSAGE_TIMEOUT_MS);
     }
@@ -222,12 +178,7 @@ public class CommandUtils {
         return success;
     }
 
-    /**
-     * Initiate /setspawn command (non-blocking).
-     * Check result with hasSpawnBeenSet().
-     *
-     * @param client The Minecraft instance
-     */
+    // non-blocking; check the result with hasSpawnBeenSet()
     public static void initiateSetSpawn() {
         if (shouldSkipSetSpawn()) {
             return;
@@ -236,11 +187,6 @@ public class CommandUtils {
         ClientUtils.sendCommand("/setspawn");
     }
 
-    /**
-     * Check if /setspawn has been confirmed (non-blocking).
-     *
-     * @return true if the spawn confirmation message was received
-     */
     public static boolean hasSpawnBeenSet() {
         return hasSpawnBeenSet(null);
     }
@@ -253,12 +199,6 @@ public class CommandUtils {
         return hasReceivedMessage(window, "Your spawn location has been set!");
     }
 
-    /**
-     * Check if /plottp has been confirmed with a specific plot number (non-blocking).
-     *
-     * @param plotNumber The plot number to check for
-     * @return true if the warp confirmation message for that plot was received
-     */
     public static boolean hasPlotTp(String plotNumber) {
         return hasPlotTp(null, plotNumber);
     }
@@ -267,15 +207,7 @@ public class CommandUtils {
         return hasReceivedMessage(window, "Teleported you to Plot - " + plotNumber);
     }
 
-    /**
-     * Execute /warp garden and wait for the confirmation message or position
-     * change.
-     * Blocks until the warp is confirmed, a significant position change is
-     * detected, or timeout occurs.
-     *
-     * @param client The Minecraft instance
-     * @return true if warp was successful, false if timeout occurred
-     */
+    // blocks until the warp is confirmed, the position jumps, or it times out
     public static boolean warpGarden() {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null)
@@ -317,22 +249,12 @@ public class CommandUtils {
         return false;
     }
 
-    /**
-     * Initiate /warp garden command (non-blocking).
-     * Check result with hasWarpedGarden().
-     *
-     * @param client The Minecraft instance
-     */
+    // non-blocking; check the result with hasWarpedGarden()
     public static void initiateWarpGarden() {
         FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
         ClientUtils.sendCommand("/warp garden");
     }
 
-    /**
-     * Check if /warp garden has been confirmed (non-blocking).
-     *
-     * @return true if the warp confirmation message was received
-     */
     public static boolean hasWarpedGarden() {
         return hasWarpedGarden(null);
     }
@@ -341,15 +263,7 @@ public class CommandUtils {
         return hasReceivedMessage(window, "Warping...");
     }
 
-    /**
-     * Execute /plottp and wait for the confirmation message or position change.
-     * Blocks until the warp is confirmed, a significant position change is
-     * detected, or timeout occurs.
-     *
-     * @param client     The Minecraft instance
-     * @param plotNumber The plot number to warp to
-     * @return true if warp was successful, false if timeout occurred
-     */
+    // blocks until the warp is confirmed, the position jumps, or it times out
     public static boolean plotTp(String plotNumber) {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null)
@@ -393,13 +307,7 @@ public class CommandUtils {
         return false;
     }
 
-    /**
-     * Initiate /plottp command (non-blocking).
-     * Check result with hasPlotTp().
-     *
-     * @param client     The Minecraft instance
-     * @param plotNumber The plot number to warp to
-     */
+    // non-blocking; check the result with hasPlotTp()
     public static void initiatePlotTp(String plotNumber) {
         if (System.currentTimeMillis() - lastPlotTpTime > 1000) {
             FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
@@ -410,11 +318,6 @@ public class CommandUtils {
         }
     }
 
-    /**
-     * Check if /plottp has been confirmed (non-blocking).
-     *
-     * @return true if the warp confirmation message was received
-     */
     public static boolean hasPlotTp() {
         return hasPlotTp((ChatWindow) null);
     }
@@ -448,9 +351,6 @@ public class CommandUtils {
         return freshPlot != null && freshPlot.equalsIgnoreCase(plotNumber);
     }
 
-    /**
-     * Clear any pending chat messages from the queue.
-     */
     public static void clearMessageQueue() {
         synchronized (chatMessageQueue) {
             chatMessageQueue.clear();

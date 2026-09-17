@@ -4,9 +4,7 @@ import dev.aether.macro.MacroStateManager;
 import dev.aether.mixin.AccessorMouseHandler;
 import net.minecraft.client.Minecraft;
 
-/**
- * Drops the mouse delta that piles up while the window is unfocused.
- */
+// drops the mouse delta that piles up while the window is unfocused
 public final class RefocusInputGuard {
     private static boolean wasFocused = true;
 

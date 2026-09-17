@@ -97,7 +97,7 @@ public class ForgeManager {
         MacroWorkerThread.sleepRandom(255, 90);
 
         // Close the menu â€” we've confirmed it opened, nothing more to do yet
-        client.execute(() -> {
+        MacroWorkerThread.runOnClient(client, () -> {
             if (client.player != null) client.player.closeContainer();
         });
     }
@@ -106,7 +106,7 @@ public class ForgeManager {
         if (client.player == null) return false;
         Vec3 startPos = client.player.position();
 
-        client.execute(() -> ClientUtils.sendCommand("/warp forge"));
+        MacroWorkerThread.runOnClient(client, () -> ClientUtils.sendCommand("/warp forge"));
 
         long deadline = System.currentTimeMillis() + WARP_TIMEOUT_MS;
         while (System.currentTimeMillis() < deadline && isRunning) {
@@ -126,10 +126,7 @@ public class ForgeManager {
         return false;
     }
 
-    /**
-     * Finds the nearest walkable block within 3 blocks of the target NPC coords,
-     * closest to the player. Mirrors the visitor macro's approach.
-     */
+    // nearest walkable block within 3 of the npc, closest to the player; mirrors the visitor macro
     private static BlockPos findBestWalkingTarget(Minecraft client, int tx, int ty, int tz) {
         if (client.level == null || client.player == null) return null;
         BlockPos base = new BlockPos(tx, ty, tz);
@@ -161,7 +158,7 @@ public class ForgeManager {
     }
 
     private static boolean walkToCoords(Minecraft client, int x, int y, int z) throws InterruptedException {
-        client.execute(() -> PathfindingManager.startPathfind(client, x, y, z, false));
+        MacroWorkerThread.runOnClient(client, () -> PathfindingManager.startPathfind(client, x, y, z, false));
         Thread.sleep(340 + (long)(Math.random() * 120));
 
         long deadline = System.currentTimeMillis() + PATHFIND_TIMEOUT_MS;
@@ -176,9 +173,7 @@ public class ForgeManager {
         return true;
     }
 
-    /**
-     * Finds the nearest "Forger" NPC, explicitly excluding real players.
-     */
+    // explicitly excludes real players
     private static Entity findForgerNpc(Minecraft client) {
         if (client.level == null || client.player == null) return null;
 
@@ -204,7 +199,7 @@ public class ForgeManager {
     }
 
     private static void faceEntity(Minecraft client, Entity entity) throws InterruptedException {
-        client.execute(() -> RotationManager.initiateRotation(
+        MacroWorkerThread.runOnClient(client, () -> RotationManager.initiateRotation(
                 client,
                 new Vec3(entity.getX(), entity.getEyeY(), entity.getZ()),
                 ROTATION_MS, 0f));

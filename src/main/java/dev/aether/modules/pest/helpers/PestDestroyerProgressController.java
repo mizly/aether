@@ -6,11 +6,7 @@ import net.minecraft.client.Minecraft;
 
 import java.util.Set;
 
-/**
- * Owns run-level completion, timeout, and plot-priority checks for the pest
- * destroyer. Keeping these concerns outside the state handlers makes the main
- * coordinator responsible only for orchestration.
- */
+// run-level completion, timeout and plot-priority checks, kept out of the state handlers so the coordinator only orchestrates
 final class PestDestroyerProgressController {
     interface Context {
         boolean shouldFinishForAliveCount(Minecraft client, int aliveCount);

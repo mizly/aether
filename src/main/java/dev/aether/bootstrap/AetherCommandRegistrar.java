@@ -7,7 +7,6 @@ import com.mojang.brigadier.suggestion.Suggestions;
 import com.mojang.brigadier.suggestion.SuggestionsBuilder;
 import dev.aether.bootstrap.AetherUiActions;
 import dev.aether.config.AetherConfig;
-import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.ComposterManager;
 import dev.aether.modules.GreenhouseManager;
@@ -97,7 +96,7 @@ public final class AetherCommandRegistrar {
                             .then(ClientCommands.literal("farming")
                                     .executes(ctx -> {
                                         Minecraft client = Minecraft.getInstance();
-                                        if (MacroStateManager.getCurrentState() != MacroState.State.OFF) {
+                                        if (MacroStateManager.isAutomationRunning()) {
                                             ClientUtils.sendMessage("\u00A7cA macro is already running.", false);
                                             return 0;
                                         }
@@ -113,12 +112,7 @@ public final class AetherCommandRegistrar {
                             .then(ClientCommands.literal("stop")
                                     .executes(ctx -> {
                                         Minecraft client = Minecraft.getInstance();
-                                        if (BedrockPlotMaker.isRunning()) {
-                                            BedrockPlotMaker.stop(client);
-                                            ClientUtils.sendMessage("\u00A7eStopped Bedrock Plot Maker.", false);
-                                            return 1;
-                                        }
-                                        if (MacroStateManager.getCurrentState() == MacroState.State.OFF) {
+                                        if (!MacroStateManager.isAutomationRunning()) {
                                             ClientUtils.sendMessage("\u00A7eNo macro is currently running.", false);
                                             return 0;
                                         }

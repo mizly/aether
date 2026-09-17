@@ -16,11 +16,7 @@ public final class VinylManager {
 
     private VinylManager() {}
 
-    /**
-     * Opens the Stereo Harmony GUI and plays the vinyl matching targetVinyl (item name substring).
-     * No-ops if the correct vinyl is already playing. Blocks until done or failed.
-     * Returns true if the correct vinyl is playing after this call.
-     */
+    // no-ops when the right vinyl is already playing; blocks until done or failed
     public static boolean setVinyl(Minecraft client, String targetVinyl) {
         if (client.player == null || targetVinyl == null) return false;
 

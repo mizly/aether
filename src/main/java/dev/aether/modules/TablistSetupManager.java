@@ -50,6 +50,17 @@ public final class TablistSetupManager {
     private TablistSetupManager() {
     }
 
+    public static boolean isActive() {
+        return active;
+    }
+
+    public static void stop() {
+        if (active) {
+            active = false;
+            automaticAttempted = true;
+        }
+    }
+
     public static int start(Minecraft client) {
         if (active) {
             ClientUtils.sendMessage("\u00A7eTablist setup is already running.", false);

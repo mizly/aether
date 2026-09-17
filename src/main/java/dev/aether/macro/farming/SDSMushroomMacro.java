@@ -4,8 +4,7 @@ import dev.aether.config.AetherConfig;
 
 import java.util.Map;
 
-/** Mushroom's repeating A -> S -> S+D row pattern. */
-/** Mushroom's repeating D -> S -> S+A if flipped. */
+// repeating a -> s -> s+d rows, or d -> s -> s+a when flipped
 public class SDSMushroomMacro extends AbstractFarmingMacro {
     private static final float CARDINAL_OFFSET_DEGREES = 16f;
     private final boolean reverseLane = AetherConfig.MACRO_SDS_MUSHROOM_REVERSE_LANE.get();

@@ -26,7 +26,6 @@ public class BookCombineManager {
     public static volatile long interactionTime = 0;
     public static volatile int interactionStage = 0;
 
-    /** Pre-computed slot indices for the current pair being combined. */
     private static volatile int pendingSlot0 = -1;
     private static volatile int pendingSlot1 = -1;
 
@@ -306,13 +305,7 @@ public class BookCombineManager {
         return false;
     }
 
-    /**
-     * Scans the player's inventory section of the open container and returns a map
-     * from unique book key -> list of container slot indices.
-     *
-     * Key is the first non-empty lore line of the book (e.g. "Sharpness VI"),
-     * which is unique per enchantment type AND level in Hypixel Skyblock 1.21.
-     */
+    // keyed by the first non-empty lore line, which is unique per enchantment and level on hypixel
     private static Map<String, List<Integer>> getInventoryBooks(AbstractContainerScreen<?> screen) {
         Map<String, List<Integer>> pairs = new LinkedHashMap<>();
         int totalSlots = screen.getMenu().slots.size();
@@ -339,12 +332,7 @@ public class BookCombineManager {
         return pairs;
     }
 
-    /**
-     * Returns a unique key for this enchanted book. Uses the first non-empty
-     * lore line, which in Hypixel Skyblock 1.21 is the enchantment name + level
-     * (e.g. "Sharpness VI"). Falls back to hover name if no lore is present.
-     * Returns null if no usable key can be determined.
-     */
+    // first non-empty lore line, e.g. "Sharpness VI"; falls back to the hover name, null when neither works
     private static String getBookKey(ItemStack stack) {
         // Collect all non-empty lore lines (stripped of color codes)
         ItemLore lore = stack.get(DataComponents.LORE);
@@ -398,12 +386,7 @@ public class BookCombineManager {
         return hover.isEmpty() ? null : hover;
     }
 
-    /**
-     * Returns true if the key represents a book that should not be combined
-     * further.
-     * Parses the enchantment name and level from the key and checks against
-     * the known max levels for each enchantment.
-     */
+    // parses the name and level out of the key and checks it against the known max levels
     private static boolean isMaxLevel(String key) {
         int lastSpace = key.lastIndexOf(' ');
         String name;

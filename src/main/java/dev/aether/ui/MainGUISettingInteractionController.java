@@ -213,7 +213,7 @@ final class MainGUISettingInteractionController {
             case SLIDER -> handleSliderClick((SliderSetting) setting, mx, my, y, ix, iw, cardH);
             case RANGE_SLIDER -> handleRangeSliderClick((RangeSliderSetting) setting, mx, my, y, ix, iw, cardH);
             case TEXT -> handleTextClick((TextSetting) setting, mx, my, y, ix, iw, cardH);
-            case INFO -> { }
+            case INFO, SECTION -> { }
             case LIST -> handleListClick((ListSetting) setting, mx, my, y, w, ix, iw);
             case DROPDOWN_LIST -> handleDropdownListClick((DropdownListSetting) setting, mx, my, y, w, ix, iw);
             case DROPDOWN -> handleDropdownClick((DropdownSetting) setting, mx, my, y, ix, iw, cardH);

@@ -2,7 +2,7 @@ package dev.aether.macro.farming;
 
 import java.util.Map;
 
-/** Cocoa's pattern: forward row, right lane, backward row, right lane. */
+// forward row, right lane, backward row, right lane
 public class CocoaBeansMacro extends AbstractFarmingMacro {
     private final StateCycle states = stateCycle(0.02, 2,
             State.FORWARD, State.SWITCHING_LANE, State.BACKWARD, State.SWITCHING_LANE);

@@ -19,7 +19,6 @@ public class MixinGameRenderer {
         AetherBootstrapHooks.onGameRenderStart(Minecraft.getInstance());
     }
 
-    /** Fires after GUI render-state extraction. */
     @Inject(method = "extract", at = @At("TAIL"))
     private void onRenderTail(DeltaTracker deltaTracker, boolean tick, CallbackInfo ci) {
         AetherBootstrapHooks.onGameRenderEnd();
@@ -27,10 +26,12 @@ public class MixinGameRenderer {
 
     @Inject(method = "render", at = @At("TAIL"))
     private void afterRender(DeltaTracker deltaTracker, boolean tick, CallbackInfo ci) {
+        AetherRenderQueue.flushBeforeGui();
         AetherRenderQueue.flush();
         if (Minecraft.getInstance().screen instanceof MainGUI mainGUI) {
             mainGUI.renderAfterGameRenderer(deltaTracker.getGameTimeDeltaTicks());
         }
+        AetherBootstrapHooks.renderPestEspTracerOverlay();
         AetherBootstrapHooks.renderFailsafeColourFlash();
     }
 

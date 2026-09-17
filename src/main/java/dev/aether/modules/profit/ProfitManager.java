@@ -3,6 +3,7 @@ package dev.aether.modules.profit;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroState;
 import dev.aether.util.TablistUtils;
+import dev.aether.modules.profit.helpers.FarmingXpTracker;
 import net.minecraft.network.chat.Component;
 
 import java.util.LinkedHashMap;
@@ -11,6 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class ProfitManager {
+    private static final SessionProfitHistory SESSION_HISTORY = new SessionProfitHistory();
     private static final Map<String, Long> sessionCounts = new LinkedHashMap<>();
     private static final Map<String, Long> dailyCounts = new LinkedHashMap<>();
     private static final Map<String, Long> lifetimeCounts = new LinkedHashMap<>();
@@ -168,9 +170,11 @@ public final class ProfitManager {
 
     public static void reset() {
         sessionCounts.clear();
+        SESSION_HISTORY.reset(System.nanoTime(), isProfitTrackingActive());
         spraySessionQuantity = 0L;
         CHAT_PARSER.resetSessionState();
         LIVE_TRACKER.resetSessionState();
+        FarmingXpTracker.reset();
         invalidateDisplayCaches();
     }
 
@@ -241,6 +245,15 @@ public final class ProfitManager {
     public static void update() {
         net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
         LIVE_TRACKER.update(client, ProfitManager::addDrop);
+        SESSION_HISTORY.record(System.nanoTime(), getTotalProfit());
+    }
+
+    public static void updateSessionGraphClock() {
+        SESSION_HISTORY.setRunning(System.nanoTime(), isProfitTrackingActive());
+    }
+
+    public static SessionProfitHistory.Snapshot getSessionProfitHistory(long nowNanos) {
+        return SESSION_HISTORY.snapshot(nowNanos);
     }
 
     public static void printPetXpPriceDebug() {

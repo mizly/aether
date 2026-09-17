@@ -14,11 +14,7 @@ import dev.aether.modules.pest.helpers.PestCompletionGuard;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 
-/**
- * Manual implementation of the pest lifecycle's CLEANING stage. The shared
- * PRE and POST stages remain responsible for travel, loadouts, traps, visitors,
- * and returning to farming.
- */
+// manual version of the CLEANING stage; the shared PRE and POST stages still own travel, loadouts, traps, visitors and the return to farming
 public final class ManualPestManager {
 
     private enum Phase { IDLE, WAITING }

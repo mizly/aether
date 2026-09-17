@@ -8,22 +8,7 @@ import dev.aether.renderer.NVGRenderer;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * A horizontal top-level tab bar with animated accent underline.
- *
- * <p>The active tab's content is rendered below the bar. Tabs can contain
- * sub-tabs (see {@link Tab#addSubTab}).</p>
- *
- * <h3>Usage</h3>
- * <pre>{@code
- * Tab farming = new Tab("Farming").addContent(someComponent);
- * Tab visuals = new Tab("Visuals");
- *
- * TabBar bar = new TabBar(x, y, width, height);
- * bar.addTab(farming).addTab(visuals);
- * // Add bar as a component to an NVGScreen or Panel.
- * }</pre>
- */
+// top-level tab bar with an animated accent underline; the active tab's content draws below it
 public class TabBar extends Component {
 
     // -- Layout ----------------------------------------------------------------

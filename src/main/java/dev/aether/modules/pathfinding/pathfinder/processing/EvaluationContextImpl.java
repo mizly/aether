@@ -21,7 +21,7 @@ public final class EvaluationContextImpl implements EvaluationContext {
         this.heuristicStrategy  = heuristicStrategy;
     }
 
-    /** Update fields for reuse without allocating a new instance. */
+    // reused rather than reallocated per node
     public void update(SearchContext searchContext, Node engineNode,
                        Node parentEngineNode, IHeuristicStrategy heuristicStrategy) {
         this.searchContext     = searchContext;

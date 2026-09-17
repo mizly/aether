@@ -255,11 +255,7 @@ public class ClientUtils {
         return client != null && client.screen instanceof AbstractContainerScreen<?>;
     }
 
-    /**
-     * Closes the current GUI and keeps closing any GUI that reappears for the
-     * full stabilization window. Callers may rely on this method not returning
-     * before it is safe to continue with the next action.
-     */
+    // keeps closing any gui that reappears for the full stabilization window, so callers can rely on it not returning before the next action is safe
     public static void closeGui(Minecraft client) {
         if (client == null) {
             return;
@@ -331,7 +327,7 @@ public class ClientUtils {
     }
 
     private static MacroState.Location getCurrentLocation(Minecraft client) {
-        if (client.level == null || client.player == null)
+        if (client == null || client.level == null || client.player == null || client.getConnection() == null)
             return MacroState.Location.UNKNOWN;
 
         if (!client.isSameThread()) {
@@ -366,20 +362,8 @@ public class ClientUtils {
             }
         }
 
-        if (hasLobbyItems) {
-            return MacroState.Location.LOBBY;
-        }
-
-        String areaLine = TablistUtils.findLine(client, "Area:");
-        if (areaLine != null) {
-            if (areaLine.contains("Area: Garden"))
-                return MacroState.Location.GARDEN;
-            if (areaLine.contains("Area: Crystal Hollows"))
-                return MacroState.Location.CRYSTAL_HOLLOWS;
-            return MacroState.Location.HUB;
-        }
-
-        return MacroState.Location.HUB;
+        return SkyblockLocation.resolve(sidebar.getDisplayName().getString(), hasLobbyItems,
+                TablistUtils.findLine(client, "Area:"));
     }
 
     public static boolean isSupportedHudArea() {
@@ -684,10 +668,7 @@ public class ClientUtils {
         });
     }
 
-    /**thismake
-     * Holds shift, fires one swing packet, and returns - shift is NOT released.
-     * The caller must call releaseShiftKey() when done (e.g. after the GUI opens).
-     */
+    // shift is NOT released - the caller has to call releaseShiftKey() once the gui opens
     public static void performShiftLeftClick() {
         Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null)
@@ -735,11 +716,7 @@ public class ClientUtils {
                 randomizedClickHoldMs());
     }
 
-    /**
-     * Queues the click as well as holding the key, so the use fires on this tick.
-     * A held-only press waits on Minecraft's rightClickDelay and is dropped
-     * entirely if the previous use was less than four ticks ago.
-     */
+    // a held-only press waits on minecraft's rightClickDelay and is dropped outright if the last use was under four ticks ago
     public static void performUseClickNow() {
         Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null) {
@@ -755,11 +732,7 @@ public class ClientUtils {
                 randomizedClickHoldMs());
     }
 
-    /**
-     * Queues a single use click without holding the use key. This is used for
-     * the stun tap immediately before a hotbar swap: the click is consumed by
-     * Minecraft on the current tick and cannot overlap the lasso throw.
-     */
+    // for the stun tap right before a hotbar swap: minecraft consumes the click this tick, so it cannot overlap the lasso throw
     public static void performUseClickInstant() {
         Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null) {
@@ -773,11 +746,7 @@ public class ClientUtils {
         });
     }
 
-    /**
-     * Starts a sustained use hold and queues one click so the first use fires on
-     * this tick instead of waiting out Minecraft's rightClickDelay. The caller
-     * owns the release.
-     */
+    // queues one click too, so the first use fires this tick instead of waiting out rightClickDelay; the caller owns the release
     public static void beginUseHoldNow() {
         Minecraft client = Minecraft.getInstance();
         if (client == null || client.options == null) {
@@ -833,11 +802,7 @@ public class ClientUtils {
                 randomizedClickHoldMs());
     }
 
-    /**
-     * Simulates clicking a slot in an open container screen.
-     * Routes through the screen's slotClicked handler rather than calling
-     * gameMode.handleInventoryMouseClick directly.
-     */
+    // routes through the screen's slotClicked rather than calling gameMode.handleInventoryMouseClick directly
     public static void performSlotClick(AbstractContainerScreen<?> screen, int slotIndex, int mouseButton, ContainerInput type) {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || screen.getMenu() == null) return;
@@ -871,10 +836,7 @@ public class ClientUtils {
         client.execute(() -> clickKeyMapping(client.options.keyHotbarSlots[slot]));
     }
 
-    /**
-     * Releasing a key does not drop clicks already queued on it, and Minecraft only
-     * drains that queue with no screen open, so they fire whenever a GUI closes.
-     */
+    // releasing a key does not drop clicks already queued on it, and minecraft only drains that queue with no screen open, so they fire whenever a gui closes
     public static void discardQueuedClicks(KeyMapping mapping) {
         if (mapping == null) {
             return;
@@ -892,11 +854,7 @@ public class ClientUtils {
         mapping.setDown(down);
     }
 
-    /**
-     * Re-presses keys the macro is holding programmatically. Vanilla {@code grabMouse()}
-     * calls {@code KeyMapping.setAll()}, which resets bindings to the physical key state
-     * and would drop macro-held keys until the macro's next tick.
-     */
+    // vanilla grabMouse() calls KeyMapping.setAll(), which resets bindings to the physical key state and would drop macro-held keys until the next tick
     public static void reapplyProgrammaticKeyStates(Minecraft client) {
         if (client == null || client.options == null) {
             return;

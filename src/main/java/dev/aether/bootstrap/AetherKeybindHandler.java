@@ -4,9 +4,11 @@ import dev.aether.config.AetherConfig;
 import dev.aether.bootstrap.AetherBootstrapHooks;
 import dev.aether.bootstrap.AetherUiActions;
 import dev.aether.macro.farming.FarmingMacroManager;
+import dev.aether.macro.fishing.FishingMacroManager;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.CropFeverManager;
+import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.inventorymanager.AutoSellManager;
@@ -14,7 +16,6 @@ import dev.aether.modules.inventorymanager.BookCombineManager;
 import dev.aether.modules.inventorymanager.GeorgeManager;
 import dev.aether.modules.inventorymanager.JunkManager;
 import dev.aether.modules.pest.ManualPestManager;
-import dev.aether.modules.movement.MovementPlaybackManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.profit.ProfitManager;
 import dev.aether.modules.session.DynamicRestManager;
@@ -46,6 +47,10 @@ public final class AetherKeybindHandler {
                 AetherUiActions.toggleMainGui();
             }
 
+            while (AetherKeybindRegistry.getMacroMenuKey().consumeClick()) {
+                AetherUiActions.toggleMacroStartMenu();
+            }
+
             if (client.player == null) {
                 return;
             }
@@ -67,6 +72,10 @@ public final class AetherKeybindHandler {
 
             while (AetherKeybindRegistry.getManualPestEarlyFinishKey().consumeClick()) {
                 ManualPestManager.requestEarlyFinish(client);
+            }
+
+            while (AetherKeybindRegistry.getStriderFishingKey().consumeClick()) {
+                handleStriderFishingToggle(client);
             }
         });
     }
@@ -97,13 +106,7 @@ public final class AetherKeybindHandler {
     }
 
     private static void handleMacroToggle(Minecraft client) {
-        if (MovementPlaybackManager.isPlaying()) {
-        MovementPlaybackManager.stop();
-        MacroStateManager.stopMacro();
-        return;
-        }
-        
-        if (MacroStateManager.getCurrentState() == MacroState.State.OFF) {
+        if (!MacroStateManager.isAutomationRunning()) {
             startFarmingMacro(client, false);
             return;
         }
@@ -140,6 +143,37 @@ public final class AetherKeybindHandler {
         client.execute(() -> FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig()));
         if (announce) {
             ClientUtils.sendMessage("\u00A7aFarming macro started.", false);
+        }
+    }
+
+    private static void handleStriderFishingToggle(Minecraft client) {
+        if (MacroStateManager.isAutomationRunning()) {
+            MacroStateManager.stopMacro();
+            return;
+        }
+        startStriderFishingMacro(client, true);
+    }
+
+    public static void startStriderFishingMacro(Minecraft client) {
+        startStriderFishingMacro(client, true);
+    }
+
+    public static void startStriderFishingMacro(Minecraft client, boolean announce) {
+        if (client == null) {
+            return;
+        }
+
+        AetherBootstrapHooks.resetFailsafeRuntimeState();
+        GearManager.reset();
+        RecoveryManager.reset();
+        // the rod and weapon swaps and the lava turn are ours, so the failsafes start from where we are
+        FailsafeManager.syncSelectedSlotFromClient(client);
+        FailsafeManager.syncExpectedRotationFromClient(client);
+        FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
+        MacroStateManager.setCurrentState(MacroState.State.FISHING);
+        client.execute(() -> FishingMacroManager.enable(client));
+        if (announce) {
+            ClientUtils.sendMessage("§aStrider fishing macro started.", false);
         }
     }
 

@@ -19,7 +19,7 @@ public class MuteManager {
         return muted;
     }
 
-    /** Master volume (0.0-1.0) to apply while muting is active; 0.0 fully mutes. */
+    // 0.0 fully mutes
     public static float getVolume() {
         return AetherConfig.MUTE_GAME_VOLUME.get();
     }

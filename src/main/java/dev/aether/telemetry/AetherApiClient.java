@@ -147,7 +147,7 @@ public final class AetherApiClient {
         return modOff(token, "", REQUEST_TIMEOUT);
     }
 
-    /** shutdown paths pass a short timeout so telemetry never stalls the client exit. */
+    // shutdown paths pass a short timeout so telemetry never stalls the client exit
     public static ModState modOff(String token, Duration timeout) throws AetherApiException {
         return modOff(token, "", timeout);
     }
@@ -274,7 +274,7 @@ public final class AetherApiClient {
         }
     }
 
-    /** total_seconds arrives as a JSON string on some endpoints, so parse via text. */
+    // total_seconds arrives as a json string on some endpoints, so parse via text
     private static long longValue(JsonObject obj, String key, long fallback) {
         String raw = string(obj, key);
         if (raw.isEmpty()) {

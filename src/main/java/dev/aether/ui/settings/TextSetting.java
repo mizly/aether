@@ -4,14 +4,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import dev.aether.util.AetherLang;
 
-/**
- * Text input setting backed by a getter/setter.
- *
- * Example:
- *   new TextSetting("Discord Webhook", "https://...",
- *       () -> AetherConfig.discordWebhookUrl,
- *       v -> AetherConfig.discordWebhookUrl = v)
- */
+// text input backed by a getter/setter
 public class TextSetting implements Setting {
 
     private final String name;

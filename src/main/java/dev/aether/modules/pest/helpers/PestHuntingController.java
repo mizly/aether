@@ -25,7 +25,7 @@ import net.minecraft.world.phys.Vec3;
 import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 
-/** Stuns, lassos and reels in a pest for its shard, in place of vacuuming it. */
+// stuns, lassos and reels a pest for its shard instead of vacuuming it
 final class PestHuntingController {
     private static final String REEL_PROMPT = "REEL";
     private static final String ESCAPE_PROMPT = "ESCAPED";
@@ -72,11 +72,6 @@ final class PestHuntingController {
     // apart; decay that step instead of handing the tracker an instant error.
     private static final long AIM_BLEND_MS = 420L;
     private static final long FOCUS_SWITCH_DEBOUNCE_MS = 200L;
-    // The stun and throw windows are a tick or two wide, so the hunt tracks with
-    // a shorter time constant and a higher ceiling than the cleaner's aim: enough
-    // smoothing to read as a hand, not so much that the pest walks out of it.
-    private static final float HUNT_AIM_SMOOTHING_MS = 90.0f;
-    private static final float HUNT_AIM_MAX_TURN_SPEED = 700.0f;
     private static final long REEL_RESPONSE_WAIT_MS = 500L;
     private static final long REEL_OVERLAY_SIGNAL_GRACE_MS = 300L;
     private static final long LANDING_WAIT_TIMEOUT_MS = 250L;
@@ -286,7 +281,7 @@ final class PestHuntingController {
         }
     }
 
-    /** "You didn't reel! Beetle escaped!" - the lasso is off and the pest is loose. */
+    // "You didn't reel! Beetle escaped!" - the lasso is off and the pest is loose
     static boolean isEscapeMessage(String plainName) {
         String upper = plainName.toUpperCase(Locale.ROOT);
         return upper.contains(ESCAPE_PROMPT)
@@ -513,11 +508,7 @@ final class PestHuntingController {
         }
     }
 
-    /**
-     * The server has just told us the lasso came off and the pest is loose. The
-     * retry beat exists so a re-stun does not race a pest that is still sitting
-     * where it was; this one is already running, so skip it and stun now.
-     */
+    // the retry beat exists so a re-stun does not race a pest still sitting where it was; this one already is, so stun now
     private static void restartAfterEscape(
             Minecraft client, PestDestroyerRuntime runtime, long now) {
         runtime.huntEscapeSignal = false;
@@ -755,11 +746,8 @@ final class PestHuntingController {
         ClientUtils.sendDebugMessage("[PestHunting] Reeled (" + runtime.huntReelCount + ").");
     }
 
-    /**
-     * True once the line has been stretched long enough to be worth closing, and
-     * for as long as that approach is still running. A swing that comes back on
-     * its own is left alone rather than answered with a dash at the pest.
-     */
+    // true once the line is stretched far enough to be worth closing, and while that approach is still running
+    // a swing that comes back on its own is left alone rather than answered with a dash
     private static boolean leashNeedsClosing(
             PestDestroyerRuntime runtime, double horizontal, long now) {
         if (horizontal <= LEASHED_FOLLOW_DISTANCE + FOLLOW_BAND) {
@@ -846,20 +834,16 @@ final class PestHuntingController {
         RotationManager.trackRotation(
                 client,
                 wander(client, steerPoint(runtime, aim, now), wanderDegrees(tolerance), now),
-                HUNT_AIM_SMOOTHING_MS,
-                HUNT_AIM_MAX_TURN_SPEED);
+                AetherConfig.PEST_HUNTING_TRACKING_SMOOTHING_MS.get(),
+                AetherConfig.PEST_HUNTING_MAX_TURN_SPEED.get());
     }
 
     private static double wanderDegrees(float tolerance) {
         return Math.min(tolerance * AIM_WANDER_FRACTION, MAX_AIM_WANDER_DEGREES);
     }
 
-    /**
-     * Loose tracking: let the pest carry the crosshair off by
-     * LOOSE_AIM_TRIGGER_DEGREES, put it back to within LOOSE_AIM_SETTLE_DEGREES,
-     * then leave it alone again. The settle stays clear of the drift so a
-     * correction can finish instead of turning back into continuous tracking.
-     */
+    // loose tracking: let the pest carry the crosshair off by LOOSE_AIM_TRIGGER_DEGREES, put it back within LOOSE_AIM_SETTLE_DEGREES, then leave it
+    // the settle stays clear of the drift so a correction can finish instead of becoming continuous tracking
     private static boolean needsLooseCorrection(
             Minecraft client, PestDestroyerRuntime runtime, Vec3 aim) {
         if (runtime.huntAimCorrecting) {
@@ -876,20 +860,14 @@ final class PestHuntingController {
         return true;
     }
 
-    /**
-     * The reel only needs REEL_AIM_TOLERANCE_DEGREES, so a landed lasso must not
-     * buy the tight throw correction that made the catch snap on camera.
-     */
+    // the reel only needs REEL_AIM_TOLERANCE_DEGREES, so a landed lasso must not buy the tight throw correction that made the catch snap on camera
     static float huntAimTolerance(boolean attached, Stage stage) {
         return attached || stage == Stage.REEL
                 ? ATTACHED_AIM_TOLERANCE_DEGREES
                 : THROW_AIM_TOLERANCE_DEGREES;
     }
 
-    /**
-     * Holds the previous focus briefly so a leash that reads on and off for a
-     * tick cannot bounce the camera between the pest and its marker stand.
-     */
+    // holds the previous focus briefly so a leash that reads on and off for a tick cannot bounce the camera between pest and marker stand
     private static Entity resolveFocus(
             PestDestroyerRuntime runtime, Entity next, long now) {
         Entity held = runtime.huntFocus;
@@ -940,11 +918,8 @@ final class PestHuntingController {
         runtime.huntLastAimPoint = point;
     }
 
-    /**
-     * Where the camera is steered: the live aim point plus the decaying remainder
-     * of the jump the focus change introduced. Click gates keep using the real
-     * point, so nothing fires while the blend still has the crosshair short.
-     */
+    // live aim point plus the decaying remainder of the jump the focus change introduced
+    // click gates keep using the real point, so nothing fires while the blend still has the crosshair short
     private static Vec3 steerPoint(PestDestroyerRuntime runtime, Vec3 aim, long now) {
         if (runtime.huntAimBlendStartedAt == 0L || runtime.huntAimBlendOffset == null) {
             return aim;
@@ -966,10 +941,7 @@ final class PestHuntingController {
         return 1.0 - t * t * (3.0 - 2.0 * t);
     }
 
-    /**
-     * Slow drift around the steer point. Upward only in pitch, so it can never put
-     * the crosshair back onto the hitbox the aim clearance just cleared.
-     */
+    // upward only in pitch, so it can never put the crosshair back onto the hitbox the aim clearance just cleared
     private static Vec3 wander(Minecraft client, Vec3 point, double degrees, long now) {
         Vec3 toPoint = point.subtract(client.player.getEyePosition());
         double distance = toPoint.length();
@@ -1045,13 +1017,8 @@ final class PestHuntingController {
                 adjustAltitude && flying && heightGap < -VERTICAL_ALIGN_TOLERANCE);
     }
 
-    /**
-     * Returns 1 for forward, -1 for a braking/back-off input, and 0 for hold.
-     * Latched on {@code previous}: a dead band is narrower than flight's stopping
-     * distance, so on its own it answers every overshoot with the opposite key and
-     * the hunter pumps forward and back. Once moving, run to the follow distance
-     * and stop there, and only start again a full band away from it.
-     */
+    // 1 forward, -1 braking, 0 hold, latched on previous
+    // a dead band narrower than flight's stopping distance answers every overshoot with the opposite key and pumps back and forth, so once moving, run to the follow distance and only start again a full band away
     static int followDirection(
             double horizontal,
             double projected,
@@ -1079,12 +1046,7 @@ final class PestHuntingController {
         return allowBackOff && horizontal < backOffThreshold ? -1 : 0;
     }
 
-    /**
-     * How fast the gap is actually shrinking, in blocks per tick, rather than how
-     * fast we are flying. A pest walking away eats most of the approach, so
-     * treating our own speed as progress had the hunter releasing forward while
-     * still out of reach and creeping after it until the stun timed out.
-     */
+    // how fast the gap is shrinking, not how fast we are flying: a pest walking away eats most of the approach, which had the hunter releasing forward while still out of reach
     private static void updateClosingRate(
             PestDestroyerRuntime runtime, Entity target, double horizontal) {
         if (runtime.huntCloseRateTargetId != target.getId()
@@ -1101,10 +1063,7 @@ final class PestHuntingController {
                 + sample * (1.0 - CLOSING_RATE_SMOOTHING);
     }
 
-    /**
-     * Yaw only: pitch is the altitude keys' problem, and the aim deliberately
-     * sits above the pest, which a 3D cone would read as being off target.
-     */
+    // yaw only: pitch is the altitude keys' problem, and the aim deliberately sits above the pest, which a 3d cone would read as off target
     private static boolean facesTarget(Minecraft client, Entity target, double maxYawError) {
         double dx = target.getX() - client.player.getX();
         double dz = target.getZ() - client.player.getZ();
@@ -1121,10 +1080,7 @@ final class PestHuntingController {
         return Math.sqrt(dx * dx + dz * dz);
     }
 
-    /**
-     * A use-click that is not on the pest hits whatever is behind it, which in the
-     * garden means opening a menu, so nothing clicks without confirmed aim.
-     */
+    // a use-click that misses the pest hits whatever is behind it, which in the garden means opening a menu
     private static boolean isAimedAtTarget(
             Minecraft client, PestDestroyerRuntime runtime, Entity target, float tolerance) {
         return PestTargetController.isLookingAt(
@@ -1157,10 +1113,7 @@ final class PestHuntingController {
         return target == null || closestDistance <= 36.0 ? closest : null;
     }
 
-    /**
-     * The client never reported the leash the catch detection is built on, so
-     * log what is actually around the pest on the first throw of a hunt.
-     */
+    // the client never reported the leash the catch detection is built on, so log what is actually around the pest on the first throw
     private static void probeCatchState(
             Minecraft client,
             PestDestroyerRuntime runtime,
@@ -1269,10 +1222,7 @@ final class PestHuntingController {
         return false;
     }
 
-    /**
-     * Empty for a nameless stand: getName() falls back to the vanilla "Armor
-     * Stand" label, which made the lasso's cobweb stand look like a pest marker.
-     */
+    // empty for a nameless stand: getName() falls back to the vanilla "Armor Stand" label, which made the lasso's cobweb stand look like a pest marker
     private static String plainMarkerName(ArmorStand marker) {
         Component custom = marker.getCustomName();
         if (custom != null) {
@@ -1291,10 +1241,7 @@ final class PestHuntingController {
         return plainName.toUpperCase(Locale.ROOT).contains(REEL_PROMPT);
     }
 
-    /**
-     * A cricket clears several blocks in one hop and lands somewhere else, so a
-     * stun or a throw mid-hop is spent on where it no longer is.
-     */
+    // a cricket clears several blocks in one hop, so a stun or throw mid-hop is spent on where it no longer is
     private static boolean waitForLanding(PestDestroyerRuntime runtime, Entity target, long now) {
         if (!(target instanceof Silverfish)) {
             runtime.huntLandingWaitStartedAt = 0L;
@@ -1316,10 +1263,7 @@ final class PestHuntingController {
         return now - runtime.huntLandingWaitStartedAt < LANDING_WAIT_TIMEOUT_MS;
     }
 
-    /**
-     * The health bar stand trails a hopping pest by a block or more, so it is only
-     * worth aiming at when the target is a marker with no mob of its own.
-     */
+    // the health bar stand trails a hopping pest by a block or more, so it is only worth aiming at when the target is a marker with no mob of its own
     private static Vec3 huntAimPoint(Minecraft client, Entity pest) {
         if (pest instanceof Bat || pest instanceof Silverfish) {
             return abovePest(pest);
@@ -1369,10 +1313,7 @@ final class PestHuntingController {
         return closest;
     }
 
-    /**
-     * Without this a pest whose own markers are gone borrows the neighbouring
-     * pest's, and the aim snaps off to wherever that one is.
-     */
+    // without this a pest whose own markers are gone borrows a neighbour's, and the aim snaps off to wherever that one is
     private static boolean ridesOn(ArmorStand marker, Entity pest, double maxHorizontal) {
         double dx = marker.getX() - pest.getX();
         double dz = marker.getZ() - pest.getZ();

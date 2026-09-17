@@ -3,12 +3,7 @@ package dev.aether.ui.settings;
 import java.util.function.Supplier;
 import dev.aether.util.AetherLang;
 
-/**
- * Button/action setting that executes a runnable when clicked.
- *
- * Example:
- *   new ActionSetting("Save Config", AetherConfig::save)
- */
+// button that runs a runnable when clicked
 public class ActionSetting implements Setting {
 
     private final String name;

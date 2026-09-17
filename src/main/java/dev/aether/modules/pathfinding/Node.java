@@ -13,22 +13,19 @@ public final class Node implements Comparable<Node> {
 
     public double   gCost       = 0.0;
     public Node     parent      = null;
-    /** Movement type used by PathVisualizer for coloring. */
     public MoveType moveType    = MoveType.WALK;
-    /** Whether this node is a path-smooth keynode vs. an intermediate tracking node. */
+    // keynode vs. intermediate tracking node, for path smoothing
     public boolean  isKeynode   = false;
-    /** True while this node is in the open set (heap). */
     public boolean  inOpen      = false;
-    /** True once this node has been expanded (moved to closed). */
     public boolean  inClosed    = false;
-    /** Cached f-cost (g + h) set when gCost is first finalized; NaN until then. */
+    // set when gCost is first finalized; NaN until then
     public double   cachedFCost = Double.NaN;
 
     public enum MoveType {
         WALK, WALK_DIAGONAL, STEP_UP, JUMP, PARKOUR, FALL, SWIM, CLIMB, FLY, ETHERWARP
     }
 
-    /** Constructor for intermediate tracking nodes (no heuristic needed). */
+    // intermediate tracking nodes need no heuristic
     public Node(PathPosition position) {
         this.position  = position;
         this.depth     = 0;

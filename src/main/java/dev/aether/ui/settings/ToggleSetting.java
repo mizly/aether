@@ -4,12 +4,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import dev.aether.util.AetherLang;
 
-/**
- * Boolean on/off setting backed by a getter/setter.
- *
- * Example:
- *   new ToggleSetting("Auto Visitor", () -> AetherConfig.autoVisitor, v -> AetherConfig.autoVisitor = v)
- */
+// on/off backed by a getter/setter
 public class ToggleSetting implements Setting {
 
     private final String name;

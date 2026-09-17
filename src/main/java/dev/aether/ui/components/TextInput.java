@@ -7,18 +7,7 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.function.Consumer;
 
-/**
- * A single-line text input field with cursor blink and basic editing.
- *
- * <p>Supported keys: printable characters, Backspace, Delete, Home, End,
- * Left/Right arrows, Ctrl+A (select-all -> clear).</p>
- *
- * <pre>{@code
- * TextInput field = new TextInput("Search...");
- * field.setBounds(x, y, 200, 28);
- * field.setOnChange(text -> filter(text));
- * }</pre>
- */
+// handles printable characters, backspace, delete, home, end, arrows, and ctrl+a as select-all-then-clear
 public class TextInput extends Component {
 
     // -- Layout ----------------------------------------------------------------

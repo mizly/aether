@@ -12,7 +12,7 @@ import java.util.List;
 
 public final class GhostBlockFailsafeRegistryProvider extends AbstractFailsafesRegistryProvider {
     public GhostBlockFailsafeRegistryProvider() {
-        super(4);
+        super(Category.FARMING, 2);
     }
 
     @Override

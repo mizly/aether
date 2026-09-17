@@ -12,6 +12,7 @@ import dev.aether.ui.settings.ActionSetting;
 import dev.aether.ui.settings.DropdownSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.SettingGroup;
+import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.TextSetting;
 import dev.aether.ui.settings.ToggleSetting;
 
@@ -57,6 +58,19 @@ public final class ProfitCalculatorRegistryProvider extends AbstractVisualsRegis
                             AetherConfig.SHOW_SESSION_PROFIT_HUD.set(v);
                             AetherConfig.save();
                         }))
+                .add(new ToggleSetting("Rolling Profit Graph",
+                        AetherConfig.SESSION_PROFIT_GRAPH::get,
+                        v -> {
+                            AetherConfig.SESSION_PROFIT_GRAPH.set(v);
+                            AetherConfig.save();
+                        }).visibleWhen(AetherConfig.SHOW_SESSION_PROFIT_HUD::get))
+                .add(new SliderSetting("Graph Window", 1, 15,
+                        () -> AetherConfig.SESSION_PROFIT_GRAPH_MINUTES.get().floatValue(),
+                        v -> {
+                            AetherConfig.SESSION_PROFIT_GRAPH_MINUTES.set(Math.round(v));
+                            AetherConfig.save();
+                        }).withDecimals(0).withSuffix(" min").visibleWhen(() -> AetherConfig.SHOW_SESSION_PROFIT_HUD.get()
+                                && AetherConfig.SESSION_PROFIT_GRAPH.get()))
                 .add(new ToggleSetting("Lifetime HUD",
                         () -> AetherConfig.SHOW_LIFETIME_HUD.get(),
                         v -> {

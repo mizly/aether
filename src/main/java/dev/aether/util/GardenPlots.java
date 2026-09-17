@@ -2,15 +2,12 @@ package dev.aether.util;
 
 import net.minecraft.util.Mth;
 
-/** Garden plot grid geometry: plot number to world bounds, and world position to plot cell. */
+// garden plot grid geometry: plot number to world bounds, and world position to plot cell
 public final class GardenPlots {
     public static final int PLOT_SIZE = 96;
     public static final int PLOT_OFFSET = 48;
 
-    /**
-     * Garden plot numbers as seen on the map from above: top row is north (-Z),
-     * left column is west (-X), 0 is the barn at grid (0, 0).
-     */
+    // as seen on the map from above: top row is north (-Z), left column is west (-X), 0 is the barn at (0, 0)
     private static final int[][] PLOT_LAYOUT = {
             {21, 13,  9, 14, 22},
             {15,  5,  1,  6, 16},
@@ -22,7 +19,7 @@ public final class GardenPlots {
     private GardenPlots() {
     }
 
-    /** Grid cell of a plot number as {gridX, gridZ}, or null when the number is not on the map. */
+    // {gridX, gridZ}, or null when the number is not on the map
     public static int[] gridForPlot(int plot) {
         for (int row = 0; row < PLOT_LAYOUT.length; row++) {
             for (int col = 0; col < PLOT_LAYOUT[row].length; col++) {
@@ -39,7 +36,7 @@ public final class GardenPlots {
         return grid == null ? null : boundsForGrid(grid[0], grid[1]);
     }
 
-    /** Bounds for a plot label such as "14", "Plot 14" or "#14"; null when it is not a numbered plot. */
+    // takes "14", "Plot 14" or "#14"; null when it is not a numbered plot
     public static Bounds boundsForPlot(String plot) {
         if (plot == null) {
             return null;
@@ -69,7 +66,7 @@ public final class GardenPlots {
         return Math.floorDiv(Mth.floor(coord) + PLOT_OFFSET, PLOT_SIZE);
     }
 
-    /** Plot square with an exclusive max edge, matching the block columns the plot owns. */
+    // max edge is exclusive, matching the block columns the plot owns
     public record Bounds(int minX, int minZ, int maxX, int maxZ) {
         public boolean contains(double x, double z, double margin) {
             return x >= minX - margin && x < maxX + margin

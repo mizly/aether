@@ -16,11 +16,7 @@ import org.lwjgl.glfw.GLFW;
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.Minecraft;
 
-/**
- * Custom-styled confirmation screen (Yes / No).
- * Replaces {@link net.minecraft.client.gui.screens.ConfirmScreen}
- * via {@link dev.aether.mixin.MixinConfirmScreen}.
- */
+// replaces the vanilla ConfirmScreen via MixinConfirmScreen
 public class AetherConfirmScreen extends Screen {
 
     // -- Layout ----------------------------------------------------------------
@@ -29,7 +25,7 @@ public class AetherConfirmScreen extends Screen {
     private static final float BTN_GAP = 12f;
     private static final float BTN_R   = 6f;
 
-    /** 20-tick input delay before buttons activate (matches vanilla). */
+    // input delay before the buttons activate, matching vanilla's 20 ticks
     private static final long BUTTON_DELAY_MS = 1000L;
 
     // -- State -----------------------------------------------------------------

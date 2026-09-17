@@ -18,9 +18,6 @@ public class RotationUtils {
         }
     }
 
-    /**
-     * Calculates the yaw and pitch needed to look from 'from' to 'to'.
-     */
     public static Rotation calculateLookAt(Vec3 from, Vec3 to) {
         double d0 = to.x - from.x;
         double d1 = to.y - from.y;
@@ -33,10 +30,7 @@ public class RotationUtils {
         return new Rotation(f, f1);
     }
 
-    /**
-     * Calculates the rotation at a specific point 't' (0.0 to 1.0) on a Quadratic
-     * Bezier curve.
-     */
+    // point t (0.0 to 1.0) along a quadratic bezier
     public static Rotation calculateBezierPoint(float t, Rotation start, Rotation end, Rotation control) {
         // Apply cubic easing for smoother start/end (Ease-In-Out)
         // Formula: f(t) = t^2 * (3 - 2t)
@@ -56,11 +50,7 @@ public class RotationUtils {
         return new Rotation(yaw, pitch);
     }
 
-    /**
-     * Generates a random control point for the Bezier curve to simulate a human
-     * arc.
-     * Ensures the control point follows the shortest path logic.
-     */
+    // random control point that fakes a human arc, following the shortest-path direction
     public static Rotation generateControlPoint(Rotation start, Rotation end) {
         // Normalize yaw difference to shortest path
         float yawDiff = Mth.wrapDegrees(end.yaw - start.yaw);
@@ -82,9 +72,6 @@ public class RotationUtils {
         return new Rotation(start.yaw + yawDiff, end.pitch);
     }
 
-    /**
-     * Checks if the given yaw/pitch is looking at the target position within the specified tolerance.
-     */
     public static boolean isLookingAt(float currentYaw, float currentPitch, Vec3 eyePos, Vec3 targetPos, float tolerance) {
         Rotation target = calculateLookAt(eyePos, targetPos);
         float yawDiff = Math.abs(Mth.wrapDegrees(currentYaw - target.yaw));
@@ -92,9 +79,7 @@ public class RotationUtils {
         return yawDiff <= tolerance && pitchDiff <= tolerance;
     }
 
-    /**
-     * Applies a random offset to a rotation within specified range (degree).
-     */
+    // range is in degrees
     public static Rotation applyImprecision(Rotation rot, float range) {
         if (range <= 0) return rot;
         float yawOffset = (RANDOM.nextFloat() - 0.5f) * range;

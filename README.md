@@ -24,7 +24,7 @@
 
 ## features
 - **farming qol** - auto farming, pest destroyer, auto pest exchange, auto spray, auto loadouts, auto greenhouse, auto composter ... + many more!
-- **visual** - nick hider, purse spoofer, sawdust spoofer
+- **visual** - nick hider, purse spoofer, sawdust spoofer, fun visual features
 - **failsafes** - too many failsafes to list
 
 ---
@@ -40,6 +40,19 @@
 
 ## contributing
 contributions are welcome, so feel free to make a PR!
+if your PR adds a new feature, for example a new farm design or a new meta, please attach a video of the feature in your PR.
 
-To contribute to language packs, see https://github.com/iceangelsaint/aether-language-packs
+To contribute to language packs, see the [`translations/`](translations/) directory.
 
+<!-- translation-coverage:start -->
+## Translation Coverage
+
+| Locale | Covered | Percentage |
+| --- | ---: | ---: |
+| `jp_jp` | 303/846 | 35.8% |
+| `pr_us` | 253/846 | 29.9% |
+| `pt_pt` | 477/846 | 56.4% |
+| `ru_ru` | 492/846 | 58.2% |
+| `test` | 516/846 | 61.0% |
+| `zh_cn` | 508/846 | 60.0% |
+<!-- translation-coverage:end -->

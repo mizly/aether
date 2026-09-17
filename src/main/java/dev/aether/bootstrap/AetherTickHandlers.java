@@ -18,6 +18,8 @@ public final class AetherTickHandlers {
         MovementPlaybackManager.register();
         FreecamManager.register();
         FreelookManager.register();
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK
+                .register(dev.aether.modules.visuals.PestDefeatEffects::tick);
     }
 
     public static void setPickingUpStash(boolean pickingUpStash) {

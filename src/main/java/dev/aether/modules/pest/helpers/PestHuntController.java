@@ -8,7 +8,7 @@ import net.minecraft.world.entity.Entity;
 
 import java.util.Set;
 
-/** Chooses the next visible pest, plot transition, or tracker probe. */
+// picks the next visible pest, plot transition, or tracker probe
 final class PestHuntController {
     interface Context {
         boolean tryLeaveOneOnCurrentPlot(Minecraft client);

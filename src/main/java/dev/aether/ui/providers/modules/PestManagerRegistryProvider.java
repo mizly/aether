@@ -14,6 +14,7 @@ import dev.aether.ui.settings.MultiDropdownSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.PositionSetting;
 import dev.aether.ui.settings.SettingGroup;
+import dev.aether.ui.settings.SectionSetting;
 import dev.aether.ui.settings.SliderSetting;
 import dev.aether.ui.settings.TextSetting;
 import dev.aether.ui.settings.ToggleSetting;
@@ -48,6 +49,12 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.PEST_ESP_HIGHLIGHT.set(value);
                             AetherConfig.save();
                         }))
+                .add(new DropdownSetting("ESP Mode", List.of("Box", "Glow Outline"),
+                        () -> "GLOW".equalsIgnoreCase(AetherConfig.PEST_ESP_MODE.get()) ? 1 : 0,
+                        value -> {
+                            AetherConfig.PEST_ESP_MODE.set(value == 1 ? "GLOW" : "BOX");
+                            AetherConfig.save();
+                        }).visibleWhen(AetherConfig.PEST_ESP_HIGHLIGHT::get))
                 .add(new ColorSetting("Highlight Color",
                         AetherConfig.PEST_ESP_HIGHLIGHT_COLOR::get,
                         value -> {
@@ -67,7 +74,20 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.PEST_ESP_TRACER_COLOR.set(value);
                             AetherConfig.save();
                         })
-                        .visibleWhen(AetherConfig.PEST_ESP_TRACER::get)));
+                        .visibleWhen(AetherConfig.PEST_ESP_TRACER::get))
+                .add(new ToggleSetting("Optimized Route ESP",
+                        AetherConfig.PEST_ESP_OPTIMIZED_ROUTE::get,
+                        value -> {
+                            AetherConfig.PEST_ESP_OPTIMIZED_ROUTE.set(value);
+                            AetherConfig.save();
+                        }))
+                .add(new ColorSetting("Optimized Route Color",
+                        AetherConfig.PEST_ESP_OPTIMIZED_ROUTE_COLOR::get,
+                        value -> {
+                            AetherConfig.PEST_ESP_OPTIMIZED_ROUTE_COLOR.set(value);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(AetherConfig.PEST_ESP_OPTIMIZED_ROUTE::get)));
 
         groups.add(SettingGroup.of(
                         "Pest Destroyer",
@@ -77,6 +97,7 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.TRIGGER_PEST_ON_CHAT.set(v);
                             AetherConfig.save();
                         })
+                .add(new SectionSetting("General", "When Pest Destroyer starts and how a run completes"))
                 .add(new SliderSetting("Pest Threshold", 1, 8,
                         () -> (float) AetherConfig.PEST_THRESHOLD.get(),
                         v -> {
@@ -85,6 +106,18 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         })
                         .withDecimals(0))
                 .add(FarmingSettingsFactory.pestDestroyerTriggerDelaySetting())
+                .add(new ToggleSetting("Use Pest Tracker Ability",
+                        AetherConfig.USE_PEST_TRACKER_ABILITY::get,
+                        v -> {
+                            AetherConfig.USE_PEST_TRACKER_ABILITY.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(new ToggleSetting("Draw Arc",
+                        AetherConfig.PEST_TRACKER_DRAW_ARC::get,
+                        v -> {
+                            AetherConfig.PEST_TRACKER_DRAW_ARC.set(v);
+                            AetherConfig.save();
+                        }))
                 .add(new ToggleSetting("Estimate Pest Destroyer Completion",
                         AetherConfig.ESTIMATE_PEST_DESTROYER_COMPLETION::get,
                         v -> {
@@ -109,6 +142,7 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.PEST_PLOT_TP_FOR_CURRENT_PLOT.set(v);
                             AetherConfig.save();
                         }))
+                .add(new SectionSetting("Targeting", "How pests are selected and reserved during a run"))
                 .add(new ToggleSetting("Leave One Pest Alive",
                         () -> AetherConfig.LEAVE_ONE_PEST_ALIVE.get(),
                         v -> {
@@ -128,12 +162,36 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.SUNSET_PESTS.set(v);
                             AetherConfig.save();
                         }))
+                .add(new SectionSetting("Navigation", "Movement between pests and plot routing"))
                 .add(new ToggleSetting("AOTV Between Distant Pests",
                         () -> AetherConfig.PEST_AOTV_BETWEEN.get(),
                         v -> {
                             AetherConfig.PEST_AOTV_BETWEEN.set(v);
                             AetherConfig.save();
                         }))
+                .add(new ToggleSetting("Smart AOTV Routing",
+                        AetherConfig.PEST_SMART_AOTV_ROUTING::get,
+                        v -> {
+                            AetherConfig.PEST_SMART_AOTV_ROUTING.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(AetherConfig.PEST_AOTV_BETWEEN::get))
+                .add(new ToggleSetting("Etherwarp Directly Near Pests",
+                        AetherConfig.PEST_ETHERWARP_TO_PEST::get,
+                        v -> {
+                            AetherConfig.PEST_ETHERWARP_TO_PEST.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(AetherConfig.PEST_AOTV_BETWEEN::get))
+                .add(FarmingSettingsFactory.pestEtherwarpMinDistanceSetting()
+                        .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()
+                                && AetherConfig.PEST_ETHERWARP_TO_PEST.get()))
+                .add(FarmingSettingsFactory.pestAotvStartDistanceSetting()
+                        .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()
+                                && AetherConfig.PEST_SMART_AOTV_ROUTING.get()))
+                .add(FarmingSettingsFactory.pestAotvStopDistanceSetting()
+                        .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()
+                                && AetherConfig.PEST_SMART_AOTV_ROUTING.get()))
                 .add(new ToggleSetting("Confirm AOTV Between Pests",
                         () -> AetherConfig.PEST_AOTV_CONFIRM_BETWEEN.get(),
                         v -> {
@@ -143,9 +201,36 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()))
                 .add(FarmingSettingsFactory.aotvBetweenPestsDelaySetting()
                         .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()))
+                .add(new SectionSetting("Combat", "Aiming and vacuum engagement behavior"))
                 .add(FarmingSettingsFactory.pestFovRangeSetting())
                 .add(FarmingSettingsFactory.pestAboveAimPitchRangeSetting())
-                .add(FarmingSettingsFactory.pestMaxTurnSpeedSetting()));
+                .add(FarmingSettingsFactory.pestMaxTurnSpeedSetting())
+                .add(FarmingSettingsFactory.pestNextTargetTurnSpeedSetting())
+                .add(new ToggleSetting("Respect Vacuum True Range",
+                        AetherConfig.RESPECT_VACUUM_TRUE_RANGE::get,
+                        v -> {
+                            AetherConfig.RESPECT_VACUUM_TRUE_RANGE.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(new SliderSetting("Vacuum Follow Distance", 2, 7,
+                        AetherConfig.PEST_VACUUM_FOLLOW_DISTANCE::get,
+                        v -> {
+                            AetherConfig.PEST_VACUUM_FOLLOW_DISTANCE.set(v);
+                            AetherConfig.save();
+                        }).withDecimals(1).withSuffix(" blocks"))
+                .add(new SliderSetting("Pest Approach Speed", 0.15f, 0.8f,
+                        AetherConfig.PEST_APPROACH_SPEED::get,
+                        v -> {
+                            AetherConfig.PEST_APPROACH_SPEED.set(v);
+                            AetherConfig.save();
+                        }).withDecimals(2).withSuffix(" blocks/tick"))
+                .add(new SliderSetting("Pest Tracking Smoothing", 100, 500,
+                        AetherConfig.PEST_TRACKING_SMOOTHING_MS::get,
+                        v -> {
+                            AetherConfig.PEST_TRACKING_SMOOTHING_MS.set(v);
+                            AetherConfig.save();
+                        }).withDecimals(0).withSuffix("ms"))
+                .add(FarmingSettingsFactory.pestAimDriftSetting()));
         groups.add(SettingGroup.of(
                         "Pest Hunting",
                         "Lassos pests for guaranteed shards instead of vacuuming them (needs a lasso in your hotbar)",
@@ -182,6 +267,14 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.save();
                         })
                         .withDecimals(1))
+                .add(new SliderSetting("Hunting Tracking Smoothing", 75, 300,
+                        AetherConfig.PEST_HUNTING_TRACKING_SMOOTHING_MS::get,
+                        value -> { AetherConfig.PEST_HUNTING_TRACKING_SMOOTHING_MS.set(value); AetherConfig.save(); })
+                        .withDecimals(0).withSuffix("ms"))
+                .add(new SliderSetting("Hunting Max Turn Speed", 180, 900,
+                        AetherConfig.PEST_HUNTING_MAX_TURN_SPEED::get,
+                        value -> { AetherConfig.PEST_HUNTING_MAX_TURN_SPEED.set(value); AetherConfig.save(); })
+                        .withDecimals(0).withSuffix("°/s"))
                 .add(new SliderSetting("Max Lasso Throws", 1, 15,
                         () -> (float) AetherConfig.PEST_HUNTING_MAX_THROWS.get(),
                         v -> {
@@ -220,13 +313,20 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         })
                         .withDecimals(0))
                 .add(FarmingSettingsFactory.ballsackShredderTriggerDelaySetting())
+                .add(new ToggleSetting("Look Down After Warps",
+                        AetherConfig.BALLSACK_LOOK_DOWN::get,
+                        v -> {
+                            AetherConfig.BALLSACK_LOOK_DOWN.set(v);
+                            AetherConfig.save();
+                        }))
                 .add(new SliderSetting("Look Down Time", 0, 3000,
                         () -> (float) AetherConfig.BALLSACK_LOOK_DOWN_TIME_MS.get(),
                         v -> {
                             AetherConfig.BALLSACK_LOOK_DOWN_TIME_MS.set(Math.round(v));
                             AetherConfig.save();
                         })
-                        .withDecimals(0).withSuffix("ms")));
+                        .withDecimals(0).withSuffix("ms")
+                        .visibleWhen(AetherConfig.BALLSACK_LOOK_DOWN::get)));
 
         groups.add(SettingGroup.of(
                         "AOTV to Roof",

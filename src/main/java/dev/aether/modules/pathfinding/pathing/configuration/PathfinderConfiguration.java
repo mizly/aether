@@ -66,7 +66,7 @@ public final class PathfinderConfiguration {
     }
 }
 
-/** Package-private default provider: everything is traversable. */
+// default provider: everything is traversable
 final class DefaultNavigationPointProvider implements NavigationPointProvider {
     static final DefaultNavigationPointProvider INSTANCE = new DefaultNavigationPointProvider();
     private DefaultNavigationPointProvider() {}

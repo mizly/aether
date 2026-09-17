@@ -86,6 +86,12 @@ public final class VisitorRegistryProvider extends AbstractModulesRegistryProvid
                     AetherConfig.save();
                 })
                 .visibleWhen(() -> AetherConfig.EQUIP_VISITOR_CUSTOM_ITEM.get()));
+        group.add(new ToggleSetting("Empty Fungal Tip Jar",
+                () -> AetherConfig.VISITOR_EMPTY_TIP_JAR.get(),
+                v -> {
+                    AetherConfig.VISITOR_EMPTY_TIP_JAR.set(v);
+                    AetherConfig.save();
+                }));
         group.add(new ToggleSetting("Disable Compactors during Visitors",
                 () -> AetherConfig.DISABLE_COMPACTORS_DURING_VISITORS.get(),
                 v -> {

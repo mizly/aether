@@ -1,21 +1,10 @@
 package dev.aether.util;
 
-/**
- * Shared numeric parsing helpers for SkyBlock-formatted strings.
- */
 public final class NumberUtils {
 
     private NumberUtils() {}
 
-    /**
-     * Parses a number with an optional {@code k}/{@code m}/{@code b} suffix
-     * (case-insensitive), stripping thousands separators.
-     *
-     * <p>Examples: {@code "75k" -> 75000}, {@code "1.8M" -> 1800000},
-     * {@code "1,234" -> 1234}.</p>
-     *
-     * @throws NumberFormatException if the text is null, empty, or not numeric
-     */
+    // handles a k/m/b suffix and thousands separators: "75k" -> 75000, "1.8M" -> 1800000, "1,234" -> 1234
     public static long parseShorthand(String text) {
         if (text == null) {
             throw new NumberFormatException("null");

@@ -1,37 +1,25 @@
 package dev.aether.modules.profit.helpers;
 
-import dev.aether.modules.profit.ProfitManager;
-import dev.aether.util.NumberUtils;
-import dev.aether.util.TablistUtils;
-import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
-
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * Tracks Farming skill XP and computes a live XP/hour rate plus progress toward
- * level 60.
- *
- * <p>Inspired by SkyHanni's {@code SkillApi}: the action bar drives live XP gains
- * (its {@code +N Farming (...)} message), while the tab list "Skills" widget and
- * the action bar fraction form anchor the <em>absolute</em> level/progress. This
- * matters because at high levels the action bar degrades from {@code (cur/max)} to
- * {@code (percent)}, which alone cannot resolve an absolute XP value.</p>
- *
- * <p>XP/hour uses a rolling per-second window (like SkyHanni) so the rate reflects
- * <em>current</em> farming speed and pauses when farming stops.</p>
- */
+import dev.aether.macro.MacroStateManager;
+import dev.aether.modules.profit.ProfitManager;
+import dev.aether.util.NumberUtils;
+import dev.aether.util.TablistUtils;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+
+// the tab-list skills widget and action bar fraction provide direct absolute XP anchors
+// at high levels the action bar degrades from (cur/max) to (percent), which alone cannot resolve an absolute xp value
 public final class FarmingXpTracker {
 
     public static final int MAX_LEVEL = 60;
 
-    /** XP required to go from level L to L+1 (index 0 = level 0->1). */
+    // index 0 is level 0->1
     private static final long[] LEVEL_INCREMENTS = {
             50L, 125L, 200L, 300L, 500L, 750L, 1000L, 1500L, 2000L, 3500L,
             5000L, 7500L, 10000L, 15000L, 20000L, 30000L, 50000L, 75000L, 100000L, 200000L,
@@ -41,17 +29,15 @@ public final class FarmingXpTracker {
             4300000L, 4600000L, 4900000L, 5200000L, 5500000L, 5800000L, 6100000L, 6400000L, 6700000L, 7000000L,
     };
 
-    /** Cumulative XP to <em>reach</em> each level (index = level, 0..60). */
+    // index = level, 0..60
     private static final long[] XP_TO_LEVEL = buildCumulative();
-    /** Total XP required to reach level 60 (= 111,672,425). */
     public static final long XP_TO_MAX = XP_TO_LEVEL[MAX_LEVEL];
 
-    /** Maps a "needed for next level" value back to the level you are currently on. */
+    // maps a "needed for next level" value back to the level you are on
     private static final Map<Long, Integer> NEEDED_TO_LEVEL = buildNeededMap();
 
     // -- Patterns --------------------------------------------------------------
 
-    private static final Pattern AB_GAIN = Pattern.compile("\\+([\\d.,]+)\\s+Farming");
     private static final Pattern AB_FRACTION = Pattern.compile(
             "Farming\\s+\\(([\\d.,]+)/([\\d.,]+[kKmMbB]?)\\)");
 
@@ -62,30 +48,13 @@ public final class FarmingXpTracker {
     private static final Pattern TAB_PERCENT = Pattern.compile(
             "Farming\\s+(\\d+):\\s+([\\d.,]+)%");
 
-    // -- Rolling-window config -------------------------------------------------
-
-    private static final int RATE_WINDOW = 60;         // seconds of history averaged (SkyHanni uses 30; 60
-                                                       // smooths the spikes from Hypixel's coarse XP batches)
-    private static final int RATE_GRACE_SECONDS = 5;   // keep the rate alive through short farming pauses
-    private static final long RATE_TICK_MS = 1_000L;   // recompute once a second
-
     private static final Object LOCK = new Object();
 
-    // Per-second absolute-XP deltas (newest first), capped at RATE_WINDOW. XP/hour is the window
-    // average (sum * 3600 / size) -- the SkyHanni approach: steady on the coarse XP staircase. A
-    // grace timer pads short pauses with zero-seconds instead of clearing the window (which dropped
-    // the rate) or decaying between server updates (which sawtoothed it).
-    private static final Deque<Double> xpGainQueue = new ArrayDeque<>();
-    private static long lastRateMs = 0L;
-    private static long lastTotalXp = -1L;
-    private static int graceTimer = 0;
-
     // Cross-thread readable scalars for the HUD.
-    private static volatile double sessionXpGained = 0.0;
-    private static volatile double xpPerHour = 0.0;
-    private static volatile boolean active = false;
+    private static volatile long sessionXpGained = 0L;
     private static volatile int currentLevel = -1;
     private static volatile long absoluteXp = -1L;
+    private static volatile long sessionStartAbsoluteXp = -1L;
 
     private FarmingXpTracker() {}
 
@@ -100,31 +69,6 @@ public final class FarmingXpTracker {
             return;
         }
 
-        Matcher gain = AB_GAIN.matcher(s);
-        if (!gain.find()) {
-            return;
-        }
-        double gained;
-        try {
-            gained = parseNum(gain.group(1));
-        } catch (NumberFormatException e) {
-            return;
-        }
-        if (gained <= 0) {
-            return;
-        }
-
-        synchronized (LOCK) {
-            sessionXpGained += gained;
-            // Keep the absolute anchor fresh between (cur/max) reads; the fraction below
-            // and the tab list re-anchor it to server-truth whenever they appear.
-            if (absoluteXp >= 0) {
-                absoluteXp += (long) gained;
-            }
-        }
-
-        // Refine the absolute anchor from the fraction form when present (low/mid
-        // levels). The percent form lacks a level here; the tab list covers that.
         Matcher frac = AB_FRACTION.matcher(s);
         if (frac.find()) {
             try {
@@ -141,7 +85,7 @@ public final class FarmingXpTracker {
 
     // -- Tab list / per-tick update (called from ProfitLiveTracker) ------------
 
-    /** Anchors absolute level/progress from the tab-list Skills widget if present. */
+    // anchors absolute level and progress from the tab-list skills widget when it is there
     public static void updateFromTablist(Minecraft client) {
         if (client == null || client.getConnection() == null || !ProfitManager.isProfitTrackingActive()) {
             return;
@@ -177,61 +121,22 @@ public final class FarmingXpTracker {
         }
     }
 
-    /** Advances the per-second rolling average. Call once per game tick; recomputes once a second. */
-    public static void tick() {
-        if (!ProfitManager.isProfitTrackingActive()) {
-            return;
-        }
-        long now = System.currentTimeMillis();
+    public static void reset() {
         synchronized (LOCK) {
-            if (absoluteXp < 0) {
-                return; // no absolute anchor yet
-            }
-            if (lastRateMs == 0L) {
-                lastRateMs = now;        // seed the per-second baseline
-                lastTotalXp = absoluteXp;
-                return;
-            }
-            if (now - lastRateMs < RATE_TICK_MS) {
-                return; // one bucket per second
-            }
-            lastRateMs = now;
-            long delta = absoluteXp - lastTotalXp;
-            lastTotalXp = absoluteXp;
-
-            if (delta > 0L) {
-                graceTimer = RATE_GRACE_SECONDS; // real gain: keep the window alive
-                xpGainQueue.addFirst((double) delta);
-                active = true;
-            } else if (graceTimer > 0) {
-                graceTimer--;                    // short pause: pad a zero-second, don't clear
-                xpGainQueue.addFirst(0.0);
-                active = true;
-            } else {
-                active = false;                  // idle past grace: freeze the last rate, keep the queue
-                return;
-            }
-
-            while (xpGainQueue.size() > RATE_WINDOW) {
-                xpGainQueue.removeLast();
-            }
-            double sum = 0.0;
-            for (double g : xpGainQueue) {
-                sum += g;
-            }
-            xpPerHour = xpGainQueue.isEmpty() ? 0.0 : sum * 3600.0 / xpGainQueue.size();
+            sessionXpGained = 0L;
+            currentLevel = -1;
+            absoluteXp = -1L;
+            sessionStartAbsoluteXp = -1L;
         }
     }
 
-    public static void reset() {
+    /**
+     * Clears the live sample while keeping the baseline for a persisted macro session.
+     * The next anchor will calculate the total gain from the original session start.
+     */
+    public static void resetLiveState() {
         synchronized (LOCK) {
-            xpGainQueue.clear();
-            lastRateMs = 0L;
-            lastTotalXp = -1L;
-            graceTimer = 0;
-            sessionXpGained = 0.0;
-            xpPerHour = 0.0;
-            active = false;
+            sessionXpGained = 0L;
             currentLevel = -1;
             absoluteXp = -1L;
         }
@@ -248,7 +153,7 @@ public final class FarmingXpTracker {
     }
 
     public static boolean isPaused() {
-        return !active;
+        return MacroStateManager.getSessionRunningTime() <= 0L;
     }
 
     public static int getLevel() {
@@ -256,18 +161,20 @@ public final class FarmingXpTracker {
     }
 
     public static long getXpPerHour() {
-        return (long) xpPerHour;
+        long sessionMs = MacroStateManager.getSessionRunningTime();
+        return sessionMs > 0
+                ? (long) (sessionXpGained * 3_600_000.0 / sessionMs)
+                : 0L;
     }
 
     public static long getSessionXpGained() {
-        return (long) sessionXpGained;
+        return sessionXpGained;
     }
 
     public static long getRemainingToMax() {
         return Math.max(0L, XP_TO_MAX - Math.max(0L, absoluteXp));
     }
 
-    /** Overall progress toward level 60, clamped to [0,1]. */
     public static float getProgressToMax() {
         if (absoluteXp <= 0) {
             return 0f;
@@ -275,7 +182,7 @@ public final class FarmingXpTracker {
         return Math.max(0f, Math.min(1f, (float) absoluteXp / (float) XP_TO_MAX));
     }
 
-    /** Estimated milliseconds to reach level 60 at the current rate, or -1 if unknown. */
+    // -1 when unknown
     public static long getEtaToMaxMs() {
         long rate = getXpPerHour();
         if (rate <= 0 || isMaxed()) {
@@ -284,7 +191,6 @@ public final class FarmingXpTracker {
         return (long) (getRemainingToMax() / (double) rate * 3_600_000.0);
     }
 
-    /** XP accumulated within the current level. */
     public static long getXpIntoLevel() {
         if (absoluteXp < 0 || currentLevel < 0) {
             return 0L;
@@ -292,7 +198,6 @@ public final class FarmingXpTracker {
         return Math.max(0L, absoluteXp - XP_TO_LEVEL[Math.min(currentLevel, MAX_LEVEL)]);
     }
 
-    /** XP required to advance from the current level to the next. */
     public static long getXpForNextLevel() {
         if (currentLevel < 0 || currentLevel >= LEVEL_INCREMENTS.length) {
             return 0L;
@@ -305,7 +210,7 @@ public final class FarmingXpTracker {
         return need <= 0 ? 0L : Math.max(0L, need - getXpIntoLevel());
     }
 
-    /** Estimated milliseconds to reach the next level at the current rate, or -1 if unknown. */
+    // -1 when unknown
     public static long getEtaToNextLevelMs() {
         long rate = getXpPerHour();
         if (rate <= 0 || currentLevel >= MAX_LEVEL) {
@@ -316,18 +221,45 @@ public final class FarmingXpTracker {
 
     // -- Internals -------------------------------------------------------------
 
-    private static void setAnchor(int level, long currentXpInLevel) {
+    static void setAnchor(int level, long currentXpInLevel) {
         if (level < 0 || level > MAX_LEVEL) {
             return;
         }
         synchronized (LOCK) {
+            long nextAbsoluteXp = XP_TO_LEVEL[level] + Math.max(0L, currentXpInLevel);
+
+            // The tab list can arrive first on startup and establish level 60 with
+            // no overflow. The first action-bar x/0 value is the existing post-cap
+            // total, so use it as the session baseline instead of counting it.
+            boolean initializingPostCapBaseline = level == MAX_LEVEL
+                    && currentXpInLevel > 0L
+                    && absoluteXp == XP_TO_MAX
+                    && sessionStartAbsoluteXp == XP_TO_MAX
+                    && sessionXpGained == 0L;
+            if (initializingPostCapBaseline) {
+                sessionStartAbsoluteXp = nextAbsoluteXp;
+            }
+
+            // At max level the tab list reports MAX, while the action bar can still
+            // report the post-cap XP as x/0. Do not let the tab-list anchor erase it.
+            if (level == MAX_LEVEL && currentXpInLevel == 0L && absoluteXp > nextAbsoluteXp) {
+                nextAbsoluteXp = absoluteXp;
+            }
+
             currentLevel = level;
-            absoluteXp = XP_TO_LEVEL[level] + Math.max(0L, currentXpInLevel);
+            absoluteXp = nextAbsoluteXp;
+            if (sessionStartAbsoluteXp < 0L) {
+                sessionStartAbsoluteXp = absoluteXp;
+            }
+            sessionXpGained = Math.max(sessionXpGained,
+                    Math.max(0L, absoluteXp - sessionStartAbsoluteXp));
         }
     }
 
-    /** Resolve the level you're currently on from the "needed for next level" value. */
-    private static int levelForNeeded(long needed) {
+    static int levelForNeeded(long needed) {
+        if (needed == 0L) {
+            return MAX_LEVEL;
+        }
         Integer exact = NEEDED_TO_LEVEL.get(needed);
         if (exact != null) {
             return exact;

@@ -26,6 +26,8 @@ public final class PathVisualizer {
     private static int        currentWaypointIndex  = 0;
     private static List<Vec3> cameraPath             = Collections.emptyList();
     private static int        currentCameraRailIndex = -1;
+    private static Vec3       walkingAimPoint;
+    private static Vec3       walkingDirection = Vec3.ZERO;
 
     private static final Set<Long> exploredNodes =
             Collections.synchronizedSet(new LinkedHashSet<>());
@@ -50,6 +52,8 @@ public final class PathVisualizer {
         currentPath          = (path != null) ? path : Collections.emptyList();
         currentWaypointIndex = wpIndex;
         bezierCache          = null;
+        walkingAimPoint      = null;
+        walkingDirection     = Vec3.ZERO;
     }
 
     public static void setCameraPath(List<Vec3> path) {
@@ -79,11 +83,18 @@ public final class PathVisualizer {
         currentCameraRailIndex = camRailIdx;
     }
 
+    public static void updateWalkingTargets(Vec3 aimPoint, Vec3 direction) {
+        walkingAimPoint = aimPoint;
+        walkingDirection = direction;
+    }
+
     public static void clear() {
         currentPath           = Collections.emptyList();
         cameraPath            = Collections.emptyList();
         currentWaypointIndex  = 0;
         currentCameraRailIndex = -1;
+        walkingAimPoint = null;
+        walkingDirection = Vec3.ZERO;
         exploredNodes.clear();
         bezierCache = null;
     }
@@ -163,6 +174,15 @@ public final class PathVisualizer {
         }
 
         renderCameraRail();
+        if (walkingAimPoint != null) {
+            Vec3 aim = walkingAimPoint;
+            Gizmos.cuboid(new AABB(aim.x - 0.12, aim.y - 0.12, aim.z - 0.12,
+                    aim.x + 0.12, aim.y + 0.12, aim.z + 0.12),
+                    GizmoStyle.stroke(ARGB.color(255, 255, 100, 220), 2.5f)).setAlwaysOnTop();
+            Vec3 feet = mc.player.position().add(0.0, 0.15, 0.0);
+            Gizmos.line(feet, feet.add(walkingDirection.scale(1.5)),
+                    ARGB.color(255, 100, 255, 160), 3.0f).setAlwaysOnTop();
+        }
     }
 
     private static void renderCameraRail() {

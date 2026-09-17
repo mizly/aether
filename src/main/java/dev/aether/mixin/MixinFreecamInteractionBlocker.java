@@ -10,33 +10,14 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
-/**
- * While freecam is active the camera entity is a detached {@code RemotePlayer}, so
- * {@link net.minecraft.client.Minecraft#pick} ray-traces from the freecam viewpoint.
- * If the <em>player</em> then interacts (attack / use / pick), the resulting break /
- * interact packet is aimed wherever the freecam points while the real player's rotation
- * packets say otherwise, tripping the server's rotation / reach checks ("rotationBreak" /
- * "farbreak") and getting the user kicked.
- *
- * <p>We only want to suppress the <em>human's</em> physical input, not the macro. Physical
- * mouse buttons are swallowed at the source by {@code MixinMouseHandler#onMouseClick} while
- * freecam is active, so during freecam the attack/use mappings can only be down
- * programmatically (macro). The checks below therefore consult only the mapping state -
- * never raw GLFW button state, which the human's mouse still flips even with events
- * swallowed. So the farming loop keeps working in freecam while manual clicks do nothing.
- */
+// freecam picks from the detached camera, so a player interaction sends a break aimed where the camera points while rotation packets say otherwise, and the server kicks for rotationBreak/farbreak
+// only the human's input is suppressed: the checks read the key mappings, never raw glfw state, so the macro keeps farming in freecam
 @Mixin(Minecraft.class)
 public class MixinFreecamInteractionBlocker {
     @Shadow private int missTime;
     @Unique private static String aether$lastAttackDebug = "";
 
-    /**
-     * {@link net.minecraft.client.Minecraft#pick} computes {@code hitResult} by
-     * ray-tracing from {@code getCameraEntity()} - the detached freecam camera while
-     * freecam is active. That makes the macro break whatever the freecam is aimed at
-     * instead of the block in front of the real player. Feed the real player as the ray
-     * source so interactions stay anchored to the player, wherever the camera roams.
-     */
+    // pick() ray-traces from getCameraEntity(), which is the detached freecam; feed the real player so interactions stay anchored to it wherever the camera roams
     @Redirect(
         method = "pick",
         at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;getCameraEntity()Lnet/minecraft/world/entity/Entity;")
@@ -105,7 +86,6 @@ public class MixinFreecamInteractionBlocker {
         ((MixinMinecraft) self).aether$pickBlockOrEntity();
     }
 
-    /** {@code true} when freecam is on and the attack mapping is not macro-held. */
     private static boolean aether$blockManualAttack(Minecraft self) {
         return AetherBootstrapHooks.isFreecamEnabled() && !self.options.keyAttack.isDown();
     }

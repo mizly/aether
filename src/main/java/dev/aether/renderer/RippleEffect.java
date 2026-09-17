@@ -10,30 +10,15 @@ import java.io.InputStream;
 import java.nio.FloatBuffer;
 import java.nio.charset.StandardCharsets;
 
-/**
- * Offscreen scene FBO + GLSL shader that composites an expanding shockwave
- * ripple with Gaussian blur.
- *
- * <p>Usage per frame when ripples are active:</p>
- * <ol>
- *   <li>{@link #ensureReady(int, int)} - resize if RT dimensions changed.</li>
- *   <li>{@code NanoVGManager.setOverrideTargetFbo(rippleEffect.getSceneFbo())}
- *       - redirect NVG into the offscreen scene buffer.</li>
- *   <li>Normal NVG render + {@code NanoVGManager.endFrame()}.</li>
- *   <li>{@link #composite} - blit scene -> {@code displayFbo} with the ripple
- *       shader. {@code displayFbo} must be {@code NanoVGManager.getMainRtFbo()}
- *       (the FBO that MC actually displays - confirmed via GuiGraphicsExtractor diagnostic).</li>
- * </ol>
- */
+// per frame: ensureReady, point NanoVGManager at getSceneFbo(), render and endFrame, then composite into NanoVGManager.getMainRtFbo()
 public final class RippleEffect {
 
     // -- GL objects ------------------------------------------------------------
 
-    /** Offscreen FBO that NVG renders the scene into. */
     private int sceneFbo      = 0;
-    /** Color texture attached to sceneFbo - sampled by the ripple shader. */
+    // sampled by the ripple shader
     private int sceneColorTex = 0;
-    /** Stencil renderbuffer attached to sceneFbo (NVG_STENCIL_STROKES needs it). */
+    // NVG_STENCIL_STROKES needs it
     private int sceneStencil  = 0;
 
     private int program = 0;
@@ -48,10 +33,7 @@ public final class RippleEffect {
 
     // -- Lifecycle -------------------------------------------------------------
 
-    /**
-     * Creates or resizes the offscreen scene FBO to match the render target.
-     * Safe to call every frame - no-op when already the right size.
-     */
+    // safe every frame - no-op when already the right size
     public void ensureReady(int w, int h) {
         if (sceneFbo != 0 && w == texW && h == texH) return;
 
@@ -147,15 +129,8 @@ public final class RippleEffect {
 
     // -- Composite -------------------------------------------------------------
 
-    /**
-     * Reads the scene from the internal offscreen FBO (where NVG rendered) and
-     * composites it with ripple distortion into {@code displayFbo}.
-     *
-     * <p>{@code displayFbo} must be {@code NanoVGManager.getMainRtFbo()} - the
-     * FBO that MC actually displays (verified by GuiGraphicsExtractor diagnostic test).
-     * All coordinates are in <b>logical</b> pixels (top-left origin).
-     * {@code lToP} is the logical->physical scale factor.</p>
-     */
+    // displayFbo must be NanoVGManager.getMainRtFbo(), the one mc actually displays
+    // coords are logical pixels from the top left; lToP is the logical->physical scale
     public void composite(int displayFbo, int w, int h,
                           float[] cx, float[] cy, float[] radius,
                           float[] thickness, float[] strength,
@@ -207,8 +182,8 @@ public final class RippleEffect {
         GL33C.glBindSampler(0, 0);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, sceneColorTex);
 
-        GL11.glDisable(GL11.GL_BLEND);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
+        GlStateManager._disableBlend();
+        GlStateManager._disableDepthTest();
         GL11.glDisable(GL11.GL_STENCIL_TEST);
 
         GL30.glBindVertexArray(quadVao);
@@ -227,10 +202,9 @@ public final class RippleEffect {
 
     // -- Accessors -------------------------------------------------------------
 
-    /** The offscreen FBO for NVG to render the scene into. */
     public int getSceneFbo() { return sceneFbo; }
 
-    /** The color texture attached to the scene FBO - sampled by the ripple shader. */
+    // sampled by the ripple shader
     public int getSceneColorTex() { return sceneColorTex; }
 
     // -- Cleanup ---------------------------------------------------------------
@@ -241,7 +215,7 @@ public final class RippleEffect {
         if (sceneStencil  != 0) { GL30.glDeleteRenderbuffers(sceneStencil); sceneStencil = 0; }
     }
 
-    /** Releases all GPU resources. Call from {@code Screen.removed()}. */
+    // call from Screen.removed()
     public void destroy() {
         destroyFbo();
         if (quadVao != 0) { GL30.glDeleteVertexArrays(quadVao); quadVao = 0; }

@@ -1,6 +1,6 @@
 package dev.aether.macro.farming;
 
-/** Farms alternating W/S rows. */
+// farms alternating w/s rows
 public class WSFarmMacro extends AbstractFarmingMacro {
     private final StateCycle rows = stateCycle(0.005, 2, State.FORWARD, State.BACKWARD);
 

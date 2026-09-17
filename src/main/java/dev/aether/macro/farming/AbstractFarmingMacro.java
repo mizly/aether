@@ -23,23 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-/**
- * Base class for all farming macros.
- *
- * <h2>State machine</h2>
- * Each tick the macro calls {@link #updateState} to decide what the player
- * should do next, then {@link #invokeState} to press the appropriate keys.
- *
- * <h2>Rotation</h2>
- * The macro stores an optional target {@link #yaw} and {@link #pitch}.
- * On {@link #onEnable} (or when populated by a subclass) it triggers a
- * smooth rotation via {@link RotationManager}. While the rotation is
- * pending, movement keys are released.
- *
- * <h2>Key pressing convention</h2>
- * Call {@link #holdKeys} from {@link #invokeState} to press the keys for
- * the current state. All keys not listed will be released.
- */
+// updateState picks the state each tick, invokeState presses its keys
+// holdKeys releases every key it is not given
 public abstract class AbstractFarmingMacro extends AbstractMacro {
 
     // -- State -----------------------------------------------------------------
@@ -58,27 +43,20 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
 
     // -- Rotation fields -------------------------------------------------------
 
-    /** Target yaw for the initial rotation, set by config or subclass. */
     protected Optional<Float> yaw   = Optional.empty();
-    /** Target pitch for the initial rotation, set by config or subclass. */
     protected Optional<Float> pitch = Optional.empty();
-    /** {@code true} once the initial rotation has been dispatched. */
     protected boolean rotated = false;
     private final List<StateCycle> stateCycles = new ArrayList<>();
     private StateCycle defaultStateCycle;
 
-    /** False after a GUI interrupts farming; movement may continue, but left-click should not. */
+    // false after a gui interrupts farming; movement may continue but left-click must not
     private boolean continueAttack = true;
-    /** Tracks the macro-owned attack edge separately from Minecraft's raw key state. */
+    // macro-owned attack edge, kept separate from minecraft's raw key state
     private boolean attackHeldByMacro = false;
 
     // -- Lifecycle -------------------------------------------------------------
 
-    /**
-     * Called once when the macro is enabled.
-     * Subclasses should call {@code super.onEnable(mc)} first, then set
-     * additional rotation / state as needed.
-     */
+    // subclasses call super first, then set their own rotation and state
     @Override
     public void onEnable(Minecraft mc) {
         SqueakyMousematManager.RotationSnapshot mousematRotation =
@@ -122,10 +100,6 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         rotateToConfiguredOrientation(mc);
     }
 
-    /**
-     * Called once when the macro is disabled.
-     * Releases all movement keys and re-grabs the mouse.
-     */
     @Override
     public void onDisable(Minecraft mc) {
         releaseAll(mc);
@@ -138,10 +112,6 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         FastLaneSwitchManager.resetRuntime();
     }
 
-    /**
-     * Main per-tick entry point. Called from {@link FarmingMacroManager} on
-     * every {@code END_CLIENT_TICK} while the macro is active.
-     */
     @Override
     public final void onTick(Minecraft mc) {
         if (mc.player == null || mc.level == null) return;
@@ -188,21 +158,14 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
 
     // -- Abstract interface ----------------------------------------------------
 
-    /**
-     * Decide what the next {@link #currentState} should be.
-     * Implementations should call {@link #changeState} when a transition is
-     * needed.  Triggered every tick.
-     */
+    // call changeState when a transition is needed
     public void updateState(Minecraft mc) {
         if (defaultStateCycle != null) {
             updateHorizontalStateCycle(mc, defaultStateCycle);
         }
     }
 
-    /**
-     * Execute the physical actions (key presses, etc.) for {@link #currentState}.
-     * Triggered every tick, immediately after {@link #updateState}.
-     */
+    // runs right after updateState, every tick
     public void invokeState(Minecraft mc) {
         if (defaultStateCycle == null || defaultStateCycle.isWaitingAtStateEnd()) {
             stopMovementKeepAttack(mc);
@@ -217,10 +180,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         stopMovementKeepAttack(mc);
     }
 
-    /**
-     * Returns true if the macro is currently in a "farming" state (e.g. breaking crops),
-     * which triggers global behaviors like holding the attack key.
-     */
+    // drives global behaviour like holding the attack key
     public boolean isFarmingState() {
         return defaultStateKeys(currentState) != null || stateKeys().containsKey(currentState);
     }
@@ -248,18 +208,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
 
     // -- Key-press helpers -----------------------------------------------------
 
-    /**
-     * Set movement keys to the requested state.  Any key NOT listed in the
-     * parameters is released.
-     *
-     * @param left    strafe left  (A)
-     * @param right   strafe right (D)
-     * @param forward walk forward (W)
-     * @param back    walk back    (S)
-     * @param attack  left-click / break block
-     * @param sprint  sprint modifier
-     * @param sneak   shift / sneak
-     */
+    // every key not passed here is released
     protected final void holdKeys(Minecraft mc,
                                   boolean left, boolean right,
                                   boolean forward, boolean back,
@@ -308,12 +257,10 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         }
     }
 
-    /** Release every movement / action key. */
     protected final void releaseAll(Minecraft mc) {
         holdKeys(mc, false, false, false, false, false, false, false);
     }
 
-    /** Stop movement while keeping attack held if the macro is still attacking. */
     protected final void stopMovementKeepAttack(Minecraft mc) {
         holdKeys(mc, false, false, false, false, true, false, false);
     }
@@ -326,7 +273,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         return FailsafeManager.isTouchingDirtBlock(mc);
     }
 
-    /** Default orientation, applied only when the corresponding custom setting is unset. */
+    // applied only when the matching custom setting is unset
     public record DefaultAngle(float pitch, float yawOffset) {
         public static final DefaultAngle NONE = new DefaultAngle(Float.NaN, Float.NaN);
     }
@@ -335,12 +282,11 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         return DefaultAngle.NONE;
     }
 
-    /** Keys held for a state. Any combination is supported. */
     public record StateKeys(boolean left, boolean right, boolean forward, boolean back,
                             boolean attack, boolean sprint, boolean sneak) {
     }
 
-    /** Optional per-state key bindings. Unbound cardinal states use the standard A/D/W/S mapping. */
+    // unbound cardinal states fall back to the standard a/d/w/s mapping
     protected Map<State, StateKeys> stateKeys() {
         return Map.of();
     }
@@ -375,7 +321,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         }
     }
 
-    /** Starts the configured initial rotation after a subclass has chosen any defaults. */
+    // runs after the subclass has picked its defaults
     protected final void rotateToConfiguredOrientation(Minecraft mc) {
         if (mc.player == null || (yaw.isEmpty() && pitch.isEmpty())) {
             return;
@@ -387,16 +333,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         rotated = true;
     }
 
-	/**
-	 * Reapplies the orientation selected when this macro was enabled.
-	 *
-	 * <p>
-	 * This deliberately uses the cached yaw and pitch instead of reading the config
-	 * again, so custom-angle humanization and the macro's default lane orientation
-	 * remain the same after a temporary int.
-	 *
-	 * @return whether a configured orientation was available
-	 */
+	// uses the cached yaw/pitch instead of re-reading config, so humanization and lane orientation survive the interruption
 	public final boolean restoreConfiguredOrientation(Minecraft mc) {
 		if (mc.player == null || (yaw.isEmpty() && pitch.isEmpty())) {
 			return false;
@@ -409,11 +346,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
 		return true;
 	}
 	
-    /**
-     * Reusable row/lane movement detector. It supports both a single world
-     * axis and total X/Z movement, and deliberately ignores samples while
-     * movement detection is suppressed (for example, during freecam).
-     */
+    // deliberately ignores samples while movement detection is suppressed, e.g. during freecam
     protected static final class MovementStallTracker {
         private final double progressEpsilonSq;
         private final int threshold;
@@ -469,11 +402,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         }
     }
 
-    /**
-     * Ordered farming states that repeat indefinitely. The cycle owns only
-     * generic timing and movement bookkeeping; a macro still chooses which
-     * coordinate to monitor and how to press keys for each state.
-     */
+    // owns only timing and movement bookkeeping; the macro still picks the axis and the keys
     protected static final class StateCycle {
         private final State[] states;
         private final MovementStallTracker movement;
@@ -549,7 +478,6 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         return cycle;
     }
 
-    /** Advances a cycle based on total horizontal X/Z movement. */
     protected final void updateHorizontalStateCycle(Minecraft mc, StateCycle cycle) {
         updateStateCycle(mc, cycle, cycle.movement.hasStalledHorizontally(mc,
                 FastLaneSwitchManager.shouldFastSwitch(mc, currentState)), () -> cycle.movement.resetHorizontal(mc));
@@ -611,10 +539,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
 
     // -- Block / walkability helpers -------------------------------------------
 
-    /**
-     * Returns {@code true} when the two-block-tall column at {@code base}
-     * can be walked into (no solid blocks blocking head or feet).
-     */
+    // two-block column with nothing blocking head or feet
     protected static boolean isWalkable(Minecraft mc, BlockPos base) {
         if (mc.level == null) return false;
         return isPassable(mc, base) && isPassable(mc, base.above());
@@ -627,12 +552,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         return state.getCollisionShape(mc.level, pos).isEmpty();
     }
 
-    /**
-     * Offset a block position by {@code strafeSteps} steps in the player's
-     * strafe-left direction (the direction pressed when holding A).
-     *
-     * <p>Strafe-left movement vector: (cos(yaw deg), 0, sin(yaw deg)).
-     */
+    // strafe-left vector is (cos(yaw), 0, sin(yaw))
     protected static BlockPos getStrafeLeftPos(BlockPos origin, float yaw, int strafeSteps) {
         double rad = Math.toRadians(yaw);
         int dx = (int) Math.round(Math.cos(rad) * strafeSteps);
@@ -640,18 +560,11 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         return origin.offset(dx, 0, dz);
     }
 
-    /**
-     * Offset a block position by {@code strafeSteps} steps in the player's
-     * strafe-right direction (pressed when holding D).
-     */
     protected static BlockPos getStrafeRightPos(BlockPos origin, float yaw, int strafeSteps) {
         return getStrafeLeftPos(origin, yaw, -strafeSteps);
     }
 
-    /**
-     * Offset a block position by {@code forwardSteps} steps in the player's
-     * forward direction.  Forward movement vector: (-sin(yaw deg), 0, cos(yaw deg)).
-     */
+    // forward vector is (-sin(yaw), 0, cos(yaw))
     protected static BlockPos getForwardPos(BlockPos origin, float yaw, int forwardSteps) {
         double rad = Math.toRadians(yaw);
         int dx = (int) Math.round(-Math.sin(rad) * forwardSteps);
@@ -677,10 +590,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
         return isWalkable(mc, getForwardPos(mc.player.blockPosition(), mc.player.getYRot(), -1));
     }
 
-    /**
-     * Scan horizontally for a wall and decide which direction (LEFT / RIGHT)
-     * to start farming.  Returns {@link State#NONE} if undetermined.
-     */
+    // scans horizontally for a wall to pick the starting side; NONE when undetermined
     public State calculateDirection(Minecraft mc) {
         if (mc.player == null) return State.NONE;
 
