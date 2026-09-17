@@ -822,7 +822,6 @@
   "text.aether.press_new_route_to_record_one_in_the_world": "Press New Route to record one in the world",
   "text.aether.no_rewarp": "No rewarp",
   "text.aether.waypoints": "waypoints",
-  "text.aether.click_again_to_delete": "Click again to delete",
   "text.aether.add_waypoint": "Add Waypoint",
   "text.aether.change_waypoint": "Change Waypoint",
   "text.aether.used_for_every_leg_of_this_route": "Used for every leg of this route",
@@ -841,5 +840,8 @@
   "text.aether.left_click_to_add_or_edit_waypoint": "Left click to add or edit waypoint",
   "text.aether.right_click_a_waypoint_to_delete_it": "Right click a waypoint to delete it",
   "text.aether.esc_to_cancel_the_move": "Esc to cancel the move",
-  "text.aether.pick_a_macro_to_start": "Pick a macro to start"
+  "text.aether.pick_a_macro_to_start": "Pick a macro to start",
+  "text.aether.in_use": "In Use",
+  "text.aether.edit": "Edit",
+  "text.aether.route_deleted": "Route Deleted"
 }

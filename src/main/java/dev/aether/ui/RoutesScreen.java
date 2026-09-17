@@ -5,6 +5,7 @@ import dev.aether.config.entries.StringEntry;
 import dev.aether.modules.routes.Route;
 import dev.aether.modules.routes.RouteEditor;
 import dev.aether.modules.routes.RouteStore;
+import dev.aether.notification.NotificationManager;
 import dev.aether.renderer.NVGRenderer;
 import dev.aether.ui.theme.Theme;
 import dev.aether.ui.util.Fonts;
@@ -32,8 +33,6 @@ public final class RoutesScreen extends CanvasPanelScreen {
     private List<Route> routes = new ArrayList<>();
     private Route renaming;
     private final Field renameField = new Field("", 32);
-    private Route armedDelete;
-    private Route armedBeforeClick;
     private float scrollY;
     private float maxScrollY;
 
@@ -46,7 +45,6 @@ public final class RoutesScreen extends CanvasPanelScreen {
     private void reload() {
         routes = store.loadAll(folder);
         renaming = null;
-        armedDelete = null;
     }
 
     @Override
@@ -63,13 +61,6 @@ public final class RoutesScreen extends CanvasPanelScreen {
     void onFieldCancel(Field field) {
         renameField.focused = false;
         renaming = null;
-    }
-
-    // deleting takes two clicks on the same card, and any other click disarms it
-    @Override
-    void onClickAnywhere() {
-        armedBeforeClick = armedDelete;
-        armedDelete = null;
     }
 
     @Override
@@ -111,19 +102,10 @@ public final class RoutesScreen extends CanvasPanelScreen {
 
     private void renderNewButton(NVGRenderer nvg, float px, float py, float pw, float mx, float my) {
         String label = AetherLang.localize("New Route");
-        float iconSize = 12f;
-        float w = nvg.textWidth(Fonts.BOLD, label, 11f) + iconSize + 30f;
-        float h = 26f;
+        float w = nvg.textWidth(Fonts.REGULAR, label, 11.5f) + 24f;
         float x = px + pw - PAD - w;
-        float y = py + (HEADER_H - h) / 2f;
-        boolean hover = hovered(mx, my, x, y, w, h);
-
-        nvg.roundedRect(x, y, w, h, 6f, hover ? Theme.ACTION_BTN_HOVER : Theme.ACTION_BTN_BG);
-        nvg.rectOutlineSolid(x, y, w, h, 6f, 1f, Theme.withAlpha(Theme.ACCENT_PRIMARY, hover ? 0.9f : 0.55f));
-        nvg.renderSVG("/assets/aether/icons/plus.svg", x + 11f, y + (h - iconSize) / 2f, iconSize, iconSize,
-                Theme.ACCENT_PRIMARY);
-        nvg.text(Fonts.BOLD, label, x + 11f + iconSize + 7f, y + (h - 11f) / 2f, 11f, Theme.ACCENT_PRIMARY);
-        addHit(x, y, w, h, this::createRoute);
+        float y = py + (HEADER_H - AetherButton.ROW_H) / 2f;
+        renderRowButton(nvg, label, x, y, w, AetherButton.Kind.NORMAL, mx, my, this::createRoute);
     }
 
     private void renderFolderTabs(NVGRenderer nvg, float px, float y, float pw, float mx, float my) {
@@ -173,7 +155,7 @@ public final class RoutesScreen extends CanvasPanelScreen {
         float rowY = y - scrollY;
         for (Route route : routes) {
             if (rowY + CARD_H > y && rowY < y + h) {
-                renderCard(nvg, route, x, rowY, w, mx, my, y, h);
+                renderCard(nvg, route, x, rowY, w, mx, my);
             }
             rowY += CARD_H + CARD_GAP;
         }
@@ -184,21 +166,14 @@ public final class RoutesScreen extends CanvasPanelScreen {
         scrollY = Math.max(0f, Math.min(maxScrollY, scrollY));
     }
 
-    private void renderCard(NVGRenderer nvg, Route route, float x, float y, float w, float mx, float my,
-                            float clipY, float clipH) {
+    private void renderCard(NVGRenderer nvg, Route route, float x, float y, float w, float mx, float my) {
         boolean selected = route.name().equalsIgnoreCase(selectedName());
-        boolean hover = hovered(mx, my, x, y, w, CARD_H) && my >= clipY && my <= clipY + clipH;
 
-        nvg.roundedRect(x, y, w, CARD_H, 8f, Theme.CARD_BG);
-        if (selected) {
-            nvg.roundedRect(x, y, w, CARD_H, 8f, Theme.withAlpha(Theme.ACCENT_ENABLED, 0.12f));
-        }
-        nvg.rectOutlineSolid(x, y, w, CARD_H, 8f, 1f,
-                selected ? Theme.withAlpha(Theme.ACCENT_ENABLED, 0.75f)
-                        : (hover ? Theme.BORDER_HOVER : Theme.SEPARATOR));
+        nvg.roundedRect(x, y, w, CARD_H, 7f, Theme.CARD_BG);
+        nvg.rectOutline(x, y, w, CARD_H, 7f, 1f, Theme.withAlpha(0xFFFFFFFF, 0.06f));
 
-        float iconLane = ICON_STEP * 3f + 10f;
-        float textMaxW = w - 32f - iconLane;
+        float buttonsW = AetherButton.ROW_W * 3f + AetherButton.ROW_GAP * 2f;
+        float textMaxW = w - 32f - buttonsW - 10f;
         if (renaming == route) {
             renderField(nvg, renameField, x + 10f, y + 8f, textMaxW + 6f, null, route.name());
         } else {
@@ -208,40 +183,21 @@ public final class RoutesScreen extends CanvasPanelScreen {
         }
 
         String warp = route.warpCommand().isEmpty() ? AetherLang.localize("No rewarp") : route.warpCommand();
-        String detail = warp + "  ·  " + route.waypoints().size() + " " + AetherLang.localize("waypoints");
+        String detail = warp + "  \u00B7  " + route.waypoints().size() + " " + AetherLang.localize("waypoints");
         nvg.text(Fonts.REGULAR, fit(nvg, detail, Fonts.REGULAR, 10f, textMaxW), x + 16f, y + 41f, 10f,
                 Theme.TEXT_SECONDARY);
 
-        float iconY = y + (CARD_H - ICON) / 2f;
-        float deleteX = x + w - 16f - ICON;
-        float editX = deleteX - ICON_STEP;
-        float selectX = editX - ICON_STEP;
-
-        boolean armed = armedDelete == route;
-        renderIcon(nvg, "/assets/aether/icons/trash.svg", deleteX, iconY, mx, my, armed,
-                armed ? Theme.ACCENT_ERROR : Theme.TEXT_MUTED, Theme.ACCENT_ERROR, () -> deleteRoute(route));
-        renderIcon(nvg, "/assets/aether/icons/pencil.svg", editX, iconY, mx, my, false,
-                Theme.TEXT_MUTED, Theme.TEXT_PRIMARY, () -> RouteEditor.begin(Minecraft.getInstance(), folder, route));
-        renderIcon(nvg, selected ? "/assets/aether/icons/check_circle.svg" : "/assets/aether/icons/circle.svg",
-                selectX, iconY, mx, my, false,
-                selected ? Theme.ACCENT_ENABLED : Theme.TEXT_MUTED, Theme.ACCENT_ENABLED, () -> toggleSelected(route));
-
-        if (armed) {
-            nvg.textRight(Fonts.REGULAR, AetherLang.localize("Click again to delete"), x, y + 44f, w - 16f, 9f,
-                    Theme.ACCENT_ERROR);
-        }
-    }
-
-    private void renderIcon(NVGRenderer nvg, String icon, float x, float y, float mx, float my, boolean pinned,
-                            int color, int hoverColor, Runnable action) {
-        float pad = 6f;
-        boolean hover = hovered(mx, my, x - pad, y - pad, ICON + pad * 2f, ICON + pad * 2f);
-        if (hover || pinned) {
-            nvg.roundedRect(x - pad, y - pad, ICON + pad * 2f, ICON + pad * 2f, 6f,
-                    Theme.withAlpha(hover ? hoverColor : color, 0.14f));
-        }
-        nvg.renderSVG(icon, x, y, ICON, ICON, hover ? hoverColor : color);
-        addHit(x - pad, y - pad, ICON + pad * 2f, ICON + pad * 2f, action);
+        // the same three buttons a config profile row has, with use in place of load
+        float buttonY = y + (CARD_H - AetherButton.ROW_H) / 2f;
+        float useX = x + w - 12f - buttonsW;
+        float editX = useX + AetherButton.ROW_W + AetherButton.ROW_GAP;
+        float deleteX = editX + AetherButton.ROW_W + AetherButton.ROW_GAP;
+        renderRowButton(nvg, AetherLang.localize(selected ? "In Use" : "Use"), useX, buttonY, AetherButton.ROW_W,
+                selected ? AetherButton.Kind.ACTIVE : AetherButton.Kind.NORMAL, mx, my, () -> toggleSelected(route));
+        renderRowButton(nvg, AetherLang.localize("Edit"), editX, buttonY, AetherButton.ROW_W,
+                AetherButton.Kind.NORMAL, mx, my, () -> RouteEditor.begin(Minecraft.getInstance(), folder, route));
+        renderRowButton(nvg, AetherLang.localize("Delete"), deleteX, buttonY, AetherButton.ROW_W,
+                AetherButton.Kind.DANGER, mx, my, () -> deleteRoute(route));
     }
 
     private void createRoute() {
@@ -280,11 +236,8 @@ public final class RoutesScreen extends CanvasPanelScreen {
     }
 
     private void deleteRoute(Route route) {
-        if (armedBeforeClick != route) {
-            armedDelete = route;
-            return;
-        }
         store.delete(folder, route.name());
+        NotificationManager.success(AetherLang.localize("Route Deleted"), "\"" + route.name() + "\" deleted");
         StringEntry selection = selectionEntry(folder);
         if (selection != null && route.name().equalsIgnoreCase(selection.get())) {
             selection.set("");

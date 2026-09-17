@@ -191,13 +191,16 @@ abstract class CanvasPanelScreen extends NVGScreen {
         addHit(x, y, w, FIELD_H, () -> field.focused = true);
     }
 
-    void renderButton(NVGRenderer nvg, String label, float x, float y, float w, float h, int color,
+    void renderButton(NVGRenderer nvg, String label, float x, float y, float w, AetherButton.Kind kind,
                       float mx, float my, Runnable action) {
-        boolean hover = hovered(mx, my, x, y, w, h);
-        nvg.roundedRect(x, y, w, h, 6f, hover ? Theme.ACTION_BTN_HOVER : Theme.ACTION_BTN_BG);
-        nvg.rectOutlineSolid(x, y, w, h, 6f, 1f, Theme.withAlpha(color, hover ? 0.9f : 0.55f));
-        nvg.textCentered(Fonts.BOLD, label, x, y, w, h, 11f, color);
-        addHit(x, y, w, h, action);
+        AetherButton.full(nvg, x, y, w, label, hovered(mx, my, x, y, w, AetherButton.FULL_H), kind);
+        addHit(x, y, w, AetherButton.FULL_H, action);
+    }
+
+    void renderRowButton(NVGRenderer nvg, String label, float x, float y, float w, AetherButton.Kind kind,
+                         float mx, float my, Runnable action) {
+        AetherButton.row(nvg, x, y, w, label, hovered(mx, my, x, y, w, AetherButton.ROW_H), kind);
+        addHit(x, y, w, AetherButton.ROW_H, action);
     }
 
     static String fit(NVGRenderer nvg, String text, String font, float size, float maxW) {

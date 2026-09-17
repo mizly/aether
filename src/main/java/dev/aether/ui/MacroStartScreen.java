@@ -32,8 +32,7 @@ public final class MacroStartScreen extends NVGScreen {
     private static final float SECT_H = 26f;
     private static final float SECT_GAP = 10f;
     private static final float PAD = 18f;
-    private static final float ICON = 16f;
-    private static final float ICON_LANE = 76f;
+    private static final float ICON_LANE = AetherButton.ROW_W * 2f + AetherButton.ROW_GAP + 14f;
 
     // kept between openings, so a filter stays set until it is cleared again
     private static final Set<String> ACTIVE_FILTERS = new LinkedHashSet<>();
@@ -230,10 +229,8 @@ public final class MacroStartScreen extends NVGScreen {
 
     private void renderCard(NVGRenderer nvg, MacroCatalog.Entry entry, float x, float y, float w,
                             float mx, float my) {
-        boolean hovered = mx >= x && mx <= x + w && my >= y && my <= y + CARD_H;
-
-        nvg.roundedRect(x, y, w, CARD_H, 8f, Theme.CARD_BG);
-        nvg.rectOutlineSolid(x, y, w, CARD_H, 8f, 1f, hovered ? Theme.BORDER_HOVER : Theme.SEPARATOR);
+        nvg.roundedRect(x, y, w, CARD_H, 7f, Theme.CARD_BG);
+        nvg.rectOutline(x, y, w, CARD_H, 7f, 1f, Theme.withAlpha(0xFFFFFFFF, 0.06f));
 
         float textMaxW = w - 32f - ICON_LANE;
         nvg.text(Fonts.BOLD, fit(nvg, AetherLang.localize(entry.displayName()), Fonts.BOLD, 13f, textMaxW),
@@ -241,27 +238,17 @@ public final class MacroStartScreen extends NVGScreen {
         nvg.text(Fonts.REGULAR, fit(nvg, AetherLang.localize(entry.description()), Fonts.REGULAR, 10f, textMaxW),
                 x + 16f, y + 39f, 10f, Theme.TEXT_SECONDARY);
 
-        float startSize = 30f;
-        float startX = x + w - 14f - startSize;
-        float startY = y + (CARD_H - startSize) / 2f;
-        float settingsX = startX - 12f - ICON;
-        float iconY = y + (CARD_H - ICON) / 2f;
+        float buttonY = y + (CARD_H - AetherButton.ROW_H) / 2f;
+        float startX = x + w - 14f - AetherButton.ROW_W;
+        float settingsX = startX - AetherButton.ROW_GAP - AetherButton.ROW_W;
+        renderRowButton(nvg, AetherLang.localize("Settings"), settingsX, buttonY, mx, my, () -> openSettings(entry));
+        renderRowButton(nvg, AetherLang.localize("Start"), startX, buttonY, mx, my, () -> MacroCatalog.start(entry));
+    }
 
-        boolean settingsHover = hitNear(mx, my, settingsX, iconY);
-        nvg.renderSVG("/assets/aether/icons/sliders.svg", settingsX, iconY, ICON, ICON,
-                settingsHover ? Theme.TEXT_PRIMARY : Theme.TEXT_MUTED);
-        hits.add(new Hit(settingsX - 7f, iconY - 7f, ICON + 14f, ICON + 14f, () -> openSettings(entry)));
-
-        boolean startHover = mx >= startX && mx <= startX + startSize && my >= startY && my <= startY + startSize;
-        float radius = startSize / 2f;
-        nvg.circle(startX + radius, startY + radius, radius,
-                Theme.withAlpha(Theme.ACCENT_ENABLED, startHover ? 0.28f : 0.14f));
-        nvg.circleOutline(startX + radius, startY + radius, radius - 0.5f, 1f,
-                Theme.withAlpha(Theme.ACCENT_ENABLED, startHover ? 0.9f : 0.5f));
-        float glyph = 14f;
-        nvg.renderSVG("/assets/aether/icons/play_round.svg", startX + radius - glyph / 2f + 1f,
-                startY + radius - glyph / 2f, glyph, glyph, Theme.ACCENT_ENABLED);
-        hits.add(new Hit(startX, startY, startSize, startSize, () -> MacroCatalog.start(entry)));
+    private void renderRowButton(NVGRenderer nvg, String label, float x, float y, float mx, float my, Runnable action) {
+        boolean hovered = mx >= x && mx <= x + AetherButton.ROW_W && my >= y && my <= y + AetherButton.ROW_H;
+        AetherButton.row(nvg, x, y, AetherButton.ROW_W, label, hovered, AetherButton.Kind.NORMAL);
+        hits.add(new Hit(x, y, AetherButton.ROW_W, AetherButton.ROW_H, action));
     }
 
     // the card clips at the icon lane, so an over long line is cut rather than run under the icons
@@ -274,10 +261,6 @@ public final class MacroStartScreen extends NVGScreen {
             trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
         return trimmed + "...";
-    }
-
-    private static boolean hitNear(float mx, float my, float x, float y) {
-        return mx >= x - 7f && mx <= x + ICON + 7f && my >= y - 7f && my <= y + ICON + 7f;
     }
 
     private List<MacroCatalog.Entry> visibleEntriesOfType(String type) {

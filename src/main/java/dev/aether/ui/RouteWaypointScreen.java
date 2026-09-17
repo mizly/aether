@@ -16,7 +16,7 @@ public final class RouteWaypointScreen extends CanvasPanelScreen {
     private static final float LABEL_H = 20f;
     private static final float OPTION_H = 66f;
     private static final float OPTION_GAP = 10f;
-    private static final float BUTTON_H = 30f;
+    private static final float BUTTON_H = AetherButton.FULL_H;
     private static final float COORD_GAP = 8f;
 
     private final Route route;
@@ -104,12 +104,12 @@ public final class RouteWaypointScreen extends CanvasPanelScreen {
 
         if (editing()) {
             float buttonW = (innerW - OPTION_GAP * 2f) / 3f;
-            renderButton(nvg, AetherLang.localize("Move in World"), x, y, buttonW, BUTTON_H,
-                    Theme.TEXT_VALUE, mx, my, this::moveInWorld);
-            renderButton(nvg, AetherLang.localize("Delete"), x + buttonW + OPTION_GAP, y, buttonW, BUTTON_H,
-                    Theme.ACCENT_ERROR, mx, my, this::delete);
-            renderButton(nvg, AetherLang.localize("Save"), x + (buttonW + OPTION_GAP) * 2f, y, buttonW, BUTTON_H,
-                    Theme.ACCENT_ENABLED, mx, my, this::save);
+            renderButton(nvg, AetherLang.localize("Move in World"), x, y, buttonW,
+                    AetherButton.Kind.NORMAL, mx, my, this::moveInWorld);
+            renderButton(nvg, AetherLang.localize("Delete"), x + buttonW + OPTION_GAP, y, buttonW,
+                    AetherButton.Kind.DANGER, mx, my, this::delete);
+            renderButton(nvg, AetherLang.localize("Save"), x + (buttonW + OPTION_GAP) * 2f, y, buttonW,
+                    AetherButton.Kind.NORMAL, mx, my, this::save);
             y += BUTTON_H + 14f;
         } else {
             y -= PAD - 14f;
