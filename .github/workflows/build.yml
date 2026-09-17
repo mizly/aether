@@ -111,19 +111,66 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Package Source Archive
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="${{ steps.vars.outputs.release_version }}"
+          git archive --format=zip -9 --prefix="aether-$VERSION-src/" -o "build/aether-$VERSION-src.zip" HEAD
+
       - name: Send Discord Webhook
         if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           COMMIT_MESSAGE: ${{ steps.commit.outputs.message }}
+          REPO_PRIVATE: ${{ github.event.repository.private }}
         run: |
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "Skipping Discord Webhook: DISCORD_WEBHOOK_URL secret is not set"
+            exit 0
+          fi
+
           RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${{ steps.vars.outputs.release_tag }}"
           VERSION="${{ steps.vars.outputs.release_version }}"
-          COMMIT_MSG="$COMMIT_MESSAGE"
-          JAR_FILE=$(basename "$(ls build/libs/*.jar | grep -v 'sources' | grep -v 'dev' | head -n 1)")
+          JAR_PATH="$(ls build/libs/*.jar | grep -v 'sources' | grep -v 'dev' | head -n 1)"
+          JAR_FILE="$(basename "$JAR_PATH")"
           JAR_URL="https://github.com/${{ github.repository }}/releases/download/${{ steps.vars.outputs.release_tag }}/$JAR_FILE"
+          SRC_PATH="build/aether-$VERSION-src.zip"
 
-          printf -v DESC_VAR "A new build has been released! :rocket:\n\n**Commit Message:**\n%s" "$COMMIT_MSG"
+          printf -v DESC_VAR "A new build has been released! :rocket:\n\n**Commit Message:**\n%s" "$COMMIT_MESSAGE"
+
+          # a private repo's release links 404 for anyone outside it, so the files go to discord instead
+          if [ "$REPO_PRIVATE" = "true" ]; then
+            jq -n \
+              --arg title "New Release: $VERSION Automated Build" \
+              --arg desc "$DESC_VAR" \
+              '{
+                embeds: [{
+                  title: $title,
+                  description: $desc,
+                  color: 5814783,
+                  footer: { text: "The mod jar and the source are attached below" }
+                }],
+                attachments: [{ id: 0 }]
+              }' > payload.json
+            # one file per message keeps each request under discord's default 10mb webhook upload limit
+            send_file() {
+              local payload="$1" file="$2" type="$3"
+              if [ "$(stat -c %s "$file")" -gt 10485760 ]; then
+                jq --arg content "$(basename "$file") is over Discord's 10MB upload limit, grab it from the release" \
+                  'del(.attachments) + { content: $content }' "$payload" > oversize.json
+                curl --fail-with-body -sS -H "Content-Type: application/json" -d @oversize.json "$DISCORD_WEBHOOK_URL"
+                return
+              fi
+              curl --fail-with-body -sS \
+                -F "payload_json=<$payload;type=application/json" \
+                -F "files[0]=@$file;type=$type" \
+                "$DISCORD_WEBHOOK_URL"
+            }
+            send_file payload.json "$JAR_PATH" application/java-archive
+            jq -n --arg content "Source for $VERSION" '{ content: $content, attachments: [{ id: 0 }] }' > source.json
+            send_file source.json "$SRC_PATH" application/zip
+            exit 0
+          fi
 
           jq -n \
             --arg title "New Release: $VERSION Automated Build" \
@@ -153,8 +200,4 @@ jobs:
               }]
             }' > payload.json
 
-          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
-            curl -H "Content-Type: application/json" -d @payload.json "$DISCORD_WEBHOOK_URL"
-          else
-            echo "Skipping Discord Webhook: DISCORD_WEBHOOK_URL secret is not set"
-          fi
+          curl --fail-with-body -sS -H "Content-Type: application/json" -d @payload.json "$DISCORD_WEBHOOK_URL"
