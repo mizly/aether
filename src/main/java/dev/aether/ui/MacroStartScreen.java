@@ -33,7 +33,7 @@ public final class MacroStartScreen extends NVGScreen {
     private static final float SECT_GAP = 10f;
     private static final float PAD = 18f;
     private static final float ICON = 16f;
-    private static final float ICON_LANE = 62f;
+    private static final float ICON_LANE = 76f;
 
     // kept between openings, so a filter stays set until it is cleared again
     private static final Set<String> ACTIVE_FILTERS = new LinkedHashSet<>();
@@ -60,6 +60,7 @@ public final class MacroStartScreen extends NVGScreen {
 
     public MacroStartScreen() {
         super("Macros");
+        MacroCatalog.stopForMenu(Minecraft.getInstance());
     }
 
     @Override
@@ -116,15 +117,11 @@ public final class MacroStartScreen extends NVGScreen {
 
         String title = AetherLang.localize("Macros");
         nvg.text(Fonts.BOLD, title, px + PAD, py + (HEADER_H - 15f) / 2f, 15f, Theme.TEXT_PRIMARY);
-        if (MacroCatalog.isStoppable()) {
-            renderStopAll(nvg, px, py, mx, my);
-        } else {
-            float titleW = nvg.textWidth(Fonts.BOLD, title, 15f);
-            float sepX = px + PAD + titleW + 10f;
-            nvg.rect(sepX, py + (HEADER_H - 19f) / 2f, 1f, 19f, Theme.SEPARATOR);
-            nvg.text(Fonts.REGULAR, AetherLang.localize("Start and stop macros"), sepX + 10f,
-                    py + (HEADER_H - 12f) / 2f, 12f, Theme.TEXT_MUTED);
-        }
+        float titleW = nvg.textWidth(Fonts.BOLD, title, 15f);
+        float sepX = px + PAD + titleW + 10f;
+        nvg.rect(sepX, py + (HEADER_H - 19f) / 2f, 1f, 19f, Theme.SEPARATOR);
+        nvg.text(Fonts.REGULAR, AetherLang.localize("Pick a macro to start"), sepX + 10f,
+                py + (HEADER_H - 12f) / 2f, 12f, Theme.TEXT_MUTED);
         nvg.rect(px, py + HEADER_H, PANEL_W, 1f, Theme.SEPARATOR);
 
         float searchY = py + HEADER_H + 1f + 12f;
@@ -136,20 +133,6 @@ public final class MacroStartScreen extends NVGScreen {
         float listTop = py + listTopOffset;
         float listH = py + panelH - listTop - PAD;
         renderList(nvg, px + PAD, listTop, innerW, listH, mx, my);
-    }
-
-    private void renderStopAll(NVGRenderer nvg, float px, float py, float mx, float my) {
-        String label = AetherLang.localize("Stop");
-        float w = nvg.textWidth(Fonts.BOLD, label, 11f) + 24f;
-        float h = 26f;
-        float x = px + PANEL_W - PAD - w;
-        float y = py + (HEADER_H - h) / 2f;
-        boolean hovered = mx >= x && mx <= x + w && my >= y && my <= y + h;
-
-        nvg.roundedRect(x, y, w, h, 6f, hovered ? Theme.ACTION_BTN_HOVER : Theme.ACTION_BTN_BG);
-        nvg.rectOutlineSolid(x, y, w, h, 6f, 1f, Theme.withAlpha(Theme.ACCENT_ERROR, hovered ? 0.9f : 0.55f));
-        nvg.textCentered(Fonts.BOLD, label, x, y, w, h, 11f, Theme.ACCENT_ERROR);
-        hits.add(new Hit(x, y, w, h, MacroCatalog::stopEverything));
     }
 
     private void renderSearch(NVGRenderer nvg, float x, float y, float w, float mx, float my) {
@@ -247,16 +230,10 @@ public final class MacroStartScreen extends NVGScreen {
 
     private void renderCard(NVGRenderer nvg, MacroCatalog.Entry entry, float x, float y, float w,
                             float mx, float my) {
-        boolean running = entry.isRunning();
         boolean hovered = mx >= x && mx <= x + w && my >= y && my <= y + CARD_H;
 
         nvg.roundedRect(x, y, w, CARD_H, 8f, Theme.CARD_BG);
-        if (running) {
-            nvg.roundedRect(x, y, w, CARD_H, 8f, Theme.withAlpha(Theme.ACCENT_ENABLED, 0.12f));
-        }
-        nvg.rectOutlineSolid(x, y, w, CARD_H, 8f, 1f,
-                running ? Theme.withAlpha(Theme.ACCENT_ENABLED, 0.75f)
-                        : (hovered ? Theme.BORDER_HOVER : Theme.SEPARATOR));
+        nvg.rectOutlineSolid(x, y, w, CARD_H, 8f, 1f, hovered ? Theme.BORDER_HOVER : Theme.SEPARATOR);
 
         float textMaxW = w - 32f - ICON_LANE;
         nvg.text(Fonts.BOLD, fit(nvg, AetherLang.localize(entry.displayName()), Fonts.BOLD, 13f, textMaxW),
@@ -264,20 +241,27 @@ public final class MacroStartScreen extends NVGScreen {
         nvg.text(Fonts.REGULAR, fit(nvg, AetherLang.localize(entry.description()), Fonts.REGULAR, 10f, textMaxW),
                 x + 16f, y + 39f, 10f, Theme.TEXT_SECONDARY);
 
-        float settingsX = x + w - 16f - ICON;
-        float startX = settingsX - ICON - 18f;
+        float startSize = 30f;
+        float startX = x + w - 14f - startSize;
+        float startY = y + (CARD_H - startSize) / 2f;
+        float settingsX = startX - 12f - ICON;
         float iconY = y + (CARD_H - ICON) / 2f;
 
         boolean settingsHover = hitNear(mx, my, settingsX, iconY);
-        nvg.renderSVG("/assets/aether/icons/settings.svg", settingsX, iconY, ICON, ICON,
+        nvg.renderSVG("/assets/aether/icons/sliders.svg", settingsX, iconY, ICON, ICON,
                 settingsHover ? Theme.TEXT_PRIMARY : Theme.TEXT_MUTED);
         hits.add(new Hit(settingsX - 7f, iconY - 7f, ICON + 14f, ICON + 14f, () -> openSettings(entry)));
 
-        boolean startHover = hitNear(mx, my, startX, iconY);
-        int startColor = running ? Theme.ACCENT_ERROR : Theme.ACCENT_ENABLED;
-        nvg.renderSVG(running ? "/assets/aether/icons/stop.svg" : "/assets/aether/icons/play.svg",
-                startX, iconY, ICON, ICON, startHover ? startColor : Theme.withAlpha(startColor, 0.85f));
-        hits.add(new Hit(startX - 7f, iconY - 7f, ICON + 14f, ICON + 14f, () -> MacroCatalog.toggle(entry)));
+        boolean startHover = mx >= startX && mx <= startX + startSize && my >= startY && my <= startY + startSize;
+        float radius = startSize / 2f;
+        nvg.circle(startX + radius, startY + radius, radius,
+                Theme.withAlpha(Theme.ACCENT_ENABLED, startHover ? 0.28f : 0.14f));
+        nvg.circleOutline(startX + radius, startY + radius, radius - 0.5f, 1f,
+                Theme.withAlpha(Theme.ACCENT_ENABLED, startHover ? 0.9f : 0.5f));
+        float glyph = 14f;
+        nvg.renderSVG("/assets/aether/icons/play_round.svg", startX + radius - glyph / 2f + 1f,
+                startY + radius - glyph / 2f, glyph, glyph, Theme.ACCENT_ENABLED);
+        hits.add(new Hit(startX, startY, startSize, startSize, () -> MacroCatalog.start(entry)));
     }
 
     // the card clips at the icon lane, so an over long line is cut rather than run under the icons

@@ -110,8 +110,9 @@ public final class RoutesScreen extends CanvasPanelScreen {
     }
 
     private void renderNewButton(NVGRenderer nvg, float px, float py, float pw, float mx, float my) {
-        String label = "+  " + AetherLang.localize("New Route");
-        float w = nvg.textWidth(Fonts.BOLD, label, 11f) + 24f;
+        String label = AetherLang.localize("New Route");
+        float iconSize = 12f;
+        float w = nvg.textWidth(Fonts.BOLD, label, 11f) + iconSize + 30f;
         float h = 26f;
         float x = px + pw - PAD - w;
         float y = py + (HEADER_H - h) / 2f;
@@ -119,7 +120,9 @@ public final class RoutesScreen extends CanvasPanelScreen {
 
         nvg.roundedRect(x, y, w, h, 6f, hover ? Theme.ACTION_BTN_HOVER : Theme.ACTION_BTN_BG);
         nvg.rectOutlineSolid(x, y, w, h, 6f, 1f, Theme.withAlpha(Theme.ACCENT_PRIMARY, hover ? 0.9f : 0.55f));
-        nvg.textCentered(Fonts.BOLD, label, x, y, w, h, 11f, Theme.ACCENT_PRIMARY);
+        nvg.renderSVG("/assets/aether/icons/plus.svg", x + 11f, y + (h - iconSize) / 2f, iconSize, iconSize,
+                Theme.ACCENT_PRIMARY);
+        nvg.text(Fonts.BOLD, label, x + 11f + iconSize + 7f, y + (h - 11f) / 2f, 11f, Theme.ACCENT_PRIMARY);
         addHit(x, y, w, h, this::createRoute);
     }
 
@@ -215,11 +218,12 @@ public final class RoutesScreen extends CanvasPanelScreen {
         float selectX = editX - ICON_STEP;
 
         boolean armed = armedDelete == route;
-        renderIcon(nvg, "/assets/aether/icons/error.svg", deleteX, iconY, mx, my,
+        renderIcon(nvg, "/assets/aether/icons/trash.svg", deleteX, iconY, mx, my, armed,
                 armed ? Theme.ACCENT_ERROR : Theme.TEXT_MUTED, Theme.ACCENT_ERROR, () -> deleteRoute(route));
-        renderIcon(nvg, "/assets/aether/icons/settings.svg", editX, iconY, mx, my,
+        renderIcon(nvg, "/assets/aether/icons/pencil.svg", editX, iconY, mx, my, false,
                 Theme.TEXT_MUTED, Theme.TEXT_PRIMARY, () -> RouteEditor.begin(Minecraft.getInstance(), folder, route));
-        renderIcon(nvg, "/assets/aether/icons/success.svg", selectX, iconY, mx, my,
+        renderIcon(nvg, selected ? "/assets/aether/icons/check_circle.svg" : "/assets/aether/icons/circle.svg",
+                selectX, iconY, mx, my, false,
                 selected ? Theme.ACCENT_ENABLED : Theme.TEXT_MUTED, Theme.ACCENT_ENABLED, () -> toggleSelected(route));
 
         if (armed) {
@@ -228,11 +232,16 @@ public final class RoutesScreen extends CanvasPanelScreen {
         }
     }
 
-    private void renderIcon(NVGRenderer nvg, String icon, float x, float y, float mx, float my,
+    private void renderIcon(NVGRenderer nvg, String icon, float x, float y, float mx, float my, boolean pinned,
                             int color, int hoverColor, Runnable action) {
-        boolean hover = hovered(mx, my, x - 7f, y - 7f, ICON + 14f, ICON + 14f);
+        float pad = 6f;
+        boolean hover = hovered(mx, my, x - pad, y - pad, ICON + pad * 2f, ICON + pad * 2f);
+        if (hover || pinned) {
+            nvg.roundedRect(x - pad, y - pad, ICON + pad * 2f, ICON + pad * 2f, 6f,
+                    Theme.withAlpha(hover ? hoverColor : color, 0.14f));
+        }
         nvg.renderSVG(icon, x, y, ICON, ICON, hover ? hoverColor : color);
-        addHit(x - 7f, y - 7f, ICON + 14f, ICON + 14f, action);
+        addHit(x - pad, y - pad, ICON + pad * 2f, ICON + pad * 2f, action);
     }
 
     private void createRoute() {

@@ -35,6 +35,9 @@ public final class RouteEditor {
     private static final float PANEL_W = 196f;
     private static final float MARGIN = 10f;
 
+    private static final String MOUSE_LEFT = "/assets/aether/icons/mouse_left.svg";
+    private static final String MOUSE_RIGHT = "/assets/aether/icons/mouse_right.svg";
+
     public static final int WALK_COLOR = 0xFF4FC3F7;
     public static final int ETHERWARP_COLOR = 0xFFB388FF;
 
@@ -247,6 +250,10 @@ public final class RouteEditor {
         }
     }
 
+    public static String legIcon(Route.LegType type) {
+        return type == Route.LegType.ETHERWARP ? "/assets/aether/icons/warp.svg" : "/assets/aether/icons/walk.svg";
+    }
+
     public static String legLabel(Route.LegType type) {
         return AetherLang.localize(type == Route.LegType.ETHERWARP ? "Etherwarp" : "Walk");
     }
@@ -298,13 +305,13 @@ public final class RouteEditor {
 
         float y = 40f;
         if (movingIndex >= 0) {
-            y = renderHint(nvg, pad, y, "LMB", "Left click the new spot for #" + (movingIndex + 1));
-            y = renderHint(nvg, pad, y, "RMB", "Right click a waypoint to delete it");
-            y = renderHint(nvg, pad, y, "ESC", "Esc to cancel the move");
+            y = renderHint(nvg, pad, y, MOUSE_LEFT, null, "Left click the new spot for #" + (movingIndex + 1));
+            y = renderHint(nvg, pad, y, MOUSE_RIGHT, null, "Right click a waypoint to delete it");
+            y = renderHint(nvg, pad, y, null, "ESC", "Esc to cancel the move");
         } else {
-            y = renderHint(nvg, pad, y, "LMB", "Left click to add or edit waypoint");
-            y = renderHint(nvg, pad, y, "RMB", "Right click a waypoint to delete it");
-            y = renderHint(nvg, pad, y, "ESC", "Esc to exit");
+            y = renderHint(nvg, pad, y, MOUSE_LEFT, null, "Left click to add or edit waypoint");
+            y = renderHint(nvg, pad, y, MOUSE_RIGHT, null, "Right click a waypoint to delete it");
+            y = renderHint(nvg, pad, y, null, "ESC", "Esc to exit");
         }
 
         nvg.rect(pad, y + 2f, innerW, 0.7f, Theme.HUD_SEP);
@@ -316,14 +323,18 @@ public final class RouteEditor {
         y += 20f;
 
         float legendX = pad;
-        legendX = renderLegend(nvg, legendX, y, WALK_COLOR, legLabel(Route.LegType.WALK));
-        renderLegend(nvg, legendX + 12f, y, ETHERWARP_COLOR, legLabel(Route.LegType.ETHERWARP));
+        legendX = renderLegend(nvg, legendX, y, Route.LegType.WALK, WALK_COLOR);
+        renderLegend(nvg, legendX + 12f, y, Route.LegType.ETHERWARP, ETHERWARP_COLOR);
     }
 
-    private static float renderHint(NVGRenderer nvg, float x, float y, String key, String label) {
+    private static float renderHint(NVGRenderer nvg, float x, float y, String icon, String key, String label) {
         float chipW = 30f;
         nvg.roundedRect(x, y, chipW, 15f, 4f, HudStyle.alpha(Theme.HUD_ACCENT, 0.16f));
-        nvg.textCentered(Fonts.MONO, key, x, y, chipW, 15f, 8f, Theme.HUD_ACCENT);
+        if (icon != null) {
+            nvg.renderSVG(icon, x + (chipW - 13f) / 2f, y + 1f, 13f, 13f, Theme.HUD_ACCENT);
+        } else {
+            nvg.textCentered(Fonts.MONO, key, x, y, chipW, 15f, 8f, Theme.HUD_ACCENT);
+        }
         HudStyle.text(nvg, Fonts.REGULAR, label, x + chipW + 8f, y + 3f, PANEL_W - x * 2f - chipW - 8f, 10f,
                 Theme.HUD_VALUE);
         return y + 21f;
@@ -335,9 +346,10 @@ public final class RouteEditor {
         HudStyle.text(nvg, Fonts.MONO, value, x + w - valueW, y + 1f, valueW + 1f, 9f, Theme.HUD_VALUE);
     }
 
-    private static float renderLegend(NVGRenderer nvg, float x, float y, int color, String label) {
-        nvg.circle(x + 4f, y + 5f, 4f, color);
-        nvg.text(Fonts.REGULAR, label, x + 13f, y, 10f, Theme.HUD_LABEL);
-        return x + 13f + nvg.textWidth(Fonts.REGULAR, label, 10f);
+    private static float renderLegend(NVGRenderer nvg, float x, float y, Route.LegType type, int color) {
+        String label = legLabel(type);
+        nvg.renderSVG(legIcon(type), x, y - 1f, 11f, 11f, color);
+        nvg.text(Fonts.REGULAR, label, x + 15f, y, 10f, Theme.HUD_LABEL);
+        return x + 15f + nvg.textWidth(Fonts.REGULAR, label, 10f);
     }
 }

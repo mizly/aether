@@ -138,8 +138,10 @@ public final class RouteWaypointScreen extends CanvasPanelScreen {
         nvg.rectOutlineSolid(x, y, w, OPTION_H, 8f, 1f,
                 hover || current ? Theme.withAlpha(color, 0.8f) : Theme.SEPARATOR);
 
-        nvg.circle(x + 18f, y + 23f, 4.5f, color);
-        nvg.text(Fonts.BOLD, RouteEditor.legLabel(type), x + 30f, y + 16f, 13f, Theme.TEXT_PRIMARY);
+        float badge = 22f;
+        nvg.roundedRect(x + 12f, y + 12f, badge, badge, 6f, Theme.withAlpha(color, 0.18f));
+        nvg.renderSVG(RouteEditor.legIcon(type), x + 16f, y + 16f, badge - 8f, badge - 8f, color);
+        nvg.text(Fonts.BOLD, RouteEditor.legLabel(type), x + 12f + badge + 8f, y + 16f, 13f, Theme.TEXT_PRIMARY);
         nvg.text(Fonts.REGULAR, fit(nvg, AetherLang.localize(description), Fonts.REGULAR, 10f, w - 28f),
                 x + 14f, y + 40f, 10f, Theme.TEXT_SECONDARY);
         addHit(x, y, w, OPTION_H, () -> choose(type));
