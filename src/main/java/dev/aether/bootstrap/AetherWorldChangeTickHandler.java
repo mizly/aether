@@ -5,6 +5,7 @@ import dev.aether.util.AetherResources;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.ReconnectScheduler;
+import dev.aether.macro.fishing.FishingMacroManager;
 import dev.aether.modules.failsafe.FailsafeAction;
 import dev.aether.modules.failsafe.FailsafeCustomReplayManager;
 import dev.aether.modules.failsafe.FailsafeManager;
@@ -70,7 +71,7 @@ public final class AetherWorldChangeTickHandler {
             return false;
         }
 
-        if (RestartManager.isRestartPending()) {
+        if (RestartManager.isRestartPending() || FishingMacroManager.isRestarting()) {
             return false;
         }
 
@@ -99,8 +100,17 @@ public final class AetherWorldChangeTickHandler {
                 FailsafeCustomReplayManager.FailsafeReplayType.WORLD_CHANGE,
                 details,
                 debugReason,
-                "Macro stopped and world change recovery started.");
+                MacroStateManager.getCurrentState() == MacroState.State.FISHING
+                        ? "Restart route started."
+                        : "Macro stopped and world change recovery started.");
         if (action == FailsafeAction.CUSTOM) {
+            return;
+        }
+        // garden recovery would walk a fishing macro to the wrong island, so fishing walks its restart route
+        if (MacroStateManager.getCurrentState() == MacroState.State.FISHING) {
+            if (!FishingMacroManager.restartAfterLeavingIsland(client)) {
+                MacroStateManager.stopMacro(client, "World changed while fishing with no restart route", false);
+            }
             return;
         }
         if (savedPosition == null) {

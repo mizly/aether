@@ -965,6 +965,23 @@ public final class AetherConfig {
                         .floatVal("failsafeWorldChangeRecoveryWaitSeconds", 5.0f)
                         .range(0.0f, 30.0f);
 
+        // -- FISHING FAILSAFES -----------------------------------------------------
+        public static final BooleanEntry FAILSAFE_PLAYER_NEARBY = Config.bool("failsafePlayerNearby", false);
+        public static final FloatEntry FAILSAFE_PLAYER_NEARBY_RADIUS = Config
+                        .floatVal("failsafePlayerNearbyRadius", 5.0f).range(1.0f, 10.0f);
+        public static final FloatEntry FAILSAFE_PLAYER_NEARBY_SECONDS = Config
+                        .floatVal("failsafePlayerNearbySeconds", 10.0f).range(0.0f, 120.0f);
+        public static final StringEntry FAILSAFE_PLAYER_NEARBY_ACTION = Config.string("failsafePlayerNearbyAction",
+                        "RESTART");
+        public static final StringEntry FAILSAFE_PLAYER_NEARBY_CUSTOM_REPLAY = Config
+                        .string("failsafePlayerNearbyCustomReplay", "Random");
+        public static final BooleanEntry FAILSAFE_TP_CHECK = Config.bool("failsafeTpCheck", true);
+        public static final FloatEntry FAILSAFE_TP_CHECK_DISTANCE = Config
+                        .floatVal("failsafeTpCheckDistance", 5.0f).range(2.0f, 30.0f);
+        public static final StringEntry FAILSAFE_TP_CHECK_ACTION = Config.string("failsafeTpCheckAction", "STOP");
+        public static final StringEntry FAILSAFE_TP_CHECK_CUSTOM_REPLAY = Config
+                        .string("failsafeTpCheckCustomReplay", "Random");
+
         // -- BPS -------------------------------------------------------------------
         public static final IntEntry BPS_AVERAGE_WINDOW = Config.integer("bpsAverageWindow", 30).range(5, 60);
 
@@ -1101,4 +1118,6 @@ public final class AetherConfig {
                         .range(0, 3000);
         public static final IntEntry STRIDER_FISHING_CAST_DELAY_MAX = Config.integer("striderFishingCastDelayMax", 900)
                         .range(0, 3000);
+        // blank means the macro fishes wherever it was started, with no warp or route first
+        public static final StringEntry STRIDER_FISHING_RESTART_ROUTE = Config.string("striderFishingRestartRoute", "");
 }

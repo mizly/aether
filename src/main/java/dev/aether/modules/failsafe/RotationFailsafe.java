@@ -3,6 +3,7 @@ package dev.aether.modules.failsafe;
 import dev.aether.config.AetherConfig;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
+import dev.aether.macro.fishing.FishingMacroManager;
 import dev.aether.modules.pest.helpers.PestDestroyer;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.notification.NotificationManager;
@@ -79,7 +80,7 @@ final class RotationFailsafe {
             return;
         }
 
-        if (RestartManager.isRestartSequenceActive()) {
+        if (RestartManager.isRestartSequenceActive() || FishingMacroManager.isRestarting()) {
             syncExpectedRotationFromClient(client);
             mismatchSince = 0L;
             mismatchRandomDelayMs = 0L;
@@ -154,6 +155,7 @@ final class RotationFailsafe {
                 || state == MacroState.State.OFF
                 || state == MacroState.State.RECOVERING
                 || RestartManager.isRestartSequenceActive()
+                || FishingMacroManager.isRestarting()
                 || !AetherConfig.FAILSAFE_ROTATION.get() || !expectedRotationSet) {
             return State.IDLE;
         }
