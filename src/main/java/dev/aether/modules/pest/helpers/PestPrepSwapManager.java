@@ -4,6 +4,7 @@ import dev.aether.config.AetherConfig;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
+import dev.aether.macro.farming.FarmingMacroManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.PestManager;
@@ -84,6 +85,45 @@ public class PestPrepSwapManager {
                 Minecraft client = client();
                 if (shouldAbortPrepSwap()) {
                     return;
+                }
+                if (AetherConfig.SUNSET_PESTS.get() && AetherConfig.SUNSET_PESTS_NIGHT_BEFORE_SPAWN.get()) {
+                    // Farming keeps running during this unless explicitly paused - the
+                    // loadout swap right after this DOES pause it, but its own resume can
+                    // fire inside the same async callback that marks the swap "complete," so
+                    // there's no reliable window to borrow by just reordering. An active
+                    // farming macro sending world-interaction packets while the garden-time
+                    // container is open can get it force-closed server-side before the click
+                    // registers - hence "closes too fast." Pausing/resuming farming here,
+                    // the same way the loadout swap does for its own operation, removes that
+                    // interference regardless of how the two overlap in time.
+                    boolean farmingWasActive = FarmingMacroManager.isActive();
+                    if (farmingWasActive) {
+                        client.execute(() -> FarmingMacroManager.disable(client));
+                        if (!MacroWorkerThread.sleep(150)) {
+                            return;
+                        }
+                    }
+
+                    // Deliberately NOT the pending-flag wrapper (restorePendingSunsetPestsNight) -
+                    // that flag only gets set when a previous cleaning cycle switched to day
+                    // first, so it stayed a no-op if the macro was started fresh with the pest
+                    // cooldown already up (no prior day/night flip this session to "restore").
+                    // switchToNightTime checks the actual current state and only acts if
+                    // needed, so this works either way: arriving from a previous cleaning
+                    // cycle (day -> night) or a fresh start where nothing's flipped yet.
+                    if (!GardenTimeManager.switchToNightTime(client)) {
+                        ClientUtils.sendDebugMessage(
+                                "Sunset Pests: failed to switch garden time to night before prep-swap.");
+                    }
+
+                    if (farmingWasActive && !PestManager.isCleaningInProgress()) {
+                        client.execute(() -> FarmingMacroManager.enable(client,
+                                FarmingMacroManager.createMacroFromConfig()));
+                    }
+
+                    if (shouldAbortPrepSwap()) {
+                        return;
+                    }
                 }
                 if (!runPrepLoadoutSwap()) {
                     return;
