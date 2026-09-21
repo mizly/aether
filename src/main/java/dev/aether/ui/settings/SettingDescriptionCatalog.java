@@ -10,6 +10,7 @@ final class SettingDescriptionCatalog {
             Map.entry("Pest Threshold", "Number of pests required before Pest Destroyer starts automatically."),
             Map.entry("Leave One Pest Alive", "Preserves one pest on selected plots (Earthworm Shard)."),
             Map.entry("Sunset Pests", "Swaps to night for farming, and day for killing pests. Useful for the Sunset enchantment, or spawning Fireflies."),
+            Map.entry("Change Time Directly Before Pest Spawn", "Swaps to night only for spawning pests. Useful for spawning Fireflies, while still keeping daytime for extra Overbloom on crops."),
             Map.entry("AOTV Between Distant Pests", "Uses AOTV between distant pests."),
             Map.entry("Etherwarp Directly Near Pests", "Etherwarp to land on a safe block beside a distant pest."),
             Map.entry("Etherwarp Minimum Distance (Blocks)", "Minimum distance before Pest Destroyer considers a direct etherwarp to the target pest."),

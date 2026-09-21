@@ -96,10 +96,40 @@ public final class GardenTimeManager {
                 }
             });
 
+            // Previously this returned right after scheduling the close, without confirming
+            // it actually happened - harmless for callers that do nothing else afterward, but
+            // a caller that opens a second GUI immediately (e.g. a loadout swap right after
+            // this) could have that request race the server still processing this container's
+            // close, which can cut the switch off before it fully registers. Confirming the
+            // screen is actually gone (or timing out) guarantees this method doesn't return
+            // until the server's had a real chance to process both the click and the close.
+            if (!waitForContainerClosed(client, 2000L)) {
+                ClientUtils.sendDebugMessage("GardenTimeManager: garden time GUI did not close in time.");
+            }
+
             return true;
         } finally {
             switchingGardenTime = false;
         }
+    }
+
+    private static boolean waitForContainerClosed(Minecraft client, long timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+
+        while (System.currentTimeMillis() < deadline) {
+            boolean closed = PestClientThread.call(client,
+                    () -> !(client.screen instanceof AbstractContainerScreen<?>),
+                    true);
+            if (closed) {
+                return true;
+            }
+
+            if (!MacroWorkerThread.sleep(50)) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     private static boolean waitForScreenTitle(Minecraft client, String expectedFragment, long timeoutMs) {

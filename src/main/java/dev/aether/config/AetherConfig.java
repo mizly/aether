@@ -386,6 +386,12 @@ public final class AetherConfig {
         public static final ListEntry<String> LEAVE_ONE_PEST_PLOTS = Config.list("leaveOnePestPlots",
                         Collections.emptyList(), String.class);
         public static final BooleanEntry SUNSET_PESTS = Config.bool("sunsetPests", false);
+        // When enabled, the day->night restore doesn't happen right after cleaning finishes -
+        // it stays day (Overbloom) through the whole farming stretch, and only flips to night
+        // right before the pre-spawn loadout swap (long enough to let Fireflies spawn), then
+        // back to day again the moment actual cleaning starts.
+        public static final BooleanEntry SUNSET_PESTS_NIGHT_BEFORE_SPAWN =
+                        Config.bool("sunsetPestsNightBeforeSpawn", false);
         public static final BooleanEntry BALLSACK_SHREDDER = Config.bool("ballsackShredder", false);
         public static final IntEntry BALLSACK_SHREDDER_TRIGGER_DELAY_MIN =
                         Config.integer("ballsackShredderTriggerDelayMin", 20000).range(0, 30000);
