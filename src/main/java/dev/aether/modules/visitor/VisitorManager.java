@@ -91,7 +91,9 @@ public class VisitorManager {
                     return;
                 ClientUtils.sendDebugMessage("Warping to garden...");
                 CommandUtils.warpGarden();
-                PestLifecycleManager.restorePendingSunsetPestsNight(client);
+                if (!AetherConfig.SUNSET_PESTS_NIGHT_BEFORE_SPAWN.get()) {
+                    PestLifecycleManager.restorePendingSunsetPestsNight(client);
+                }
                 MacroWorkerThread.sleep(1000);
                 VisitorsMacro.reenableCompactorsIfPending(client);
                 PestReturnManager.setReturningFromPestVisitor(true);

@@ -314,7 +314,9 @@ public class PestReturnManager {
                 }
 
                 setFinishingStage("restore sunset pests night");
-                PestLifecycleManager.restorePendingSunsetPestsNight(client);
+                if (!AetherConfig.SUNSET_PESTS_NIGHT_BEFORE_SPAWN.get()) {
+                    PestLifecycleManager.restorePendingSunsetPestsNight(client);
+                }
                 if (abortFinisherIfNeeded(client, "restore sunset pests night")) {
                     return;
                 }
