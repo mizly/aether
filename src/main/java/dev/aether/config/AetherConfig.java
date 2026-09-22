@@ -24,15 +24,15 @@ public final class AetherConfig {
         private static final long DAY_MS = 24L * 60L * 60L * 1000L;
         private static final long CORRUPTED_EPOCH_WINDOW_MS = 30L * DAY_MS;
         private static final java.util.List<String> DEFAULT_AUTOSELL_ITEM_NAMES = Arrays.asList(
-                        "Atmospheric Filter", "Squeaky Toy", "Beady Eyes", "Clipped Wings",
-                        "Overclocker", "Mantid Claw", "Flowering Bouquet", "Bookworm",
-                        "Chirping Stereo", "Firefly", "Capsule", "Vinyl", "Wriggling Larva",
-                        "Quickdraw", "Rarefinder");
+                "Atmospheric Filter", "Squeaky Toy", "Beady Eyes", "Clipped Wings",
+                "Overclocker", "Mantid Claw", "Flowering Bouquet", "Bookworm",
+                "Chirping Stereo", "Firefly", "Capsule", "Vinyl", "Wriggling Larva",
+                "Quickdraw", "Rarefinder");
         private static final java.util.List<String> DEFAULT_SUPERCRAFT_ITEMS = Arrays.asList(
-                        "Box of Seeds", "Enchanted Hay Bale");
+                "Box of Seeds", "Enchanted Hay Bale");
 
         private static final File CONFIG_FILE = FabricLoader.getInstance()
-                        .getConfigDir().resolve("aether_config.json").toFile();
+                .getConfigDir().resolve("aether_config.json").toFile();
 
         static {
                 Config.setConfigPath(CONFIG_FILE.toPath());
@@ -144,8 +144,8 @@ public final class AetherConfig {
 
                 if (Math.abs(normalized - now) <= CORRUPTED_EPOCH_WINDOW_MS) {
                         System.err.println(
-                                        "[Aether] Ignoring corrupted lifetime timer value that matched epoch time: "
-                                                        + normalized);
+                                "[Aether] Ignoring corrupted lifetime timer value that matched epoch time: "
+                                        + normalized);
                         sanitized = 0L;
                 }
 
@@ -163,8 +163,8 @@ public final class AetherConfig {
                 if (!AUTO_SELL_ITEMS.get().isEmpty()) return;
 
                 java.util.List<String> fallback = BOOSTER_COOKIE_ITEMS.get().isEmpty()
-                                ? DEFAULT_AUTOSELL_ITEM_NAMES
-                                : BOOSTER_COOKIE_ITEMS.get();
+                        ? DEFAULT_AUTOSELL_ITEM_NAMES
+                        : BOOSTER_COOKIE_ITEMS.get();
                 AUTO_SELL_ITEMS.set(new java.util.ArrayList<>(fallback));
                 save();
         }
@@ -180,75 +180,75 @@ public final class AetherConfig {
                         boolean updated = false;
 
                         updated |= migrateLegacyDelayRange(root,
-                                        "macroLaneSwitchDelay",
-                                        "macroLaneSwitchDelayMin",
-                                        "macroLaneSwitchDelayMax",
-                                        MACRO_LANE_SWITCH_DELAY_MIN,
-                                        MACRO_LANE_SWITCH_DELAY_MAX,
-                                        additionalRandomDelay);
+                                "macroLaneSwitchDelay",
+                                "macroLaneSwitchDelayMin",
+                                "macroLaneSwitchDelayMax",
+                                MACRO_LANE_SWITCH_DELAY_MIN,
+                                MACRO_LANE_SWITCH_DELAY_MAX,
+                                additionalRandomDelay);
                         updated |= migrateLegacyDelayRange(root,
-                                        "pestChatTriggerDelay",
-                                        "pestChatTriggerDelayMin",
-                                        "pestChatTriggerDelayMax",
-                                        PEST_CHAT_TRIGGER_DELAY_MIN,
-                                        PEST_CHAT_TRIGGER_DELAY_MAX,
-                                        additionalRandomDelay);
+                                "pestChatTriggerDelay",
+                                "pestChatTriggerDelayMin",
+                                "pestChatTriggerDelayMax",
+                                PEST_CHAT_TRIGGER_DELAY_MIN,
+                                PEST_CHAT_TRIGGER_DELAY_MAX,
+                                additionalRandomDelay);
                         updated |= migrateLegacyDelayRange(root,
-                                        "pestAotvDelay",
-                                        "pestAotvDelayMin",
-                                        "pestAotvDelayMax",
-                                        PEST_AOTV_DELAY_MIN,
-                                        PEST_AOTV_DELAY_MAX,
-                                        additionalRandomDelay);
+                                "pestAotvDelay",
+                                "pestAotvDelayMin",
+                                "pestAotvDelayMax",
+                                PEST_AOTV_DELAY_MIN,
+                                PEST_AOTV_DELAY_MAX,
+                                additionalRandomDelay);
                         updated |= migrateLegacyDelayRange(root,
-                                        "rodSwapDelay",
-                                        "rodSwapDelayMin",
-                                        "rodSwapDelayMax",
-                                        ROD_SWAP_DELAY_MIN,
-                                        ROD_SWAP_DELAY_MAX,
-                                        additionalRandomDelay);
+                                "rodSwapDelay",
+                                "rodSwapDelayMin",
+                                "rodSwapDelayMax",
+                                ROD_SWAP_DELAY_MIN,
+                                ROD_SWAP_DELAY_MAX,
+                                additionalRandomDelay);
                         updated |= migrateLegacyDelayRange(root,
-                                        "guiFirstClickDelay",
-                                        "guiFirstClickDelayMin",
-                                        "guiFirstClickDelayMax",
-                                        GUI_FIRST_CLICK_DELAY_MIN,
-                                        GUI_FIRST_CLICK_DELAY_MAX,
-                                        additionalRandomDelay);
+                                "guiFirstClickDelay",
+                                "guiFirstClickDelayMin",
+                                "guiFirstClickDelayMax",
+                                GUI_FIRST_CLICK_DELAY_MIN,
+                                GUI_FIRST_CLICK_DELAY_MAX,
+                                additionalRandomDelay);
                         updated |= migrateLegacyDelayRange(root,
-                                        "guiClickDelay",
-                                        "guiClickDelayMin",
-                                        "guiClickDelayMax",
-                                        GUI_CLICK_DELAY_MIN,
-                                        GUI_CLICK_DELAY_MAX,
-                                        additionalRandomDelay);
+                                "guiClickDelay",
+                                "guiClickDelayMin",
+                                "guiClickDelayMax",
+                                GUI_CLICK_DELAY_MIN,
+                                GUI_CLICK_DELAY_MAX,
+                                additionalRandomDelay);
                         updated |= migrateLegacyDelayRange(root,
-                                        "pickUpStashDelay",
-                                        "pickUpStashDelayMin",
-                                        "pickUpStashDelayMax",
-                                        PICK_UP_STASH_DELAY_MIN,
-                                        PICK_UP_STASH_DELAY_MAX,
-                                        additionalRandomDelay);
+                                "pickUpStashDelay",
+                                "pickUpStashDelayMin",
+                                "pickUpStashDelayMax",
+                                PICK_UP_STASH_DELAY_MIN,
+                                PICK_UP_STASH_DELAY_MAX,
+                                additionalRandomDelay);
                         updated |= migrateLegacyDelayRange(root,
-                                        "junkItemDropDelay",
-                                        "junkItemDropDelayMin",
-                                        "junkItemDropDelayMax",
-                                        JUNK_ITEM_DROP_DELAY_MIN,
-                                        JUNK_ITEM_DROP_DELAY_MAX,
-                                        additionalRandomDelay);
+                                "junkItemDropDelay",
+                                "junkItemDropDelayMin",
+                                "junkItemDropDelayMax",
+                                JUNK_ITEM_DROP_DELAY_MIN,
+                                JUNK_ITEM_DROP_DELAY_MAX,
+                                additionalRandomDelay);
                         updated |= migrateLegacyDelayRange(root,
-                                        "georgePostSellDelayMs",
-                                        "georgePostSellDelayMinMs",
-                                        "georgePostSellDelayMaxMs",
-                                        GEORGE_POST_SELL_DELAY_MIN_MS,
-                                        GEORGE_POST_SELL_DELAY_MAX_MS,
-                                        additionalRandomDelay);
+                                "georgePostSellDelayMs",
+                                "georgePostSellDelayMinMs",
+                                "georgePostSellDelayMaxMs",
+                                GEORGE_POST_SELL_DELAY_MIN_MS,
+                                GEORGE_POST_SELL_DELAY_MAX_MS,
+                                additionalRandomDelay);
                         updated |= migrateLegacyDelayRange(root,
-                                        "bazaarDelay",
-                                        "bazaarDelayMin",
-                                        "bazaarDelayMax",
-                                        BAZAAR_DELAY_MIN,
-                                        BAZAAR_DELAY_MAX,
-                                        additionalRandomDelay);
+                                "bazaarDelay",
+                                "bazaarDelayMin",
+                                "bazaarDelayMax",
+                                BAZAAR_DELAY_MIN,
+                                BAZAAR_DELAY_MAX,
+                                additionalRandomDelay);
 
                         if (updated) {
                                 save();
@@ -278,7 +278,7 @@ public final class AetherConfig {
                 // those flags when rewriting legacy configs; missing global toggle keeps
                 // the new default (enabled).
                 if (root.has("autoLoadoutPest") || root.has("autoLoadoutVisitor")
-                                || root.has("autoWardrobePest") || root.has("autoWardrobeVisitor")) {
+                        || root.has("autoWardrobePest") || root.has("autoWardrobeVisitor")) {
                         updated = true;
                 }
                 if (!root.has("loadoutSlotFarming") && root.has("wardrobeSlotFarming")) {
@@ -305,13 +305,13 @@ public final class AetherConfig {
         }
 
         private static boolean migrateLegacyDelayRange(
-                        JsonObject root,
-                        String legacyKey,
-                        String minKey,
-                        String maxKey,
-                        IntEntry minEntry,
-                        IntEntry maxEntry,
-                        int additionalRandomDelay
+                JsonObject root,
+                String legacyKey,
+                String minKey,
+                String maxKey,
+                IntEntry minEntry,
+                IntEntry maxEntry,
+                int additionalRandomDelay
         ) {
                 if (!root.has(legacyKey) || root.has(minKey) || root.has(maxKey)) {
                         return false;
@@ -351,14 +351,14 @@ public final class AetherConfig {
         public static final IntEntry PEST_THRESHOLD = Config.integer("pestThreshold", 2).range(1, 8);
         public static final BooleanEntry TRIGGER_PEST_ON_CHAT = Config.bool("triggerPestOnChat", true);
         public static final BooleanEntry ESTIMATE_PEST_DESTROYER_COMPLETION =
-                        Config.bool("estimatePestDestroyerCompletion", true);
+                Config.bool("estimatePestDestroyerCompletion", true);
         public static final BooleanEntry USE_PEST_TRACKER_ABILITY = Config.bool("usePestTrackerAbility", true);
         public static final BooleanEntry PEST_TRACKER_DRAW_ARC = Config.bool("pestTrackerDrawArc", false);
         public static final BooleanEntry PEST_TRIGGER_ONLY_AFTER_REWARP = Config.bool("pestTriggerOnlyAfterRewarp", false);
         public static final IntEntry PEST_CHAT_TRIGGER_DELAY_MIN = Config.integer("pestChatTriggerDelayMin", 500)
-                        .range(0, 5000);
+                .range(0, 5000);
         public static final IntEntry PEST_CHAT_TRIGGER_DELAY_MAX = Config.integer("pestChatTriggerDelayMax", 3000)
-                        .range(0, 5000);
+                .range(0, 5000);
         public static final BooleanEntry DELAY_PEST_FOR_CROP_FEVER = Config.bool("delayPestForCropFever", false);
         public static final BooleanEntry PEST_ON_TRACK_ENABLED = Config.bool("pestOnTrackEnabled", false);
         // start: farmhelper ish pest on track
@@ -384,74 +384,74 @@ public final class AetherConfig {
         public static final StringEntry AUTO_PET_AFTER_TRAP_OPEN_PET = Config.string("autoPetAfterTrapOpenPet", "");
         public static final BooleanEntry LEAVE_ONE_PEST_ALIVE = Config.bool("leaveOnePestAlive", false);
         public static final ListEntry<String> LEAVE_ONE_PEST_PLOTS = Config.list("leaveOnePestPlots",
-                        Collections.emptyList(), String.class);
+                Collections.emptyList(), String.class);
         public static final BooleanEntry SUNSET_PESTS = Config.bool("sunsetPests", false);
         // When enabled, the day->night restore doesn't happen right after cleaning finishes -
         // it stays day (Overbloom) through the whole farming stretch, and only flips to night
         // right before the pre-spawn loadout swap (long enough to let Fireflies spawn), then
         // back to day again the moment actual cleaning starts.
         public static final BooleanEntry SUNSET_PESTS_NIGHT_BEFORE_SPAWN =
-                        Config.bool("sunsetPestsNightBeforeSpawn", false);
+                Config.bool("sunsetPestsNightBeforeSpawn", false);
         public static final BooleanEntry BALLSACK_SHREDDER = Config.bool("ballsackShredder", false);
         public static final IntEntry BALLSACK_SHREDDER_TRIGGER_DELAY_MIN =
-                        Config.integer("ballsackShredderTriggerDelayMin", 20000).range(0, 30000);
+                Config.integer("ballsackShredderTriggerDelayMin", 20000).range(0, 30000);
         public static final IntEntry BALLSACK_SHREDDER_TRIGGER_DELAY_MAX =
-                        Config.integer("ballsackShredderTriggerDelayMax", 25000).range(0, 30000);
+                Config.integer("ballsackShredderTriggerDelayMax", 25000).range(0, 30000);
         public static final ListEntry<String> BALLSACK_SHREDDER_PLOTS = Config.list("ballsackShredderPlots",
-                        Collections.emptyList(), String.class);
+                Collections.emptyList(), String.class);
         public static final IntEntry BALLSACK_WARPS = Config.integer("ballsackWarps", 2).range(1, 5);
         public static final BooleanEntry BALLSACK_LOOK_DOWN = Config.bool("ballsackLookDown", true);
         public static final IntEntry BALLSACK_LOOK_DOWN_TIME_MS = Config.integer("ballsackLookDownTimeMs", 1000)
-                        .range(0, 3000);
+                .range(0, 3000);
         public static final BooleanEntry PEST_AOTV_BETWEEN = Config.bool("pestAotvBetween", false);
         public static final BooleanEntry PEST_SMART_AOTV_ROUTING = Config.bool("pestSmartAotvRouting", true);
         public static final BooleanEntry PEST_ETHERWARP_TO_PEST = Config.bool("pestEtherwarpToPest", true);
         public static final FloatEntry PEST_ETHERWARP_MIN_DISTANCE =
-                        Config.floatVal("pestEtherwarpMinDistance", 20.0f).range(10.0f, 50.0f);
+                Config.floatVal("pestEtherwarpMinDistance", 20.0f).range(10.0f, 50.0f);
         public static final FloatEntry PEST_AOTV_START_DISTANCE =
-                        Config.floatVal("pestAotvStartDistance", 20.0f).range(12.0f, 40.0f);
+                Config.floatVal("pestAotvStartDistance", 20.0f).range(12.0f, 40.0f);
         public static final FloatEntry PEST_AOTV_STOP_DISTANCE =
-                        Config.floatVal("pestAotvStopDistance", 11.0f).range(6.0f, 20.0f);
+                Config.floatVal("pestAotvStopDistance", 11.0f).range(6.0f, 20.0f);
         public static final BooleanEntry PEST_AOTV_CONFIRM_BETWEEN = Config.bool("pestAotvConfirmBetween", false);
         public static final IntEntry PEST_AOTV_DELAY_MIN = Config.integer("pestAotvDelayMin", 150).range(100, 250);
         public static final IntEntry PEST_AOTV_DELAY_MAX = Config.integer("pestAotvDelayMax", 250).range(100, 250);
         public static final FloatEntry PEST_FOV_RANGE = Config.floatVal("pestFovRange", 20.0f).range(0.0f, 90.0f);
         public static final FloatEntry PEST_MAX_TURN_SPEED =
-                        Config.floatVal("pestMaxTurnSpeed", 300.0f).range(60.0f, 1200.0f);
+                Config.floatVal("pestMaxTurnSpeed", 300.0f).range(60.0f, 1200.0f);
         public static final FloatEntry PEST_NEXT_TARGET_TURN_SPEED =
-                        Config.floatVal("pestNextTargetTurnSpeed", 450.0f).range(60.0f, 1200.0f);
+                Config.floatVal("pestNextTargetTurnSpeed", 450.0f).range(60.0f, 1200.0f);
         public static final FloatEntry PEST_VACUUM_FOLLOW_DISTANCE =
-                        Config.floatVal("pestVacuumFollowDistance", 5.0f).range(2.0f, 7.0f);
+                Config.floatVal("pestVacuumFollowDistance", 5.0f).range(2.0f, 7.0f);
         public static final BooleanEntry RESPECT_VACUUM_TRUE_RANGE = Config.bool("respectVacuumTrueRange", true);
         public static final FloatEntry PEST_APPROACH_SPEED =
-                        Config.floatVal("pestApproachSpeed", 0.35f).range(0.15f, 0.8f);
+                Config.floatVal("pestApproachSpeed", 0.35f).range(0.15f, 0.8f);
         public static final FloatEntry PEST_TRACKING_SMOOTHING_MS =
-                        Config.floatVal("pestTrackingSmoothingMs", 220.0f).range(100.0f, 500.0f);
+                Config.floatVal("pestTrackingSmoothingMs", 220.0f).range(100.0f, 500.0f);
         public static final FloatEntry PEST_AIM_DRIFT = Config.floatVal("pestAimDrift", 1.0f).range(0.0f, 2.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MIN = Config.floatVal("pestAboveTargetPitchMin", 25.0f)
-                        .range(20.0f, 40.0f);
+                .range(20.0f, 40.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MAX = Config.floatVal("pestAboveTargetPitchMax", 40.0f)
-                        .range(10.0f, 90.0f);
+                .range(10.0f, 90.0f);
 
         // -- PEST HUNTING ----------------------------------------------------------
 
         public static final BooleanEntry PEST_HUNTING = Config.bool("pestHunting", false);
         public static final FloatEntry PEST_HUNTING_TRACKING_SMOOTHING_MS =
-                        Config.floatVal("pestHuntingTrackingSmoothingMs", 90f).range(75f, 300f);
+                Config.floatVal("pestHuntingTrackingSmoothingMs", 90f).range(75f, 300f);
         public static final FloatEntry PEST_HUNTING_MAX_TURN_SPEED =
-                        Config.floatVal("pestHuntingMaxTurnSpeed", 700f).range(180f, 900f);
+                Config.floatVal("pestHuntingMaxTurnSpeed", 700f).range(180f, 900f);
         public static final BooleanEntry PEST_HUNTING_VACUUM_STUN = Config.bool("pestHuntingVacuumStun", true);
         // bitmask of pest types that use the vacuum instead of the lasso
         public static final IntEntry PEST_HUNTING_VACUUM_PEST_MASK =
-                        Config.integer("pestHuntingVacuumPestMask", 0);
+                Config.integer("pestHuntingVacuumPestMask", 0);
         public static final FloatEntry PEST_HUNTING_FOLLOW_DISTANCE =
-                        Config.floatVal("pestHuntingFollowDistance", 5.0f).range(1.0f, 8.0f);
+                Config.floatVal("pestHuntingFollowDistance", 5.0f).range(1.0f, 8.0f);
         public static final FloatEntry PEST_HUNTING_MAX_DISTANCE =
-                        Config.floatVal("pestHuntingMaxDistance", 8.0f).range(4.0f, 10.0f);
+                Config.floatVal("pestHuntingMaxDistance", 8.0f).range(4.0f, 10.0f);
         public static final IntEntry PEST_HUNTING_TIMEOUT_MS = Config.integer("pestHuntingTimeoutMs", 45000)
-                        .range(10000, 120000);
+                .range(10000, 120000);
         public static final IntEntry PEST_HUNTING_MAX_THROWS = Config.integer("pestHuntingMaxThrows", 6)
-                        .range(1, 15);
+                .range(1, 15);
 
         // -- MANUAL PEST MODE ------------------------------------------------------
 
@@ -464,38 +464,38 @@ public final class AetherConfig {
         public static final BooleanEntry AUTO_PEST_EXCHANGE = Config.bool("autoPestExchange", false);
         public static final BooleanEntry AUTO_PEST_USE_ABIPHONE = Config.bool("autoPestUseAbiphone", false);
         public static final IntEntry PEST_EXCHANGE_DELAY_MIN = Config.integer("pestExchangeDelayMin", 0)
-                        .range(0, 5000);
+                .range(0, 5000);
         public static final IntEntry PEST_EXCHANGE_DELAY_MAX = Config.integer("pestExchangeDelayMax", 5000)
-                        .range(0, 5000);
+                .range(0, 5000);
         public static final IntEntry PEST_EXCHANGE_DESK_X = Config.integer("pestExchangeDeskX", -26);
         public static final IntEntry PEST_EXCHANGE_DESK_Y = Config.integer("pestExchangeDeskY", 71);
         public static final IntEntry PEST_EXCHANGE_DESK_Z = Config.integer("pestExchangeDeskZ", -14);
         public static final BooleanEntry PEST_HIGHLIGHT_DESK = Config.bool("pestHighlightDesk", true);
         public static final BooleanEntry PEST_EXCHANGE_PATHFIND = Config.bool("pestExchangePathfind", true);
         public static final FloatEntry PEST_EXCHANGE_FOV_RANGE = Config.floatVal("pestExchangeFovRange", 4.0f)
-                        .range(0.0f, 15.0f);
+                .range(0.0f, 15.0f);
 
         // -- VISITOR ---------------------------------------------------------------
 
         public static final IntEntry VISITOR_THRESHOLD = Config.integer("visitorThreshold", 5).range(1, 25);
         public static final BooleanEntry AUTO_VISITOR = Config.bool("autoVisitor", false);
         public static final ListEntry<String> VISITOR_ignore = Config.list("visitorignore",
-                        Arrays.asList("Spaceman", "Ravenous Rhino", "Taylor", "Vinyl Collector"), String.class);
+                Arrays.asList("Spaceman", "Ravenous Rhino", "Taylor", "Vinyl Collector"), String.class);
         public static final ListEntry<String> VISITOR_REJECT = Config.list("visitorReject",
-                        Collections.emptyList(), String.class);
+                Collections.emptyList(), String.class);
         public static final BooleanEntry EQUIP_VISITOR_CUSTOM_ITEM = Config.bool("equipVisitorCustomItem", false);
         public static final StringEntry VISITOR_CUSTOM_ITEM = Config.string("visitorCustomItem", "");
         public static final IntEntry VISITOR_MAX_PURCHASE_LIMIT = Config.integer("visitorMaxPurchaseLimit", 10_000_000)
-                        .range(0, 20_000_000);
+                .range(0, 20_000_000);
         public static final BooleanEntry VISITOR_COINS_PER_COPPER = Config.bool("visitorCoinsPerCopper", false);
         public static final IntEntry VISITOR_COINS_PER_COPPER_LIMIT = Config.integer("visitorCoinsPerCopperLimit", 20_000)
-                        .range(0, 100_000);
+                .range(0, 100_000);
         public static final BooleanEntry VISITOR_ONLY_RARE_DROPS = Config.bool("visitorOnlyRareDrops", false);
         public static final BooleanEntry DISABLE_VISITORS_DURING_JACOBS_CONTEST = Config.bool("disableVisitorsDuringJacobsContest", false);
         public static final BooleanEntry DISABLE_COMPACTORS_DURING_VISITORS = Config.bool("disableCompactorsDuringVisitors", false);
         public static final BooleanEntry VISITOR_EMPTY_TIP_JAR = Config.bool("visitorEmptyTipJar", false);
         public static final FloatEntry VISITOR_FOV_RANGE = Config.floatVal("visitorFovRange", 12.0f)
-                        .range(0.0f, 30.0f);
+                .range(0.0f, 30.0f);
         public static final IntEntry VISITOR_DELAY_MIN = Config.integer("visitorDelayMin", 300).range(0, 1000);
         public static final IntEntry VISITOR_DELAY_MAX = Config.integer("visitorDelayMax", 500).range(0, 1000);
 
@@ -505,24 +505,24 @@ public final class AetherConfig {
         public static final StringEntry AUTO_SPRAYONATOR_MATERIAL = Config.string("autoSprayonatorMaterial", "Use Selected");
         public static final BooleanEntry AUTO_SPRAYONATOR_AUTO_BUY = Config.bool("autoSprayonatorAutoBuy", true);
         public static final IntEntry AUTO_SPRAYONATOR_AUTO_BUY_AMOUNT = Config
-                        .integer("autoSprayonatorAutoBuyAmount", 64).range(1, 640);
+                .integer("autoSprayonatorAutoBuyAmount", 64).range(1, 640);
         public static final IntEntry AUTO_SPRAYONATOR_DETECT_TIME = Config
-                        .integer("autoSprayonatorDetectTime", 10).range(5, 30);
+                .integer("autoSprayonatorDetectTime", 10).range(5, 30);
 
         // -- DYNAMIC PESTS --------------------------------------------------------
 
         public static final BooleanEntry DYNAMIC_PESTS_ENABLED = Config
-                        .bool("dynamicPestsEnabled", false);
+                .bool("dynamicPestsEnabled", false);
         public static final IntEntry DYNAMIC_PESTS_MODE = Config
-                        .integer("dynamicPestsMode", 0).range(0, 2);
+                .integer("dynamicPestsMode", 0).range(0, 2);
         public static final IntEntry DYNAMIC_PESTS_FALLBACK_SPRAY = Config
-                        .integer("dynamicPestsFallbackSpray", 0).range(0, 5);
+                .integer("dynamicPestsFallbackSpray", 0).range(0, 5);
         public static final IntEntry DYNAMIC_PESTS_FALLBACK_VINYL = Config
-                        .integer("dynamicPestsFallbackVinyl", 0).range(0, 12);
+                .integer("dynamicPestsFallbackVinyl", 0).range(0, 12);
         public static final ListEntry<String> DYNAMIC_PESTS_FEAST_PRIORITY = Config
-                        .list("dynamicPestsFeastPriority", java.util.List.of(), String.class);
+                .list("dynamicPestsFeastPriority", java.util.List.of(), String.class);
         public static final ListEntry<String> DYNAMIC_PESTS_CONTEST_PRIORITY = Config
-                        .list("dynamicPestsContestPriority", java.util.List.of(), String.class);
+                .list("dynamicPestsContestPriority", java.util.List.of(), String.class);
 
         // -- AUTO LOADOUT ----------------------------------------------------------
 
@@ -532,7 +532,7 @@ public final class AetherConfig {
         public static final IntEntry LOADOUT_SLOT_PEST_KILL = Config.integer("loadoutSlotPestKill", 1).range(1, 12);
         public static final IntEntry LOADOUT_SLOT_VISITOR = Config.integer("loadoutSlotVisitor", 3).range(1, 12);
         public static final IntEntry LOADOUT_PEST_SWAP_TIME_SECONDS = Config.integer("loadoutPestSwapTimeSeconds", 170)
-                        .range(0, 180);
+                .range(0, 180);
 
         public static final IntEntry ROD_SWAP_DELAY_MIN = Config.integer("rodSwapDelayMin", 100).range(0, 1000);
         public static final IntEntry ROD_SWAP_DELAY_MAX = Config.integer("rodSwapDelayMax", 500).range(0, 1000);
@@ -542,9 +542,9 @@ public final class AetherConfig {
         public static final BooleanEntry AOTV_TO_ROOF = Config.bool("aotvToRoof", false);
         public static final IntEntry AOTV_ROOF_PITCH = Config.integer("aotvRoofPitch", 88).range(0, 90);
         public static final IntEntry AOTV_ROOF_PITCH_HUMANIZATION = Config.integer("aotvRoofPitchHumanization", 5)
-                        .range(0, 15);
+                .range(0, 15);
         public static final ListEntry<String> AOTV_ROOF_PLOTS = Config.list("aotvRoofPlots", Collections.emptyList(),
-                        String.class);
+                String.class);
         public static final StringEntry UNFLY_MODE = Config.string("unflyMode", "DOUBLE_TAP_SPACE");
         public static final BooleanEntry BREAK_BLOCKS_BEFORE_AOTV = Config.bool("breakBlocksBeforeAotv", false);
 
@@ -554,28 +554,28 @@ public final class AetherConfig {
         @Deprecated
         @SuppressWarnings("unchecked")
         public static final BooleanEntry ENABLE_METAL_DETECTOR = Config.bool("enableMetalDetector", false)
-                        .nonPersistent();
+                .nonPersistent();
         public static final ListEntry<String> METAL_DETECTOR_BACKPACK_BLACKLIST = Config.list(
-                        "metalDetectorBackpackBlacklist",
-                        Collections.emptyList(),
-                        String.class);
+                "metalDetectorBackpackBlacklist",
+                Collections.emptyList(),
+                String.class);
 
         // -- INVENTORY MANAGERS ----------------------------------------------------
 
         public static final BooleanEntry AUTO_STASH_MANAGER = Config.bool("autoStashManager", false);
         public static final IntEntry PICK_UP_STASH_DELAY_MIN = Config.integer("pickUpStashDelayMin", 3000)
-                        .range(0, 5000);
+                .range(0, 5000);
         public static final IntEntry PICK_UP_STASH_DELAY_MAX = Config.integer("pickUpStashDelayMax", 5000)
-                        .range(0, 5000);
+                .range(0, 5000);
         public static final BooleanEntry AUTO_BOOK_COMBINE = Config.bool("autoBookCombine", false);
         public static final BooleanEntry ALWAYS_ACTIVE_COMBINE = Config.bool("alwaysActiveCombine", false);
         public static final BooleanEntry AUTO_GEORGE_SELL = Config.bool("autoGeorgeSell", false);
         public static final BooleanEntry FARM_WHILE_CALLING_GEORGE = Config.bool("farmWhileCallingGeorge", false);
         public static final IntEntry GEORGE_SELL_THRESHOLD = Config.integer("georgeSellThreshold", 3).range(1, 36);
         public static final IntEntry GEORGE_POST_SELL_DELAY_MIN_MS = Config.integer("georgePostSellDelayMinMs", 2000)
-                        .range(0, 5000);
+                .range(0, 5000);
         public static final IntEntry GEORGE_POST_SELL_DELAY_MAX_MS = Config.integer("georgePostSellDelayMaxMs", 5000)
-                        .range(0, 5000);
+                .range(0, 5000);
         public static final BooleanEntry AUTOSELL_PASSIVE = Config.bool("autoSellPassive", false);
         public static final BooleanEntry AUTO_SELL = Config.bool("autoSell", false);
         public static final BooleanEntry AUTO_SELL_NPC = Config.bool("autoSellNpc", true);
@@ -586,22 +586,22 @@ public final class AetherConfig {
         public static final BooleanEntry AUTO_SELL_BEFORE_PEST_TRAPS = Config.bool("autoSellBeforePestTraps", false);
         public static final BooleanEntry AUTO_DROP_JUNK = Config.bool("autoDropJunk", false);
         public static final ListEntry<String> AUTO_SELL_ITEMS = Config.list("autoSellItems",
-                        DEFAULT_AUTOSELL_ITEM_NAMES,
-                        String.class);
+                DEFAULT_AUTOSELL_ITEM_NAMES,
+                String.class);
 
         public static final ListEntry<String> BOOSTER_COOKIE_ITEMS = Config.list("boosterCookieItems",
-                        DEFAULT_AUTOSELL_ITEM_NAMES,
-                        String.class);
+                DEFAULT_AUTOSELL_ITEM_NAMES,
+                String.class);
         public static final ListEntry<String> CUSTOM_ENCHANTMENT_LEVELS = Config.list("customEnchantmentLevels",
-                        Collections.emptyList(), String.class);
+                Collections.emptyList(), String.class);
         public static final ListEntry<String> JUNK_ITEMS = Config.list("junkItems",
-                        Arrays.asList("Fruit Bowl", "Farming Exp Boost", "Sunder VI"), String.class);
+                Arrays.asList("Fruit Bowl", "Farming Exp Boost", "Sunder VI"), String.class);
         public static final StringEntry DROP_JUNK_PLOT_TP = Config.string("dropJunkPlotTp", "0");
         public static final IntEntry JUNK_THRESHOLD = Config.integer("junkThreshold", 3).range(1, 36);
         public static final IntEntry JUNK_ITEM_DROP_DELAY_MIN = Config.integer("junkItemDropDelayMin", 300)
-                        .range(0, 1000);
+                .range(0, 1000);
         public static final IntEntry JUNK_ITEM_DROP_DELAY_MAX = Config.integer("junkItemDropDelayMax", 500)
-                        .range(0, 1000);
+                .range(0, 1000);
 
         // -- BOOK COMBINE ----------------------------------------------------------
 
@@ -611,9 +611,9 @@ public final class AetherConfig {
         // -- TIMING / DELAYS -------------------------------------------------------
 
         public static final IntEntry GUI_FIRST_CLICK_DELAY_MIN = Config.integer("guiFirstClickDelayMin", 150)
-                        .range(0, 1000);
+                .range(0, 1000);
         public static final IntEntry GUI_FIRST_CLICK_DELAY_MAX = Config.integer("guiFirstClickDelayMax", 250)
-                        .range(0, 1000);
+                .range(0, 1000);
         public static final IntEntry GUI_CLICK_DELAY_MIN = Config.integer("guiClickDelayMin", 100).range(0, 1000);
         public static final IntEntry GUI_CLICK_DELAY_MAX = Config.integer("guiClickDelayMax", 250).range(0, 1000);
         public static final IntEntry BAZAAR_DELAY_MIN = Config.integer("bazaarDelayMin", 250).range(0, 1000);
@@ -621,32 +621,32 @@ public final class AetherConfig {
         public static final StringEntry HUMANIZATION_PRESET = Config.string("humanizationPreset", "NORMAL");
         public static final IntEntry ROTATION_TIME = Config.integer("rotationTime", 100).range(0, 5000);
         public static final FloatEntry ROTATION_DYNAMIC_DURATION_MS_PER_DEGREE = Config
-                        .floatVal("rotationDynamicDurationMsPerDegree", 2.0f)
-                        .range(0.0f, 20.0f);
+                .floatVal("rotationDynamicDurationMsPerDegree", 2.0f)
+                .range(0.0f, 20.0f);
         public static final BooleanEntry ROTATION_EASE_IN = Config.bool("rotationEaseIn", true);
         public static final FloatEntry ROTATION_EASE_IN_FACTOR = Config.floatVal("rotationEaseInFactor", 2.0f).range(1.0f, 5.0f);
         public static final BooleanEntry ROTATION_EASE_OUT = Config.bool("rotationEaseOut", true);
         public static final FloatEntry ROTATION_EASE_OUT_FACTOR = Config.floatVal("rotationEaseOutFactor", 2.0f).range(1.0f, 5.0f);
         public static final FloatEntry ROTATION_TRACKING_NOISE_MIN = Config.floatVal("rotationTrackingNoiseMin", 2.0f)
-                        .range(0.0f, 10.0f);
+                .range(0.0f, 10.0f);
         public static final FloatEntry ROTATION_TRACKING_NOISE_MAX = Config.floatVal("rotationTrackingNoiseMax", 6.0f)
-                        .range(0.0f, 10.0f);
+                .range(0.0f, 10.0f);
 
         // -- DYNAMIC REST ----------------------------------------------------------
 
         public static final BooleanEntry DYNAMIC_REST_ENABLED = Config.bool("dynamicRestEnabled", false);
         public static final IntEntry REST_SCRIPTING_TIME = Config.integer("restScriptingTime", 30).range(1, 1440);
         public static final IntEntry REST_SCRIPTING_TIME_OFFSET = Config.integer("restScriptingTimeOffset", 3).range(0,
-                        300);
+                300);
         public static final IntEntry REST_BREAK_TIME = Config.integer("restBreakTime", 20).range(1, 1440);
         public static final IntEntry REST_BREAK_TIME_OFFSET = Config.integer("restBreakTimeOffset", 3).range(0, 300);
         public static final BooleanEntry PERSIST_SESSION_TIMER = Config.bool("persistSessionTimer", true);
         public static final DoubleEntry DAILY_FARM_THRESHOLD_HOURS = Config.doubleVal("dailyFarmThresholdHours", 0.0);
         public static final BooleanEntry CLOSE_GAME_ON_DAILY_THRESHOLD = Config.bool("closeGameOnDailyThreshold",
-                        false);
+                false);
 
         // -- REWARP --------------------------------------------------------
-        
+
         public static final BooleanEntry ENABLE_REWARP = Config.bool("enableRewarp", false);
         public static final BooleanEntry ENABLE_PLOT_TP_REWARP = Config.bool("enablePlotTpRewarp", false);
         public static final BooleanEntry REWARP_AOTV_ALIGN = Config.bool("rewarpAotvAlign", false);
@@ -666,14 +666,14 @@ public final class AetherConfig {
         public static final BooleanEntry REWARP_START_POS_SET = Config.bool("rewarpStartPosSet", true);
         public static final BooleanEntry REWARP_HIGHLIGHT_START = Config.bool("rewarpHighlightStart", true);
         public static final ListEntry<String> REWARP_POINT_PAIRS = Config.list("rewarpPointPairs",
-                        Arrays.asList(RewarpPointPair.defaultConfig(0)), String.class);
+                Arrays.asList(RewarpPointPair.defaultConfig(0)), String.class);
 
         // -- DISCORD ---------------------------------------------------------------
 
         // persisted locally, blanked on profile export
         public static final StringEntry DISCORD_WEBHOOK_URL = Config.string("discordWebhookUrl", "");
         public static final IntEntry DISCORD_STATUS_UPDATE_TIME = Config.integer("discordStatusUpdateTime", 5).range(1,
-                        60);
+                60);
         public static final BooleanEntry SEND_DISCORD_STATUS = Config.bool("sendDiscordStatus", false);
 
         // -- IRC -------------------------------------------------------------------
@@ -708,7 +708,7 @@ public final class AetherConfig {
         // -- PET TRACKER -----------------------------------------------------------
 
         public static final ListEntry<String> PET_TRACKER_LIST = Config.list("petTrackerList",
-                        Arrays.asList("Rose Dragon:200:650000000:1250000000:LEGENDARY"), String.class);
+                Arrays.asList("Rose Dragon:200:650000000:1250000000:LEGENDARY"), String.class);
 
         // -- HUD POSITIONS ---------------------------------------------------------
         public static final BooleanEntry CUSTOM_UI_ENABLED = Config.bool("customUiEnabled", false);
@@ -724,7 +724,7 @@ public final class AetherConfig {
         public static final IntEntry SESSION_PROFIT_HUD_X = Config.integer("sessionProfitHudX", 10);
         public static final IntEntry SESSION_PROFIT_HUD_Y = Config.integer("sessionProfitHudY", 130);
         public static final FloatEntry SESSION_PROFIT_HUD_SCALE = Config.floatVal("sessionProfitHudScale", 0.5f)
-                        .range(0.5f, 3.0f);
+                .range(0.5f, 3.0f);
         public static final BooleanEntry SHOW_SESSION_PROFIT_HUD = Config.bool("showSessionProfitHud", true);
         public static final BooleanEntry SESSION_PROFIT_GRAPH = Config.bool("sessionProfitGraph", false);
         public static final IntEntry SESSION_PROFIT_GRAPH_MINUTES = Config.integer("sessionProfitGraphMinutes", 5).range(1, 15);
@@ -742,18 +742,18 @@ public final class AetherConfig {
         public static final IntEntry INTERMEDIARIES_HUD_X = Config.integer("intermediariesHudX", 10);
         public static final IntEntry INTERMEDIARIES_HUD_Y = Config.integer("intermediariesHudY", 280);
         public static final FloatEntry INTERMEDIARIES_HUD_SCALE = Config.floatVal("intermediariesHudScale", 0.5f)
-                        .range(0.5f, 3.0f);
+                .range(0.5f, 3.0f);
         public static final BooleanEntry SHOW_INTERMEDIARIES_HUD = Config.bool("showIntermediariesHud", false);
 
         public static final IntEntry MID_FARMING_HUD_X = Config.integer("midFarmingHudX", 410);
         public static final IntEntry MID_FARMING_HUD_Y = Config.integer("midFarmingHudY", 220);
         public static final FloatEntry MID_FARMING_HUD_SCALE = Config.floatVal("midFarmingHudScale", 0.5f)
-                        .range(0.5f, 3.0f);
+                .range(0.5f, 3.0f);
         public static final BooleanEntry SHOW_MID_FARMING_HUD = Config.bool("showMidFarmingHud", false);
         public static final IntEntry FAILSAFES_HUD_X = Config.integer("failsafesHudX", 1510);
         public static final IntEntry FAILSAFES_HUD_Y = Config.integer("failsafesHudY", 320);
         public static final FloatEntry FAILSAFES_HUD_SCALE = Config.floatVal("failsafesHudScale", 1.0f)
-                        .range(0.5f, 3.0f);
+                .range(0.5f, 3.0f);
         public static final BooleanEntry SHOW_FAILSAFES_HUD = Config.bool("showFailsafesHud", false);
 
         public static final IntEntry WATERMARK_HUD_X = Config.integer("watermarkHudX", 10);
@@ -783,6 +783,7 @@ public final class AetherConfig {
         public static final BooleanEntry CUSTOM_SCOREBOARD = Config.bool("customScoreboard", false);
         public static final StringEntry SCOREBOARD_TITLE_TEXT = Config.string("scoreboardTitleText", "");
         public static final StringEntry SCOREBOARD_SERVER_TEXT = Config.string("scoreboardServerText", "");
+        public static final BooleanEntry SCOREBOARD_SERVER_TEXT_CENTERED = Config.bool("scoreboardServerTextCentered", false);
         public static final IntEntry SCOREBOARD_HUD_X = Config.integer("scoreboardHudX", -1).range(-1, Integer.MAX_VALUE);
         public static final IntEntry SCOREBOARD_HUD_Y = Config.integer("scoreboardHudY", -1).range(-1, Integer.MAX_VALUE);
         public static final FloatEntry SCOREBOARD_HUD_SCALE = Config.floatVal("scoreboardHudScale", 1.0f).range(0.5f, 2.5f);
@@ -806,7 +807,7 @@ public final class AetherConfig {
         public static final BooleanEntry PERFORMANCE_MODE = Config.bool("performanceMode", false);
         public static final BooleanEntry PERFORMANCE_LIMIT_FPS = Config.bool("performanceLimitFps", true);
         public static final IntEntry PERFORMANCE_MODE_MAX_FPS = Config.integer("performanceModeMaxFps", 20).range(20,
-                        60);
+                60);
         public static final BooleanEntry PERFORMANCE_LIMIT_CHUNK_DISTANCE = Config.bool("performanceLimitChunkDistance", true);
         public static final IntEntry PERFORMANCE_CHUNK_DISTANCE = Config.integer("performanceChunkDistance", 2).range(2, 8);
         public static final BooleanEntry PERFORMANCE_DISABLE_PARTICLES = Config.bool("performanceDisableParticles", true);
@@ -815,19 +816,19 @@ public final class AetherConfig {
         public static final FloatEntry MUTE_GAME_VOLUME = Config.floatVal("muteGameVolume", 0.0f).range(0.0f, 1.0f);
         public static final BooleanEntry KEEP_FOCUS = Config.bool("keepFocus", true);
         public static final FloatEntry FLY_BRAKING_LOOKAHEAD_TICKS =
-                        Config.floatVal("flyBrakingLookaheadTicks", 2.0f).range(0.0f, 6.0f);
+                Config.floatVal("flyBrakingLookaheadTicks", 2.0f).range(0.0f, 6.0f);
         public static final IntEntry PATHFINDER_MAX_JUMP_HEIGHT = Config.integer("pathfinderMaxJumpHeight", 1)
-                        .range(1, 6);
+                .range(1, 6);
         public static final BooleanEntry PATHFINDER_RAYCAST_JUMP = Config.bool("pathfinderRaycastJump", true);
         public static final FloatEntry PATHFINDER_JUMP_LOOKAHEAD_TICKS =
-                        Config.floatVal("pathfinderJumpLookaheadTicks", 2.0f).range(0.0f, 5.0f);
+                Config.floatVal("pathfinderJumpLookaheadTicks", 2.0f).range(0.0f, 5.0f);
         public static final FloatEntry PATHFINDER_AIM_LOOKAHEAD =
-                        Config.floatVal("pathfinderAimLookahead", 3.5f).range(1.0f, 8.0f);
+                Config.floatVal("pathfinderAimLookahead", 3.5f).range(1.0f, 8.0f);
         public static final FloatEntry PATHFINDER_TURN_SPEED =
-                        Config.floatVal("pathfinderTurnSpeed", 240.0f).range(60.0f, 720.0f);
+                Config.floatVal("pathfinderTurnSpeed", 240.0f).range(60.0f, 720.0f);
         public static final BooleanEntry PATHFINDER_SPRINT = Config.bool("pathfinderSprint", true);
         public static final IntEntry PATHFINDER_STUCK_TIMEOUT_MS =
-                        Config.integer("pathfinderStuckTimeoutMs", 1800).range(750, 5000);
+                Config.integer("pathfinderStuckTimeoutMs", 1800).range(750, 5000);
 
         // -- AUTO CARNIVAL ---------------------------------------------------------
 
@@ -845,11 +846,11 @@ public final class AetherConfig {
         // -90 looks straight up, 90 straight down
         public static final FloatEntry MACRO_CUSTOM_PITCH = Config.floatVal("macroCustomPitch", 30.0f).range(-90f, 90f);
         public static final FloatEntry MACRO_CUSTOM_PITCH_HUMANIZATION = Config
-                        .floatVal("macroCustomPitchHumanization", 0.0f).range(0.0f, 10.0f);
+                .floatVal("macroCustomPitchHumanization", 0.0f).range(0.0f, 10.0f);
         public static final BooleanEntry MACRO_USE_CUSTOM_YAW = Config.bool("macroUseCustomYaw", false);
         public static final FloatEntry MACRO_CUSTOM_YAW = Config.floatVal("macroCustomYaw", 0.0f).range(-180f, 180f);
         public static final FloatEntry MACRO_CUSTOM_YAW_HUMANIZATION = Config
-                        .floatVal("macroCustomYawHumanization", 0.0f).range(0.0f, 10.0f);
+                .floatVal("macroCustomYawHumanization", 0.0f).range(0.0f, 10.0f);
         // swaps the mousemat first when the current rotation differs from the stored one
         public static final BooleanEntry SQUEAKY_MOUSEMAT = Config.bool("squeakyMousemat", false);
         public static final BooleanEntry MACRO_HOLD_W_WHILE_FARMING = Config.bool("macroHoldWWhileFarming", false);
@@ -860,99 +861,99 @@ public final class AetherConfig {
         public static final BooleanEntry MACRO_FAST_LANE_SWITCH = Config.bool("macroFastLaneSwitch", false);
         public static final StringEntry MACRO_FAST_LANE_BOUNDARY_AXIS = Config.string("macroFastLaneBoundaryAxis", "X");
         public static final IntEntry MACRO_FAST_LANE_LEFT_BOUNDARY = Config.integer("macroFastLaneLeftBoundary", -48)
-                        .range(-240, 240);
+                .range(-240, 240);
         public static final IntEntry MACRO_FAST_LANE_RIGHT_BOUNDARY = Config.integer("macroFastLaneRightBoundary", 48)
-                        .range(-240, 240);
+                .range(-240, 240);
         public static final ListEntry<String> MACRO_FARM_WAYPOINTS = Config.list("macroFarmWaypoints",
-                        Collections.emptyList(), String.class);
+                Collections.emptyList(), String.class);
         public static final FloatEntry MACRO_CUSTOM_WAYPOINT_SWITCH_RADIUS = Config
-                        .floatVal("macroCustomWaypointSwitchRadius", 0.20f)
-                        .range(0.05f, 1.00f);
+                .floatVal("macroCustomWaypointSwitchRadius", 0.20f)
+                .range(0.05f, 1.00f);
         public static final StringEntry BEDROCK_PLOT_MAKER_PLOT = Config.string("bedrockPlotMakerPlot", "1");
         public static final IntEntry MACRO_LANE_SWITCH_DELAY_MIN = Config.integer("macroLaneSwitchDelayMin", 0)
-                        .range(0, 5000);
+                .range(0, 5000);
         public static final IntEntry MACRO_LANE_SWITCH_DELAY_MAX = Config.integer("macroLaneSwitchDelayMax", 500)
-                        .range(0, 5000);
+                .range(0, 5000);
         public static final BooleanEntry FAILSAFE_INVENTORY_SLOT_CHANGED = Config.bool("failsafeInventorySlotChanged", true);
         public static final BooleanEntry FAILSAFE_UNEXPECTED_INVENTORY_GUI = Config.bool("failsafeUnexpectedInventoryGui", true);
         public static final BooleanEntry FAILSAFE_BPS = Config.bool("failsafeBps", true);
         public static final IntEntry FAILSAFE_BPS_THRESHOLD = Config.integer("failsafeBpsThreshold", 10)
-                        .range(5, 15);
+                .range(5, 15);
         public static final IntEntry FAILSAFE_BPS_WINDOW_SECONDS = Config.integer("failsafeBpsWindowSeconds", 5)
-                        .range(5, 30);
+                .range(5, 30);
         public static final FloatEntry FAILSAFE_BPS_TRIGGER_DELAY_SECONDS = Config
-                        .floatVal("failsafeBpsTriggerDelaySeconds", 2.0f)
-                        .range(0.0f, 5.0f);
+                .floatVal("failsafeBpsTriggerDelaySeconds", 2.0f)
+                .range(0.0f, 5.0f);
         public static final BooleanEntry FAILSAFE_GHOST_BLOCK = Config.bool("failsafeGhostBlock", true);
         public static final IntEntry FAILSAFE_GHOST_BLOCK_WINDOW_SECONDS = Config
-                        .integer("failsafeGhostBlockWindowSeconds", 5)
-                        .range(1, 30);
+                .integer("failsafeGhostBlockWindowSeconds", 5)
+                .range(1, 30);
         public static final FloatEntry FAILSAFE_GHOST_BLOCK_TRIGGER_DELAY_SECONDS = Config
-                        .floatVal("failsafeGhostBlockTriggerDelaySeconds", 2.0f)
-                        .range(0.0f, 5.0f);
+                .floatVal("failsafeGhostBlockTriggerDelaySeconds", 2.0f)
+                .range(0.0f, 5.0f);
         public static final BooleanEntry FAILSAFE_DIRT_CHECK = Config.bool("failsafeDirtCheck", true);
         public static final FloatEntry FAILSAFE_DIRT_CHECK_TRIGGER_DELAY_SECONDS = Config
-                        .floatVal("failsafeDirtCheckTriggerDelaySeconds", 2.0f)
-                        .range(0.0f, 10.0f);
+                .floatVal("failsafeDirtCheckTriggerDelaySeconds", 2.0f)
+                .range(0.0f, 10.0f);
         public static final BooleanEntry FAILSAFE_ROTATION = Config.bool("failsafeRotation", true);
         public static final BooleanEntry FAILSAFE_WORLD_CHANGE = Config.bool("failsafeWorldChange", true);
         public static final IntEntry FAILSAFE_ROTATION_PITCH_THRESHOLD = Config.integer("failsafeRotationPitchThreshold", 10)
-                        .range(5, 30);
+                .range(5, 30);
         public static final IntEntry FAILSAFE_ROTATION_YAW_THRESHOLD = Config.integer("failsafeRotationYawThreshold", 10)
-                        .range(5, 30);
+                .range(5, 30);
         public static final FloatEntry FAILSAFE_ROTATION_TRIGGER_DELAY_SECONDS = Config
-                        .floatVal("failsafeRotationTriggerDelaySeconds", 2.0f)
-                        .range(0.0f, 5.0f);
+                .floatVal("failsafeRotationTriggerDelaySeconds", 2.0f)
+                .range(0.0f, 5.0f);
         public static final BooleanEntry FAILSAFE_ROTATION_TRIGGER_DURING_PEST_CLEANER = Config
-                        .bool("failsafeRotationTriggerDuringPestCleaner", true);
+                .bool("failsafeRotationTriggerDuringPestCleaner", true);
         public static final IntEntry FAILSAFE_ROTATION_PEST_CLEANER_DELAY_MS = Config
-                        .integer("failsafeRotationPestCleanerDelayMs", 750)
-                        .range(0, 5000);
+                .integer("failsafeRotationPestCleanerDelayMs", 750)
+                .range(0, 5000);
         public static final IntEntry FAILSAFE_ROTATION_WARP_GRACE_MS = Config.integer("failsafeRotationWarpGraceMs", 2000)
-                        .range(1000, 5000);
+                .range(1000, 5000);
         public static final FloatEntry FAILSAFE_ADDITIONAL_RANDOM_DELAY_SECONDS = Config
-                        .floatVal("failsafeAdditionalRandomDelaySeconds", 2.0f)
-                        .range(0.0f, 5.0f);
+                .floatVal("failsafeAdditionalRandomDelaySeconds", 2.0f)
+                .range(0.0f, 5.0f);
         public static final StringEntry FAILSAFE_INVENTORY_SLOT_CHANGED_ACTION = Config
-                        .string("failsafeInventorySlotChangedAction", "IGNORE");
+                .string("failsafeInventorySlotChangedAction", "IGNORE");
         public static final StringEntry FAILSAFE_UNEXPECTED_INVENTORY_GUI_ACTION = Config
-                        .string("failsafeUnexpectedInventoryGuiAction", "IGNORE");
+                .string("failsafeUnexpectedInventoryGuiAction", "IGNORE");
         public static final StringEntry FAILSAFE_BPS_ACTION = Config.string("failsafeBpsAction", "STOP");
         public static final StringEntry FAILSAFE_GHOST_BLOCK_ACTION = Config.string("failsafeGhostBlockAction",
-                        "IGNORE");
+                "IGNORE");
         public static final StringEntry FAILSAFE_DIRT_CHECK_ACTION = Config.string("failsafeDirtCheckAction",
-                        "IGNORE");
+                "IGNORE");
         public static final StringEntry FAILSAFE_ROTATION_ACTION = Config.string("failsafeRotationAction", "IGNORE");
         public static final StringEntry FAILSAFE_PEST_ROTATION_ACTION = Config.string("failsafePestRotationAction",
-                        "STOP");
+                "STOP");
         public static final StringEntry FAILSAFE_WORLD_CHANGE_ACTION = Config.string("failsafeWorldChangeAction",
-                        "IGNORE");
+                "IGNORE");
         public static final StringEntry FAILSAFE_INVENTORY_SLOT_CHANGED_CUSTOM_REPLAY = Config
-                        .string("failsafeInventorySlotChangedCustomReplay", "Random");
+                .string("failsafeInventorySlotChangedCustomReplay", "Random");
         public static final StringEntry FAILSAFE_UNEXPECTED_INVENTORY_GUI_CUSTOM_REPLAY = Config
-                        .string("failsafeUnexpectedInventoryGuiCustomReplay", "Random");
+                .string("failsafeUnexpectedInventoryGuiCustomReplay", "Random");
         public static final StringEntry FAILSAFE_BPS_CUSTOM_REPLAY = Config.string("failsafeBpsCustomReplay", "Random");
         public static final StringEntry FAILSAFE_GHOST_BLOCK_CUSTOM_REPLAY = Config
-                        .string("failsafeGhostBlockCustomReplay", "Random");
+                .string("failsafeGhostBlockCustomReplay", "Random");
         public static final StringEntry FAILSAFE_DIRT_CHECK_CUSTOM_REPLAY = Config
-                        .string("failsafeDirtCheckCustomReplay", "Random");
+                .string("failsafeDirtCheckCustomReplay", "Random");
         public static final StringEntry FAILSAFE_ROTATION_CUSTOM_REPLAY = Config
-                        .string("failsafeRotationCustomReplay", "Random");
+                .string("failsafeRotationCustomReplay", "Random");
         public static final StringEntry FAILSAFE_PEST_ROTATION_CUSTOM_REPLAY = Config
-                        .string("failsafePestRotationCustomReplay", "Random");
+                .string("failsafePestRotationCustomReplay", "Random");
         public static final StringEntry FAILSAFE_WORLD_CHANGE_CUSTOM_REPLAY = Config
-                        .string("failsafeWorldChangeCustomReplay", "Random");
+                .string("failsafeWorldChangeCustomReplay", "Random");
         public static final StringEntry FAILSAFE_ACTION = Config.string("failsafeAction", "STOP");
         public static final BooleanEntry FAILSAFE_SOUND_ENABLED = Config.bool("failsafeSoundEnabled", true);
         public static final BooleanEntry FAILSAFE_COLOUR_FLASH_ENABLED = Config.bool("failsafeColourFlashEnabled", false);
         public static final IntEntry FAILSAFE_COLOUR_FLASH_FIRST = Config.integer("failsafeColourFlashFirst", 0xFFFF2020);
         public static final IntEntry FAILSAFE_COLOUR_FLASH_SECOND = Config.integer("failsafeColourFlashSecond", 0xFF2020FF);
         public static final FloatEntry FAILSAFE_COLOUR_FLASH_OPACITY = Config
-                        .floatVal("failsafeColourFlashOpacity", 0.35f)
-                        .range(0.0f, 1.0f);
+                .floatVal("failsafeColourFlashOpacity", 0.35f)
+                .range(0.0f, 1.0f);
         public static final FloatEntry FAILSAFE_COLOUR_FLASH_SWAP_DELAY_SECONDS = Config
-                        .floatVal("failsafeColourFlashSwapDelaySeconds", 0.5f)
-                        .range(0.1f, 5.0f);
+                .floatVal("failsafeColourFlashSwapDelaySeconds", 0.5f)
+                .range(0.1f, 5.0f);
         public static final StringEntry FAILSAFE_SOUND_FILE = Config.string("failsafeSoundFile", "fnaf.mp3");
         // Per-action overrides. Blank = fall back to the shared FAILSAFE_SOUND_FILE above.
         public static final StringEntry FAILSAFE_SOUND_FILE_STOP = Config.string("failsafeSoundFileStop", "");
@@ -962,14 +963,14 @@ public final class AetherConfig {
         public static final BooleanEntry FAILSAFE_DESKTOP_NOTIFICATION_ENABLED = Config.bool("failsafeDesktopNotificationEnabled", false);
         public static final BooleanEntry FAILSAFE_AUTO_ALT_TAB = Config.bool("failsafeAutoAltTab", true);
         public static final FloatEntry FAILSAFE_INVENTORY_SLOT_CHANGED_DELAY_SECONDS = Config
-                        .floatVal("failsafeInventorySlotChangedDelaySeconds", 2.0f)
-                        .range(0.0f, 5.0f);
+                .floatVal("failsafeInventorySlotChangedDelaySeconds", 2.0f)
+                .range(0.0f, 5.0f);
         public static final FloatEntry FAILSAFE_UNEXPECTED_INVENTORY_GUI_DELAY_SECONDS = Config
-                        .floatVal("failsafeUnexpectedInventoryGuiDelaySeconds", 2.0f)
-                        .range(0.0f, 5.0f);
+                .floatVal("failsafeUnexpectedInventoryGuiDelaySeconds", 2.0f)
+                .range(0.0f, 5.0f);
         public static final FloatEntry FAILSAFE_WORLD_CHANGE_RECOVERY_WAIT_SECONDS = Config
-                        .floatVal("failsafeWorldChangeRecoveryWaitSeconds", 5.0f)
-                        .range(0.0f, 30.0f);
+                .floatVal("failsafeWorldChangeRecoveryWaitSeconds", 5.0f)
+                .range(0.0f, 30.0f);
 
         // -- BPS -------------------------------------------------------------------
         public static final IntEntry BPS_AVERAGE_WINDOW = Config.integer("bpsAverageWindow", 30).range(5, 60);
@@ -980,8 +981,8 @@ public final class AetherConfig {
         public static final BooleanEntry HIDE_SERVER_ID = Config.bool("hideServerId", false);
         public static final StringEntry CUSTOM_SERVER_ID = Config.string("customServerId", ".gg/aethersb");
         public static final BooleanEntry COOP_HIDER_ENABLED = Config.bool("coopHiderEnabled", false);
-        public static final ListEntry<String> COOP_NAMES = Config.list("coopNames", 
-                        Arrays.asList("Coop1", "Coop2", "Coop3"), String.class);
+        public static final ListEntry<String> COOP_NAMES = Config.list("coopNames",
+                Arrays.asList("Coop1", "Coop2", "Coop3"), String.class);
         public static final StringEntry CUSTOM_USERNAME = Config.string("customUsername", "AetherUser");
         public static final StringEntry SERVER_NICK = Config.string("serverNick", "");
         public static final BooleanEntry HIDE_SKIN = Config.bool("hideSkin", false);
@@ -1053,11 +1054,11 @@ public final class AetherConfig {
         // -- GREENHOUSE ------------------------------------------------------------
         public static final BooleanEntry AUTO_GREENHOUSE = Config.bool("autoGreenhouse", false);
         public static final IntEntry AUTO_GREENHOUSE_INTERVAL_MINUTES = Config.integer("autoGreenhouseIntervalMinutes", 120)
-                        .range(1, 1440);
+                .range(1, 1440);
         public static final BooleanEntry EQUIP_GREENHOUSE_CUSTOM_ITEM = Config.bool("equipNetherWartHoe", false);
         public static final StringEntry GREENHOUSE_CUSTOM_ITEM = Config.string("greenhouseCustomItem", "");
         public static final ListEntry<String> GREENHOUSE_PLOTS = Config.list("greenhousePlots", Collections.emptyList(),
-                        String.class);
+                String.class);
         public static final BooleanEntry HARVEST_ASHWREATH = Config.bool("harvestAshwreath", false);
         public static final BooleanEntry HARVEST_TURTELLINI = Config.bool("harvestTurtellini", false);
         public static final BooleanEntry HARVEST_GLASSCORN = Config.bool("harvestGlasscorn", false);
@@ -1065,26 +1066,26 @@ public final class AetherConfig {
         // -- COMPOSTER -------------------------------------------------------------
         public static final BooleanEntry AUTO_COMPOSTER = Config.bool("autoComposter", false);
         public static final IntEntry AUTO_COMPOSTER_INTERVAL_MINUTES = Config.integer("autoComposterIntervalMinutes", 120)
-                        .range(1, 1440);
+                .range(1, 1440);
         public static final IntEntry AUTO_COMPOSTER_X = Config.integer("autoComposterX", -11);
         public static final IntEntry AUTO_COMPOSTER_Y = Config.integer("autoComposterY", 72);
         public static final IntEntry AUTO_COMPOSTER_Z = Config.integer("autoComposterZ", -27);
         public static final BooleanEntry AUTO_COMPOSTER_HIGHLIGHT = Config.bool("autoComposterHighlight", true);
         public static final IntEntry AUTO_COMPOSTER_MIN_PURSE = Config.integer("autoComposterMinPurse", 1000000)
-                        .range(0, 2000000000);
+                .range(0, 2000000000);
         public static final StringEntry AUTO_COMPOSTER_SOURCE_MODE = Config.string("autoComposterSourceMode", "SACKS");
         public static final StringEntry AUTO_COMPOSTER_CROP_MATERIAL = Config.string("autoComposterCropMaterial", "Box of Seeds");
         public static final IntEntry AUTO_COMPOSTER_CROP_AMOUNT = Config.integer("autoComposterCropAmount", 1)
-                        .range(1, 2000000);
+                .range(1, 2000000);
         public static final StringEntry AUTO_COMPOSTER_FUEL_MATERIAL = Config.string("autoComposterFuelMaterial", "Volta");
         public static final IntEntry AUTO_COMPOSTER_FUEL_AMOUNT = Config.integer("autoComposterFuelAmount", 1)
-                        .range(1, 2000000);
+                .range(1, 2000000);
 
         // -- SUPERCRAFT ------------------------------------------------------------
         public static final BooleanEntry AUTO_SUPERCRAFT = Config.bool("autoSupercraft", false);
         public static final IntEntry AUTO_SUPERCRAFT_INTERVAL_MINUTES = Config.integer("autoSupercraftIntervalMinutes", 120)
-                        .range(1, 1440);
+                .range(1, 1440);
         public static final ListEntry<String> AUTO_SUPERCRAFT_ITEMS = Config.list("autoSupercraftItems",
-                        DEFAULT_SUPERCRAFT_ITEMS,
-                        String.class);
+                DEFAULT_SUPERCRAFT_ITEMS,
+                String.class);
 }

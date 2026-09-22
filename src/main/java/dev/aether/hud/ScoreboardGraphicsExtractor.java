@@ -37,10 +37,13 @@ final class ScoreboardGraphicsExtractor extends GuiGraphicsExtractor {
         if (AetherConfig.NICK_HIDER_MASTER_ENABLED.get() && AetherConfig.HIDE_SERVER_ID.get()) {
             display = ServerIdHider.replace(display, AetherConfig.CUSTOM_SERVER_ID.get());
         }
+        boolean centerServerText = !AetherConfig.SCOREBOARD_SERVER_TEXT.get().isBlank()
+                && ScoreboardText.isServerAddress(text)
+                && AetherConfig.SCOREBOARD_SERVER_TEXT_CENTERED.get();
         int displayWidth = heading ? (int) Math.ceil(font.width(display) * ScoreboardText.HEADING_SIZE / ScoreboardText.SIZE)
                 : display == text ? 0 : font.width(display);
         drawList.text(ScoreboardText.prepare(font, display, color, shadow, heading), x, y, font.width(text),
-                Math.min(displayWidth, Math.max(0, width - 32)));
+                Math.min(displayWidth, Math.max(0, width - 32)), centerServerText);
     }
 
     ScoreboardDrawList drawList() { return drawList; }

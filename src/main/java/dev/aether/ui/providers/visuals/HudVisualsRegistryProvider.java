@@ -63,10 +63,10 @@ public final class HudVisualsRegistryProvider extends AbstractVisualsRegistryPro
                         .visibleWhen(() -> !AetherConfig.GUI_ONLY_IN_GARDEN.get())));
 
         groups.add(SettingGroup.of(
-                        "Streamer Mode",
-                        "Hides Aether chat, notifications, overlays, HUDs, and world visuals",
-                        StreamerModeManager::isEnabled,
-                        StreamerModeManager::setEnabled));
+                "Streamer Mode",
+                "Hides Aether chat, notifications, overlays, HUDs, and world visuals",
+                StreamerModeManager::isEnabled,
+                StreamerModeManager::setEnabled));
 
         groups.add(SettingGroup.alwaysOn(
                         "Main Status HUD",
@@ -122,6 +122,12 @@ public final class HudVisualsRegistryProvider extends AbstractVisualsRegistryPro
                 .add(new TextSetting("Scoreboard Server Line Text", "Leave empty to keep the server address",
                         AetherConfig.SCOREBOARD_SERVER_TEXT::get,
                         v -> { AetherConfig.SCOREBOARD_SERVER_TEXT.set(v); AetherConfig.save(); }))
+                .add(new ToggleSetting("Center Scoreboard Server Text",
+                        AetherConfig.SCOREBOARD_SERVER_TEXT_CENTERED::get,
+                        v -> {
+                            AetherConfig.SCOREBOARD_SERVER_TEXT_CENTERED.set(v);
+                            AetherConfig.save();
+                        }))
                 .add(new ActionSetting("Reset Scoreboard Layout", ScoreboardHudElement::resetLayout)));
 
         groups.add(SettingGroup.alwaysOn(
@@ -147,8 +153,8 @@ public final class HudVisualsRegistryProvider extends AbstractVisualsRegistryPro
                         })));
 
         groups.add(SettingGroup.of("Pest Target HUD", "Pest icons, health and hunting progress below the crosshair",
-                AetherConfig.SHOW_PEST_TARGET_HUD::get,
-                value -> { AetherConfig.SHOW_PEST_TARGET_HUD.set(value); AetherConfig.save(); })
+                        AetherConfig.SHOW_PEST_TARGET_HUD::get,
+                        value -> { AetherConfig.SHOW_PEST_TARGET_HUD.set(value); AetherConfig.save(); })
                 .add(new ActionSetting("Reset Target HUD Position", dev.aether.hud.PestTargetHudElement::resetLayout)));
 
         SettingGroup watermark = SettingGroup.alwaysOn(
