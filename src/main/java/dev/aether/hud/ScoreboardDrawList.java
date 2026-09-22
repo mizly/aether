@@ -34,7 +34,12 @@ final class ScoreboardDrawList {
     }
 
     void text(ScoreboardText text, int x, int y, int vanillaWidth, int replacementWidth) {
-        Alignment alignment = lines.isEmpty() ? Alignment.CENTER : x == left + 2 ? Alignment.LEFT : Alignment.RIGHT;
+        text(text, x, y, vanillaWidth, replacementWidth, false);
+    }
+
+    void text(ScoreboardText text, int x, int y, int vanillaWidth, int replacementWidth, boolean center) {
+        Alignment alignment = center ? Alignment.CENTERED : lines.isEmpty() ? Alignment.CENTER
+                : x == left + 2 ? Alignment.LEFT : Alignment.RIGHT;
         lines.add(new Line(text, x, y, vanillaWidth, alignment));
         if (!rowYs.contains(y)) rowYs.add(y);
         if (text != null && text.isHeading() && !headingYs.contains(y)) headingYs.add(y);
@@ -68,7 +73,9 @@ final class ScoreboardDrawList {
             for (int i = 0; i < lines.size(); i++) {
                 Line line = lines.get(i);
                 boolean title = line.alignment() == Alignment.CENTER;
-                float available = title ? contentWidth() - 4 : line.alignment() == Alignment.RIGHT ? line.vanillaWidth() : right + addedWidth - line.x();
+                boolean centered = line.alignment() == Alignment.CENTER || line.alignment() == Alignment.CENTERED;
+                float available = centered ? contentWidth() - 4
+                        : line.alignment() == Alignment.RIGHT ? line.vanillaWidth() : right + addedWidth - line.x();
                 if (line.alignment() == Alignment.LEFT && i + 1 < lines.size()) {
                     Line score = lines.get(i + 1);
                     if (score.y() == line.y() && score.vanillaWidth() > 0) available = score.x() + addedWidth - line.x() - 2;
@@ -76,7 +83,7 @@ final class ScoreboardDrawList {
                 float textWidth = Math.min(available, line.text().width(nvg, title));
                 float x = switch (line.alignment()) {
                     case LEFT -> line.x();
-                    case CENTER -> left + contentWidth() / 2f - textWidth / 2f;
+                    case CENTER, CENTERED -> left + contentWidth() / 2f - textWidth / 2f;
                     case RIGHT -> line.x() + line.vanillaWidth() + addedWidth - textWidth;
                 };
                 line.text().render(nvg, x, lineY(line.y()), available, title);
@@ -86,6 +93,6 @@ final class ScoreboardDrawList {
         }
     }
 
-    private enum Alignment { LEFT, CENTER, RIGHT }
+    private enum Alignment { LEFT, CENTER, CENTERED, RIGHT }
     private record Line(ScoreboardText text, int x, int y, int vanillaWidth, Alignment alignment) { }
 }
