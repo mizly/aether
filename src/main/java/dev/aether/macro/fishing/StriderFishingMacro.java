@@ -19,13 +19,10 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.projectile.FishingHook;
-import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
@@ -44,7 +41,6 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     private static final double LAVA_SCAN_RADIUS = 6.0;
     private static final double LAVA_SCAN_DEPTH = 4.0;
-    private static final double RAY_DISTANCE = 12.0;
     private static final double MARKER_SEARCH_SIZE = 6.0;
     private static final double TARGET_SEARCH_RADIUS = 16.0;
 
@@ -102,7 +98,25 @@ public final class StriderFishingMacro extends AbstractMacro {
     private static final double ORIGIN_BELOW = 0.5;
     private static final double ORIGIN_ABOVE = 1.0;
     // the nearest lava is usually straight down at our feet, which is no way to cast
-    private static final double MIN_CAST_HORIZONTAL = 2.0;
+    private static final double MIN_CAST_HORIZONTAL = 1.0;
+    // vanilla bobber flight: 0.3 ahead of the eye, 0.6/len + ~0.5 speed per axis, -0.03 gravity then 0.92 drag each tick
+    private static final double CAST_START_OFFSET = 0.3;
+    private static final double CAST_SPEED_BASE = 0.6;
+    private static final double CAST_SPEED_BONUS = 0.5;
+    private static final double CAST_GRAVITY = 0.03;
+    private static final double CAST_DRAG = 0.92;
+    private static final int CAST_MAX_TICKS = 60;
+    private static final int CAST_SUBSTEPS = 4;
+    private static final double CAST_HOOK_HALF_WIDTH = 0.125;
+    private static final double CAST_HOOK_HEIGHT = 0.25;
+    // an upward lob is allowed, since a rim above the lava can leave no downward throw that clears it
+    private static final float CAST_PITCH_MIN = -30.0f;
+    private static final float CAST_PITCH_MAX = 89.0f;
+    private static final float CAST_PITCH_STEP = 0.5f;
+    // pitches either side that still land in lava, so a little aim error or throw scatter does not hit the rim
+    private static final int CAST_MARGIN_CAP = 6;
+    // aim somewhere inside the block rather than its exact centre, so casts do not stack on one pixel
+    private static final double CAST_TARGET_JITTER = 0.2;
     private static final double AIM_BOX_RADIUS = 0.18;
 
     // a pool that never empties means a catch slipped out of reach, so the rest is written off and fishing resumes
@@ -243,7 +257,12 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
-        if (isLookingAtLava(mc)) {
+        // a crouch or stand still in progress moves the eye, and with it where the throw lands
+        if (mc.player.isCrouching() != shouldSneak(mc)) {
+            return;
+        }
+
+        if (castLandsInLava(mc)) {
             FailsafeManager.selectHotbarSlot(mc, rodSlot());
             changeState(State.CAST);
             nextActionAt = now + castDelayForCycle();
@@ -256,8 +275,8 @@ public final class StriderFishingMacro extends AbstractMacro {
             aimTargetBlock = null;
         }
 
-        Vec3 lava = findLavaSurface(mc, scanRadius());
-        if (lava == null) {
+        CastAim aim = findCastAim(mc, scanRadius(), ThreadLocalRandom.current());
+        if (aim == null) {
             // out of candidates rather than out of luck: widen the search and come back to it
             rejectedLava.clear();
             aimSweep++;
@@ -265,8 +284,8 @@ public final class StriderFishingMacro extends AbstractMacro {
             ClientUtils.sendDebugMessage("[StriderFishing] no lava lined up, widening the search");
             return;
         }
-        aimTargetBlock = BlockPos.containing(lava.x, lava.y - 0.5, lava.z);
-        RotationManager.initiateRotation(mc, lava, AetherConfig.ROTATION_TIME.get());
+        aimTargetBlock = aim.block();
+        RotationManager.rotateToYawPitch(mc, aim.yaw(), aim.pitch(), AetherConfig.ROTATION_TIME.get());
     }
 
     private int scanRadius() {
@@ -287,7 +306,7 @@ public final class StriderFishingMacro extends AbstractMacro {
 
         // the camera can still be settling from the walk back, so the lava is confirmed again at the last moment
         // aiming handles the retry, and it drops this spot from the running once it sees the miss
-        if (!isLookingAtLava(mc)) {
+        if (!castLandsInLava(mc)) {
             changeState(State.AIM_LAVA);
             return;
         }
@@ -318,7 +337,9 @@ public final class StriderFishingMacro extends AbstractMacro {
         }
 
         // a pool packed with striders can snag the float on one of them, which will never bite
-        if (sawyerLava() && mc.player.fishing.getHookedIn() != null) {
+        // hypixel parks the lava float on its own entity, so only one of our pooled catches counts as a snag
+        Entity hookedIn = mc.player.fishing.getHookedIn();
+        if (sawyerLava() && hookedIn != null && pooledCatchIds.contains(hookedIn.getId())) {
             ClientUtils.sendDebugMessage("[StriderFishing] float hooked a strider, recasting");
             clearIdle();
             ClientUtils.performUseClick();
@@ -1071,15 +1092,6 @@ public final class StriderFishingMacro extends AbstractMacro {
         return hook != null && !hook.isRemoved();
     }
 
-    private static boolean isLookingAtLava(Minecraft mc) {
-        Vec3 eye = mc.player.getEyePosition();
-        Vec3 end = eye.add(mc.player.getViewVector(1.0f).scale(RAY_DISTANCE));
-        BlockHitResult hit = mc.level.clip(new ClipContext(
-                eye, end, ClipContext.Block.OUTLINE, ClipContext.Fluid.ANY, mc.player));
-        return hit.getType() == HitResult.Type.BLOCK
-                && isLava(mc.level.getBlockState(hit.getBlockPos()));
-    }
-
     private static boolean isLava(BlockState state) {
         if (state.getBlock() == Blocks.LAVA) {
             return true;
@@ -1088,13 +1100,81 @@ public final class StriderFishingMacro extends AbstractMacro {
         return !fluid.isEmpty() && fluid.getType().isSame(Fluids.LAVA);
     }
 
-    private Vec3 findLavaSurface(Minecraft mc, int radius) {
+    record CastAim(BlockPos block, float yaw, float pitch) {
+    }
+
+    private static boolean castLandsInLava(Minecraft mc) {
+        return predictCastLanding(mc, mc.player.getYRot(), mc.player.getXRot()) != null;
+    }
+
+    // walks the bobber's flight through the world; null when it clips a block or never reaches lava
+    // at leg-height lava the rim sits above the surface and the float drops under the crosshair, so a look is not enough
+    private static Vec3 predictCastLanding(Minecraft mc, float yaw, float pitch) {
+        Vec3[] path = castPath(mc.player.getEyePosition(), yaw, pitch);
+        for (int i = 1; i < path.length; i++) {
+            for (int step = 1; step <= CAST_SUBSTEPS; step++) {
+                Vec3 at = path[i - 1].lerp(path[i], step / (double) CAST_SUBSTEPS);
+                BlockPos pos = BlockPos.containing(at);
+                BlockState state = mc.level.getBlockState(pos);
+                if (isLava(state) && at.y <= pos.getY() + state.getFluidState().getHeight(mc.level, pos)) {
+                    return at;
+                }
+                AABB hook = new AABB(at.x - CAST_HOOK_HALF_WIDTH, at.y, at.z - CAST_HOOK_HALF_WIDTH,
+                        at.x + CAST_HOOK_HALF_WIDTH, at.y + CAST_HOOK_HEIGHT, at.z + CAST_HOOK_HALF_WIDTH);
+                if (!mc.level.noCollision(hook)) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    static Vec3[] castPath(Vec3 eye, float yaw, float pitch) {
+        double yawRad = Math.toRadians(yaw);
+        double dirX = -Math.sin(yawRad);
+        double dirZ = Math.cos(yawRad);
+        double rise = Mth.clamp(-Math.tan(Math.toRadians(pitch)), -5.0, 5.0);
+        double speed = CAST_SPEED_BASE / Math.sqrt(1.0 + rise * rise) + CAST_SPEED_BONUS;
+
+        double vx = dirX * speed;
+        double vy = rise * speed;
+        double vz = dirZ * speed;
+        Vec3[] path = new Vec3[CAST_MAX_TICKS + 1];
+        path[0] = new Vec3(eye.x + dirX * CAST_START_OFFSET, eye.y, eye.z + dirZ * CAST_START_OFFSET);
+        for (int tick = 1; tick <= CAST_MAX_TICKS; tick++) {
+            vy -= CAST_GRAVITY;
+            Vec3 last = path[tick - 1];
+            path[tick] = new Vec3(last.x + vx, last.y + vy, last.z + vz);
+            vx *= CAST_DRAG;
+            vy *= CAST_DRAG;
+            vz *= CAST_DRAG;
+        }
+        return path;
+    }
+
+    // how many pitch steps either side of the pick still land, capped so a wide pool does not beat a close one
+    static int castMargin(boolean[] lands, int index) {
+        int left = 0;
+        while (left < CAST_MARGIN_CAP && index - left - 1 >= 0 && lands[index - left - 1]) {
+            left++;
+        }
+        int right = 0;
+        while (right < CAST_MARGIN_CAP && index + right + 1 < lands.length && lands[index + right + 1]) {
+            right++;
+        }
+        return Math.min(left, right);
+    }
+
+    // the throw with the most room for error wins, then the one that comes down nearest the block centre
+    private CastAim findCastAim(Minecraft mc, int radius, ThreadLocalRandom random) {
         BlockPos base = mc.player.blockPosition();
         Vec3 eye = mc.player.getEyePosition();
-        Vec3 best = null;
-        double bestPitch = Double.MAX_VALUE;
-        Vec3 fallback = null;
-        double fallbackPitch = Double.MAX_VALUE;
+        int steps = Math.round((CAST_PITCH_MAX - CAST_PITCH_MIN) / CAST_PITCH_STEP) + 1;
+        boolean[] lands = new boolean[steps];
+        Vec3[] landings = new Vec3[steps];
+        CastAim best = null;
+        int bestMargin = 0;
+        double bestError = Double.MAX_VALUE;
 
         int depth = (int) LAVA_SCAN_DEPTH;
         for (int dx = -radius; dx <= radius; dx++) {
@@ -1108,29 +1188,33 @@ public final class StriderFishingMacro extends AbstractMacro {
                     if (!mc.level.getBlockState(above).getCollisionShape(mc.level, above).isEmpty()) {
                         continue;
                     }
-                    Vec3 surface = new Vec3(pos.getX() + 0.5, pos.getY() + 1.0, pos.getZ() + 0.5);
-                    double sdx = surface.x - eye.x;
-                    double sdz = surface.z - eye.z;
-                    // flattest reachable lava, so the cast goes out across it instead of at our own feet
-                    double pitch = pitchTo(sdx, surface.y - eye.y, sdz);
-                    if (pitch >= fallbackPitch && pitch >= bestPitch) {
+                    double tx = pos.getX() + 0.5 + random.nextDouble(-CAST_TARGET_JITTER, CAST_TARGET_JITTER);
+                    double tz = pos.getZ() + 0.5 + random.nextDouble(-CAST_TARGET_JITTER, CAST_TARGET_JITTER);
+                    if (Math.hypot(tx - eye.x, tz - eye.z) < MIN_CAST_HORIZONTAL) {
                         continue;
                     }
-                    if (!ClientUtils.hasLineOfSight(mc.player, surface)) {
-                        continue;
+                    float yaw = yawTo(tx - eye.x, tz - eye.z);
+                    for (int i = 0; i < steps; i++) {
+                        landings[i] = predictCastLanding(mc, yaw, CAST_PITCH_MIN + i * CAST_PITCH_STEP);
+                        lands[i] = landings[i] != null;
                     }
-                    if (pitch < fallbackPitch) {
-                        fallbackPitch = pitch;
-                        fallback = surface;
-                    }
-                    if (pitch < bestPitch && Math.sqrt(sdx * sdx + sdz * sdz) >= MIN_CAST_HORIZONTAL) {
-                        bestPitch = pitch;
-                        best = surface;
+                    for (int i = 0; i < steps; i++) {
+                        if (!lands[i]) {
+                            continue;
+                        }
+                        int margin = castMargin(lands, i);
+                        double error = Math.hypot(landings[i].x - tx, landings[i].z - tz);
+                        if (margin < 1 || margin < bestMargin || (margin == bestMargin && error >= bestError)) {
+                            continue;
+                        }
+                        best = new CastAim(pos, yaw, CAST_PITCH_MIN + i * CAST_PITCH_STEP);
+                        bestMargin = margin;
+                        bestError = error;
                     }
                 }
             }
         }
-        return best != null ? best : fallback;
+        return best;
     }
 
     private static boolean hasCatchMarker(Minecraft mc, FishingHook hook) {
