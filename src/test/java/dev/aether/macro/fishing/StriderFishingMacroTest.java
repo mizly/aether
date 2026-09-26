@@ -299,4 +299,16 @@ class StriderFishingMacroTest {
         assertEquals(2, StriderFishingMacro.castMargin(lands, 3));
         assertEquals(0, StriderFishingMacro.castMargin(lands, 5));
     }
+    @Test
+    void onlyRememberedStridersThatAreStillThereCountTowardThePool() {
+        java.util.Set<Integer> remembered = new java.util.LinkedHashSet<>(java.util.List.of(1, 2, 3, 4, 5));
+        java.util.Set<Integer> kept = StriderFishingMacro.stillPooled(remembered, true, id -> id != 3);
+        assertEquals(java.util.Set.of(1, 2, 4, 5), kept);
+    }
+
+    @Test
+    void aNewLobbyForgetsThePool() {
+        java.util.Set<Integer> remembered = java.util.Set.of(1, 2, 3);
+        assertTrue(StriderFishingMacro.stillPooled(remembered, false, id -> true).isEmpty());
+    }
 }

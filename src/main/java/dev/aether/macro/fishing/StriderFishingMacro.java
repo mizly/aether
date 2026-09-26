@@ -20,12 +20,14 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.projectile.FishingHook;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -33,6 +35,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.IntPredicate;
 
 // lava fishing for stridersurfers: cast, wait for the marker to flip from ? to !!, reel, kill, walk home
 // every delay here is wall-clock and every decision runs on the client tick, so the macro behaves the same at 10 or 240 fps
@@ -161,6 +164,9 @@ public final class StriderFishingMacro extends AbstractMacro {
     private volatile boolean returnFinished;
 
     private final Set<Integer> pooledCatchIds = new LinkedHashSet<>();
+    // outlives the macro instance, so a stop and start in the same lobby picks the pool back up
+    private static final Set<Integer> rememberedCatchIds = new LinkedHashSet<>();
+    private static WeakReference<Level> rememberedLevel = new WeakReference<>(null);
     private long whipClickAt;
     private long whipSwapAt;
     private long whipNextAt;
@@ -198,6 +204,45 @@ public final class StriderFishingMacro extends AbstractMacro {
         changeState(State.AIM_LAVA);
         ClientUtils.sendDebugMessage("[StriderFishing] started at "
                 + origin.getX() + ", " + origin.getY() + ", " + origin.getZ());
+        resumeRememberedPool(mc);
+    }
+
+    // the same striders still stuck at the full count go straight to the kill; fewer means fishing tops it up
+    private void resumeRememberedPool(Minecraft mc) {
+        boolean sameLevel = rememberedLevel.get() == mc.level;
+        String needle = catchNeedle();
+        pooledCatchIds.addAll(stillPooled(rememberedCatchIds, sameLevel, id -> {
+            Entity entity = mc.level.getEntity(id);
+            return isAlive(entity) && (needle.isEmpty() || matchesName(mc, entity, needle));
+        }));
+        forgetPool();
+        if (!soulWhipFishing() || pooledCatchIds.isEmpty()) {
+            pooledCatchIds.clear();
+            return;
+        }
+        int goal = AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.get();
+        ClientUtils.sendDebugMessage("[StriderFishing] pool still holds " + pooledCatchIds.size() + "/" + goal);
+        if (soulWhipGoalReached(pooledCatchIds.size(), goal)) {
+            changeState(State.CLEAR);
+        }
+    }
+
+    static Set<Integer> stillPooled(Set<Integer> remembered, boolean sameLevel, IntPredicate stillThere) {
+        Set<Integer> kept = new LinkedHashSet<>();
+        if (!sameLevel) {
+            return kept;
+        }
+        for (int id : remembered) {
+            if (stillThere.test(id)) {
+                kept.add(id);
+            }
+        }
+        return kept;
+    }
+
+    private static void forgetPool() {
+        rememberedCatchIds.clear();
+        rememberedLevel = new WeakReference<>(null);
     }
 
     @Override
@@ -211,6 +256,11 @@ public final class StriderFishingMacro extends AbstractMacro {
         returnPathStarted = false;
         returnFinished = false;
         preReelEntityIds.clear();
+        forgetPool();
+        if (!pooledCatchIds.isEmpty()) {
+            rememberedCatchIds.addAll(pooledCatchIds);
+            rememberedLevel = new WeakReference<>(mc.level);
+        }
         pooledCatchIds.clear();
         clearWhip();
         clearIdle();
@@ -1275,9 +1325,13 @@ public final class StriderFishingMacro extends AbstractMacro {
         return !preReelEntityIds.contains(entityId);
     }
 
-    private Entity findTarget(Minecraft mc) {
+    private static String catchNeedle() {
         String wanted = AetherConfig.STRIDER_FISHING_TARGET_NAME.get();
-        String needle = wanted == null ? "" : stripFormatting(wanted).toLowerCase(Locale.ROOT).trim();
+        return wanted == null ? "" : stripFormatting(wanted).toLowerCase(Locale.ROOT).trim();
+    }
+
+    private Entity findTarget(Minecraft mc) {
+        String needle = catchNeedle();
 
         AABB box = AABB.ofSize(mc.player.position(),
                 TARGET_SEARCH_RADIUS * 2, TARGET_SEARCH_RADIUS, TARGET_SEARCH_RADIUS * 2);
