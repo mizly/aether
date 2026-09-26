@@ -3,6 +3,7 @@ package dev.aether.hud;
 import dev.aether.config.AetherConfig;
 
 
+import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.ui.theme.Theme;
 import dev.aether.modules.profit.ProfitManager;
@@ -29,6 +30,8 @@ public class ProfitHudElement extends HudElement {
     // one of session, lifetime or daily
     private final String mode;
     private final ProfitGraph graph = new ProfitGraph();
+    // the editor sizes the box through getHeight, which has no edit flag of its own
+    private boolean editing;
 
     public ProfitHudElement(String mode) { this.mode = mode; }
 
@@ -114,11 +117,15 @@ public class ProfitHudElement extends HudElement {
 
         h += itemCount > 0 ? itemCount * ROW_H : 24f;
         if (showSkillXp()) {
-            int rows = 2; // XP earned + level/progress to max
-            if (AetherConfig.SKILL_HUD_XP_RATE.get()) rows++;
-            if (AetherConfig.SKILL_HUD_ETA_NEXT.get()) rows++;
-            if (AetherConfig.SKILL_HUD_ETA_MAX.get()) rows++;
-            h += 10f + rows * ROW_H + FARM_BAR_H + 4f; // separator + rows + progress bar
+            if (SkillXpTracker.active().hasData()) {
+                int rows = 2; // XP earned + level/progress to max
+                if (AetherConfig.SKILL_HUD_XP_RATE.get()) rows++;
+                if (AetherConfig.SKILL_HUD_ETA_NEXT.get()) rows++;
+                if (AetherConfig.SKILL_HUD_ETA_MAX.get()) rows++;
+                h += 10f + rows * ROW_H + FARM_BAR_H + 4f; // separator + rows + progress bar
+            } else {
+                h += 10f + ROW_H;
+            }
         }
         int rateRows = (showMobRate() ? 1 : 0) + (showBlockRate() ? 1 : 0);
         if (rateRows > 0) {
@@ -128,19 +135,26 @@ public class ProfitHudElement extends HudElement {
         return h;
     }
 
+    // xp only arrives once hypixel prints a skill line, so a running macro shows a waiting row until then
     private boolean showSkillXp() {
         return isSession()
                 && AetherConfig.SKILL_XP_HUD.get()
-                && SkillXpTracker.active().hasData();
+                && (editing || MacroStateManager.isMacroRunning() || SkillXpTracker.active().hasData());
     }
 
-    // a farming session never kills anything and a fishing one never breaks a block, so an empty count stays hidden
+    // each rate belongs to one module, so it only shows beside that module or once it has counted something
     private boolean showMobRate() {
-        return isSession() && AetherConfig.PROFIT_MOBS_PER_HOUR.get() && ActivityRateTracker.getMobsKilled() > 0;
+        return isSession() && AetherConfig.PROFIT_MOBS_PER_HOUR.get()
+                && (editing || isState(MacroState.State.FISHING) || ActivityRateTracker.getMobsKilled() > 0);
     }
 
     private boolean showBlockRate() {
-        return isSession() && AetherConfig.PROFIT_BLOCKS_PER_HOUR.get() && ActivityRateTracker.getBlocksBroken() > 0;
+        return isSession() && AetherConfig.PROFIT_BLOCKS_PER_HOUR.get()
+                && (editing || isState(MacroState.State.FARMING) || ActivityRateTracker.getBlocksBroken() > 0);
+    }
+
+    private static boolean isState(MacroState.State state) {
+        return MacroStateManager.getCurrentState() == state;
     }
 
     private boolean showGraph() {
@@ -151,6 +165,7 @@ public class ProfitHudElement extends HudElement {
 
     @Override
     protected void renderElement(NVGRenderer nvg, boolean editMode) {
+        editing = editMode;
         float ph = computeHeight();
         HudStyle.panel(nvg, W, ph);
         HudStyle.header(nvg, W, title(), "COINS");
@@ -217,7 +232,12 @@ public class ProfitHudElement extends HudElement {
             ry += 24f;
         }
 
-        if (showSkillXp()) {
+        if (showSkillXp() && !SkillXpTracker.active().hasData()) {
+            nvg.rect(PAD_H, ry + 1f, W - PAD_H * 2f, 1f, Theme.HUD_SEP);
+            ry += 10f;
+            row(nvg, ry, SkillXpTracker.active().getSkill() + " XP", "waiting for xp", Theme.HUD_LABEL);
+            ry += ROW_H;
+        } else if (showSkillXp()) {
             SkillXpTracker xp = SkillXpTracker.active();
             String skill = xp.getSkill();
             int maxLevel = xp.getMaxLevel();
