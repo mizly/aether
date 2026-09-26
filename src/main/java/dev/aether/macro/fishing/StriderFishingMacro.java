@@ -339,7 +339,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         // a pool packed with striders can snag the float on one of them, which will never bite
         // hypixel parks the lava float on its own entity, so only one of our pooled catches counts as a snag
         Entity hookedIn = mc.player.fishing.getHookedIn();
-        if (sawyerLava() && hookedIn != null && pooledCatchIds.contains(hookedIn.getId())) {
+        if (soulWhipFishing() && hookedIn != null && pooledCatchIds.contains(hookedIn.getId())) {
             ClientUtils.sendDebugMessage("[StriderFishing] float hooked a strider, recasting");
             clearIdle();
             ClientUtils.performUseClick();
@@ -400,7 +400,7 @@ public final class StriderFishingMacro extends AbstractMacro {
             }
         }
 
-        if (target != null && sawyerLava()) {
+        if (target != null && soulWhipFishing()) {
             poolCatch(mc, now);
             return;
         }
@@ -471,9 +471,9 @@ public final class StriderFishingMacro extends AbstractMacro {
         pooledCatchIds.add(target.getId());
         target = null;
         pruneDeadCatches(mc);
-        int goal = AetherConfig.STRIDER_FISHING_SAWYER_COUNT.get();
+        int goal = AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.get();
         ClientUtils.sendDebugMessage("[StriderFishing] pool holds " + pooledCatchIds.size() + "/" + goal);
-        if (sawyerGoalReached(pooledCatchIds.size(), goal)) {
+        if (soulWhipGoalReached(pooledCatchIds.size(), goal)) {
             clearWhip();
             changeState(State.CLEAR);
             return;
@@ -613,7 +613,7 @@ public final class StriderFishingMacro extends AbstractMacro {
                 && Math.abs(wantPitch - pitch) <= tolerance;
     }
 
-    static boolean sawyerGoalReached(int pooled, int goal) {
+    static boolean soulWhipGoalReached(int pooled, int goal) {
         return pooled >= goal;
     }
 
@@ -649,8 +649,8 @@ public final class StriderFishingMacro extends AbstractMacro {
         return delay >= WHIP_INTERVAL_MIN_MS && delay <= WHIP_INTERVAL_MAX_MS;
     }
 
-    private static boolean sawyerLava() {
-        return AetherConfig.STRIDER_FISHING_SAWYER_LAVA.get();
+    private static boolean soulWhipFishing() {
+        return AetherConfig.STRIDER_FISHING_SOUL_WHIP_FISHING.get();
     }
 
     private void tickReturn(Minecraft mc) {
@@ -791,7 +791,7 @@ public final class StriderFishingMacro extends AbstractMacro {
     // drift around the float itself, offset inside a small box so the cursor is never dead centre on it
     // with a pool filling up, the odd glance goes to one of the striders already stuck in it
     private void lookAround(Minecraft mc, FishingHook hook, ThreadLocalRandom random) {
-        Entity glance = sawyerLava() && random.nextInt(GLANCE_AT_POOL_ONE_IN) == 0
+        Entity glance = soulWhipFishing() && random.nextInt(GLANCE_AT_POOL_ONE_IN) == 0
                 ? randomPooledCatch(mc, random)
                 : null;
         Vec3 aimAt = glance != null ? aimPoint(glance) : hook.position();

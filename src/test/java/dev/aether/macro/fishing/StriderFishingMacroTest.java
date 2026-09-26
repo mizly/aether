@@ -227,9 +227,9 @@ class StriderFishingMacroTest {
     }
     @Test
     void thePoolIsClearedOnlyOnceItHoldsTheChosenCount() {
-        assertFalse(StriderFishingMacro.sawyerGoalReached(4, 5));
-        assertTrue(StriderFishingMacro.sawyerGoalReached(5, 5));
-        assertTrue(StriderFishingMacro.sawyerGoalReached(21, 20));
+        assertFalse(StriderFishingMacro.soulWhipGoalReached(4, 5));
+        assertTrue(StriderFishingMacro.soulWhipGoalReached(5, 5));
+        assertTrue(StriderFishingMacro.soulWhipGoalReached(21, 20));
     }
 
     @Test

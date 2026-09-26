@@ -1123,9 +1123,10 @@ public final class AetherConfig {
                         "default_strider");
         public static final BooleanEntry STRIDER_FISHING_RANDOM_LOOK = Config.bool("striderFishingRandomLook", true);
         public static final BooleanEntry STRIDER_FISHING_BLOCK_SHUFFLE = Config.bool("striderFishingBlockShuffle", true);
-        // sawyer lava leaves each catch stuck in a small pool and only clears the pool once it holds this many
-        public static final BooleanEntry STRIDER_FISHING_SAWYER_LAVA = Config.bool("striderFishingSawyerLava", false);
-        public static final IntEntry STRIDER_FISHING_SAWYER_COUNT = Config.integer("striderFishingSawyerCount", 10)
+        // soul whip fishing leaves each catch stuck in a small pool and only clears the pool once it holds this many
+        public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP_FISHING = Config
+                        .bool("striderFishingSoulWhipFishing", false);
+        public static final IntEntry STRIDER_FISHING_SOUL_WHIP_COUNT = Config.integer("striderFishingSoulWhipCount", 10)
                         .range(5, 20);
         public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP = Config.bool("striderFishingSoulWhip", false);
         public static final IntEntry STRIDER_FISHING_SOUL_WHIP_SLOT = Config.integer("striderFishingSoulWhipSlot", 3)

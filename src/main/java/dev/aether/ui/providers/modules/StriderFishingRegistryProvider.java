@@ -115,17 +115,17 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
                         })));
 
         groups.add(SettingGroup.of(
-                        "Sawyer Lava",
+                        "Soul Whip Fishing",
                         "Fills a small lava pool with striders and clears it once enough are stuck",
-                        () -> AetherConfig.STRIDER_FISHING_SAWYER_LAVA.get(),
+                        () -> AetherConfig.STRIDER_FISHING_SOUL_WHIP_FISHING.get(),
                         v -> {
-                            AetherConfig.STRIDER_FISHING_SAWYER_LAVA.set(v);
+                            AetherConfig.STRIDER_FISHING_SOUL_WHIP_FISHING.set(v);
                             AetherConfig.save();
                         })
                 .add(new SliderSetting("Striders Before Kill", 5, 20,
-                        () -> (float) AetherConfig.STRIDER_FISHING_SAWYER_COUNT.get(),
+                        () -> (float) AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.get(),
                         v -> {
-                            AetherConfig.STRIDER_FISHING_SAWYER_COUNT.set(Math.round(v));
+                            AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.set(Math.round(v));
                             AetherConfig.save();
                         })
                         .withDecimals(0))
