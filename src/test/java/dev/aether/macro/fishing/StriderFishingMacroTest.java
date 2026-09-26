@@ -225,4 +225,52 @@ class StriderFishingMacroTest {
         assertTrue(StriderFishingMacro.sneakAllowedInLiquid(true, true));
         assertTrue(StriderFishingMacro.sneakAllowedInLiquid(false, true));
     }
+    @Test
+    void thePoolIsClearedOnlyOnceItHoldsTheChosenCount() {
+        assertFalse(StriderFishingMacro.sawyerGoalReached(4, 5));
+        assertTrue(StriderFishingMacro.sawyerGoalReached(5, 5));
+        assertTrue(StriderFishingMacro.sawyerGoalReached(21, 20));
+    }
+
+    @Test
+    void theWeaponSwapLandsInsideTheConfiguredWindowPlusTheOddFumble() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        boolean sawVariety = false;
+        long first = StriderFishingMacro.nextWhipSwapDelayMs(random, 40, 130);
+        for (int i = 0; i < 2000; i++) {
+            long delay = StriderFishingMacro.nextWhipSwapDelayMs(random, 40, 130);
+            assertTrue(StriderFishingMacro.whipSwapDelayInRange(delay, 40, 130));
+            assertTrue(delay >= 40L && delay <= 220L);
+            sawVariety |= delay != first;
+        }
+        assertTrue(sawVariety);
+    }
+
+    @Test
+    void swappedSwapBoundsStillProduceAValidDelay() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            long delay = StriderFishingMacro.nextWhipSwapDelayMs(random, 130, 40);
+            assertTrue(StriderFishingMacro.whipSwapDelayInRange(delay, 40, 130));
+        }
+    }
+
+    @Test
+    void theWhipIsDrawnABeatBeforeTheClickAndSwungOnALooseRhythm() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            long draw = StriderFishingMacro.nextWhipDrawDelayMs(random);
+            assertTrue(StriderFishingMacro.whipDrawDelayInRange(draw));
+            assertTrue(draw >= 45L);
+            assertTrue(StriderFishingMacro.whipIntervalInRange(StriderFishingMacro.nextWhipIntervalMs(random)));
+        }
+    }
+
+    @Test
+    void theWhipOnlyFiresOnceTheCrosshairIsNearTheStrider() {
+        assertTrue(StriderFishingMacro.aimWithin(10.0f, 20.0f, 14.0f, 24.0f, 6.0f));
+        assertFalse(StriderFishingMacro.aimWithin(10.0f, 20.0f, 30.0f, 20.0f, 6.0f));
+        // yaw wraps, so 179 and -179 are two degrees apart
+        assertTrue(StriderFishingMacro.aimWithin(179.0f, 0.0f, -179.0f, 0.0f, 6.0f));
+    }
 }
