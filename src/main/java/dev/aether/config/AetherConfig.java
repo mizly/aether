@@ -1121,4 +1121,18 @@ public final class AetherConfig {
         // blank means the macro fishes wherever it was started, with no warp or route first
         public static final StringEntry STRIDER_FISHING_RESTART_ROUTE = Config.string("striderFishingRestartRoute",
                         "default_strider");
+        public static final BooleanEntry STRIDER_FISHING_RANDOM_LOOK = Config.bool("striderFishingRandomLook", true);
+        public static final BooleanEntry STRIDER_FISHING_BLOCK_SHUFFLE = Config.bool("striderFishingBlockShuffle", true);
+        // sawyer lava leaves each catch stuck in a small pool and only clears the pool once it holds this many
+        public static final BooleanEntry STRIDER_FISHING_SAWYER_LAVA = Config.bool("striderFishingSawyerLava", false);
+        public static final IntEntry STRIDER_FISHING_SAWYER_COUNT = Config.integer("striderFishingSawyerCount", 10)
+                        .range(5, 20);
+        public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP = Config.bool("striderFishingSoulWhip", false);
+        public static final IntEntry STRIDER_FISHING_SOUL_WHIP_SLOT = Config.integer("striderFishingSoulWhipSlot", 3)
+                        .range(1, 9);
+        // right click to weapon key; a practised attribute swap lands one to three ticks after the click
+        public static final IntEntry STRIDER_FISHING_WHIP_SWAP_MIN = Config.integer("striderFishingWhipSwapMin", 40)
+                        .range(0, 250);
+        public static final IntEntry STRIDER_FISHING_WHIP_SWAP_MAX = Config.integer("striderFishingWhipSwapMax", 130)
+                        .range(0, 250);
 }

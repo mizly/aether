@@ -28,7 +28,10 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -37,7 +40,7 @@ import java.util.concurrent.ThreadLocalRandom;
 // every delay here is wall-clock and every decision runs on the client tick, so the macro behaves the same at 10 or 240 fps
 public final class StriderFishingMacro extends AbstractMacro {
 
-    public enum State { AIM_LAVA, CAST, WAIT_BITE, REEL, FIGHT, RETURN }
+    public enum State { AIM_LAVA, CAST, WAIT_BITE, REEL, FIGHT, CLEAR, RETURN }
 
     private static final double LAVA_SCAN_RADIUS = 6.0;
     private static final double LAVA_SCAN_DEPTH = 4.0;
@@ -102,6 +105,22 @@ public final class StriderFishingMacro extends AbstractMacro {
     private static final double MIN_CAST_HORIZONTAL = 2.0;
     private static final double AIM_BOX_RADIUS = 0.18;
 
+    // a pool that never empties means a catch slipped out of reach, so the rest is written off and fishing resumes
+    private static final long CLEAR_TIMEOUT_MS = 60_000L;
+    // the hotbar key for the whip goes down a beat before the right click, never on the same frame
+    private static final long WHIP_DRAW_MIN_MS = 45L;
+    private static final long WHIP_DRAW_MAX_MS = 120L;
+    private static final long WHIP_INTERVAL_MIN_MS = 350L;
+    private static final long WHIP_INTERVAL_MAX_MS = 800L;
+    // now and then the weapon key is fumbled a little late, the way a real hand misses the rhythm
+    private static final int WHIP_HESITATE_ONE_IN = 12;
+    private static final long WHIP_HESITATE_MIN_MS = 30L;
+    private static final long WHIP_HESITATE_MAX_MS = 90L;
+    private static final float WHIP_AIM_TOLERANCE_DEGREES = 6.0f;
+    private static final int GLANCE_AT_POOL_ONE_IN = 3;
+    private static final float GLANCE_YAW_DEGREES = 5.0f;
+    private static final float GLANCE_PITCH_DEGREES = 3.0f;
+
     private State state = State.AIM_LAVA;
     private BlockPos origin;
     private long stateEnteredAt;
@@ -123,6 +142,13 @@ public final class StriderFishingMacro extends AbstractMacro {
     private EtherwarpLeg returnWarp;
     private long returnRetryAt;
     private volatile boolean returnFinished;
+
+    private final Set<Integer> pooledCatchIds = new LinkedHashSet<>();
+    private long whipClickAt;
+    private long whipSwapAt;
+    private long whipNextAt;
+    private int ticks;
+    private int whipClickTick;
 
     // everything loaded when the line was reeled, so a catch is told apart from whatever was already swimming
     private final Set<Integer> preReelEntityIds = new HashSet<>();
@@ -149,6 +175,8 @@ public final class StriderFishingMacro extends AbstractMacro {
         jumpHoldAt = 0L;
         emptyCatch = false;
         preReelEntityIds.clear();
+        pooledCatchIds.clear();
+        clearWhip();
         clearIdle();
         changeState(State.AIM_LAVA);
         ClientUtils.sendDebugMessage("[StriderFishing] started at "
@@ -166,6 +194,8 @@ public final class StriderFishingMacro extends AbstractMacro {
         returnPathStarted = false;
         returnFinished = false;
         preReelEntityIds.clear();
+        pooledCatchIds.clear();
+        clearWhip();
         clearIdle();
     }
 
@@ -174,6 +204,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         if (mc.player == null || mc.level == null) {
             return;
         }
+        ticks++;
         if (mc.screen != null) {
             releaseAll(mc);
             return;
@@ -190,6 +221,7 @@ public final class StriderFishingMacro extends AbstractMacro {
                 case WAIT_BITE -> tickWaitBite(mc);
                 case REEL -> tickReel(mc);
                 case FIGHT -> tickFight(mc);
+                case CLEAR -> tickClear(mc);
                 case RETURN -> tickReturn(mc);
             }
         }
@@ -285,6 +317,15 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
+        // a pool packed with striders can snag the float on one of them, which will never bite
+        if (sawyerLava() && mc.player.fishing.getHookedIn() != null) {
+            ClientUtils.sendDebugMessage("[StriderFishing] float hooked a strider, recasting");
+            clearIdle();
+            ClientUtils.performUseClick();
+            changeState(State.AIM_LAVA);
+            return;
+        }
+
         if (hasCatchMarker(mc, mc.player.fishing)) {
             clearIdle();
             snapshotLoadedEntities(mc);
@@ -338,6 +379,11 @@ public final class StriderFishingMacro extends AbstractMacro {
             }
         }
 
+        if (target != null && sawyerLava()) {
+            poolCatch(mc, now);
+            return;
+        }
+
         if (target == null) {
             holdStill(mc);
             if (returnAt != 0L) {
@@ -366,6 +412,10 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
+        engage(mc, now);
+    }
+
+    private void engage(Minecraft mc, long now) {
         FailsafeManager.selectHotbarSlot(mc, weaponSlot());
 
         Vec3 aim = aimPoint(target);
@@ -393,6 +443,193 @@ public final class StriderFishingMacro extends AbstractMacro {
             ClientUtils.performAttackClick();
             nextAttackAt = now + nextAttackDelayMs(ThreadLocalRandom.current());
         }
+    }
+
+    // the catch stays stuck in the pool, so it is only counted and the line goes straight back out
+    private void poolCatch(Minecraft mc, long now) {
+        pooledCatchIds.add(target.getId());
+        target = null;
+        pruneDeadCatches(mc);
+        int goal = AetherConfig.STRIDER_FISHING_SAWYER_COUNT.get();
+        ClientUtils.sendDebugMessage("[StriderFishing] pool holds " + pooledCatchIds.size() + "/" + goal);
+        if (sawyerGoalReached(pooledCatchIds.size(), goal)) {
+            clearWhip();
+            changeState(State.CLEAR);
+            return;
+        }
+        emptyCatch = false;
+        if (isOnOrigin(mc)) {
+            changeState(State.CAST);
+            nextActionAt = now + castDelayMs();
+            return;
+        }
+        beginReturn(mc);
+    }
+
+    private void tickClear(Minecraft mc) {
+        long now = System.currentTimeMillis();
+        pruneDeadCatches(mc);
+
+        if (pooledCatchIds.isEmpty() || now - stateEnteredAt > CLEAR_TIMEOUT_MS) {
+            if (!pooledCatchIds.isEmpty()) {
+                ClientUtils.sendDebugMessage("[StriderFishing] pool clear timed out, fishing again");
+            }
+            finishClear(mc, now);
+            return;
+        }
+
+        if (target == null || !isAlive(target) || !pooledCatchIds.contains(target.getId())) {
+            target = nearestPooledCatch(mc);
+            if (target == null) {
+                finishClear(mc, now);
+                return;
+            }
+        }
+
+        if (AetherConfig.STRIDER_FISHING_SOUL_WHIP.get()) {
+            tickWhip(mc, now);
+            return;
+        }
+        engage(mc, now);
+    }
+
+    // whip from the block, then swap to the weapon before the hit resolves so the weapon's stats carry it
+    private void tickWhip(Minecraft mc, long now) {
+        holdStill(mc);
+        RotationManager.trackRotation(mc, aimPoint(target), AIM_SMOOTHING_MS, AIM_MAX_TURN_SPEED);
+
+        if (whipSwapAt != 0L) {
+            // the click is only sent on the tick after it was queued, and the swap must not beat it there
+            if (now >= whipSwapAt && ticks > whipClickTick) {
+                FailsafeManager.selectHotbarSlot(mc, weaponSlot());
+                whipSwapAt = 0L;
+                whipNextAt = now + nextWhipIntervalMs(ThreadLocalRandom.current());
+            }
+            return;
+        }
+
+        if (whipClickAt != 0L) {
+            if (now >= whipClickAt) {
+                ClientUtils.performUseClickInstant();
+                whipClickAt = 0L;
+                whipClickTick = ticks;
+                whipSwapAt = now + nextWhipSwapDelayMs(ThreadLocalRandom.current(),
+                        AetherConfig.STRIDER_FISHING_WHIP_SWAP_MIN.get(),
+                        AetherConfig.STRIDER_FISHING_WHIP_SWAP_MAX.get());
+            }
+            return;
+        }
+
+        if (now < whipNextAt || !isAimedAt(mc, aimPoint(target))) {
+            return;
+        }
+        FailsafeManager.selectHotbarSlot(mc, soulWhipSlot());
+        whipClickAt = now + nextWhipDrawDelayMs(ThreadLocalRandom.current());
+    }
+
+    private void finishClear(Minecraft mc, long now) {
+        pooledCatchIds.clear();
+        target = null;
+        followMove = 0;
+        clearWhip();
+        releaseAll(mc);
+        if (isOnOrigin(mc)) {
+            changeState(State.AIM_LAVA);
+            return;
+        }
+        beginReturn(mc);
+    }
+
+    private void clearWhip() {
+        whipClickAt = 0L;
+        whipSwapAt = 0L;
+        whipNextAt = 0L;
+    }
+
+    private void pruneDeadCatches(Minecraft mc) {
+        pooledCatchIds.removeIf(id -> !isAlive(mc.level.getEntity(id)));
+    }
+
+    private Entity nearestPooledCatch(Minecraft mc) {
+        Entity best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (int id : pooledCatchIds) {
+            Entity entity = mc.level.getEntity(id);
+            if (!isAlive(entity)) {
+                continue;
+            }
+            double distance = entity.distanceToSqr(mc.player);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = entity;
+            }
+        }
+        return best;
+    }
+
+    private Entity randomPooledCatch(Minecraft mc, ThreadLocalRandom random) {
+        List<Entity> alive = new ArrayList<>();
+        for (int id : pooledCatchIds) {
+            Entity entity = mc.level.getEntity(id);
+            if (isAlive(entity)) {
+                alive.add(entity);
+            }
+        }
+        return alive.isEmpty() ? null : alive.get(random.nextInt(alive.size()));
+    }
+
+    private static boolean isAimedAt(Minecraft mc, Vec3 point) {
+        Vec3 eye = mc.player.getEyePosition();
+        double dx = point.x - eye.x;
+        double dy = point.y - eye.y;
+        double dz = point.z - eye.z;
+        return aimWithin(mc.player.getYRot(), mc.player.getXRot(),
+                yawTo(dx, dz), pitchTo(dx, dy, dz), WHIP_AIM_TOLERANCE_DEGREES);
+    }
+
+    static boolean aimWithin(float yaw, float pitch, float wantYaw, float wantPitch, float tolerance) {
+        return Math.abs(Mth.wrapDegrees(wantYaw - yaw)) <= tolerance
+                && Math.abs(wantPitch - pitch) <= tolerance;
+    }
+
+    static boolean sawyerGoalReached(int pooled, int goal) {
+        return pooled >= goal;
+    }
+
+    // two uniforms averaged make a triangle, so most swaps land mid range and the edges stay rare
+    static long nextWhipSwapDelayMs(ThreadLocalRandom random, int min, int max) {
+        int lo = Math.min(min, max);
+        int hi = Math.max(min, max);
+        double t = (random.nextDouble() + random.nextDouble()) / 2.0;
+        long delay = Math.round(lo + (hi - lo) * t);
+        if (random.nextInt(WHIP_HESITATE_ONE_IN) == 0) {
+            delay += random.nextLong(WHIP_HESITATE_MIN_MS, WHIP_HESITATE_MAX_MS + 1);
+        }
+        return delay;
+    }
+
+    static boolean whipSwapDelayInRange(long delay, int min, int max) {
+        return delay >= Math.min(min, max) && delay <= Math.max(min, max) + WHIP_HESITATE_MAX_MS;
+    }
+
+    static long nextWhipDrawDelayMs(ThreadLocalRandom random) {
+        return random.nextLong(WHIP_DRAW_MIN_MS, WHIP_DRAW_MAX_MS + 1);
+    }
+
+    static boolean whipDrawDelayInRange(long delay) {
+        return delay >= WHIP_DRAW_MIN_MS && delay <= WHIP_DRAW_MAX_MS;
+    }
+
+    static long nextWhipIntervalMs(ThreadLocalRandom random) {
+        return random.nextLong(WHIP_INTERVAL_MIN_MS, WHIP_INTERVAL_MAX_MS + 1);
+    }
+
+    static boolean whipIntervalInRange(long delay) {
+        return delay >= WHIP_INTERVAL_MIN_MS && delay <= WHIP_INTERVAL_MAX_MS;
+    }
+
+    private static boolean sawyerLava() {
+        return AetherConfig.STRIDER_FISHING_SAWYER_LAVA.get();
     }
 
     private void tickReturn(Minecraft mc) {
@@ -511,22 +748,15 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
-        // drift around the float itself, offset inside a small box so the cursor is never dead centre on it
         ThreadLocalRandom random = ThreadLocalRandom.current();
-        Vec3 eye = mc.player.getEyePosition();
-        Vec3 aimAt = hook.position().add(aimBoxOffset(random));
-        double dx = aimAt.x - eye.x;
-        double dy = aimAt.y - eye.y;
-        double dz = aimAt.z - eye.z;
-
-        RotationManager.rotateToYawPitch(mc,
-                yawTo(dx, dz) + driftDegrees(random, IDLE_YAW_DEGREES),
-                pitchTo(dx, dy, dz) + driftDegrees(random, IDLE_PITCH_DEGREES),
-                nextIdleTurnMs(random));
         idleNextAt = now + nextIdleDelayMs(random);
+        if (AetherConfig.STRIDER_FISHING_RANDOM_LOOK.get()) {
+            lookAround(mc, hook, random);
+        }
 
         // a step only happens crouched, so the shuffle cannot carry the player off the start block
-        if (sneakAllowedHere(mc) && isOnOrigin(mc) && random.nextInt(IDLE_TAP_ONE_IN) == 0) {
+        if (AetherConfig.STRIDER_FISHING_BLOCK_SHUFFLE.get()
+                && sneakAllowedHere(mc) && isOnOrigin(mc) && random.nextInt(IDLE_TAP_ONE_IN) == 0) {
             idleTapKey = switch (random.nextInt(4)) {
                 case 0 -> options.keyUp;
                 case 1 -> options.keyDown;
@@ -535,6 +765,27 @@ public final class StriderFishingMacro extends AbstractMacro {
             };
             idleTapUntil = now + random.nextLong(IDLE_TAP_MIN_MS, IDLE_TAP_MAX_MS + 1);
         }
+    }
+
+    // drift around the float itself, offset inside a small box so the cursor is never dead centre on it
+    // with a pool filling up, the odd glance goes to one of the striders already stuck in it
+    private void lookAround(Minecraft mc, FishingHook hook, ThreadLocalRandom random) {
+        Entity glance = sawyerLava() && random.nextInt(GLANCE_AT_POOL_ONE_IN) == 0
+                ? randomPooledCatch(mc, random)
+                : null;
+        Vec3 aimAt = glance != null ? aimPoint(glance) : hook.position();
+        aimAt = aimAt.add(aimBoxOffset(random));
+        float yawRange = glance != null ? GLANCE_YAW_DEGREES : IDLE_YAW_DEGREES;
+        float pitchRange = glance != null ? GLANCE_PITCH_DEGREES : IDLE_PITCH_DEGREES;
+
+        Vec3 eye = mc.player.getEyePosition();
+        double dx = aimAt.x - eye.x;
+        double dy = aimAt.y - eye.y;
+        double dz = aimAt.z - eye.z;
+        RotationManager.rotateToYawPitch(mc,
+                yawTo(dx, dz) + driftDegrees(random, yawRange),
+                pitchTo(dx, dy, dz) + driftDegrees(random, pitchRange),
+                nextIdleTurnMs(random));
     }
 
     private void anchorIdle(long now) {
@@ -610,7 +861,7 @@ public final class StriderFishingMacro extends AbstractMacro {
     }
 
     private void changeState(State next) {
-        if (state == State.FIGHT && next != State.FIGHT) {
+        if ((state == State.FIGHT || state == State.CLEAR) && next != state) {
             RotationManager.cancelRotation();
         }
         state = next;
@@ -761,6 +1012,10 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     private static int weaponSlot() {
         return Mth.clamp(AetherConfig.STRIDER_FISHING_WEAPON_SLOT.get() - 1, 0, 8);
+    }
+
+    private static int soulWhipSlot() {
+        return Mth.clamp(AetherConfig.STRIDER_FISHING_SOUL_WHIP_SLOT.get() - 1, 0, 8);
     }
 
     private void tickLiquidEscape(Minecraft mc) {
