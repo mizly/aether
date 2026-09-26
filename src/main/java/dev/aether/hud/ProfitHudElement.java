@@ -6,6 +6,8 @@ import dev.aether.config.AetherConfig;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.ui.theme.Theme;
 import dev.aether.modules.profit.ProfitManager;
+import dev.aether.modules.profit.helpers.ActivityRateTracker;
+import dev.aether.modules.profit.helpers.SkillXpTracker;
 import dev.aether.ui.util.Fonts;
 import dev.aether.renderer.NVGRenderer;
 
@@ -111,21 +113,34 @@ public class ProfitHudElement extends HudElement {
         }
 
         h += itemCount > 0 ? itemCount * ROW_H : 24f;
-        if (showFarmingXp()) {
-            int rows = 2; // XP earned + level/progress to 60
-            if (AetherConfig.FARMING_HUD_XP_RATE.get()) rows++;
-            if (AetherConfig.FARMING_HUD_ETA_NEXT.get()) rows++;
-            if (AetherConfig.FARMING_HUD_ETA_MAX.get()) rows++;
+        if (showSkillXp()) {
+            int rows = 2; // XP earned + level/progress to max
+            if (AetherConfig.SKILL_HUD_XP_RATE.get()) rows++;
+            if (AetherConfig.SKILL_HUD_ETA_NEXT.get()) rows++;
+            if (AetherConfig.SKILL_HUD_ETA_MAX.get()) rows++;
             h += 10f + rows * ROW_H + FARM_BAR_H + 4f; // separator + rows + progress bar
+        }
+        int rateRows = (showMobRate() ? 1 : 0) + (showBlockRate() ? 1 : 0);
+        if (rateRows > 0) {
+            h += 10f + rateRows * ROW_H;
         }
         h += 8f;  // bottom padding
         return h;
     }
 
-    private boolean showFarmingXp() {
+    private boolean showSkillXp() {
         return isSession()
-                && AetherConfig.FARMING_XP_HUD.get()
-                && dev.aether.modules.profit.helpers.FarmingXpTracker.hasData();
+                && AetherConfig.SKILL_XP_HUD.get()
+                && SkillXpTracker.active().hasData();
+    }
+
+    // a farming session never kills anything and a fishing one never breaks a block, so an empty count stays hidden
+    private boolean showMobRate() {
+        return isSession() && AetherConfig.PROFIT_MOBS_PER_HOUR.get() && ActivityRateTracker.getMobsKilled() > 0;
+    }
+
+    private boolean showBlockRate() {
+        return isSession() && AetherConfig.PROFIT_BLOCKS_PER_HOUR.get() && ActivityRateTracker.getBlocksBroken() > 0;
     }
 
     private boolean showGraph() {
@@ -202,42 +217,40 @@ public class ProfitHudElement extends HudElement {
             ry += 24f;
         }
 
-        // Farming XP / progress to 60
-        if (showFarmingXp()) {
+        if (showSkillXp()) {
+            SkillXpTracker xp = SkillXpTracker.active();
+            String skill = xp.getSkill();
+            int maxLevel = xp.getMaxLevel();
             nvg.rect(PAD_H, ry + 1f, W - PAD_H * 2f, 1f, Theme.HUD_SEP);
             ry += 10f;
 
-            boolean maxed = dev.aether.modules.profit.helpers.FarmingXpTracker.isMaxed();
-            int level = dev.aether.modules.profit.helpers.FarmingXpTracker.getLevel();
-            float prog = dev.aether.modules.profit.helpers.FarmingXpTracker.getProgressToMax();
+            boolean maxed = xp.isMaxed();
+            int level = xp.getLevel();
+            float prog = xp.getProgressToMax();
 
-            row(nvg, ry, "Farming XP earned",
-                    fmt(dev.aether.modules.profit.helpers.FarmingXpTracker.getSessionXpGained()),
-                    Theme.HUD_SUCCESS);
+            row(nvg, ry, skill + " XP earned", fmt(xp.getSessionXpGained()), Theme.HUD_SUCCESS);
             ry += ROW_H;
 
-            // Header: current level + overall progress to 60
-            row(nvg, ry, "Farming " + level + " → 60",
+            row(nvg, ry, skill + " " + level + " → " + maxLevel,
                     String.format("%.2f%%", prog * 100f), Theme.HUD_VALUE);
             ry += ROW_H;
 
-            if (AetherConfig.FARMING_HUD_XP_RATE.get()) {
-                long perHour = dev.aether.modules.profit.helpers.FarmingXpTracker.getXpPerHour();
-                row(nvg, ry, "Farming XP/hr", fmt(perHour), Theme.HUD_SUCCESS);
+            if (AetherConfig.SKILL_HUD_XP_RATE.get()) {
+                row(nvg, ry, skill + " XP/hr", fmt(xp.getXpPerHour()), Theme.HUD_SUCCESS);
                 ry += ROW_H;
             }
 
-            if (AetherConfig.FARMING_HUD_ETA_NEXT.get()) {
-                long etaNext = dev.aether.modules.profit.helpers.FarmingXpTracker.getEtaToNextLevelMs();
+            if (AetherConfig.SKILL_HUD_ETA_NEXT.get()) {
+                long etaNext = xp.getEtaToNextLevelMs();
                 String s = maxed ? "done" : (etaNext < 0 ? "---" : formatEta(etaNext));
                 row(nvg, ry, "Next level (" + (level + 1) + ")", s, Theme.HUD_VALUE);
                 ry += ROW_H;
             }
 
-            if (AetherConfig.FARMING_HUD_ETA_MAX.get()) {
-                long etaMax = dev.aether.modules.profit.helpers.FarmingXpTracker.getEtaToMaxMs();
+            if (AetherConfig.SKILL_HUD_ETA_MAX.get()) {
+                long etaMax = xp.getEtaToMaxMs();
                 String s = maxed ? "done" : (etaMax < 0 ? "---" : formatEta(etaMax));
-                row(nvg, ry, "Time to 60", s, Theme.HUD_VALUE);
+                row(nvg, ry, "Time to " + maxLevel, s, Theme.HUD_VALUE);
                 ry += ROW_H;
             }
 
@@ -246,6 +259,21 @@ public class ProfitHudElement extends HudElement {
             float fw = bw * Math.max(0f, Math.min(1f, prog));
             if (fw > 0) nvg.roundedRect(PAD_H, ry, fw, FARM_BAR_H, FARM_BAR_H / 2f, Theme.HUD_ACCENT);
             ry += FARM_BAR_H + 4f;
+        }
+
+        if (showMobRate() || showBlockRate()) {
+            nvg.rect(PAD_H, ry + 1f, W - PAD_H * 2f, 1f, Theme.HUD_SEP);
+            ry += 10f;
+            if (showMobRate()) {
+                row(nvg, ry, "Mobs killed (x" + fmt(ActivityRateTracker.getMobsKilled()) + ")",
+                        fmt(ActivityRateTracker.getMobsPerHour()) + "/hr", Theme.HUD_VALUE);
+                ry += ROW_H;
+            }
+            if (showBlockRate()) {
+                row(nvg, ry, "Blocks broken (x" + fmt(ActivityRateTracker.getBlocksBroken()) + ")",
+                        fmt(ActivityRateTracker.getBlocksPerHour()) + "/hr", Theme.HUD_VALUE);
+                ry += ROW_H;
+            }
         }
 
     }

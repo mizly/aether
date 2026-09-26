@@ -205,7 +205,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
     @Override
     public Component transformOverlayMessage(Component component) {
         FailsafeManager.observeGhostBlockOverlayMessage(component);
-        dev.aether.modules.profit.helpers.FarmingXpTracker.onActionBar(component);
+        dev.aether.modules.profit.helpers.SkillXpTracker.onActionBarAll(component);
         return transformDisplayComponent(component);
     }
 

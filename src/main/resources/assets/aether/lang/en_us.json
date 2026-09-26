@@ -853,5 +853,15 @@
   "text.aether.in_use": "In Use",
   "text.aether.edit": "Edit",
   "text.aether.route_deleted": "Route Deleted",
-  "text.aether.route_reset": "Route Reset"
+  "text.aether.route_reset": "Route Reset",
+  "text.aether.skill_xp": "Skill XP",
+  "text.aether.xp_for_the_skill_the_running_macro_levels_shown_on_the_session_profit_hud": "XP for the skill the running macro levels, shown on the Session Profit HUD",
+  "text.aether.show_xp": "Show XP",
+  "text.aether.xp_hr": "XP / hr",
+  "text.aether.time_to_next_level": "Time to Next Level",
+  "text.aether.time_to_max_level": "Time to Max Level",
+  "text.aether.hourly_rates": "Hourly Rates",
+  "text.aether.mobs_killed_and_blocks_broken_per_hour_on_the_session_profit_hud": "Mobs killed and blocks broken per hour on the Session Profit HUD",
+  "text.aether.mobs_killed_hr": "Mobs Killed / hr",
+  "text.aether.blocks_broken_hr": "Blocks Broken / hr"
 }

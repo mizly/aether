@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.profit.ProfitManager;
 import dev.aether.util.NumberUtils;
@@ -15,10 +16,9 @@ import net.minecraft.network.chat.Component;
 
 // the tab-list skills widget and action bar fraction provide direct absolute XP anchors
 // at high levels the action bar degrades from (cur/max) to (percent), which alone cannot resolve an absolute xp value
-public final class FarmingXpTracker {
+public final class SkillXpTracker {
 
-    public static final int MAX_LEVEL = 60;
-
+    // every skill shares one table; farming just keeps going past 50
     // index 0 is level 0->1
     private static final long[] LEVEL_INCREMENTS = {
             50L, 125L, 200L, 300L, 500L, 750L, 1000L, 1500L, 2000L, 3500L,
@@ -31,45 +31,91 @@ public final class FarmingXpTracker {
 
     // index = level, 0..60
     private static final long[] XP_TO_LEVEL = buildCumulative();
-    public static final long XP_TO_MAX = XP_TO_LEVEL[MAX_LEVEL];
 
     // maps a "needed for next level" value back to the level you are on
     private static final Map<Long, Integer> NEEDED_TO_LEVEL = buildNeededMap();
 
-    // -- Patterns --------------------------------------------------------------
+    // built after the tables above, which the constructor reads
+    public static final SkillXpTracker FARMING = new SkillXpTracker("Farming", 60);
+    public static final SkillXpTracker FISHING = new SkillXpTracker("Fishing", 50);
+    private static final SkillXpTracker[] ALL = {FARMING, FISHING};
 
-    private static final Pattern AB_FRACTION = Pattern.compile(
-            "Farming\\s+\\(([\\d.,]+)/([\\d.,]+[kKmMbB]?)\\)");
+    private final String skill;
+    private final int maxLevel;
+    private final long xpToMax;
+    private final Pattern abFraction;
+    private final Pattern tabMax;
+    private final Pattern tabFraction;
+    private final Pattern tabPercent;
 
-    private static final Pattern TAB_MAX = Pattern.compile(
-            "Farming\\s+(\\d+):\\s+MAX", Pattern.CASE_INSENSITIVE);
-    private static final Pattern TAB_FRACTION = Pattern.compile(
-            "Farming\\s+(\\d+):\\s+([\\d.,]+)/([\\d.,]+[kKmMbB]?)");
-    private static final Pattern TAB_PERCENT = Pattern.compile(
-            "Farming\\s+(\\d+):\\s+([\\d.,]+)%");
-
-    private static final Object LOCK = new Object();
+    private final Object lock = new Object();
 
     // Cross-thread readable scalars for the HUD.
-    private static volatile long sessionXpGained = 0L;
-    private static volatile int currentLevel = -1;
-    private static volatile long absoluteXp = -1L;
-    private static volatile long sessionStartAbsoluteXp = -1L;
+    private volatile long sessionXpGained = 0L;
+    private volatile int currentLevel = -1;
+    private volatile long absoluteXp = -1L;
+    private volatile long sessionStartAbsoluteXp = -1L;
 
-    private FarmingXpTracker() {}
+    SkillXpTracker(String skill, int maxLevel) {
+        this.skill = skill;
+        this.maxLevel = maxLevel;
+        this.xpToMax = XP_TO_LEVEL[maxLevel];
+        String name = Pattern.quote(skill);
+        abFraction = Pattern.compile(name + "\\s+\\(([\\d.,]+)/([\\d.,]+[kKmMbB]?)\\)");
+        tabMax = Pattern.compile(name + "\\s+(\\d+):\\s+MAX", Pattern.CASE_INSENSITIVE);
+        tabFraction = Pattern.compile(name + "\\s+(\\d+):\\s+([\\d.,]+)/([\\d.,]+[kKmMbB]?)");
+        tabPercent = Pattern.compile(name + "\\s+(\\d+):\\s+([\\d.,]+)%");
+    }
+
+    // the skill the running macro levels, so the hud follows whichever module is on
+    public static SkillXpTracker active() {
+        return MacroStateManager.getCurrentState() == MacroState.State.FISHING ? FISHING : FARMING;
+    }
+
+    public static void onActionBarAll(Component component) {
+        for (SkillXpTracker tracker : ALL) {
+            tracker.onActionBar(component);
+        }
+    }
+
+    public static void updateAllFromTablist(Minecraft client) {
+        for (SkillXpTracker tracker : ALL) {
+            tracker.updateFromTablist(client);
+        }
+    }
+
+    public static void resetAll() {
+        for (SkillXpTracker tracker : ALL) {
+            tracker.reset();
+        }
+    }
+
+    public static void resetAllLiveState() {
+        for (SkillXpTracker tracker : ALL) {
+            tracker.resetLiveState();
+        }
+    }
+
+    public String getSkill() {
+        return skill;
+    }
+
+    public int getMaxLevel() {
+        return maxLevel;
+    }
 
     // -- Action bar feed (called from the overlay-message hook) ----------------
 
-    public static void onActionBar(Component component) {
+    public void onActionBar(Component component) {
         if (component == null || !ProfitManager.isProfitTrackingActive()) {
             return;
         }
         String s = TablistUtils.stripColors(component.getString());
-        if (s.isEmpty() || !s.contains("Farming")) {
+        if (s.isEmpty() || !s.contains(skill)) {
             return;
         }
 
-        Matcher frac = AB_FRACTION.matcher(s);
+        Matcher frac = abFraction.matcher(s);
         if (frac.find()) {
             try {
                 long cur = (long) parseNum(frac.group(1));
@@ -86,18 +132,18 @@ public final class FarmingXpTracker {
     // -- Tab list / per-tick update (called from ProfitLiveTracker) ------------
 
     // anchors absolute level and progress from the tab-list skills widget when it is there
-    public static void updateFromTablist(Minecraft client) {
+    public void updateFromTablist(Minecraft client) {
         if (client == null || client.getConnection() == null || !ProfitManager.isProfitTrackingActive()) {
             return;
         }
         List<String> lines = TablistUtils.getTabLines(client);
         for (String line : lines) {
-            Matcher max = TAB_MAX.matcher(line);
+            Matcher max = tabMax.matcher(line);
             if (max.find()) {
-                setAnchor(MAX_LEVEL, 0L);
+                setAnchor(maxLevel, 0L);
                 return;
             }
-            Matcher frac = TAB_FRACTION.matcher(line);
+            Matcher frac = tabFraction.matcher(line);
             if (frac.find()) {
                 try {
                     int level = Integer.parseInt(frac.group(1));
@@ -107,7 +153,7 @@ public final class FarmingXpTracker {
                 } catch (NumberFormatException ignored) {
                 }
             }
-            Matcher pct = TAB_PERCENT.matcher(line);
+            Matcher pct = tabPercent.matcher(line);
             if (pct.find()) {
                 try {
                     int level = Integer.parseInt(pct.group(1));
@@ -121,8 +167,8 @@ public final class FarmingXpTracker {
         }
     }
 
-    public static void reset() {
-        synchronized (LOCK) {
+    public void reset() {
+        synchronized (lock) {
             sessionXpGained = 0L;
             currentLevel = -1;
             absoluteXp = -1L;
@@ -130,12 +176,9 @@ public final class FarmingXpTracker {
         }
     }
 
-    /**
-     * Clears the live sample while keeping the baseline for a persisted macro session.
-     * The next anchor will calculate the total gain from the original session start.
-     */
-    public static void resetLiveState() {
-        synchronized (LOCK) {
+    // keeps the baseline, so a persisted session still counts its gain from the original start
+    public void resetLiveState() {
+        synchronized (lock) {
             sessionXpGained = 0L;
             currentLevel = -1;
             absoluteXp = -1L;
@@ -144,46 +187,46 @@ public final class FarmingXpTracker {
 
     // -- HUD getters -----------------------------------------------------------
 
-    public static boolean hasData() {
+    public boolean hasData() {
         return absoluteXp >= 0 && currentLevel >= 0;
     }
 
-    public static boolean isMaxed() {
-        return currentLevel >= MAX_LEVEL && absoluteXp >= XP_TO_MAX;
+    public boolean isMaxed() {
+        return currentLevel >= maxLevel && absoluteXp >= xpToMax;
     }
 
-    public static boolean isPaused() {
+    public boolean isPaused() {
         return MacroStateManager.getSessionRunningTime() <= 0L;
     }
 
-    public static int getLevel() {
+    public int getLevel() {
         return currentLevel;
     }
 
-    public static long getXpPerHour() {
+    public long getXpPerHour() {
         long sessionMs = MacroStateManager.getSessionRunningTime();
         return sessionMs > 0
                 ? (long) (sessionXpGained * 3_600_000.0 / sessionMs)
                 : 0L;
     }
 
-    public static long getSessionXpGained() {
+    public long getSessionXpGained() {
         return sessionXpGained;
     }
 
-    public static long getRemainingToMax() {
-        return Math.max(0L, XP_TO_MAX - Math.max(0L, absoluteXp));
+    public long getRemainingToMax() {
+        return Math.max(0L, xpToMax - Math.max(0L, absoluteXp));
     }
 
-    public static float getProgressToMax() {
+    public float getProgressToMax() {
         if (absoluteXp <= 0) {
             return 0f;
         }
-        return Math.max(0f, Math.min(1f, (float) absoluteXp / (float) XP_TO_MAX));
+        return Math.max(0f, Math.min(1f, (float) absoluteXp / (float) xpToMax));
     }
 
     // -1 when unknown
-    public static long getEtaToMaxMs() {
+    public long getEtaToMaxMs() {
         long rate = getXpPerHour();
         if (rate <= 0 || isMaxed()) {
             return -1L;
@@ -191,29 +234,29 @@ public final class FarmingXpTracker {
         return (long) (getRemainingToMax() / (double) rate * 3_600_000.0);
     }
 
-    public static long getXpIntoLevel() {
+    public long getXpIntoLevel() {
         if (absoluteXp < 0 || currentLevel < 0) {
             return 0L;
         }
-        return Math.max(0L, absoluteXp - XP_TO_LEVEL[Math.min(currentLevel, MAX_LEVEL)]);
+        return Math.max(0L, absoluteXp - XP_TO_LEVEL[Math.min(currentLevel, maxLevel)]);
     }
 
-    public static long getXpForNextLevel() {
-        if (currentLevel < 0 || currentLevel >= LEVEL_INCREMENTS.length) {
+    public long getXpForNextLevel() {
+        if (currentLevel < 0 || currentLevel >= maxLevel) {
             return 0L;
         }
         return LEVEL_INCREMENTS[currentLevel];
     }
 
-    public static long getRemainingToNextLevel() {
+    public long getRemainingToNextLevel() {
         long need = getXpForNextLevel();
         return need <= 0 ? 0L : Math.max(0L, need - getXpIntoLevel());
     }
 
     // -1 when unknown
-    public static long getEtaToNextLevelMs() {
+    public long getEtaToNextLevelMs() {
         long rate = getXpPerHour();
-        if (rate <= 0 || currentLevel >= MAX_LEVEL) {
+        if (rate <= 0 || currentLevel >= maxLevel) {
             return -1L;
         }
         return (long) (getRemainingToNextLevel() / (double) rate * 3_600_000.0);
@@ -221,20 +264,20 @@ public final class FarmingXpTracker {
 
     // -- Internals -------------------------------------------------------------
 
-    static void setAnchor(int level, long currentXpInLevel) {
-        if (level < 0 || level > MAX_LEVEL) {
+    void setAnchor(int level, long currentXpInLevel) {
+        if (level < 0 || level > maxLevel) {
             return;
         }
-        synchronized (LOCK) {
+        synchronized (lock) {
             long nextAbsoluteXp = XP_TO_LEVEL[level] + Math.max(0L, currentXpInLevel);
 
             // The tab list can arrive first on startup and establish level 60 with
             // no overflow. The first action-bar x/0 value is the existing post-cap
             // total, so use it as the session baseline instead of counting it.
-            boolean initializingPostCapBaseline = level == MAX_LEVEL
+            boolean initializingPostCapBaseline = level == maxLevel
                     && currentXpInLevel > 0L
-                    && absoluteXp == XP_TO_MAX
-                    && sessionStartAbsoluteXp == XP_TO_MAX
+                    && absoluteXp == xpToMax
+                    && sessionStartAbsoluteXp == xpToMax
                     && sessionXpGained == 0L;
             if (initializingPostCapBaseline) {
                 sessionStartAbsoluteXp = nextAbsoluteXp;
@@ -242,7 +285,7 @@ public final class FarmingXpTracker {
 
             // At max level the tab list reports MAX, while the action bar can still
             // report the post-cap XP as x/0. Do not let the tab-list anchor erase it.
-            if (level == MAX_LEVEL && currentXpInLevel == 0L && absoluteXp > nextAbsoluteXp) {
+            if (level == maxLevel && currentXpInLevel == 0L && absoluteXp > nextAbsoluteXp) {
                 nextAbsoluteXp = absoluteXp;
             }
 
@@ -256,18 +299,18 @@ public final class FarmingXpTracker {
         }
     }
 
-    static int levelForNeeded(long needed) {
+    int levelForNeeded(long needed) {
         if (needed == 0L) {
-            return MAX_LEVEL;
+            return maxLevel;
         }
         Integer exact = NEEDED_TO_LEVEL.get(needed);
-        if (exact != null) {
+        if (exact != null && exact < maxLevel) {
             return exact;
         }
         // Suffixed/rounded values (e.g. "2.8M") won't match exactly; pick nearest.
         int best = -1;
         long bestDelta = Long.MAX_VALUE;
-        for (int level = 0; level < LEVEL_INCREMENTS.length; level++) {
+        for (int level = 0; level < maxLevel; level++) {
             long delta = Math.abs(LEVEL_INCREMENTS[level] - needed);
             if (delta < bestDelta) {
                 bestDelta = delta;
@@ -283,9 +326,9 @@ public final class FarmingXpTracker {
     }
 
     private static long[] buildCumulative() {
-        long[] table = new long[MAX_LEVEL + 1];
+        long[] table = new long[LEVEL_INCREMENTS.length + 1];
         long cum = 0L;
-        for (int level = 1; level <= MAX_LEVEL; level++) {
+        for (int level = 1; level <= LEVEL_INCREMENTS.length; level++) {
             cum += LEVEL_INCREMENTS[level - 1];
             table[level] = cum;
         }

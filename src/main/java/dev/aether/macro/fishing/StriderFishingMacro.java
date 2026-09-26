@@ -7,6 +7,7 @@ import dev.aether.macro.MacroInput;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
+import dev.aether.modules.profit.helpers.ActivityRateTracker;
 import dev.aether.modules.routes.EtherwarpLeg;
 import dev.aether.modules.routes.Route;
 import dev.aether.modules.rotation.RotationManager;
@@ -390,6 +391,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         long now = System.currentTimeMillis();
 
         if (target != null && !isAlive(target)) {
+            ActivityRateTracker.onMobKilled();
             target = null;
             // the catch is down, so head back now instead of sitting out the acquire window
             returnAt = now + nextReturnDelayMs(ThreadLocalRandom.current());
@@ -491,7 +493,9 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     private void tickClear(Minecraft mc) {
         long now = System.currentTimeMillis();
-        pruneDeadCatches(mc);
+        for (int i = pruneDeadCatches(mc); i > 0; i--) {
+            ActivityRateTracker.onMobKilled();
+        }
 
         if (pooledCatchIds.isEmpty() || now - stateEnteredAt > CLEAR_TIMEOUT_MS) {
             if (!pooledCatchIds.isEmpty()) {
@@ -570,8 +574,10 @@ public final class StriderFishingMacro extends AbstractMacro {
         whipNextAt = 0L;
     }
 
-    private void pruneDeadCatches(Minecraft mc) {
+    private int pruneDeadCatches(Minecraft mc) {
+        int before = pooledCatchIds.size();
         pooledCatchIds.removeIf(id -> !isAlive(mc.level.getEntity(id)));
+        return before - pooledCatchIds.size();
     }
 
     private Entity nearestPooledCatch(Minecraft mc) {

@@ -691,10 +691,13 @@ public final class AetherConfig {
         public static final BooleanEntry COMPACT_PROFIT_CALCULATOR = Config.bool("compactProfitCalculator", true);
         public static final StringEntry PROFIT_PRICE_SOURCE = Config.string("profitPriceSource", "BAZAAR");
         public static final StringEntry SHARD_PRICE_SOURCE = Config.string("shardPriceSource", "INSTA_SELL");
-        public static final BooleanEntry FARMING_XP_HUD = Config.bool("farmingXpHud", true);
-        public static final BooleanEntry FARMING_HUD_XP_RATE = Config.bool("farmingHudXpRate", true);
-        public static final BooleanEntry FARMING_HUD_ETA_NEXT = Config.bool("farmingHudEtaNext", true);
-        public static final BooleanEntry FARMING_HUD_ETA_MAX = Config.bool("farmingHudEtaMax", true);
+        // the saved keys still say farming so existing configs keep their choices
+        public static final BooleanEntry SKILL_XP_HUD = Config.bool("farmingXpHud", true);
+        public static final BooleanEntry SKILL_HUD_XP_RATE = Config.bool("farmingHudXpRate", true);
+        public static final BooleanEntry SKILL_HUD_ETA_NEXT = Config.bool("farmingHudEtaNext", true);
+        public static final BooleanEntry SKILL_HUD_ETA_MAX = Config.bool("farmingHudEtaMax", true);
+        public static final BooleanEntry PROFIT_MOBS_PER_HOUR = Config.bool("profitMobsPerHour", true);
+        public static final BooleanEntry PROFIT_BLOCKS_PER_HOUR = Config.bool("profitBlocksPerHour", true);
         public static final BooleanEntry HIDE_FILTERED_CHAT = Config.bool("hideFilteredChat", true);
         public static final BooleanEntry GUI_ONLY_IN_GARDEN = Config.bool("guiOnlyInGarden", false);
         public static final BooleanEntry HUD_ONLY_WHILE_MACRO_RUNNING = Config.bool("hudOnlyWhileMacroRunning", false);
