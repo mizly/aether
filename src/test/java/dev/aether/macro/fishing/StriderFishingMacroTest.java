@@ -311,4 +311,30 @@ class StriderFishingMacroTest {
         java.util.Set<Integer> remembered = java.util.Set.of(1, 2, 3);
         assertTrue(StriderFishingMacro.stillPooled(remembered, false, id -> true).isEmpty());
     }
+    @Test
+    void theWhipIsGivenUpOnAfterEnoughSwingsOrTime() {
+        assertFalse(StriderFishingMacro.whipFailing(5, 7_999L));
+        assertTrue(StriderFishingMacro.whipFailing(6, 1_000L));
+        assertTrue(StriderFishingMacro.whipFailing(2, 8_000L));
+    }
+
+    @Test
+    void aStriderStillInThePoolIsLeftToTheWhip() {
+        net.minecraft.world.phys.Vec3 home = new net.minecraft.world.phys.Vec3(0.5, 64.0, 0.5);
+        net.minecraft.world.phys.Vec3 last = new net.minecraft.world.phys.Vec3(3.0, 64.0, 2.0);
+        net.minecraft.world.phys.Vec3 now = new net.minecraft.world.phys.Vec3(3.3, 64.0, 2.4);
+        assertFalse(StriderFishingMacro.escapedCage(last, now, home));
+        assertFalse(StriderFishingMacro.escapedCage(null, now, home));
+    }
+
+    @Test
+    void aTeleportedOrStrayStriderIsKilledByHand() {
+        net.minecraft.world.phys.Vec3 home = new net.minecraft.world.phys.Vec3(0.5, 64.0, 0.5);
+        net.minecraft.world.phys.Vec3 inPool = new net.minecraft.world.phys.Vec3(3.0, 64.0, 2.0);
+        // a jump inside the radius still counts, since striders cannot move that far in a tick
+        assertTrue(StriderFishingMacro.escapedCage(inPool,
+                new net.minecraft.world.phys.Vec3(-2.0, 64.0, -2.0), home));
+        assertTrue(StriderFishingMacro.escapedCage(null,
+                new net.minecraft.world.phys.Vec3(9.0, 64.0, 0.5), home));
+    }
 }

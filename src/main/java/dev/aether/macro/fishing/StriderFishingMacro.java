@@ -29,10 +29,12 @@ import net.minecraft.world.phys.Vec3;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.IntPredicate;
@@ -124,7 +126,15 @@ public final class StriderFishingMacro extends AbstractMacro {
     private static final double AIM_BOX_RADIUS = 0.18;
 
     // a pool that never empties means a catch slipped out of reach, so the rest is written off and fishing resumes
-    private static final long CLEAR_TIMEOUT_MS = 60_000L;
+    private static final long CLEAR_TIMEOUT_MS = 90_000L;
+    // a strider that has taken this many whips, or this long, is not dying to them, so the weapon finishes it
+    private static final int WHIP_GIVE_UP_SWINGS = 6;
+    private static final long WHIP_GIVE_UP_MS = 8_000L;
+    // two strays in a row means the whip itself is out, usually mana, so the rest of the pool goes by hand
+    private static final int WHIP_GIVE_UP_STREAK = 2;
+    // the pool sits beside the start block; a catch this far out, or one that jumped this far in a tick, was moved
+    private static final double CAGE_RADIUS = 7.0;
+    private static final double CAGE_TELEPORT_JUMP = 3.0;
     // the hotbar key for the whip goes down a beat before the right click, never on the same frame
     private static final long WHIP_DRAW_MIN_MS = 45L;
     private static final long WHIP_DRAW_MAX_MS = 120L;
@@ -172,6 +182,12 @@ public final class StriderFishingMacro extends AbstractMacro {
     private long whipNextAt;
     private int ticks;
     private int whipClickTick;
+    private final Map<Integer, Vec3> catchLastSeen = new HashMap<>();
+    private final Set<Integer> manualKillIds = new HashSet<>();
+    private int whipsAtTarget;
+    private long whipTargetSince;
+    private int whipGiveUpStreak;
+    private boolean whipAbandoned;
 
     // everything loaded when the line was reeled, so a catch is told apart from whatever was already swimming
     private final Set<Integer> preReelEntityIds = new HashSet<>();
@@ -200,6 +216,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         preReelEntityIds.clear();
         pooledCatchIds.clear();
         clearWhip();
+        clearKillPlan();
         clearIdle();
         changeState(State.AIM_LAVA);
         ClientUtils.sendDebugMessage("[StriderFishing] started at "
@@ -263,6 +280,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         }
         pooledCatchIds.clear();
         clearWhip();
+        clearKillPlan();
         clearIdle();
     }
 
@@ -292,6 +310,8 @@ public final class StriderFishingMacro extends AbstractMacro {
                 case RETURN -> tickReturn(mc);
             }
         }
+
+        watchCage(mc);
 
         // last word on the jump key, since every state above clears it
         tickLiquidEscape(mc);
@@ -556,18 +576,87 @@ public final class StriderFishingMacro extends AbstractMacro {
         }
 
         if (target == null || !isAlive(target) || !pooledCatchIds.contains(target.getId())) {
-            target = nearestPooledCatch(mc);
+            // only a whip kill breaks the failing streak; one the weapon finished after a give up does not
+            if (target != null && whipsAtTarget > 0 && !manualKillIds.contains(target.getId())) {
+                whipGiveUpStreak = 0;
+            }
+            // everything the whip can reach from the block goes first, then the walk out to the strays
+            target = nearestPooledCatch(mc, false);
+            if (target == null) {
+                target = nearestPooledCatch(mc, true);
+            }
             if (target == null) {
                 finishClear(mc, now);
                 return;
             }
+            whipsAtTarget = 0;
+            whipTargetSince = now;
+            clearWhip();
         }
 
-        if (AetherConfig.STRIDER_FISHING_SOUL_WHIP.get()) {
-            tickWhip(mc, now);
+        if (!whipsThisTarget()) {
+            engage(mc, now);
             return;
         }
-        engage(mc, now);
+        // only between swings, so a give up never leaves the whip in hand mid swap
+        if (whipClickAt == 0L && whipSwapAt == 0L
+                && whipFailing(whipsAtTarget, now - whipTargetSince)) {
+            giveUpWhip();
+            engage(mc, now);
+            return;
+        }
+        tickWhip(mc, now);
+    }
+
+    private boolean whipsThisTarget() {
+        return AetherConfig.STRIDER_FISHING_SOUL_WHIP.get()
+                && !whipAbandoned
+                && !manualKillIds.contains(target.getId());
+    }
+
+    private void giveUpWhip() {
+        manualKillIds.add(target.getId());
+        if (++whipGiveUpStreak >= WHIP_GIVE_UP_STREAK) {
+            whipAbandoned = true;
+            ClientUtils.sendDebugMessage("[StriderFishing] soul whip keeps failing, clearing the pool by hand");
+        } else {
+            ClientUtils.sendDebugMessage("[StriderFishing] soul whip is not killing it, finishing it by hand");
+        }
+        clearWhip();
+        followMove = 0;
+    }
+
+    static boolean whipFailing(int whips, long msOnTarget) {
+        return whips >= WHIP_GIVE_UP_SWINGS || msOnTarget >= WHIP_GIVE_UP_MS;
+    }
+
+    // a catch moved out of its cage cannot be whipped from the block, so it is marked for a manual kill
+    private void watchCage(Minecraft mc) {
+        if (pooledCatchIds.isEmpty()) {
+            catchLastSeen.clear();
+            return;
+        }
+        catchLastSeen.keySet().retainAll(pooledCatchIds);
+        Vec3 home = origin == null ? mc.player.position() : Vec3.atBottomCenterOf(origin);
+        for (int id : pooledCatchIds) {
+            Entity entity = mc.level.getEntity(id);
+            if (!isAlive(entity)) {
+                continue;
+            }
+            Vec3 now = entity.position();
+            Vec3 last = catchLastSeen.put(id, now);
+            if (!manualKillIds.contains(id) && escapedCage(last, now, home)) {
+                manualKillIds.add(id);
+                ClientUtils.sendDebugMessage("[StriderFishing] a strider left its cage, it will be killed by hand");
+            }
+        }
+    }
+
+    static boolean escapedCage(Vec3 last, Vec3 now, Vec3 home) {
+        if (last != null && last.distanceTo(now) > CAGE_TELEPORT_JUMP) {
+            return true;
+        }
+        return Math.hypot(now.x - home.x, now.z - home.z) > CAGE_RADIUS;
     }
 
     // whip from the block, then swap to the weapon before the hit resolves so the weapon's stats carry it
@@ -589,6 +678,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         if (whipClickAt != 0L) {
             if (now >= whipClickAt) {
                 ClientUtils.performUseClickInstant();
+                whipsAtTarget++;
                 whipClickAt = 0L;
                 whipClickTick = ticks;
                 whipSwapAt = now + nextWhipSwapDelayMs(ThreadLocalRandom.current(),
@@ -610,12 +700,22 @@ public final class StriderFishingMacro extends AbstractMacro {
         target = null;
         followMove = 0;
         clearWhip();
+        clearKillPlan();
         releaseAll(mc);
         if (isOnOrigin(mc)) {
             changeState(State.AIM_LAVA);
             return;
         }
         beginReturn(mc);
+    }
+
+    private void clearKillPlan() {
+        catchLastSeen.clear();
+        manualKillIds.clear();
+        whipsAtTarget = 0;
+        whipTargetSince = 0L;
+        whipGiveUpStreak = 0;
+        whipAbandoned = false;
     }
 
     private void clearWhip() {
@@ -630,12 +730,12 @@ public final class StriderFishingMacro extends AbstractMacro {
         return before - pooledCatchIds.size();
     }
 
-    private Entity nearestPooledCatch(Minecraft mc) {
+    private Entity nearestPooledCatch(Minecraft mc, boolean manual) {
         Entity best = null;
         double bestDistance = Double.MAX_VALUE;
         for (int id : pooledCatchIds) {
             Entity entity = mc.level.getEntity(id);
-            if (!isAlive(entity)) {
+            if (!isAlive(entity) || manualKillIds.contains(id) != manual) {
                 continue;
             }
             double distance = entity.distanceToSqr(mc.player);
