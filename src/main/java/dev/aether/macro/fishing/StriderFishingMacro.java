@@ -131,6 +131,8 @@ public final class StriderFishingMacro extends AbstractMacro {
     private static final long WHIP_HESITATE_MIN_MS = 30L;
     private static final long WHIP_HESITATE_MAX_MS = 90L;
     private static final float WHIP_AIM_TOLERANCE_DEGREES = 6.0f;
+    // the whip's swing lands above the crosshair, so aiming at the legs puts it through the body
+    private static final double WHIP_AIM_HEIGHT = 0.15;
     private static final int GLANCE_AT_POOL_ONE_IN = 3;
     private static final float GLANCE_YAW_DEGREES = 5.0f;
     private static final float GLANCE_PITCH_DEGREES = 3.0f;
@@ -517,7 +519,8 @@ public final class StriderFishingMacro extends AbstractMacro {
     // whip from the block, then swap to the weapon before the hit resolves so the weapon's stats carry it
     private void tickWhip(Minecraft mc, long now) {
         holdStill(mc);
-        RotationManager.trackRotation(mc, aimPoint(target), AIM_SMOOTHING_MS, AIM_MAX_TURN_SPEED);
+        Vec3 aim = whipAimPoint(target);
+        RotationManager.trackRotation(mc, aim, AIM_SMOOTHING_MS, AIM_MAX_TURN_SPEED);
 
         if (whipSwapAt != 0L) {
             // the click is only sent on the tick after it was queued, and the swap must not beat it there
@@ -541,7 +544,7 @@ public final class StriderFishingMacro extends AbstractMacro {
             return;
         }
 
-        if (now < whipNextAt || !isAimedAt(mc, aimPoint(target))) {
+        if (now < whipNextAt || !isAimedAt(mc, aim)) {
             return;
         }
         FailsafeManager.selectHotbarSlot(mc, soulWhipSlot());
@@ -1318,6 +1321,10 @@ public final class StriderFishingMacro extends AbstractMacro {
 
     private static Vec3 aimPoint(Entity target) {
         return target.position().add(0.0, target.getBbHeight() * 0.6, 0.0);
+    }
+
+    private static Vec3 whipAimPoint(Entity target) {
+        return target.position().add(0.0, target.getBbHeight() * WHIP_AIM_HEIGHT, 0.0);
     }
 
     private static double horizontalDistanceTo(Minecraft mc, Entity target) {
