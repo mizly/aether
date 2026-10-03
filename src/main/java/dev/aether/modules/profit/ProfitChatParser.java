@@ -60,7 +60,7 @@ final class ProfitChatParser {
         String text = toLegacyText(component);
 
         Matcher petMatcher = PET_DROP_PATTERN.matcher(text);
-        if (petMatcher.find()) {
+        if (petMatcher.find() && ProfitTrackingRules.isSystemMatch(text, petMatcher.start())) {
             String colorCode = petMatcher.group(1).toLowerCase();
             String petName = petMatcher.group(2).trim();
             String finalName = petName;
@@ -80,7 +80,7 @@ final class ProfitChatParser {
         }
 
         Matcher cropMatcher = RARE_CROP_PATTERN.matcher(text);
-        if (cropMatcher.find()) {
+        if (cropMatcher.find() && ProfitTrackingRules.isSystemMatch(text, cropMatcher.start())) {
             sink.addDrop(cropMatcher.group(1).trim(), 1);
             return;
         }
@@ -88,7 +88,7 @@ final class ProfitChatParser {
         String plainText = TablistUtils.stripColors(text).trim();
 
         Matcher shardMatcher = PEST_SHARD_PATTERN.matcher(plainText);
-        if (shardMatcher.find()) {
+        if (shardMatcher.find() && ProfitTrackingRules.isSystemMatch(plainText, shardMatcher.start())) {
             try {
                 String countStr = shardMatcher.group(1);
                 int count = countStr != null ? Integer.parseInt(countStr) : 1;
@@ -128,7 +128,7 @@ final class ProfitChatParser {
         }
 
         Matcher overflowMatcher = OVERFLOW_DROP_PATTERN.matcher(plainText);
-        if (overflowMatcher.find()) {
+        if (overflowMatcher.find() && ProfitTrackingRules.isSystemMatch(plainText, overflowMatcher.start())) {
             try {
                 String countStr = overflowMatcher.group(1);
                 int count = countStr != null ? Integer.parseInt(countStr) : 1;
@@ -139,7 +139,7 @@ final class ProfitChatParser {
         }
 
         Matcher pestMatcher = PEST_PATTERN.matcher(plainText);
-        if (pestMatcher.find()) {
+        if (pestMatcher.find() && ProfitTrackingRules.isSystemMatch(plainText, pestMatcher.start())) {
             try {
                 int count = Integer.parseInt(pestMatcher.group(1));
                 sink.addDrop(pestMatcher.group(2).trim(), count);
@@ -149,7 +149,7 @@ final class ProfitChatParser {
         }
 
         Matcher rareMatcher = RARE_DROP_PATTERN.matcher(plainText);
-        if (rareMatcher.find()) {
+        if (rareMatcher.find() && ProfitTrackingRules.isSystemMatch(plainText, rareMatcher.start())) {
             try {
                 String countStr = rareMatcher.group(1);
                 int count = countStr != null ? Integer.parseInt(countStr) : 1;
@@ -166,6 +166,13 @@ final class ProfitChatParser {
             }
             if (MacroStateManager.getCurrentState() == MacroState.State.VISITING) {
                 ClientUtils.sendDebugMessage("Bazaar buy ignored (Visiting state)");
+                return;
+            }
+            if (ProfitManager.isSprayPhaseActive) {
+                // AetherChatEvents already books this purchase as "[Spray] Sprayonator" using the exact
+                // coins paid. Recording it here as well charged every spray bait purchase twice.
+                lastBazaarSprayBuyTime = System.currentTimeMillis();
+                ClientUtils.sendDebugMessage("Bazaar buy ignored (already recorded as spray cost)");
                 return;
             }
             try {
@@ -215,7 +222,7 @@ final class ProfitChatParser {
         }
 
         Matcher sprayMatcher = SPRAY_PATTERN.matcher(plainText);
-        if (sprayMatcher.find()) {
+        if (sprayMatcher.find() && ProfitTrackingRules.isSystemMatch(plainText, sprayMatcher.start())) {
             String baitName = sprayMatcher.group(1).trim();
             long now = System.currentTimeMillis();
             if (now - lastBazaarSprayBuyTime < 15000) {

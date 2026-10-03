@@ -12,6 +12,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class ProfitManager {
+    private static final Pattern COUNT_SUFFIX = Pattern.compile("\\s+[xX](\\d+)$");
+    private static final long SAVE_INTERVAL_MS = 5000L;
     private static final SessionProfitHistory SESSION_HISTORY = new SessionProfitHistory();
     private static final Map<String, Long> sessionCounts = new LinkedHashMap<>();
     private static final Map<String, Long> dailyCounts = new LinkedHashMap<>();
@@ -38,6 +40,8 @@ public final class ProfitManager {
     private static long sprayDailyQuantity = 0L;
     private static long sprayLifetimeQuantity = 0L;
     private static String lastDailyResetDate = PERSISTENCE.getCurrentDateString();
+    private static boolean saveDirty = false;
+    private static long lastSaveMillis = 0L;
 
     public static volatile boolean isSprayPhaseActive = false;
 
@@ -69,7 +73,7 @@ public final class ProfitManager {
         }
 
         long multiplier = 1L;
-        Matcher suffixMatcher = Pattern.compile("\\s+[xX](\\d+)$").matcher(cleanName);
+        Matcher suffixMatcher = COUNT_SUFFIX.matcher(cleanName);
         if (suffixMatcher.find()) {
             try {
                 multiplier = Long.parseLong(suffixMatcher.group(1));
@@ -87,8 +91,7 @@ public final class ProfitManager {
         dailyCounts.put(key, dailyCounts.getOrDefault(key, 0L) + totalCount);
         lifetimeCounts.put(key, lifetimeCounts.getOrDefault(key, 0L) + totalCount);
         invalidateDisplayCaches();
-        saveLifetime();
-        saveDaily();
+        markDirty();
     }
 
     public static void addVisitorCost(long coinsSpent) {
@@ -101,8 +104,7 @@ public final class ProfitManager {
         dailyCounts.put(key, dailyCounts.getOrDefault(key, 0L) - coinsSpent);
         lifetimeCounts.put(key, lifetimeCounts.getOrDefault(key, 0L) - coinsSpent);
         invalidateDisplayCaches();
-        saveLifetime();
-        saveDaily();
+        markDirty();
     }
 
     public static void addSprayCost(int quantity, long coins) {
@@ -118,8 +120,7 @@ public final class ProfitManager {
         dailyCounts.put(key, dailyCounts.getOrDefault(key, 0L) - coins);
         lifetimeCounts.put(key, lifetimeCounts.getOrDefault(key, 0L) - coins);
         invalidateDisplayCaches();
-        saveLifetime();
-        saveDaily();
+        markDirty();
     }
 
     public static long getSprayQuantity(boolean lifetime) {
@@ -246,6 +247,24 @@ public final class ProfitManager {
         net.minecraft.client.Minecraft client = net.minecraft.client.Minecraft.getInstance();
         LIVE_TRACKER.update(client, ProfitManager::addDrop);
         SESSION_HISTORY.record(System.nanoTime(), getTotalProfit());
+        if (saveDirty && System.currentTimeMillis() - lastSaveMillis >= SAVE_INTERVAL_MS) {
+            flush();
+        }
+    }
+
+    /** Writes pending daily/lifetime totals to disk. Called periodically and on client shutdown. */
+    public static void flush() {
+        if (!saveDirty) {
+            return;
+        }
+        saveDirty = false;
+        lastSaveMillis = System.currentTimeMillis();
+        saveLifetime();
+        saveDaily();
+    }
+
+    private static void markDirty() {
+        saveDirty = true;
     }
 
     public static void updateSessionGraphClock() {
@@ -315,7 +334,7 @@ public final class ProfitManager {
 
         long multiplier = 1L;
 
-        Matcher suffixMatcher = Pattern.compile("\\s+[xX](\\d+)$").matcher(processedName);
+        Matcher suffixMatcher = COUNT_SUFFIX.matcher(processedName);
         if (suffixMatcher.find()) {
             try {
                 multiplier = Long.parseLong(suffixMatcher.group(1));
@@ -336,8 +355,7 @@ public final class ProfitManager {
         dailyCounts.put(matchedName, dailyCounts.getOrDefault(matchedName, 0L) + finalCount);
         lifetimeCounts.put(matchedName, lifetimeCounts.getOrDefault(matchedName, 0L) + finalCount);
         invalidateDisplayCaches();
-        saveLifetime();
-        saveDaily();
+        markDirty();
     }
 
     private static void saveLifetime() {
