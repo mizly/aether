@@ -1,18 +1,13 @@
 package dev.aether.ui.settings;
 
 import java.util.function.Supplier;
-import dev.aether.util.AetherLang;
 
-public class InfoSetting implements Setting {
-    private final String name;
-    private final String rawName;
+public class InfoSetting extends AbstractSetting<InfoSetting> {
     private final Supplier<String> valueSupplier;
-    private Supplier<Boolean> visibility = () -> true;
     private boolean multiline;
 
     public InfoSetting(String name, Supplier<String> valueSupplier) {
-        this.rawName = name;
-        this.name = AetherLang.localize(name);
+        super(name);
         this.valueSupplier = valueSupplier;
     }
 
@@ -30,28 +25,8 @@ public class InfoSetting implements Setting {
         return this;
     }
 
-    public InfoSetting visibleWhen(Supplier<Boolean> condition) {
-        this.visibility = condition;
-        return this;
-    }
-
-    @Override
-    public String getName() {
-        return name;
-    }
-
-    @Override
-    public String getRawName() {
-        return rawName;
-    }
-
     @Override
     public SettingType getType() {
         return SettingType.INFO;
-    }
-
-    @Override
-    public boolean isVisible() {
-        return visibility.get();
     }
 }

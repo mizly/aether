@@ -7,20 +7,16 @@ import java.util.function.Supplier;
 import dev.aether.util.AetherLang;
 
 // dropdown backed by an index getter/setter
-public class DropdownSetting implements Setting {
+public class DropdownSetting extends AbstractSetting<DropdownSetting> {
 
-    private final String name;
-    private final String rawName;
     private final List<String> options;
     private final List<IconAction> iconActions = new ArrayList<>();
     private final Supplier<Integer> indexGetter;
     private final Consumer<Integer> indexSetter;
-    private Supplier<Boolean> visibility = () -> true;
 
     public DropdownSetting(String name, List<String> options,
                            Supplier<Integer> indexGetter, Consumer<Integer> indexSetter) {
-        this.rawName = name;
-        this.name = AetherLang.localize(name);
+        super(name);
         this.options = options;
         this.indexGetter = indexGetter;
         this.indexSetter = indexSetter;
@@ -48,15 +44,7 @@ public class DropdownSetting implements Setting {
         return this;
     }
 
-    public DropdownSetting visibleWhen(Supplier<Boolean> condition) {
-        this.visibility = condition;
-        return this;
-    }
-
-    @Override public String getName() { return name; }
-    @Override public String getRawName() { return rawName; }
     @Override public SettingType getType() { return SettingType.DROPDOWN; }
-    @Override public boolean isVisible() { return visibility.get(); }
 
     public record IconAction(String iconPath, Runnable action) {
         public void execute() {

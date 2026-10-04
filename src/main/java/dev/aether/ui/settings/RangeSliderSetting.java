@@ -2,11 +2,8 @@ package dev.aether.ui.settings;
 
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
-import dev.aether.util.AetherLang;
 
-public class RangeSliderSetting implements Setting {
-    private final String name;
-    private final String rawName;
+public class RangeSliderSetting extends AbstractSetting<RangeSliderSetting> {
     private final float min;
     private final float max;
     private final Supplier<Float> lowerGetter;
@@ -15,14 +12,12 @@ public class RangeSliderSetting implements Setting {
 
     private int decimals = 1;
     private String suffix = "";
-    private Supplier<Boolean> visibility = () -> true;
 
     public RangeSliderSetting(String name, float min, float max,
                               Supplier<Float> lowerGetter,
                               Supplier<Float> upperGetter,
                               BiConsumer<Float, Float> setter) {
-        this.rawName = name;
-        this.name = AetherLang.localize(name);
+        super(name);
         this.min = min;
         this.max = max;
         this.lowerGetter = lowerGetter;
@@ -59,13 +54,5 @@ public class RangeSliderSetting implements Setting {
     public RangeSliderSetting withDecimals(int decimals) { this.decimals = decimals; return this; }
     public RangeSliderSetting withSuffix(String suffix) { this.suffix = suffix; return this; }
 
-    public RangeSliderSetting visibleWhen(Supplier<Boolean> condition) {
-        this.visibility = condition;
-        return this;
-    }
-
-    @Override public String getName() { return name; }
-    @Override public String getRawName() { return rawName; }
     @Override public SettingType getType() { return SettingType.RANGE_SLIDER; }
-    @Override public boolean isVisible() { return visibility.get(); }
 }

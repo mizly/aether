@@ -2,13 +2,10 @@ package dev.aether.ui.settings;
 
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import dev.aether.util.AetherLang;
 
 // numeric slider backed by a getter/setter
-public class SliderSetting implements Setting {
+public class SliderSetting extends AbstractSetting<SliderSetting> {
 
-    private final String name;
-    private final String rawName;
     private final float min;
     private final float max;
     private final Supplier<Float> getter;
@@ -17,12 +14,10 @@ public class SliderSetting implements Setting {
     private int decimals = 1;
     private String suffix = "";
     private boolean percentage = false;
-    private Supplier<Boolean> visibility = () -> true;
 
     public SliderSetting(String name, float min, float max,
                          Supplier<Float> getter, Consumer<Float> setter) {
-        this.rawName = name;
-        this.name = AetherLang.localize(name);
+        super(name);
         this.min = min;
         this.max = max;
         this.getter = getter;
@@ -41,13 +36,5 @@ public class SliderSetting implements Setting {
     public SliderSetting withSuffix(String suffix) { this.suffix = suffix; return this; }
     public SliderSetting asPercentage() { this.percentage = true; return this; }
 
-    public SliderSetting visibleWhen(Supplier<Boolean> condition) {
-        this.visibility = condition;
-        return this;
-    }
-
-    @Override public String getName() { return name; }
-    @Override public String getRawName() { return rawName; }
     @Override public SettingType getType() { return SettingType.SLIDER; }
-    @Override public boolean isVisible() { return visibility.get(); }
 }

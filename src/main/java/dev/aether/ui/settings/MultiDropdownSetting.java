@@ -6,7 +6,7 @@ import java.util.function.Supplier;
 import dev.aether.util.AetherLang;
 
 // multi-select backed by a bitmask; option N is bit N
-public class MultiDropdownSetting implements Setting {
+public class MultiDropdownSetting extends AbstractSetting<MultiDropdownSetting> {
 
     // Shared layout constants used by renderer and interaction handler
     public static final float CHIP_H       = 28f;
@@ -34,17 +34,13 @@ public class MultiDropdownSetting implements Setting {
         return rows;
     }
 
-    private final String name;
-    private final String rawName;
     private final List<String> options;
     private final Supplier<Integer> getter;
     private final Consumer<Integer> setter;
-    private Supplier<Boolean> visibility = () -> true;
 
     public MultiDropdownSetting(String name, List<String> options,
                                 Supplier<Integer> getter, Consumer<Integer> setter) {
-        this.rawName = name;
-        this.name = AetherLang.localize(name);
+        super(name);
         this.options = options.stream().map(AetherLang::localize).toList();
         this.getter = getter;
         this.setter = setter;
@@ -70,13 +66,5 @@ public class MultiDropdownSetting implements Setting {
         return total;
     }
 
-    public MultiDropdownSetting visibleWhen(Supplier<Boolean> condition) {
-        this.visibility = condition;
-        return this;
-    }
-
-    @Override public String getName()      { return name; }
-    @Override public String getRawName()   { return rawName; }
     @Override public SettingType getType() { return SettingType.MULTI_DROPDOWN; }
-    @Override public boolean isVisible()   { return visibility.get(); }
 }
