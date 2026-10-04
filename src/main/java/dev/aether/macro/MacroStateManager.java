@@ -37,6 +37,7 @@ import dev.aether.modules.rotation.HumanFlick;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.modules.session.DailyFarmTimeTracker;
 import dev.aether.modules.session.DynamicRestManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.modules.session.RecoveryManager;
 import dev.aether.modules.session.RestartManager;
 import dev.aether.modules.visitor.VisitorsMacro;
@@ -288,6 +289,7 @@ public class MacroStateManager {
         JunkManager.reset();
         RecoveryManager.reset();
         RestartManager.reset();
+        MicropauseManager.reset();
         if (!AetherConfig.PERSIST_SESSION_TIMER.get()) {
             DynamicRestManager.reset();
             ProfitManager.reset();

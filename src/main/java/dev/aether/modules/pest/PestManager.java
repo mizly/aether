@@ -60,6 +60,10 @@ public class PestManager {
         return isCleaningInProgress;
     }
 
+    public static boolean isTriggerPending() {
+        return isCleaningTriggerPending || pendingChatTrigger != null;
+    }
+
     public static void setCleaningInProgress(boolean cleaning) {
         isCleaningInProgress = cleaning;
     }
