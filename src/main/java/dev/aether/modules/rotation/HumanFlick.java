@@ -26,9 +26,9 @@ public final class HumanFlick {
     // one smooth sweep longer than this reads as a camera pan, a hand lifts and re-grips the mouse instead
     private static final long MAX_SWEEP_MS = 560L;
     private static final double OVERSHOOT_SIDE_FRACTION = 0.035;
-    // the server reads the camera once a tick, so a swing past the target has to stay there at least that long
-    private static final double OVERSHOOT_DWELL_MIN_MS = 70.0;
-    private static final double OVERSHOOT_DWELL_MAX_MS = 170.0;
+    // the server reads the camera once a tick, so a swing past the target lingers about that long
+    private static final double OVERSHOOT_DWELL_MIN_MS = 45.0;
+    private static final double OVERSHOOT_DWELL_MAX_MS = 110.0;
     private static final double CORRECTION_BASE_MS = 45.0;
     private static final double CORRECTION_LOG_MS = 30.0;
     private static final long MIN_CORRECTION_MS = 55L;
@@ -300,7 +300,7 @@ public final class HumanFlick {
             correctTo(pen, (float) (toYaw - dYaw * rest - dPitch * restSide),
                     Mth.clamp((float) (toPitch - dPitch * rest + dYaw * restSide), -90.0f, 90.0f),
                     style, peak, random);
-            pen.pause(Math.round(skewed(random, 40.0, 110.0)));
+            pen.pause(Math.round(skewed(random, 25.0, 75.0)));
         }
         correctTo(pen, toYaw, toPitch, style, peak, random);
     }

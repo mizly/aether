@@ -63,7 +63,7 @@ class HumanFlickStyleTest {
             // a 450 cap peaks each flick at 315-450 deg/s, which scales the amount by 0.525-0.75
             double along = along(40f, 0f, 40f + turn, targetPitch, landing(plan));
             assertTrue(along >= 0.06 * 0.5 - 1.0e-4 && along <= 0.14 * 0.75 + 1.0e-4, "along " + along);
-            assertTrue(plan.correction().startMs() - landing(plan).endMs() >= 70L);
+            assertTrue(plan.correction().startMs() - landing(plan).endMs() >= 45L);
 
             HumanFlick.Plan fast = HumanFlick.plan(40f, 0f, 40f + turn, targetPitch, NOW, uncapped,
                     new SplittableRandom(i));
@@ -160,7 +160,7 @@ class HumanFlickStyleTest {
                 assertTrue(missAfter >= missBefore * 0.08 - 1.0e-3 && missAfter <= missBefore * 0.26,
                         "left " + missAfter);
                 long dwell = plan.segments().get(plan.strokes() + 1).startMs() - first.endMs();
-                assertTrue(dwell >= 40L && dwell <= 110L, "dwell " + dwell);
+                assertTrue(dwell >= 25L && dwell <= 75L, "dwell " + dwell);
             }
             float[] end = HumanFlick.sample(plan, plan.endMs());
             assertEquals(178f, end[0], 1.0e-3f);
