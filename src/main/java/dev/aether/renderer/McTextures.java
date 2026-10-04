@@ -35,11 +35,20 @@ public final class McTextures {
 
     // a texture that fails to load stays missing until the next invalidate()
     public static Texture get(String id) {
-        Texture texture = cache.get(id);
+        return cached(id, id, false);
+    }
+
+    // white with the texture's alpha, for additive passes that should follow a sprite's shape but not its colours
+    static Texture mask(String id) {
+        return cached(id + "#mask", id, true);
+    }
+
+    private static Texture cached(String key, String id, boolean mask) {
+        Texture texture = cache.get(key);
         if (texture != null) return texture;
         if (!NanoVGManager.isDrawing()) return MISSING;
-        texture = load(id);
-        cache.put(id, texture);
+        texture = load(id, mask);
+        cache.put(key, texture);
         return texture;
     }
 
@@ -51,7 +60,10 @@ public final class McTextures {
     public static void registerReloadListener() {
         ResourceLoader.get(PackType.CLIENT_RESOURCES).registerReloadListener(
                 Identifier.fromNamespaceAndPath("aether", "mc_textures"),
-                (ResourceManagerReloadListener) manager -> invalidate());
+                (ResourceManagerReloadListener) manager -> {
+                    invalidate();
+                    McIcons.invalidate();
+                });
     }
 
     static void destroy(long vg) {
@@ -69,10 +81,15 @@ public final class McTextures {
         cache.clear();
     }
 
-    private static Texture load(String id) {
+    private static Texture load(String id, boolean mask) {
         Pixels pixels = decode(id);
         if (pixels == null) return MISSING;
         try {
+            if (mask) {
+                for (int i = 0; i < pixels.rgba().limit(); i += 4) {
+                    pixels.rgba().put(i, (byte) 0xFF).put(i + 1, (byte) 0xFF).put(i + 2, (byte) 0xFF);
+                }
+            }
             int handle = NanoVG.nvgCreateImageRGBA(NanoVGManager.getVg(), pixels.width(), pixels.height(),
                     NanoVG.NVG_IMAGE_NEAREST, pixels.rgba());
             if (handle <= 0) {
