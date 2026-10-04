@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import dev.aether.ui.gui.Icon;
 
 public class DropdownListSetting extends AbstractSetting<DropdownListSetting> {
 
@@ -11,6 +12,7 @@ public class DropdownListSetting extends AbstractSetting<DropdownListSetting> {
     private final DropdownSetting addPicker;
     private final Supplier<List<String>> getter;
     private final Consumer<List<String>> setter;
+    private List<Icon> optionIcons = List.of();
 
     public DropdownListSetting(String name, List<String> allOptions,
                                Supplier<List<String>> getter, Consumer<List<String>> setter) {
@@ -68,6 +70,17 @@ public class DropdownListSetting extends AbstractSetting<DropdownListSetting> {
 
     public DropdownSetting getAddPicker() {
         return addPicker;
+    }
+
+    // by index into getAllOptions(); null entries mean no icon
+    public DropdownListSetting optionIcons(List<Icon> icons) {
+        optionIcons = new ArrayList<>(icons);
+        addPicker.optionIcons(icons);
+        return this;
+    }
+
+    public Icon optionIcon(int index) {
+        return index >= 0 && index < optionIcons.size() ? optionIcons.get(index) : null;
     }
 
     @Override public SettingType getType() { return SettingType.DROPDOWN_LIST; }

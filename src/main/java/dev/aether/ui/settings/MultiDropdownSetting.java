@@ -1,8 +1,10 @@
 package dev.aether.ui.settings;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import dev.aether.ui.gui.Icon;
 import dev.aether.util.AetherLang;
 
 // multi-select backed by a bitmask; option N is bit N
@@ -37,6 +39,7 @@ public class MultiDropdownSetting extends AbstractSetting<MultiDropdownSetting> 
     private final List<String> options;
     private final Supplier<Integer> getter;
     private final Consumer<Integer> setter;
+    private List<Icon> optionIcons = List.of();
 
     public MultiDropdownSetting(String name, List<String> options,
                                 Supplier<Integer> getter, Consumer<Integer> setter) {
@@ -64,6 +67,16 @@ public class MultiDropdownSetting extends AbstractSetting<MultiDropdownSetting> 
             if (i > 0) total += CHIP_GAP;
         }
         return total;
+    }
+
+    // by option index (bit number); null entries mean no icon
+    public MultiDropdownSetting optionIcons(List<Icon> icons) {
+        optionIcons = new ArrayList<>(icons);
+        return this;
+    }
+
+    public Icon optionIcon(int index) {
+        return index >= 0 && index < optionIcons.size() ? optionIcons.get(index) : null;
     }
 
     @Override public SettingType getType() { return SettingType.MULTI_DROPDOWN; }

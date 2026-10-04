@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import dev.aether.ui.gui.Icon;
 import dev.aether.util.AetherLang;
 
 // dropdown backed by an index getter/setter
@@ -13,6 +14,8 @@ public class DropdownSetting extends AbstractSetting<DropdownSetting> {
     private final List<IconAction> iconActions = new ArrayList<>();
     private final Supplier<Integer> indexGetter;
     private final Consumer<Integer> indexSetter;
+    private List<Icon> optionIcons = List.of();
+    private boolean confirmChange;
 
     public DropdownSetting(String name, List<String> options,
                            Supplier<Integer> indexGetter, Consumer<Integer> indexSetter) {
@@ -42,6 +45,27 @@ public class DropdownSetting extends AbstractSetting<DropdownSetting> {
     public DropdownSetting addIconAction(String iconPath, Runnable action) {
         iconActions.add(new IconAction(iconPath, action));
         return this;
+    }
+
+    // by option index, because option text is localised for display; null entries mean no icon
+    public DropdownSetting optionIcons(List<Icon> icons) {
+        optionIcons = new ArrayList<>(icons);
+        return this;
+    }
+
+    public Icon optionIcon(int index) {
+        return index >= 0 && index < optionIcons.size() ? optionIcons.get(index) : null;
+    }
+
+    // the setter is destructive (it rebuilds groups or overwrites other values), so a picker must never
+    // commit options while cycling through them; it opens the menu instead
+    public DropdownSetting confirmChange() {
+        confirmChange = true;
+        return this;
+    }
+
+    public boolean confirmsChange() {
+        return confirmChange;
     }
 
     @Override public SettingType getType() { return SettingType.DROPDOWN; }

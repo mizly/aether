@@ -2,8 +2,10 @@ package dev.aether.ui.settings;
 
 import dev.aether.config.entries.BooleanEntry;
 import dev.aether.config.entries.IntEntry;
+import dev.aether.ui.gui.Icon;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -58,5 +60,35 @@ class SettingModelTest {
         assertNull(toggle.mirrorOf());
         assertTrue(toggle.isVisible());
         assertEquals("Plain", toggle.getRawName());
+    }
+
+    @Test
+    void optionIconsAreKeyedByIndex() {
+        Icon wheat = Icon.item("wheat");
+        Icon cane = Icon.item("minecraft:sugar_cane");
+        DropdownSetting farm = new DropdownSetting("Farm Type", List.of("S-Shape", "S-Shape (Cane)", "Custom"), () -> 0, i -> { })
+                .optionIcons(Arrays.asList(wheat, cane, null));
+        assertEquals(wheat, farm.optionIcon(0));
+        assertEquals(Icon.item("SUGAR_CANE"), farm.optionIcon(1));
+        assertNull(farm.optionIcon(2));
+        assertNull(farm.optionIcon(3));
+        assertNull(farm.optionIcon(-1));
+
+        DropdownListSetting crops = new DropdownListSetting("Crops", List.of("Wheat", "Cane"), List::of, v -> { })
+                .optionIcons(List.of(wheat, cane));
+        assertEquals(cane, crops.optionIcon(1));
+        assertEquals(cane, crops.getAddPicker().optionIcon(1));
+
+        MultiDropdownSetting keys = new MultiDropdownSetting("Keys", List.of("W", "A"), () -> 0, v -> { })
+                .optionIcons(List.of(wheat));
+        assertEquals(wheat, keys.optionIcon(0));
+        assertNull(keys.optionIcon(1));
+    }
+
+    @Test
+    void destructiveDropdownsAskForConfirmation() {
+        DropdownSetting plain = new DropdownSetting("Mode", List.of("A", "B"), () -> 0, i -> { });
+        assertFalse(plain.confirmsChange());
+        assertTrue(plain.confirmChange().confirmsChange());
     }
 }
