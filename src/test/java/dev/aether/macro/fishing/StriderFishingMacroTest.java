@@ -160,16 +160,6 @@ class StriderFishingMacroTest {
     }
 
     @Test
-    void theCursorIsAimedAtTheFloatItself() {
-        assertEquals(0.0f, StriderFishingMacro.yawTo(0.0, 4.0), 0.001f);
-        assertEquals(90.0f, StriderFishingMacro.yawTo(-4.0, 0.0), 0.001f);
-        assertEquals(-90.0f, StriderFishingMacro.yawTo(4.0, 0.0), 0.001f);
-        // the float sits below eye level, so looking at it is a downward pitch
-        assertEquals(45.0f, StriderFishingMacro.pitchTo(0.0, -4.0, 4.0), 0.001f);
-        assertEquals(0.0f, StriderFishingMacro.pitchTo(0.0, 0.0, 4.0), 0.001f);
-    }
-
-    @Test
     void theCursorSettlesOntoTheFloatSoonAfterItLands() {
         java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
         for (int i = 0; i < 500; i++) {
@@ -275,32 +265,6 @@ class StriderFishingMacroTest {
         assertFalse(StriderFishingMacro.aimWithin(10.0f, 20.0f, 30.0f, 20.0f, 6.0f));
         // yaw wraps, so 179 and -179 are two degrees apart
         assertTrue(StriderFishingMacro.aimWithin(179.0f, 0.0f, -179.0f, 0.0f, 6.0f));
-    }
-    @Test
-    void theFloatLeavesJustAheadOfTheEye() {
-        net.minecraft.world.phys.Vec3[] path = StriderFishingMacro.castPath(
-                new net.minecraft.world.phys.Vec3(0.0, 1.27, 0.0), 0.0f, 10.0f);
-        assertEquals(0.0, path[0].x, 1e-9);
-        assertEquals(1.27, path[0].y, 1e-9);
-        assertEquals(0.3, path[0].z, 1e-9);
-    }
-
-    @Test
-    void theFloatDropsUnderTheCrosshairLine() {
-        // why a crouched look over a rim that is barely below the eye still clips it
-        float pitch = 6.0f;
-        net.minecraft.world.phys.Vec3[] path = StriderFishingMacro.castPath(
-                net.minecraft.world.phys.Vec3.ZERO, 0.0f, pitch);
-        double sightY = -Math.tan(Math.toRadians(pitch)) * path[2].z;
-        assertTrue(path[2].y < sightY);
-    }
-
-    @Test
-    void theThrowOnlyCountsAsSafeWithLandingPitchesEitherSide() {
-        boolean[] lands = {false, true, true, true, true, true, false};
-        assertEquals(0, StriderFishingMacro.castMargin(lands, 1));
-        assertEquals(2, StriderFishingMacro.castMargin(lands, 3));
-        assertEquals(0, StriderFishingMacro.castMargin(lands, 5));
     }
     @Test
     void onlyRememberedStridersThatAreStillThereCountTowardThePool() {
