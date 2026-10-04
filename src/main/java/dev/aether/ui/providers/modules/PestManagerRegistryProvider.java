@@ -230,7 +230,22 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.PEST_TRACKING_SMOOTHING_MS.set(v);
                             AetherConfig.save();
                         }).withDecimals(0).withSuffix("ms"))
-                .add(FarmingSettingsFactory.pestAimDriftSetting()));
+                .add(FarmingSettingsFactory.pestAimDriftSetting())
+                .add(new SectionSetting("Target Switching", "How the camera turns onto each new pest"))
+                .add(new ToggleSetting("Human Target Switch",
+                        AetherConfig.PEST_HUMAN_TARGET_SWITCH::get,
+                        v -> {
+                            AetherConfig.PEST_HUMAN_TARGET_SWITCH.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(FarmingSettingsFactory.pestReactionTimeSetting()
+                        .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get))
+                .add(FarmingSettingsFactory.pestOvershootChanceSetting()
+                        .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get))
+                .add(FarmingSettingsFactory.pestOvershootMinTurnSetting()
+                        .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get))
+                .add(FarmingSettingsFactory.pestOvershootAmountSetting()
+                        .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get)));
         groups.add(SettingGroup.of(
                         "Pest Hunting",
                         "Lassos pests for guaranteed shards instead of vacuuming them (needs a lasso in your hotbar)",

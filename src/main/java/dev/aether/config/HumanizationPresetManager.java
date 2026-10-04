@@ -175,6 +175,12 @@ public final class HumanizationPresetManager {
         addEntry(entries, AetherConfig.PEST_AIM_DRIFT);
         addEntry(entries, AetherConfig.PEST_ABOVE_TARGET_PITCH_MIN);
         addEntry(entries, AetherConfig.PEST_ABOVE_TARGET_PITCH_MAX);
+        addEntry(entries, AetherConfig.PEST_REACTION_MIN_MS);
+        addEntry(entries, AetherConfig.PEST_REACTION_MAX_MS);
+        addEntry(entries, AetherConfig.PEST_OVERSHOOT_CHANCE);
+        addEntry(entries, AetherConfig.PEST_OVERSHOOT_MIN_ANGLE);
+        addEntry(entries, AetherConfig.PEST_OVERSHOOT_AMOUNT_MIN);
+        addEntry(entries, AetherConfig.PEST_OVERSHOOT_AMOUNT_MAX);
         addEntry(entries, AetherConfig.VISITOR_FOV_RANGE);
         addEntry(entries, AetherConfig.PEST_EXCHANGE_FOV_RANGE);
         return entries;

@@ -337,4 +337,44 @@ final class FarmingSettingsFactory {
                 })
                 .withDecimals(0).withSuffix("\u00B0");
     }
+
+    static RangeSliderSetting pestReactionTimeSetting() {
+        return intDelayRangeSetting("Pest Reaction Time", 0f, 1000f,
+                () -> AetherConfig.PEST_REACTION_MIN_MS.get(),
+                () -> AetherConfig.PEST_REACTION_MAX_MS.get(),
+                (min, max) -> {
+                    AetherConfig.PEST_REACTION_MIN_MS.set(min);
+                    AetherConfig.PEST_REACTION_MAX_MS.set(max);
+                });
+    }
+
+    static SliderSetting pestOvershootChanceSetting() {
+        return new SliderSetting("Pest Overshoot Chance", 0, 100,
+                () -> (float) AetherConfig.PEST_OVERSHOOT_CHANCE.get(),
+                v -> {
+                    AetherConfig.PEST_OVERSHOOT_CHANCE.set(Math.round(v));
+                    AetherConfig.save();
+                })
+                .withDecimals(0).withSuffix("%");
+    }
+
+    static SliderSetting pestOvershootMinTurnSetting() {
+        return new SliderSetting("Pest Overshoot Min Turn", 30, 180,
+                () -> AetherConfig.PEST_OVERSHOOT_MIN_ANGLE.get(),
+                v -> {
+                    AetherConfig.PEST_OVERSHOOT_MIN_ANGLE.set((float) Math.round(v));
+                    AetherConfig.save();
+                })
+                .withDecimals(0).withSuffix("\u00B0");
+    }
+
+    static RangeSliderSetting pestOvershootAmountSetting() {
+        return intRangeSetting("Pest Overshoot Amount", 1f, 30f, "%",
+                () -> AetherConfig.PEST_OVERSHOOT_AMOUNT_MIN.get(),
+                () -> AetherConfig.PEST_OVERSHOOT_AMOUNT_MAX.get(),
+                (min, max) -> {
+                    AetherConfig.PEST_OVERSHOOT_AMOUNT_MIN.set(min);
+                    AetherConfig.PEST_OVERSHOOT_AMOUNT_MAX.set(max);
+                });
+    }
 }

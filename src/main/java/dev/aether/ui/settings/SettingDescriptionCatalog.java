@@ -13,7 +13,7 @@ final class SettingDescriptionCatalog {
             Map.entry("AOTV Between Distant Pests", "Uses AOTV between distant pests."),
             Map.entry("Etherwarp Directly Near Pests", "Etherwarp to land on a safe block beside a distant pest."),
             Map.entry("Etherwarp Minimum Distance (Blocks)", "Minimum distance before Pest Destroyer considers a direct etherwarp to the target pest."),
-            Map.entry("Next Pest Turn Speed", "Controls how quickly the camera turns when handing off to the next pest or aiming etherwarp."),
+            Map.entry("Next Pest Turn Speed", "Peak camera speed when turning onto a new pest or aiming AOTV and etherwarp. With Human Target Switch on, each turn onto a new pest peaks somewhere between 70% and 100% of it."),
             Map.entry("Smart AOTV Routing", "Chooses AOTV using horizontal and vertical travel cost, line of sight, and the configured start and stop distances."),
             Map.entry("AOTV Start Distance (Blocks)", "Minimum travel distance at which Smart AOTV Routing begins considering AOTV."),
             Map.entry("AOTV Stop Distance (Blocks)", "Distance from the target where Smart AOTV Routing stops chaining teleports."),
@@ -36,7 +36,12 @@ final class SettingDescriptionCatalog {
             Map.entry("Warp Grace Period", "Allows position checks to settle briefly after a warp."),
             Map.entry("Restart Route", "Opens the routes area, where the warp and walk to the fishing spot are recorded."),
             Map.entry("Time Nearby", "How long a player has to stay within the distance before the failsafe triggers."),
-            Map.entry("Teleport Distance", "How far a single jump in position has to be to count as a teleport.")
+            Map.entry("Teleport Distance", "How far a single jump in position has to be to count as a teleport."),
+            Map.entry("Human Target Switch", "Turns onto each new pest the way a player does: a short reaction, a quick flick that can stop short or swing past, then a correction. Off keeps the smooth tracking turn."),
+            Map.entry("Pest Reaction Time", "Pause after a pest dies or a new one is picked before the camera starts turning. A quarter shorter when the next pest is already near the crosshair."),
+            Map.entry("Pest Overshoot Chance", "Chance that a big turn onto a new pest swings past it before correcting back."),
+            Map.entry("Pest Overshoot Min Turn", "Turns of at least this many degrees can overshoot at the full chance. Below that the chance fades out, reaching zero at half this size, where turns only land a little short or long."),
+            Map.entry("Pest Overshoot Amount", "How far an overshoot swings past the pest, as a share of the turn. Lower turn speeds swing less far.")
 
     );
 

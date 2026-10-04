@@ -52,5 +52,11 @@
   "pestHuntingFollowDistance": 5,
   "pestHuntingMaxDistance": 8,
   "pestHuntingTrackingSmoothingMs": 135,
-  "pestHuntingMaxTurnSpeed": 420
+  "pestHuntingMaxTurnSpeed": 420,
+  "pestReactionMinMs": 120,
+  "pestReactionMaxMs": 260,
+  "pestOvershootChance": 30,
+  "pestOvershootMinAngle": 110.0,
+  "pestOvershootAmountMin": 4,
+  "pestOvershootAmountMax": 9
 }

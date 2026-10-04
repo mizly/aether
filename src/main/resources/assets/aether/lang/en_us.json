@@ -863,5 +863,12 @@
   "text.aether.hourly_rates": "Hourly Rates",
   "text.aether.mobs_killed_and_blocks_broken_per_hour_on_the_session_profit_hud": "Mobs killed and blocks broken per hour on the Session Profit HUD",
   "text.aether.mobs_killed_hr": "Mobs Killed / hr",
-  "text.aether.blocks_broken_hr": "Blocks Broken / hr"
+  "text.aether.blocks_broken_hr": "Blocks Broken / hr",
+  "text.aether.target_switching": "Target Switching",
+  "text.aether.how_the_camera_turns_onto_each_new_pest": "How the camera turns onto each new pest",
+  "text.aether.human_target_switch": "Human Target Switch",
+  "text.aether.pest_reaction_time": "Pest Reaction Time",
+  "text.aether.pest_overshoot_chance": "Pest Overshoot Chance",
+  "text.aether.pest_overshoot_min_turn": "Pest Overshoot Min Turn",
+  "text.aether.pest_overshoot_amount": "Pest Overshoot Amount"
 }
