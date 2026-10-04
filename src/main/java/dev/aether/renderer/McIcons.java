@@ -5,9 +5,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
-import net.minecraft.client.resources.model.cuboid.ItemTransform;
 import net.minecraft.resources.Identifier;
-import org.joml.Vector3f;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -121,9 +119,6 @@ public final class McIcons {
     static final String STEVE_SKIN = "minecraft:textures/entity/player/wide/steve.png";
 
     private static final Identifier CUBE = Identifier.withDefaultNamespace("block/cube");
-
-    private static final ItemTransform BLOCK_GUI = new ItemTransform(new Vector3f(30f, 225f, 0f), new Vector3f(),
-            new Vector3f(0.625f, 0.625f, 0.625f));
 
     // dynamic models (compass needle, clock face) pin their idle frame whatever a pack dispatches on;
     // cactus is its own three-element model, kept here as the inset cube it draws as
@@ -265,7 +260,7 @@ public final class McIcons {
     }
 
     private static boolean isPlainCube(McModels.Resolved model) {
-        return CUBE.equals(model.elementsFrom()) && BLOCK_GUI.equals(model.gui()) && !model.frontLight()
+        return CUBE.equals(model.elementsFrom()) && IsoBlockPainter.BLOCK_GUI.equals(model.gui()) && !model.frontLight()
                 && model.sprite("up") != null && model.sprite("east") != null && model.sprite("north") != null;
     }
 
