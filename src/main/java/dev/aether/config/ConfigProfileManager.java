@@ -36,6 +36,11 @@ public final class ConfigProfileManager {
         }
     }
 
+    public static boolean exists(String name) {
+        String sanitized = sanitize(name);
+        return !sanitized.isBlank() && Files.exists(DIR.resolve(sanitized + ".json"));
+    }
+
     public static void save(String name) {
         if (name.isBlank()) return;
         Path profilePath = DIR.resolve(sanitize(name) + ".json");

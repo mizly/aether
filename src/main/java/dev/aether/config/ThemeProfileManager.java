@@ -34,6 +34,11 @@ public final class ThemeProfileManager {
         }
     }
 
+    public static boolean exists(String name) {
+        String sanitized = sanitize(name);
+        return !sanitized.isBlank() && Files.exists(DIR.resolve(sanitized + ".json"));
+    }
+
     public static void save(String name) {
         if (name.isBlank()) return;
         try { Files.writeString(DIR.resolve(sanitize(name) + ".json"), Theme.exportJson()); }
