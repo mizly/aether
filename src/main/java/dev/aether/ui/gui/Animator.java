@@ -40,6 +40,15 @@ public final class Animator {
         return inertView;
     }
 
+    // the theme's animation time this frame, for motion that keeps its own state, like scrolling
+    public float animTimeMs() {
+        return BASE_MS * speed;
+    }
+
+    public boolean snapping() {
+        return snap;
+    }
+
     public void begin(long nowNanos, float animTimeMs, float minAnimTimeMs) {
         now = nowNanos;
         speed = Math.max(0f, animTimeMs) / BASE_MS;
