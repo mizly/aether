@@ -50,5 +50,6 @@
   "pestOvershootChance": 40,
   "pestOvershootMinAngle": 90.0,
   "pestOvershootAmountMin": 5,
-  "pestOvershootAmountMax": 12
+  "pestOvershootAmountMax": 12,
+  "pestMemoryError": 6.0
 }

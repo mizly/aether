@@ -377,4 +377,14 @@ final class FarmingSettingsFactory {
                     AetherConfig.PEST_OVERSHOOT_AMOUNT_MAX.set(max);
                 });
     }
+
+    static SliderSetting pestMemoryErrorSetting() {
+        return new SliderSetting("Pest Memory Error", 0, 20,
+                () -> AetherConfig.PEST_MEMORY_ERROR.get(),
+                v -> {
+                    AetherConfig.PEST_MEMORY_ERROR.set(v);
+                    AetherConfig.save();
+                })
+                .withDecimals(1).withSuffix("\u00B0");
+    }
 }

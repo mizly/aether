@@ -181,6 +181,7 @@ public final class HumanizationPresetManager {
         addEntry(entries, AetherConfig.PEST_OVERSHOOT_MIN_ANGLE);
         addEntry(entries, AetherConfig.PEST_OVERSHOOT_AMOUNT_MIN);
         addEntry(entries, AetherConfig.PEST_OVERSHOOT_AMOUNT_MAX);
+        addEntry(entries, AetherConfig.PEST_MEMORY_ERROR);
         addEntry(entries, AetherConfig.VISITOR_FOV_RANGE);
         addEntry(entries, AetherConfig.PEST_EXCHANGE_FOV_RANGE);
         return entries;

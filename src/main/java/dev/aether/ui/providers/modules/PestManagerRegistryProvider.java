@@ -245,7 +245,17 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                 .add(FarmingSettingsFactory.pestOvershootMinTurnSetting()
                         .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get))
                 .add(FarmingSettingsFactory.pestOvershootAmountSetting()
-                        .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get)));
+                        .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get))
+                .add(new ToggleSetting("Remember Pest Positions",
+                        AetherConfig.PEST_MEMORY_ROTATION::get,
+                        v -> {
+                            AetherConfig.PEST_MEMORY_ROTATION.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get))
+                .add(FarmingSettingsFactory.pestMemoryErrorSetting()
+                        .visibleWhen(() -> AetherConfig.PEST_HUMAN_TARGET_SWITCH.get()
+                                && AetherConfig.PEST_MEMORY_ROTATION.get())));
         groups.add(SettingGroup.of(
                         "Pest Hunting",
                         "Lassos pests for guaranteed shards instead of vacuuming them (needs a lasso in your hotbar)",

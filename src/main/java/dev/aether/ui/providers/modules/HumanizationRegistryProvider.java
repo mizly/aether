@@ -127,6 +127,7 @@ public final class HumanizationRegistryProvider extends AbstractModulesRegistryP
                 .add(FarmingSettingsFactory.pestOvershootChanceSetting())
                 .add(FarmingSettingsFactory.pestOvershootMinTurnSetting())
                 .add(FarmingSettingsFactory.pestOvershootAmountSetting())
+                .add(FarmingSettingsFactory.pestMemoryErrorSetting())
                 .add(FarmingSettingsFactory.visitorFovRangeSetting())
                 .add(FarmingSettingsFactory.pestExchangeFovRangeSetting()));
 

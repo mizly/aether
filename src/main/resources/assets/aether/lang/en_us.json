@@ -870,5 +870,7 @@
   "text.aether.pest_reaction_time": "Pest Reaction Time",
   "text.aether.pest_overshoot_chance": "Pest Overshoot Chance",
   "text.aether.pest_overshoot_min_turn": "Pest Overshoot Min Turn",
-  "text.aether.pest_overshoot_amount": "Pest Overshoot Amount"
+  "text.aether.pest_overshoot_amount": "Pest Overshoot Amount",
+  "text.aether.remember_pest_positions": "Remember Pest Positions",
+  "text.aether.pest_memory_error": "Pest Memory Error"
 }

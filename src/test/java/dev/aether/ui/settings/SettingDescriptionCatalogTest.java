@@ -30,6 +30,16 @@ class SettingDescriptionCatalogTest {
         assertTrue(describe("Next Pest Turn Speed").contains("70%"));
     }
 
+    @Test
+    void thePestMemorySettingsHaveTheirOwnDescriptions() {
+        for (String name : List.of("Remember Pest Positions", "Pest Memory Error")) {
+            String description = describe(name);
+
+            assertFalse(description.isBlank(), name);
+            assertNotEquals("Turns " + name + " on or off.", description, name);
+        }
+    }
+
     private static String describe(String name) {
         return SettingDescriptionCatalog.describe(new ToggleSetting(name, () -> true, value -> {
         }));
