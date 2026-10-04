@@ -22,7 +22,8 @@ final class PestDestroyerInputController {
             return;
         }
         if (runtime.state == PestDestroyer.State.AOTV_BETWEEN_PESTS
-                || runtime.state == PestDestroyer.State.HUNT_PEST) {
+                || runtime.state == PestDestroyer.State.HUNT_PEST
+                || runtime.pestEtherwarpActive) {
             return;
         }
         if (runtime.vacuumSlot < 0) {

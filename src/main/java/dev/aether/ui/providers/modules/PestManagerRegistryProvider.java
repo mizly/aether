@@ -106,6 +106,12 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         })
                         .withDecimals(0))
                 .add(FarmingSettingsFactory.pestDestroyerTriggerDelaySetting())
+                .add(new ToggleSetting("Walk Mode",
+                        AetherConfig.PEST_DESTROYER_WALK_MODE::get,
+                        v -> {
+                            AetherConfig.PEST_DESTROYER_WALK_MODE.set(v);
+                            AetherConfig.save();
+                        }))
                 .add(new ToggleSetting("Use Pest Tracker Ability",
                         AetherConfig.USE_PEST_TRACKER_ABILITY::get,
                         v -> {
@@ -162,6 +168,12 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.SUNSET_PESTS.set(v);
                             AetherConfig.save();
                         }))
+                .add(new ToggleSetting("Change Time Directly Before Pest Spawn",
+                        () -> AetherConfig.SUNSET_PESTS_NIGHT_BEFORE_SPAWN.get(),
+                        v -> {
+                            AetherConfig.SUNSET_PESTS_NIGHT_BEFORE_SPAWN.set(v);
+                            AetherConfig.save();
+                        }).visibleWhen(AetherConfig.SUNSET_PESTS::get))
                 .add(new SectionSetting("Navigation", "Movement between pests and plot routing"))
                 .add(new ToggleSetting("AOTV Between Distant Pests",
                         () -> AetherConfig.PEST_AOTV_BETWEEN.get(),

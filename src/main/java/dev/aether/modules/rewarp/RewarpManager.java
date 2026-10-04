@@ -80,8 +80,10 @@ public final class RewarpManager {
         ClientUtils.sendMessage("\u00A76Rewarp End Position reached!", true);
 
         MacroStateManager.setCurrentState(MacroState.State.REWARPING);
+        Integer resumeStep = pair.reverseDirection && FarmingMacroManager.getActiveMacro() != null
+                ? FarmingMacroManager.getActiveMacro().getOppositeCycleStep() : null;
         FarmingMacroManager.disable(client);
-        MacroWorkerThread.getInstance().submit("PlotTpRewarp", () -> performRewarp(client, pair));
+        MacroWorkerThread.getInstance().submit("PlotTpRewarp", () -> performRewarp(client, pair, resumeStep));
     }
 
     private static boolean isZeroRewarpDelay() {
@@ -96,6 +98,9 @@ public final class RewarpManager {
         lastRewarpTime = now;
         client.execute(() -> {
             ConfigHelpers.executeRewarpCommand(pair.rewarpMode, pair.plotTpNumber);
+            if (pair.reverseDirection && FarmingMacroManager.getActiveMacro() != null) {
+                FarmingMacroManager.getActiveMacro().reverseDirection(client);
+            }
             PestManager.markRewarpCompleted();
         });
     }
@@ -119,7 +124,7 @@ public final class RewarpManager {
         return null;
     }
 
-    private static void performRewarp(Minecraft client, RewarpPointPair pair) {
+    private static void performRewarp(Minecraft client, RewarpPointPair pair, Integer resumeStep) {
         if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
             return;
         }
@@ -150,7 +155,12 @@ public final class RewarpManager {
             queuePostResumeActions(pair);
             MacroStateManager.setCurrentState(MacroState.State.FARMING);
             SqueakyMousematManager.armReapplyAttempt();
-            client.execute(() -> FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig()));
+            client.execute(() -> {
+                if (resumeStep != null) {
+                    FarmingMacroManager.saveCycleStep(resumeStep);
+                }
+                FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig());
+            });
             PestManager.markRewarpCompleted();
         }
     }

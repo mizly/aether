@@ -538,6 +538,14 @@ public final class PathfindingManager {
 
     public static boolean isNavigating() { return navigating; }
 
+    public static boolean isFlyingNavigation() {
+        return activeMode == NavigationMode.FLY;
+    }
+
+    public static boolean isWalkingNavigation() {
+        return navigating && activeMode == NavigationMode.WALK;
+    }
+
     public static boolean isWalkSneakLatched() {
         walkSneakLatched = executor.isSneakLatched();
         return walkSneakLatched;

@@ -226,6 +226,39 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
     public State getCurrentState()  { return currentState;  }
     public State getPreviousState() { return previousState; }
 
+    public Integer getOppositeCycleStep() {
+        if (defaultStateCycle == null) {
+            return null;
+        }
+        State opposite = switch (currentState) {
+            case LEFT -> State.RIGHT;
+            case RIGHT -> State.LEFT;
+            case FORWARD -> State.BACKWARD;
+            case BACKWARD -> State.FORWARD;
+            default -> State.NONE;
+        };
+        if (opposite == State.NONE) {
+            return null;
+        }
+        for (int i = 0; i < defaultStateCycle.states.length; i++) {
+            if (defaultStateCycle.states[i] == opposite) {
+                return i;
+            }
+        }
+        return null;
+    }
+
+    public void reverseDirection(Minecraft mc) {
+        Integer step = getOppositeCycleStep();
+        if (step == null) {
+            return;
+        }
+        defaultStateCycle.currentIndex = step;
+        changeAndSaveCycleState(defaultStateCycle, defaultStateCycle.states[step]);
+        defaultStateCycle.resetHorizontal(mc);
+        invokeState(mc);
+    }
+
     private boolean isYawSet()   { return yaw.isPresent();   }
     private boolean isPitchSet() { return pitch.isPresent(); }
 

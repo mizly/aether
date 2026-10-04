@@ -8,8 +8,10 @@ final class SettingDescriptionCatalog {
     private static final Map<String, String> EXPLICIT = Map.ofEntries(
             Map.entry("Pest Loadout Swap Time (~170s for eq swap, ~5s for no eq swap)", "Pest cooldown time left on the scoreboard before Pest Destroyer swaps to the next loadout. This is NOT the same as cooldown time, it's cooldown time REMAINING. PLEASE DO NOT PUT WRONG VALUES AND COMPLAIN.\n Timing is same for Finnegan."),
             Map.entry("Pest Threshold", "Number of pests required before Pest Destroyer starts automatically."),
+            Map.entry("Walk Mode", "Walk instead of fly to pests. Will likely not work unless you have a glass roof and AOTV to roof."),
             Map.entry("Leave One Pest Alive", "Preserves one pest on selected plots (Earthworm Shard)."),
             Map.entry("Sunset Pests", "Swaps to night for farming, and day for killing pests. Useful for the Sunset enchantment, or spawning Fireflies."),
+            Map.entry("Change Time Directly Before Pest Spawn", "Swaps to night only for spawning pests. Useful for spawning Fireflies, while still keeping daytime for extra Overbloom on crops."),
             Map.entry("AOTV Between Distant Pests", "Uses AOTV between distant pests."),
             Map.entry("Etherwarp Directly Near Pests", "Etherwarp to land on a safe block beside a distant pest."),
             Map.entry("Etherwarp Minimum Distance (Blocks)", "Minimum distance before Pest Destroyer considers a direct etherwarp to the target pest."),

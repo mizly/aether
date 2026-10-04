@@ -1,5 +1,6 @@
 package dev.aether.modules.pest.helpers;
 
+import dev.aether.config.AetherConfig;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
@@ -64,6 +65,10 @@ final class PestEquipmentController {
     }
 
     private static void enterFlightOrFinish(Minecraft client, Context context) {
+        if (AetherConfig.PEST_DESTROYER_WALK_MODE.get()) {
+            context.setState(PestDestroyer.State.CHECK_NEXT);
+            return;
+        }
         if (!client.player.getAbilities().flying
                 && client.player.getAbilities().mayfly) {
             context.setState(PestDestroyer.State.FLY_UP);
@@ -80,6 +85,12 @@ final class PestEquipmentController {
             Minecraft client,
             PestDestroyerRuntime runtime,
             Context context) {
+        if (AetherConfig.PEST_DESTROYER_WALK_MODE.get()) {
+            PestFlightTapper.release(client);
+            runtime.flyTapTicks = 0;
+            context.setState(PestDestroyer.State.CHECK_NEXT);
+            return;
+        }
         if (client.player.getAbilities().flying) {
             PestFlightTapper.release(client);
             runtime.flyTapTicks = 0;

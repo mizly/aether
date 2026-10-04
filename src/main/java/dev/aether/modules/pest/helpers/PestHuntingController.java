@@ -332,7 +332,8 @@ final class PestHuntingController {
 
         // Descending to the pest's level can put us on the ground and drop
         // flight, at which point holding jump to climb is just bunny hopping.
-        if (!client.player.getAbilities().flying && client.player.getAbilities().mayfly) {
+        if (!AetherConfig.PEST_DESTROYER_WALK_MODE.get()
+                && !client.player.getAbilities().flying && client.player.getAbilities().mayfly) {
             clearHunt(client, runtime);
             context.setState(PestDestroyer.State.FLY_UP);
             return;

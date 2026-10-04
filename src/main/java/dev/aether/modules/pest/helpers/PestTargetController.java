@@ -40,6 +40,20 @@ final class PestTargetController {
     }
 
     static void startPathToPest(Minecraft client, Entity pest) {
+        if (AetherConfig.PEST_DESTROYER_WALK_MODE.get()) {
+            Vec3 walkTarget = PestCombatCoordinator.findWalkTargetNearPest(client, pest);
+            if (walkTarget == null) {
+                ClientUtils.sendDebugMessage("[PestDestroyer] No standable block found near pest.");
+                return;
+            }
+            PathfindingManager.startPathfind(
+                    client,
+                    Mth.floor(walkTarget.x),
+                    Mth.floor(walkTarget.y),
+                    Mth.floor(walkTarget.z),
+                    false);
+            return;
+        }
         // Vacuuming aims down from above, but a lasso needs a level shot.
         boolean lassoTarget = PestHuntingController.shouldLassoTarget(client, pest);
         int targetX = Mth.floor(pest.getX());
@@ -75,7 +89,8 @@ final class PestTargetController {
                         + String.format("%.1f", distance)
                         + ")");
 
-        boolean shouldUseAotv = AetherConfig.PEST_AOTV_BETWEEN.get()
+        boolean shouldUseAotv = !AetherConfig.PEST_DESTROYER_WALK_MODE.get()
+                && AetherConfig.PEST_AOTV_BETWEEN.get()
                 && shouldUseAotvBetweenPests(client, pest, runtime.vacuumRange);
         if (shouldUseAotv && runtime.aotvSlot == -1) {
             runtime.aotvSlot = PestLoadoutHelper.findAotvHotbarSlot(client);

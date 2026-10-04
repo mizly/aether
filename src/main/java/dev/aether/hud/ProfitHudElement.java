@@ -12,6 +12,8 @@ import dev.aether.modules.profit.helpers.SkillXpTracker;
 import dev.aether.ui.util.Fonts;
 import dev.aether.renderer.NVGRenderer;
 
+import net.minecraft.client.Minecraft;
+
 import java.util.Map;
 
 // one instance each for session, lifetime and daily
@@ -93,6 +95,8 @@ public class ProfitHudElement extends HudElement {
     @Override public float   getHeight() { return computeHeight(); }
     @Override public boolean isVisible() {
         if (!AetherConfig.PROFIT_HUD_ENABLED.get()) return false;
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen != null && !(mc.screen instanceof HudEditScreen)) return false;
         return switch (mode) {
             case "lifetime" -> AetherConfig.SHOW_LIFETIME_HUD.get();
             case "daily"    -> AetherConfig.SHOW_DAILY_HUD.get();

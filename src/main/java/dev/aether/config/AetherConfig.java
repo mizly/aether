@@ -359,6 +359,7 @@ public final class AetherConfig {
                         .range(0, 5000);
         public static final IntEntry PEST_CHAT_TRIGGER_DELAY_MAX = Config.integer("pestChatTriggerDelayMax", 3000)
                         .range(0, 5000);
+        public static final BooleanEntry PEST_DESTROYER_WALK_MODE = Config.bool("pestDestroyerWalkMode", false);
         public static final BooleanEntry DELAY_PEST_FOR_CROP_FEVER = Config.bool("delayPestForCropFever", false);
         public static final BooleanEntry PEST_ON_TRACK_ENABLED = Config.bool("pestOnTrackEnabled", false);
         // start: farmhelper ish pest on track
@@ -386,6 +387,12 @@ public final class AetherConfig {
         public static final ListEntry<String> LEAVE_ONE_PEST_PLOTS = Config.list("leaveOnePestPlots",
                         Collections.emptyList(), String.class);
         public static final BooleanEntry SUNSET_PESTS = Config.bool("sunsetPests", false);
+        // When enabled, the day->night restore doesn't happen right after cleaning finishes -
+        // it stays day (Overbloom) through the whole farming stretch, and only flips to night
+        // right before the pre-spawn loadout swap (long enough to let Fireflies spawn), then
+        // back to day again the moment actual cleaning starts.
+        public static final BooleanEntry SUNSET_PESTS_NIGHT_BEFORE_SPAWN =
+                        Config.bool("sunsetPestsNightBeforeSpawn", false);
         public static final BooleanEntry BALLSACK_SHREDDER = Config.bool("ballsackShredder", false);
         public static final IntEntry BALLSACK_SHREDDER_TRIGGER_DELAY_MIN =
                         Config.integer("ballsackShredderTriggerDelayMin", 20000).range(0, 30000);
@@ -399,7 +406,7 @@ public final class AetherConfig {
                         .range(0, 3000);
         public static final BooleanEntry PEST_AOTV_BETWEEN = Config.bool("pestAotvBetween", false);
         public static final BooleanEntry PEST_SMART_AOTV_ROUTING = Config.bool("pestSmartAotvRouting", true);
-        public static final BooleanEntry PEST_ETHERWARP_TO_PEST = Config.bool("pestEtherwarpToPest", false);
+        public static final BooleanEntry PEST_ETHERWARP_TO_PEST = Config.bool("pestEtherwarpToPest", true);
         public static final FloatEntry PEST_ETHERWARP_MIN_DISTANCE =
                         Config.floatVal("pestEtherwarpMinDistance", 20.0f).range(10.0f, 50.0f);
         public static final FloatEntry PEST_AOTV_START_DISTANCE =

@@ -10,6 +10,7 @@ public class RewarpPointPair {
     private static final String PREFIX_V4 = "v4";
     private static final String PREFIX_V5 = "v5";
     private static final String PREFIX_V6 = "v6";
+    private static final String PREFIX_V7 = "v7";
 
     public String name;
     public double startX;
@@ -26,6 +27,7 @@ public class RewarpPointPair {
     public String plotTpNumber;
     public boolean holdWUntilWall;
     public boolean aotvAlign;
+    public boolean reverseDirection;
 
     public RewarpPointPair(String config, int fallbackIndex) {
         RewarpPointPair fallback = defaultPair(fallbackIndex);
@@ -37,7 +39,7 @@ public class RewarpPointPair {
         String[] parts = config.split(":", -1);
         if (parts.length < 12 || (!PREFIX_V1.equals(parts[0]) && !PREFIX_V2.equals(parts[0])
                 && !PREFIX_V3.equals(parts[0]) && !PREFIX_V4.equals(parts[0]) && !PREFIX_V5.equals(parts[0])
-                && !PREFIX_V6.equals(parts[0]))) {
+                && !PREFIX_V6.equals(parts[0]) && !PREFIX_V7.equals(parts[0]))) {
             copyFrom(fallback);
             return;
         }
@@ -60,7 +62,9 @@ public class RewarpPointPair {
             this.endZ = snapToBlockCenter(this.endZ);
             this.endSet = Boolean.parseBoolean(parts[10]);
             this.highlightEnd = Boolean.parseBoolean(parts[11]);
-            if (PREFIX_V6.equals(parts[0]) && parts.length >= 16) {
+            this.reverseDirection = PREFIX_V7.equals(parts[0]) && parts.length >= 17
+                    && Boolean.parseBoolean(parts[16]);
+            if ((PREFIX_V7.equals(parts[0]) || PREFIX_V6.equals(parts[0])) && parts.length >= 16) {
                 this.rewarpMode = RewarpMode.fromConfig(parts[12]);
                 this.plotTpNumber = parts[13];
                 this.holdWUntilWall = Boolean.parseBoolean(parts[14]);
@@ -122,6 +126,7 @@ public class RewarpPointPair {
         pair.plotTpNumber = "0";
         pair.holdWUntilWall = false;
         pair.aotvAlign = false;
+        pair.reverseDirection = false;
         return pair;
     }
 
@@ -167,7 +172,7 @@ public class RewarpPointPair {
 
     @Override
     public String toString() {
-        return PREFIX_V6
+        return PREFIX_V7
                 + ":" + encodeName(displayName())
                 + ":" + startX
                 + ":" + startY
@@ -182,7 +187,8 @@ public class RewarpPointPair {
                 + ":" + rewarpMode.name()
                 + ":" + sanitizePlotNumber(plotTpNumber)
                 + ":" + holdWUntilWall
-                + ":" + aotvAlign;
+                + ":" + aotvAlign
+                + ":" + reverseDirection;
     }
 
     private RewarpPointPair() {
@@ -204,6 +210,7 @@ public class RewarpPointPair {
         this.plotTpNumber = other.plotTpNumber;
         this.holdWUntilWall = other.holdWUntilWall;
         this.aotvAlign = other.aotvAlign;
+        this.reverseDirection = other.reverseDirection;
     }
 
     private static String defaultName(int index) {

@@ -191,7 +191,7 @@ public final class MinecraftNavigationProvider implements NavigationPointProvide
             || block == Blocks.SOUL_SAND
             || block == Blocks.CHEST
             || block == Blocks.ENDER_CHEST
-            || block == Blocks.GLASS
+            || block instanceof TransparentBlock
             || block instanceof StairBlock
             || block instanceof SlabBlock
             || block instanceof BaseRailBlock;

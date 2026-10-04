@@ -69,4 +69,80 @@ class PestFlightControllerTest {
         assertFalse(PestFlightController.facesTarget(new Vec3(5, 0, 0), 0));
         assertFalse(PestFlightController.facesTarget(Vec3.ZERO, 0));
     }
+
+    @Test
+    void walkingSettlesWithoutReversingAtDifferentGroundSpeeds() {
+        for (double acceleration : new double[]{0.1, 0.3, 0.6}) {
+            PestFlightController controller = new PestFlightController();
+            double position = 0;
+            double velocity = 0;
+            int starts = 0;
+            int previous = 0;
+            for (int tick = 0; tick < 150; tick++) {
+                int input = controller.walkingInput(new Vec3(0, 0, 10 - position), 0, 5, true).forward();
+                assertTrue(input >= 0, "Walking must not brake with S");
+                if (input > 0 && previous == 0) starts++;
+                previous = input;
+                velocity += input * acceleration;
+                position += velocity;
+                velocity *= 0.546;
+            }
+            assertEquals(1, starts, "A stationary pest must not cause repeated W taps");
+            assertTrue(10 - position <= 5);
+            assertTrue(10 - position > 0, "Overshot the pest");
+            assertTrue(Math.abs(velocity) < 1.0e-6);
+        }
+    }
+
+    @Test
+    void walkingHoldsThroughRangeJitterThenFollowsAnEscapingPest() {
+        PestFlightController controller = new PestFlightController();
+        assertEquals(1, controller.walkingInput(new Vec3(0, 0, 8), 0, 5, true).forward());
+        assertEquals(1, controller.walkingInput(new Vec3(0, 0, 5.2), 0, 5, true).forward());
+        assertEquals(0, controller.walkingInput(new Vec3(0, 0, 5), 0, 5, true).forward());
+        for (double distance : new double[]{4.9, 5.1, 5.5, 4.8, 5.7}) {
+            assertEquals(0, controller.walkingInput(new Vec3(0, 0, distance), 0, 5, true).forward());
+        }
+        assertEquals(1, controller.walkingInput(new Vec3(0, 0, 5.8), 0, 5, true).forward());
+    }
+
+    @Test
+    void walkingKeepsAMovingPestWithinVacuumRange() {
+        PestFlightController controller = new PestFlightController();
+        double position = 0;
+        double velocity = 0;
+        double pest = 6;
+        for (int tick = 0; tick < 200; tick++) {
+            int input = controller.walkingInput(new Vec3(0, 0, pest - position), 0, 5, true).forward();
+            assertTrue(input >= 0);
+            velocity += input * 0.2;
+            position += velocity;
+            velocity *= 0.546;
+            pest += 0.15;
+            assertTrue(pest - position < 7.5, "Lost vacuum range while following");
+            assertTrue(pest - position > 0);
+        }
+    }
+
+    @Test
+    void walkingReleasesMovementWhenBlockedOrFacingAway() {
+        PestFlightController controller = new PestFlightController();
+        Vec3 offset = new Vec3(0, 0, 8);
+        assertEquals(1, controller.walkingInput(offset, 0, 5, true).forward());
+        assertEquals(0, controller.walkingInput(offset, 0, 5, false).forward());
+        assertEquals(0, controller.walkingInput(offset, 180, 5, true).forward());
+        assertEquals(0, controller.walkingInput(new Vec3(0, 0, 5.2), 0, 5, true).forward());
+    }
+
+    @Test
+    void walkingApproachDoesNotCarryOverToAnotherTarget() {
+        PestFlightController controller = new PestFlightController();
+        controller.sampleVelocity(1, new Vec3(0, 0, 8), 10);
+        controller.walkingInput(new Vec3(0, 0, 8), 0, 5, true);
+        controller.sampleVelocity(2, new Vec3(0, 0, 5.2), 11);
+        assertEquals(0, controller.walkingInput(new Vec3(0, 0, 5.2), 0, 5, true).forward());
+        controller.walkingInput(new Vec3(0, 0, 8), 0, 5, true);
+        controller.reset();
+        assertEquals(0, controller.walkingInput(new Vec3(0, 0, 5.2), 0, 5, true).forward());
+    }
 }

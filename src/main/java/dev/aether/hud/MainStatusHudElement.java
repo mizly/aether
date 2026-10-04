@@ -63,7 +63,12 @@ public class MainStatusHudElement extends HudElement {
     @Override public float   getWidth()        { return W; }
     @Override public float   getHeight()       { return HEADER_H + (contentH < 0f
             ? (MacroStateManager.isMacroRunning() ? CONTENT_H : 0f) : contentH); }
-    @Override public boolean isVisible()       { return (AetherConfig.HUD_THEME.get() & 0x1) != 0; }
+    @Override
+    public boolean isVisible() {
+        if ((AetherConfig.HUD_THEME.get() & 0x1) == 0) return false;
+        Minecraft mc = Minecraft.getInstance();
+        return mc == null || mc.screen == null || mc.screen instanceof HudEditScreen;
+    }
     @Override public String  getName()         { return "Main Status"; }
     @Override public void    savePosition()    { AetherConfig.save(); }
 

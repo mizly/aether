@@ -767,6 +767,8 @@
   "text.aether.aether_cape": "Aether Cape",
   "text.aether.your_aether_logo_cape_with_vanilla_movement": "Your Aether logo cape with vanilla movement",
   "text.aether.matcha": "Matcha",
+  "text.aether.reverse_direction_after_rewarp": "Reverse Direction After Rewarp",
+  "text.aether.walk_mode": "Walk Mode",
   "text.aether.macros": "Macros",
   "text.aether.start_and_stop_macros": "Start and stop macros",
   "text.aether.search_macros": "Search macros...",

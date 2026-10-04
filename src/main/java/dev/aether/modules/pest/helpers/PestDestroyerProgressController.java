@@ -1,5 +1,6 @@
 package dev.aether.modules.pest.helpers;
 
+import dev.aether.config.AetherConfig;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
@@ -100,7 +101,8 @@ final class PestDestroyerProgressController {
             return true;
         }
 
-        if (shouldEnsureFlying(runtime.state)
+        if (!AetherConfig.PEST_DESTROYER_WALK_MODE.get()
+                && shouldEnsureFlying(runtime.state)
                 && !client.player.getAbilities().flying
                 && client.player.getAbilities().mayfly) {
             context.setState(PestDestroyer.State.FLY_UP);

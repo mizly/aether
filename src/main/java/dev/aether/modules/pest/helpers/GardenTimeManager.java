@@ -11,7 +11,6 @@ import java.util.concurrent.TimeUnit;
 
 public final class GardenTimeManager {
 
-    private static final int TIME_MENU_SLOT = 50;
     private static final int DAYTIME_SLOT = 11;
     private static final int NIGHTTIME_SLOT = 13;
     private static final char DAYTIME_MARKER = '\u2600';
@@ -71,21 +70,7 @@ public final class GardenTimeManager {
         ClientUtils.sendDebugMessage("GardenTimeManager: switching garden time to " + label);
         switchingGardenTime = true;
         try {
-            ClientUtils.sendCommand("/desk");
-
-            if (!waitForScreenTitle(client, "desk", 5000L)) {
-                ClientUtils.sendDebugMessage("GardenTimeManager: desk GUI did not open in time.");
-                return false;
-            }
-
-            if (!MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(true))) {
-                return false;
-            }
-
-            if (!clickSlot(client, TIME_MENU_SLOT)) {
-                ClientUtils.sendDebugMessage("GardenTimeManager: failed to click desk slot " + TIME_MENU_SLOT);
-                return false;
-            }
+            ClientUtils.sendCommand("/islandtime");
 
             if (!waitForScreenTitle(client, "garden time", 5000L)) {
                 ClientUtils.sendDebugMessage("GardenTimeManager: garden time GUI did not open in time.");
@@ -111,10 +96,40 @@ public final class GardenTimeManager {
                 }
             });
 
+            // Previously this returned right after scheduling the close, without confirming
+            // it actually happened - harmless for callers that do nothing else afterward, but
+            // a caller that opens a second GUI immediately (e.g. a loadout swap right after
+            // this) could have that request race the server still processing this container's
+            // close, which can cut the switch off before it fully registers. Confirming the
+            // screen is actually gone (or timing out) guarantees this method doesn't return
+            // until the server's had a real chance to process both the click and the close.
+            if (!waitForContainerClosed(client, 2000L)) {
+                ClientUtils.sendDebugMessage("GardenTimeManager: garden time GUI did not close in time.");
+            }
+
             return true;
         } finally {
             switchingGardenTime = false;
         }
+    }
+
+    private static boolean waitForContainerClosed(Minecraft client, long timeoutMs) {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+
+        while (System.currentTimeMillis() < deadline) {
+            boolean closed = PestClientThread.call(client,
+                    () -> !(client.screen instanceof AbstractContainerScreen<?>),
+                    true);
+            if (closed) {
+                return true;
+            }
+
+            if (!MacroWorkerThread.sleep(50)) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     private static boolean waitForScreenTitle(Minecraft client, String expectedFragment, long timeoutMs) {
