@@ -93,6 +93,12 @@ public final class NanoVGManager {
         loadFont("Inter-Bold",    "/assets/aether/fonts/Inter-Bold.otf");
         loadFont("Inter-Mono",    "/assets/aether/fonts/Inter-Mono.otf");
         loadFont(Fonts.SCOREBOARD_BOLD, "/assets/aether/fonts/scoreboard/Inter-Bold.otf");
+        loadFont(Fonts.UI_REGULAR, "/assets/aether/fonts/ui/Inter-Regular.otf");
+        loadFont(Fonts.UI_MEDIUM, "/assets/aether/fonts/ui/Inter-Medium.otf");
+        loadFont(Fonts.UI_SEMIBOLD, "/assets/aether/fonts/ui/Inter-SemiBold.otf");
+        loadFont(Fonts.UI_BOLD, "/assets/aether/fonts/ui/Inter-Bold.otf");
+        loadFont(Fonts.UI_MONO, "/assets/aether/fonts/ui/JetBrainsMono-Regular.ttf");
+        loadFont(Fonts.UI_MONO_BOLD, "/assets/aether/fonts/ui/JetBrainsMono-Bold.ttf");
         loadUnicodeFallbackFont();
 
         initialized = true;
@@ -370,6 +376,12 @@ public final class NanoVGManager {
         addFallback(Fonts.BOLD, fallbackId);
         addFallback(Fonts.MONO, fallbackId);
         addFallback(Fonts.SCOREBOARD_BOLD, fallbackId);
+        addFallback(Fonts.UI_REGULAR, fallbackId);
+        addFallback(Fonts.UI_MEDIUM, fallbackId);
+        addFallback(Fonts.UI_SEMIBOLD, fallbackId);
+        addFallback(Fonts.UI_BOLD, fallbackId);
+        addFallback(Fonts.UI_MONO, fallbackId);
+        addFallback(Fonts.UI_MONO_BOLD, fallbackId);
     }
 
     private static void addFallback(String baseFont, int fallbackId) {
