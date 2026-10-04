@@ -23,6 +23,8 @@ public final class PlotSetting extends AbstractSetting<PlotSetting> {
     private boolean allowBarn;
     private EmptyMeaning emptyMeaning = EmptyMeaning.NONE;
     private Predicate<PlotToken> restriction = token -> true;
+    private String restrictionReason;
+    private String menuTitle;
     private Setting legacyView;
 
     public PlotSetting(String name, Mode mode, Supplier<List<String>> getter, Consumer<List<String>> setter) {
@@ -62,6 +64,30 @@ public final class PlotSetting extends AbstractSetting<PlotSetting> {
     public PlotSetting restrictTo(Predicate<PlotToken> restriction) {
         this.restriction = restriction;
         return this;
+    }
+
+    // reason is the line the picker shows on plots the restriction rules out
+    public PlotSetting restrictTo(Predicate<PlotToken> restriction, String reason) {
+        restrictionReason = reason;
+        return restrictTo(restriction);
+    }
+
+    public boolean isRestricted(PlotToken token) {
+        return token.isKnown() && !restriction.test(token);
+    }
+
+    public String restrictionReason() {
+        return restrictionReason;
+    }
+
+    // the picker's chest title when the row name alone would be vague, e.g. "Plots" on the greenhouse page
+    public PlotSetting menuTitle(String title) {
+        menuTitle = title;
+        return this;
+    }
+
+    public String menuTitle() {
+        return menuTitle == null ? getName() : menuTitle;
     }
 
     public Mode mode() {
