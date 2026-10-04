@@ -16,11 +16,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.lang.ref.WeakReference;
@@ -41,8 +38,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
     public enum State { AIM_LAVA, CAST, WAIT_BITE, REEL, FIGHT, CLEAR, RETURN }
 
-    private static final double MARKER_SEARCH_SIZE = 6.0;
-    private static final double TARGET_SEARCH_RADIUS = 16.0;
     // with no route the macro fishes the lava pit beside sawyer on galatea, where a caught strider cannot walk out
     static final BlockPos FIXED_SPOT = new BlockPos(-694, 120, 78);
     // the galatea warp lands about 178 blocks out, so from inside this the walk alone is the shorter way there
@@ -211,7 +206,8 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         String needle = catchNeedle();
         pooledCatchIds.addAll(stillPooled(rememberedCatchIds, sameLevel, id -> {
             Entity entity = mc.level.getEntity(id);
-            return isAlive(entity) && (needle.isEmpty() || matchesName(mc, entity, needle));
+            return CatchWatch.isAlive(entity)
+                    && (needle.isEmpty() || CatchWatch.matchesName(mc.level, entity, needle));
         }));
         forgetPool();
         if (!soulWhipFishing() || pooledCatchIds.isEmpty()) {
@@ -386,7 +382,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         FailsafeManager.selectHotbarSlot(mc, rodSlot());
         ClientUtils.performUseClick();
         // a bobber still out means that click reeled the stuck line in, so cast on the next pass
-        if (hasLiveHook(mc)) {
+        if (CatchWatch.hasLiveHook(mc)) {
             nextActionAt = now + castDelayMs();
             return;
         }
@@ -401,7 +397,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private void tickWaitBite(Minecraft mc) {
         long now = System.currentTimeMillis();
 
-        if (!hasLiveHook(mc)) {
+        if (!CatchWatch.hasLiveHook(mc)) {
             holdStill(mc);
             // the cast never left the rod, or the line came back on its own
             if (now - stateEnteredAt > BOBBER_SETTLE_MS) {
@@ -421,17 +417,17 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return;
         }
 
-        if (hasCatchMarker(mc, mc.player.fishing)) {
+        if (CatchWatch.hasCatchMarker(mc.level, mc.player.fishing)) {
             clearIdle();
             clearAimSearch();
-            snapshotLoadedEntities(mc);
+            CatchWatch.snapshot(mc.level, preReelEntityIds);
             changeState(State.REEL);
             return;
         }
 
         if (now - stateEnteredAt > BOBBER_LANDED_MS) {
             // a float sitting on stone will never get a bite, so reel it in and aim somewhere else
-            if (!isInLava(mc, mc.player.fishing)) {
+            if (!CatchWatch.floatInLiquid(mc.level, mc.player.fishing, CastSim::isLava)) {
                 ClientUtils.sendDebugMessage("[StriderFishing] float landed out of the lava, recasting");
                 rejectCast();
                 clearIdle();
@@ -468,7 +464,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private void tickFight(Minecraft mc) {
         long now = System.currentTimeMillis();
 
-        if (target != null && !isAlive(target)) {
+        if (target != null && !CatchWatch.isAlive(target)) {
             ActivityRateTracker.onMobKilled();
             target = null;
             // the catch is down, so head back now instead of sitting out the acquire window
@@ -583,7 +579,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return;
         }
 
-        if (target == null || !isAlive(target) || !pooledCatchIds.contains(target.getId())) {
+        if (target == null || !CatchWatch.isAlive(target) || !pooledCatchIds.contains(target.getId())) {
             // only a whip kill breaks the failing streak; one the weapon finished after a give up does not
             if (target != null && whipsAtTarget > 0 && !manualKillIds.contains(target.getId())) {
                 whipGiveUpStreak = 0;
@@ -648,7 +644,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         Vec3 home = origin == null ? mc.player.position() : Vec3.atBottomCenterOf(origin);
         for (int id : pooledCatchIds) {
             Entity entity = mc.level.getEntity(id);
-            if (!isAlive(entity)) {
+            if (!CatchWatch.isAlive(entity)) {
                 continue;
             }
             Vec3 now = entity.position();
@@ -734,7 +730,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
     private int pruneDeadCatches(Minecraft mc) {
         int before = pooledCatchIds.size();
-        pooledCatchIds.removeIf(id -> !isAlive(mc.level.getEntity(id)));
+        pooledCatchIds.removeIf(id -> !CatchWatch.isAlive(mc.level.getEntity(id)));
         return before - pooledCatchIds.size();
     }
 
@@ -743,7 +739,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         double bestDistance = Double.MAX_VALUE;
         for (int id : pooledCatchIds) {
             Entity entity = mc.level.getEntity(id);
-            if (!isAlive(entity) || manualKillIds.contains(id) != manual) {
+            if (!CatchWatch.isAlive(entity) || manualKillIds.contains(id) != manual) {
                 continue;
             }
             double distance = entity.distanceToSqr(mc.player);
@@ -759,7 +755,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         List<Entity> alive = new ArrayList<>();
         for (int id : pooledCatchIds) {
             Entity entity = mc.level.getEntity(id);
-            if (isAlive(entity)) {
+            if (CatchWatch.isAlive(entity)) {
                 alive.add(entity);
             }
         }
@@ -1250,36 +1246,12 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
                 AetherConfig.STRIDER_FISHING_CAST_DELAY_MAX.get());
     }
 
-    private static boolean hasLiveHook(Minecraft mc) {
-        FishingHook hook = mc.player.fishing;
-        return hook != null && !hook.isRemoved();
-    }
-
     // where a cast at the current look comes down, or null when that is off the lava or where a float already missed
     private BlockPos lookLanding(Minecraft mc) {
         Vec3 landing = CastSim.predictCastLanding(mc.level, mc.player.getEyePosition(), mc.player.getYRot(),
                 mc.player.getXRot(), CastSim::isLava, CastSim.DEFAULT_TICKS);
         BlockPos block = landing == null ? null : BlockPos.containing(landing);
         return CastSim.acceptsLanding(block, rejectedLava) ? block : null;
-    }
-
-    private static boolean hasCatchMarker(Minecraft mc, FishingHook hook) {
-        AABB box = AABB.ofSize(hook.position(),
-                MARKER_SEARCH_SIZE, MARKER_SEARCH_SIZE, MARKER_SEARCH_SIZE);
-        for (ArmorStand marker : mc.level.getEntitiesOfClass(ArmorStand.class, box)) {
-            if (marker.isRemoved() || marker.getCustomName() == null) {
-                continue;
-            }
-            if (isCatchMarker(stripFormatting(marker.getCustomName().getString()))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean isInLava(Minecraft mc, FishingHook hook) {
-        BlockPos at = BlockPos.containing(hook.position());
-        return CastSim.isLava(mc.level.getBlockState(at)) || CastSim.isLava(mc.level.getBlockState(at.below()));
     }
 
     // the sim promised this throw the lava, so neither the cell nor the block it aimed at is trusted again
@@ -1294,81 +1266,15 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         castAimBlock = null;
     }
 
-    // the bite marker shows a single ? and flips to !! once the catch is on the line
-    static boolean isCatchMarker(String plainName) {
-        return plainName != null && plainName.contains("!!");
-    }
-
-    static boolean isBiteMarker(String plainName) {
-        return plainName != null && plainName.contains("?");
-    }
-
-    private void snapshotLoadedEntities(Minecraft mc) {
-        preReelEntityIds.clear();
-        for (Entity entity : mc.level.entitiesForRendering()) {
-            if (entity instanceof LivingEntity && !(entity instanceof ArmorStand)) {
-                preReelEntityIds.add(entity.getId());
-            }
-        }
-    }
-
-    // a catch is only whatever the reel pulled up, so drops and mobs that were already swimming are left alone
-    static boolean shouldAcceptTarget(int entityId, Set<Integer> preReelEntityIds) {
-        return !preReelEntityIds.contains(entityId);
-    }
-
     private static String catchNeedle() {
         String wanted = AetherConfig.STRIDER_FISHING_TARGET_NAME.get();
-        return wanted == null ? "" : stripFormatting(wanted).toLowerCase(Locale.ROOT).trim();
+        return wanted == null ? "" : CatchWatch.stripFormatting(wanted).toLowerCase(Locale.ROOT).trim();
     }
 
     private Entity findTarget(Minecraft mc) {
         String needle = catchNeedle();
-
-        AABB box = AABB.ofSize(mc.player.position(),
-                TARGET_SEARCH_RADIUS * 2, TARGET_SEARCH_RADIUS, TARGET_SEARCH_RADIUS * 2);
-        Entity best = null;
-        double bestDistance = Double.MAX_VALUE;
-
-        for (Entity entity : mc.level.getEntities(mc.player, box)) {
-            if (!(entity instanceof LivingEntity) || entity instanceof ArmorStand || !isAlive(entity)) {
-                continue;
-            }
-            if (!shouldAcceptTarget(entity.getId(), preReelEntityIds)) {
-                continue;
-            }
-            if (!needle.isEmpty() && !matchesName(mc, entity, needle)) {
-                continue;
-            }
-            double distance = entity.distanceToSqr(mc.player);
-            if (distance < bestDistance) {
-                bestDistance = distance;
-                best = entity;
-            }
-        }
-        return best;
-    }
-
-    // sea creatures carry their name on a separate plate, so a miss on the mob still has to check above it
-    private static boolean matchesName(Minecraft mc, Entity entity, String needle) {
-        if (stripFormatting(entity.getDisplayName().getString()).toLowerCase(Locale.ROOT).contains(needle)) {
-            return true;
-        }
-        AABB box = AABB.ofSize(entity.position().add(0.0, 1.0, 0.0), 3.0, 4.0, 3.0);
-        for (ArmorStand marker : mc.level.getEntitiesOfClass(ArmorStand.class, box)) {
-            if (marker.getCustomName() != null
-                    && stripFormatting(marker.getCustomName().getString())
-                            .toLowerCase(Locale.ROOT).contains(needle)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean isAlive(Entity entity) {
-        return entity != null
-                && !entity.isRemoved()
-                && !(entity instanceof LivingEntity living && living.isDeadOrDying());
+        return CatchWatch.findTarget(mc, preReelEntityIds,
+                entity -> needle.isEmpty() || CatchWatch.matchesName(mc.level, entity, needle));
     }
 
     private static Vec3 aimPoint(Entity target) {
@@ -1398,10 +1304,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return 1;
         }
         return horizontal < follow - FOLLOW_BAND ? -1 : 0;
-    }
-
-    static String stripFormatting(String text) {
-        return text == null ? "" : text.replaceAll("§[0-9a-fk-or]", "").trim();
     }
 
     public State getState() {

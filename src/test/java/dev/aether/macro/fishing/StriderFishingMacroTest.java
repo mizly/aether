@@ -11,31 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StriderFishingMacroTest {
     @Test
-    void readsTheCatchMarkerThroughDecoration() {
-        assertTrue(StriderFishingMacro.isCatchMarker(
-                StriderFishingMacro.stripFormatting("§c§l!!")));
-        assertTrue(StriderFishingMacro.isCatchMarker(
-                StriderFishingMacro.stripFormatting("  §l!!  ")));
-        assertFalse(StriderFishingMacro.isCatchMarker(
-                StriderFishingMacro.stripFormatting("§e§l?")));
-        assertFalse(StriderFishingMacro.isCatchMarker(""));
-    }
-
-    @Test
-    void doesNotReadTheWaitingMarkerAsACatch() {
-        assertTrue(StriderFishingMacro.isBiteMarker(
-                StriderFishingMacro.stripFormatting("§e§l?")));
-        assertFalse(StriderFishingMacro.isBiteMarker(
-                StriderFishingMacro.stripFormatting("§c§l!!")));
-    }
-
-    @Test
-    void doesNotConfuseAHealthPlateWithTheCatchMarker() {
-        assertFalse(StriderFishingMacro.isCatchMarker(
-                StriderFishingMacro.stripFormatting("§c1,000§4❤")));
-    }
-
-    @Test
     void approachesAndBacksOffWithoutStrafing() {
         assertEquals(1, StriderFishingMacro.followDirection(4.0, 1.5, 0));
         assertEquals(0, StriderFishingMacro.followDirection(1.5, 1.5, 0));
@@ -150,13 +125,6 @@ class StriderFishingMacroTest {
         assertFalse(StriderFishingMacro.shouldEtherwarp(0.9, true, true));
         assertTrue(StriderFishingMacro.shouldEtherwarp(1.0, true, true));
         assertTrue(StriderFishingMacro.shouldEtherwarp(2.0, true, true));
-    }
-
-    @Test
-    void onlyACatchThatSurfacedAfterTheReelIsTargeted() {
-        java.util.Set<Integer> beforeReel = java.util.Set.of(11, 22, 33);
-        assertFalse(StriderFishingMacro.shouldAcceptTarget(22, beforeReel));
-        assertTrue(StriderFishingMacro.shouldAcceptTarget(44, beforeReel));
     }
 
     @Test
