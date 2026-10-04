@@ -112,6 +112,7 @@ public final class NanoVGManager {
         if (!initialized) return;
         // queued tasks hold handles from this context, which must never reach a later one
         nextFrameTasks.clear();
+        McTextures.destroy(vg);
         SVGRenderer.destroy(vg);
         NanoVGGL3.nvgDelete(vg);
         vg = -1L;
