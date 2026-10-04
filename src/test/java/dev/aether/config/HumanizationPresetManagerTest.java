@@ -20,7 +20,7 @@ class HumanizationPresetManagerTest {
     }
 
     @Test
-    void efficientAppliesEveryBundledSettingWithoutClampingOrChangingUnrelatedOptions() throws Exception {
+    void blatantAppliesEveryBundledSettingWithoutClampingOrChangingUnrelatedOptions() throws Exception {
         AetherConfig.HUMANIZATION_PRESET.get();
         String saved = Config.toJsonString();
         try {
@@ -30,13 +30,13 @@ class HumanizationPresetManagerTest {
             AetherConfig.PEST_HUNTING_MAX_TURN_SPEED.set(800f);
             HumanizationPresetManager.applyPresetByIndex(2);
             JsonObject expected;
-            try (var input = getClass().getResourceAsStream("/assets/aether/humanization-presets/efficient.json")) {
+            try (var input = getClass().getResourceAsStream("/assets/aether/humanization-presets/blatant.json")) {
                 assertNotNull(input);
                 expected = JsonParser.parseString(new String(input.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
             }
             JsonObject actual = JsonParser.parseString(Config.toJsonString()).getAsJsonObject();
             expected.entrySet().forEach(entry -> assertEquals(entry.getValue(), actual.get(entry.getKey()), entry.getKey()));
-            assertEquals("EFFICIENT", AetherConfig.HUMANIZATION_PRESET.get());
+            assertEquals("BLATANT", AetherConfig.HUMANIZATION_PRESET.get());
             assertTrue(AetherConfig.PEST_HUNTING.get());
             assertFalse(AetherConfig.SHOW_PEST_TARGET_HUD.get());
         } finally {
@@ -45,13 +45,13 @@ class HumanizationPresetManagerTest {
     }
 
     @Test
-    void normalPresetMatchesTheDefaults() throws Exception {
+    void legitPresetMatchesTheDefaults() throws Exception {
         AetherConfig.HUMANIZATION_PRESET.get();
         String saved = Config.toJsonString();
         try {
             Config.reset();
             JsonObject defaults = JsonParser.parseString(Config.toJsonString()).getAsJsonObject();
-            bundledPreset("normal").entrySet().forEach(entry ->
+            bundledPreset("legit").entrySet().forEach(entry ->
                     assertEquals(entry.getValue(), defaults.get(entry.getKey()), entry.getKey()));
         } finally {
             assertTrue(Config.loadFromJson(saved));
@@ -59,7 +59,7 @@ class HumanizationPresetManagerTest {
     }
 
     @Test
-    void safeAppliesEveryBundledSettingWithoutClamping() throws Exception {
+    void extraLegitAppliesEveryBundledSettingWithoutClamping() throws Exception {
         AetherConfig.HUMANIZATION_PRESET.get();
         String saved = Config.toJsonString();
         try {
@@ -67,14 +67,36 @@ class HumanizationPresetManagerTest {
             AetherConfig.SHOW_PEST_TARGET_HUD.set(false);
             HumanizationPresetManager.applyPresetByIndex(0);
             JsonObject actual = JsonParser.parseString(Config.toJsonString()).getAsJsonObject();
-            bundledPreset("safe").entrySet().forEach(entry ->
+            bundledPreset("extra_legit").entrySet().forEach(entry ->
                     assertEquals(entry.getValue(), actual.get(entry.getKey()), entry.getKey()));
-            assertEquals("SAFE", AetherConfig.HUMANIZATION_PRESET.get());
+            assertEquals("EXTRA_LEGIT", AetherConfig.HUMANIZATION_PRESET.get());
             assertTrue(AetherConfig.PEST_HUNTING.get());
             assertFalse(AetherConfig.SHOW_PEST_TARGET_HUD.get());
         } finally {
             assertTrue(Config.loadFromJson(saved));
         }
+    }
+
+    @Test
+    void presetsSavedUnderTheOldNamesStillShowTheMatchingPreset() {
+        String saved = AetherConfig.HUMANIZATION_PRESET.get();
+        try {
+            String[][] cases = {{"SAFE", "0"}, {"NORMAL", "1"}, {"EFFICIENT", "2"}, {"EXTRA_LEGIT", "0"},
+                    {"LEGIT", "1"}, {"BLATANT", "2"}, {"something else", "1"}};
+            for (String[] c : cases) {
+                AetherConfig.HUMANIZATION_PRESET.set(c[0]);
+                assertEquals(Integer.parseInt(c[1]), HumanizationPresetManager.getSelectedPresetIndex(), c[0]);
+            }
+        } finally {
+            AetherConfig.HUMANIZATION_PRESET.set(saved);
+        }
+    }
+
+    @Test
+    void everyPresetSetsEveryPresetSetting() throws Exception {
+        java.util.Set<String> legit = bundledPreset("legit").keySet();
+        assertEquals(legit, bundledPreset("extra_legit").keySet());
+        assertEquals(legit, bundledPreset("blatant").keySet());
     }
 
     private JsonObject bundledPreset(String id) throws Exception {

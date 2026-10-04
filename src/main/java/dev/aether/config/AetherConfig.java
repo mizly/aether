@@ -628,7 +628,7 @@ public final class AetherConfig {
         public static final IntEntry GUI_CLICK_DELAY_MAX = Config.integer("guiClickDelayMax", 250).range(0, 1000);
         public static final IntEntry BAZAAR_DELAY_MIN = Config.integer("bazaarDelayMin", 250).range(0, 1000);
         public static final IntEntry BAZAAR_DELAY_MAX = Config.integer("bazaarDelayMax", 500).range(0, 1000);
-        public static final StringEntry HUMANIZATION_PRESET = Config.string("humanizationPreset", "NORMAL");
+        public static final StringEntry HUMANIZATION_PRESET = Config.string("humanizationPreset", "LEGIT");
         public static final IntEntry ROTATION_TIME = Config.integer("rotationTime", 100).range(0, 5000);
         public static final FloatEntry ROTATION_DYNAMIC_DURATION_MS_PER_DEGREE = Config
                         .floatVal("rotationDynamicDurationMsPerDegree", 2.0f)

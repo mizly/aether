@@ -879,5 +879,8 @@
   "text.aether.pause_length": "Pause Length",
   "text.aether.micropause": "Micropause",
   "text.aether.back_up_when_too_close": "Back Up When Too Close",
-  "text.aether.back_up_past_pitch": "Back Up Past Pitch"
+  "text.aether.back_up_past_pitch": "Back Up Past Pitch",
+  "text.aether.extra_legit": "Extra Legit",
+  "text.aether.legit": "Legit",
+  "text.aether.blatant": "Blatant"
 }
