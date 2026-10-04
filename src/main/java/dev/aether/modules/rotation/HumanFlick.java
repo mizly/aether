@@ -274,17 +274,17 @@ public final class HumanFlick {
         double aside = random.nextDouble(-0.02, 0.02);
         float gripYaw = (float) (pen.yaw + dYaw * split - dPitch * aside);
         float gripPitch = Mth.clamp((float) (pen.pitch + dPitch * split + dYaw * aside), -90.0f, 90.0f);
-        stroke(pen, gripYaw, gripPitch, style, pace, peak, random);
+        // each stroke gets its share of the throw's ceiling, so the cap gives way only where one sweep's would
+        long firstCeilingMs = Math.round(MAX_CAPPED_MAIN_MS * split);
+        stroke(pen, gripYaw, gripPitch, style, pace, peak, firstCeilingMs, random);
         pen.pause(Math.round(skewed(random, 60.0, 160.0)));
-        stroke(pen, toYaw, toPitch, style, pace, peak, random);
+        stroke(pen, toYaw, toPitch, style, pace, peak, MAX_CAPPED_MAIN_MS - firstCeilingMs, random);
     }
 
-    // the strokes split the throw's ceiling, so a very slow cap still lets go as early as one sweep would
     private static void stroke(Pen pen, float toYaw, float toPitch, Style style, double pace, double peak,
-                               RandomGenerator random) {
+                               long ceilingMs, RandomGenerator random) {
         double length = Math.hypot(toYaw - pen.yaw, toPitch - pen.pitch);
-        pen.move(toYaw, toPitch, strokeMs(length, style, pace, peak, MAX_CAPPED_MAIN_MS / 2),
-                bulge(length, random));
+        pen.move(toYaw, toPitch, strokeMs(length, style, pace, peak, ceilingMs), bulge(length, random));
     }
 
     // a miss past 3 degrees is more and more often closed in two goes,

@@ -321,6 +321,19 @@ class HumanFlickStyleTest {
         assertEquals(1.0, narrow.targetWidthDegrees());
     }
 
+    @Test
+    void theStrokesOfASplitTurnStayUnderACapOneSweepWouldKeep() {
+        HumanFlick.Style steady = HumanFlick.Style.humanized(90.0, 0.0, 0.06, 0.14, 250.0, 2.0, 0.0);
+        for (int seed = 0; seed < 500; seed++) {
+            HumanFlick.Plan plan = HumanFlick.plan(0f, 0f, 175f, 0f, NOW, steady, new SplittableRandom(seed));
+            assertEquals(2, plan.strokes());
+            for (HumanFlick.Segment stroke : plan.segments().subList(0, plan.strokes())) {
+                double peak = segmentPeak(stroke);
+                assertTrue(peak <= 250.0, "stroke " + peak);
+            }
+        }
+    }
+
     private static HumanFlick.Segment landing(HumanFlick.Plan plan) {
         return plan.segments().get(plan.strokes() - 1);
     }
@@ -338,6 +351,10 @@ class HumanFlickStyleTest {
         double endYaw = startYaw + dYaw;
         return ((segment.toYaw() - endYaw) * dYaw + (segment.toPitch() - targetPitch) * dPitch)
                 / (dYaw * dYaw + dPitch * dPitch);
+    }
+
+    private static double segmentPeak(HumanFlick.Segment segment) {
+        return peakSpeed(new HumanFlick.Plan(List.of(segment), 1));
     }
 
     private static double peakSpeed(HumanFlick.Plan plan) {
