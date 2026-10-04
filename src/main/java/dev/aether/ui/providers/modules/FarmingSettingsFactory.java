@@ -220,6 +220,26 @@ final class FarmingSettingsFactory {
                 });
     }
 
+    static RangeSliderSetting micropauseIntervalSetting() {
+        return intRangeSetting("Pause Every", 1f, 60f, " min",
+                () -> AetherConfig.MICROPAUSE_INTERVAL_MIN_MINUTES.get(),
+                () -> AetherConfig.MICROPAUSE_INTERVAL_MAX_MINUTES.get(),
+                (min, max) -> {
+                    AetherConfig.MICROPAUSE_INTERVAL_MIN_MINUTES.set(min);
+                    AetherConfig.MICROPAUSE_INTERVAL_MAX_MINUTES.set(max);
+                });
+    }
+
+    static RangeSliderSetting micropauseDurationSetting() {
+        return intRangeSetting("Pause Length", 1f, 60f, "s",
+                () -> AetherConfig.MICROPAUSE_DURATION_MIN_SECONDS.get(),
+                () -> AetherConfig.MICROPAUSE_DURATION_MAX_SECONDS.get(),
+                (min, max) -> {
+                    AetherConfig.MICROPAUSE_DURATION_MIN_SECONDS.set(min);
+                    AetherConfig.MICROPAUSE_DURATION_MAX_SECONDS.set(max);
+                });
+    }
+
     static SliderSetting farmingPitchRangeSetting() {
         return new SliderSetting("Farming Pitch Range", 0, 10,
                 () -> AetherConfig.MACRO_CUSTOM_PITCH_HUMANIZATION.get(),

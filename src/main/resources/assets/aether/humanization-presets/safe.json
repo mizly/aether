@@ -51,5 +51,9 @@
   "pestOvershootMinAngle": 80.0,
   "pestOvershootAmountMin": 6,
   "pestOvershootAmountMax": 14,
-  "pestMemoryError": 8.0
+  "pestMemoryError": 8.0,
+  "micropauseIntervalMinMinutes": 2,
+  "micropauseIntervalMaxMinutes": 7,
+  "micropauseDurationMinSeconds": 4,
+  "micropauseDurationMaxSeconds": 15
 }

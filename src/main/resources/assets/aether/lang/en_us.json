@@ -872,5 +872,9 @@
   "text.aether.pest_overshoot_min_turn": "Pest Overshoot Min Turn",
   "text.aether.pest_overshoot_amount": "Pest Overshoot Amount",
   "text.aether.remember_pest_positions": "Remember Pest Positions",
-  "text.aether.pest_memory_error": "Pest Memory Error"
+  "text.aether.pest_memory_error": "Pest Memory Error",
+  "text.aether.micropauses": "Micropauses",
+  "text.aether.short_random_breaks_while_farming_like_checking_your_phone": "Short random breaks while farming, like checking your phone",
+  "text.aether.pause_every": "Pause Every",
+  "text.aether.pause_length": "Pause Length"
 }

@@ -2,6 +2,7 @@ package dev.aether.ui.providers.modules;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.config.HumanizationPresetManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.ui.MainGUIRegistry;
 import dev.aether.ui.providers.base.AbstractModulesRegistryProvider;
 import dev.aether.ui.settings.DropdownSetting;
@@ -130,6 +131,18 @@ public final class HumanizationRegistryProvider extends AbstractModulesRegistryP
                 .add(FarmingSettingsFactory.pestMemoryErrorSetting())
                 .add(FarmingSettingsFactory.visitorFovRangeSetting())
                 .add(FarmingSettingsFactory.pestExchangeFovRangeSetting()));
+
+        groups.add(SettingGroup.of(
+                        "Micropauses",
+                        "Short random breaks while farming, like checking your phone",
+                        AetherConfig.MICROPAUSE_ENABLED::get,
+                        v -> {
+                            AetherConfig.MICROPAUSE_ENABLED.set(v);
+                            AetherConfig.save();
+                            MicropauseManager.syncFromConfig();
+                        })
+                .add(FarmingSettingsFactory.micropauseIntervalSetting())
+                .add(FarmingSettingsFactory.micropauseDurationSetting()));
 
         groups.add(SettingGroup.alwaysOn(
                         "Miscellaneous",

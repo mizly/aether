@@ -184,6 +184,10 @@ public final class HumanizationPresetManager {
         addEntry(entries, AetherConfig.PEST_MEMORY_ERROR);
         addEntry(entries, AetherConfig.VISITOR_FOV_RANGE);
         addEntry(entries, AetherConfig.PEST_EXCHANGE_FOV_RANGE);
+        addEntry(entries, AetherConfig.MICROPAUSE_INTERVAL_MIN_MINUTES);
+        addEntry(entries, AetherConfig.MICROPAUSE_INTERVAL_MAX_MINUTES);
+        addEntry(entries, AetherConfig.MICROPAUSE_DURATION_MIN_SECONDS);
+        addEntry(entries, AetherConfig.MICROPAUSE_DURATION_MAX_SECONDS);
         return entries;
     }
 

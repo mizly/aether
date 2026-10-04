@@ -43,7 +43,9 @@ final class SettingDescriptionCatalog {
             Map.entry("Pest Overshoot Min Turn", "Turns of at least this many degrees can overshoot at the full chance. Below that the chance fades out, reaching zero at half this size, where turns only land a little short or long."),
             Map.entry("Pest Overshoot Amount", "How far an overshoot swings past the pest, as a share of the turn. Lower turn speeds swing less far."),
             Map.entry("Remember Pest Positions", "When the next pest is out of sight, swings toward where it was last seen, then looks again and corrects onto the real pest. Off turns straight onto the pest even when it is out of sight."),
-            Map.entry("Pest Memory Error", "How far off, in degrees, a swing toward a remembered pest typically lands. It grows the longer ago the pest was seen, to three times this after 8 seconds, and a pest never seen gets only a rough direction.")
+            Map.entry("Pest Memory Error", "How far off, in degrees, a swing toward a remembered pest typically lands. It grows the longer ago the pest was seen, to three times this after 8 seconds, and a pest never seen gets only a rough direction."),
+            Map.entry("Pause Every", "Farming time between micropauses. Time spent killing pests, on visitors or other tasks does not count."),
+            Map.entry("Pause Length", "How long each micropause lasts. All keys are released and the camera stays still while paused.")
 
     );
 
