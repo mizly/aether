@@ -2,6 +2,7 @@ package dev.aether.ui;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.config.entries.StringEntry;
+import dev.aether.macro.fishing.FishingMacroKind;
 import dev.aether.modules.routes.Route;
 import dev.aether.modules.routes.RouteEditor;
 import dev.aether.modules.routes.RouteStore;
@@ -216,13 +217,9 @@ public final class RoutesScreen extends CanvasPanelScreen {
     }
 
     private void createRoute() {
-        Route route = new Route(store.nextFreeName(folder), Route.DEFAULT_WARP);
+        String warp = FishingMacroKind.forFolder(folder).map(FishingMacroKind::newRouteWarp).orElse(Route.DEFAULT_WARP);
+        Route route = new Route(store.nextFreeName(folder), warp);
         store.save(folder, route);
-        StringEntry selection = selectionEntry(folder);
-        if (selection != null && selectedName().isBlank()) {
-            selection.set(route.name());
-            AetherConfig.save();
-        }
         RouteEditor.begin(Minecraft.getInstance(), folder, route);
     }
 
@@ -277,7 +274,7 @@ public final class RoutesScreen extends CanvasPanelScreen {
     }
 
     private static StringEntry selectionEntry(RouteStore.Folder folder) {
-        return RouteStore.STRIDER_FISHING.equals(folder) ? AetherConfig.STRIDER_FISHING_RESTART_ROUTE : null;
+        return FishingMacroKind.forFolder(folder).map(FishingMacroKind::routeSelection).orElse(null);
     }
 
     private void openFolder() {
