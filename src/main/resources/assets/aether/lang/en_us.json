@@ -821,6 +821,7 @@
   "text.aether.teleport_distance": "Teleport Distance",
   "text.aether.restart_in_new_lobby": "Restart In New Lobby",
   "text.aether.no_restart_route_selected_macro_stopped": "No restart route selected, macro stopped.",
+  "text.aether.restart_route_has_no_warp_macro_stopped": "Restart route has no warp, macro stopped.",
   "text.aether.restarting_in_a_new_lobby": "Restarting in a new lobby.",
   "text.aether.restart": "Restart",
   "text.aether.where_the_macro_warps_and_walks_before_it_starts_fishing": "Where the macro warps and walks before it starts fishing",

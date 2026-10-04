@@ -2,7 +2,6 @@ package dev.aether.macro.fishing;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.config.ConfigHelpers;
-import dev.aether.macro.AbstractMacro;
 import dev.aether.macro.MacroInput;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.failsafe.FailsafeManager;
@@ -41,7 +40,7 @@ import java.util.function.IntPredicate;
 
 // lava fishing for stridersurfers: cast, wait for the marker to flip from ? to !!, reel, kill, walk home
 // every delay here is wall-clock and every decision runs on the client tick, so the macro behaves the same at 10 or 240 fps
-public final class StriderFishingMacro extends AbstractMacro {
+public final class StriderFishingMacro extends AbstractFishingMacro {
 
     public enum State { AIM_LAVA, CAST, WAIT_BITE, REEL, FIGHT, CLEAR, RETURN }
 
@@ -202,7 +201,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         if (mc.player == null) {
             return;
         }
-        origin = mc.player.blockPosition();
+        origin = home(mc);
         target = null;
         followMove = 0;
         clearAimSearch();
@@ -1135,6 +1134,7 @@ public final class StriderFishingMacro extends AbstractMacro {
         MacroInput.set(options.keyShift, shouldSneak(mc));
     }
 
+    @Override
     public void releaseAll(Minecraft mc) {
         if (mc == null || mc.options == null) {
             return;

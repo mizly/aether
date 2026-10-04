@@ -4,6 +4,7 @@ import dev.aether.config.AetherConfig;
 import dev.aether.bootstrap.AetherBootstrapHooks;
 import dev.aether.bootstrap.AetherUiActions;
 import dev.aether.macro.farming.FarmingMacroManager;
+import dev.aether.macro.fishing.FishingMacroKind;
 import dev.aether.macro.fishing.FishingMacroManager;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
@@ -75,7 +76,7 @@ public final class AetherKeybindHandler {
             }
 
             while (AetherKeybindRegistry.getStriderFishingKey().consumeClick()) {
-                handleStriderFishingToggle(client);
+                handleFishingToggle(client, FishingMacroKind.STRIDER);
             }
         });
     }
@@ -146,19 +147,19 @@ public final class AetherKeybindHandler {
         }
     }
 
-    private static void handleStriderFishingToggle(Minecraft client) {
+    private static void handleFishingToggle(Minecraft client, FishingMacroKind kind) {
         if (MacroStateManager.isAutomationRunning()) {
             MacroStateManager.stopMacro();
             return;
         }
-        startStriderFishingMacro(client, true);
+        startFishingMacro(client, kind, true);
     }
 
     public static void startStriderFishingMacro(Minecraft client) {
-        startStriderFishingMacro(client, true);
+        startFishingMacro(client, FishingMacroKind.STRIDER, true);
     }
 
-    public static void startStriderFishingMacro(Minecraft client, boolean announce) {
+    public static void startFishingMacro(Minecraft client, FishingMacroKind kind, boolean announce) {
         if (client == null) {
             return;
         }
@@ -171,9 +172,9 @@ public final class AetherKeybindHandler {
         FailsafeManager.syncExpectedRotationFromClient(client);
         FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
         MacroStateManager.setCurrentState(MacroState.State.FISHING);
-        client.execute(() -> FishingMacroManager.enable(client));
+        client.execute(() -> FishingMacroManager.enable(client, kind));
         if (announce) {
-            ClientUtils.sendMessage("§aStrider fishing macro started.", false);
+            ClientUtils.sendMessage("§a" + kind.displayName() + " started.", false);
         }
     }
 

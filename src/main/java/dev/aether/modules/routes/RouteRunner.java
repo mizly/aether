@@ -204,7 +204,7 @@ public final class RouteRunner {
                 phase = Phase.DONE;
                 return;
             }
-            // the macro takes its home from the block the player stands on, so the route ends dead centre on it
+            // the macro aims from the middle of the route's last block, so the route ends dead centre on it
             if (mc.player == null || mc.screen != null) {
                 return;
             }

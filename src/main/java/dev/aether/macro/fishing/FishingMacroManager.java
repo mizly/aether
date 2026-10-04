@@ -9,6 +9,7 @@ import dev.aether.modules.routes.RouteRunner;
 import dev.aether.modules.routes.RouteStore;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
 
 // tick() has to be wired to END_CLIENT_TICK
 public final class FishingMacroManager {
@@ -16,7 +17,8 @@ public final class FishingMacroManager {
     private static final int START_DELAY_MIN_TICKS = 1;
     private static final int START_DELAY_MAX_TICKS = 10;
 
-    private static StriderFishingMacro activeMacro;
+    private static AbstractFishingMacro activeMacro;
+    private static FishingMacroKind activeKind;
     private static int pendingEnableTicks;
     private static volatile RouteRunner restartRunner;
 
@@ -24,16 +26,18 @@ public final class FishingMacroManager {
     }
 
     // main client thread only
-    public static void enable(Minecraft mc) {
+    public static void enable(Minecraft mc, FishingMacroKind kind) {
         disable(mc);
         ClientUtils.forceReleaseKeys();
-        activeMacro = new StriderFishingMacro();
+        activeKind = kind;
+        activeMacro = kind.create();
         pendingEnableTicks = ConfigHelpers.getRandomizedDelay(START_DELAY_MIN_TICKS, START_DELAY_MAX_TICKS);
 
         // the route ends on the fishing spot, so standing there already skips the warp and the walk
-        Route route = selectedRestartRoute();
+        Route route = restartRoute(kind);
+        activeMacro.setHome(homeOf(route));
         if (route != null && mc.player != null && !RouteRunner.isStandingAt(mc, route.end())) {
-            ClientUtils.sendDebugMessage("[StriderFishing] walking restart route " + route.name());
+            ClientUtils.sendDebugMessage("[" + kind.displayName() + "] walking route " + route.name());
             restartRunner = new RouteRunner(route, false);
         }
     }
@@ -46,6 +50,7 @@ public final class FishingMacroManager {
             activeMacro = null;
             pendingEnableTicks = 0;
         }
+        activeKind = null;
     }
 
     public static boolean isActive() {
@@ -56,12 +61,21 @@ public final class FishingMacroManager {
         return restartRunner != null;
     }
 
-    public static StriderFishingMacro getActiveMacro() {
-        return activeMacro;
+    public static FishingMacroKind activeKind() {
+        return activeKind;
     }
 
     public static boolean canRestartInNewLobby() {
-        return activeMacro != null && selectedRestartRoute() != null;
+        return restartBlockedReason() == null;
+    }
+
+    // null when a restart can run; it starts from the hub or a fresh lobby, so only the route's warp gets back
+    public static String restartBlockedReason() {
+        Route route = activeMacro == null ? null : restartRoute(activeKind);
+        if (route == null) {
+            return "No restart route selected, macro stopped.";
+        }
+        return route.hasWarp() ? null : "Restart route has no warp, macro stopped.";
     }
 
     public static void restartInNewLobby(Minecraft mc) {
@@ -78,13 +92,14 @@ public final class FishingMacroManager {
     }
 
     private static void beginRestart(Minecraft mc, boolean hopThroughHub) {
-        Route route = selectedRestartRoute();
-        if (activeMacro == null || route == null) {
+        Route route = activeMacro == null ? null : restartRoute(activeKind);
+        if (route == null) {
             return;
         }
         Runnable start = () -> {
             cancelRestart();
             activeMacro.onDisable(mc);
+            activeMacro.setHome(homeOf(route));
             pendingEnableTicks = 0;
             restartRunner = new RouteRunner(route, hopThroughHub);
         };
@@ -103,13 +118,20 @@ public final class FishingMacroManager {
         }
     }
 
-    static Route selectedRestartRoute() {
-        String name = AetherConfig.STRIDER_FISHING_RESTART_ROUTE.get();
+    // only a route that ends somewhere can be walked
+    static Route restartRoute(FishingMacroKind kind) {
+        String name = kind.routeSelection().get();
         if (name == null || name.isBlank()) {
             return null;
         }
-        Route route = RouteStore.config().load(RouteStore.STRIDER_FISHING, name);
+        Route route = RouteStore.config().load(kind.folder(), name);
         return route == null || route.end() == null ? null : route;
+    }
+
+    // home is the route's last block, even when a start right beside it skipped the walk
+    private static BlockPos homeOf(Route route) {
+        Route.Waypoint end = route == null ? null : route.end();
+        return end == null ? null : new BlockPos(end.x(), end.y(), end.z());
     }
 
     // releases the macro's keys without disabling it
@@ -145,7 +167,7 @@ public final class FishingMacroManager {
         runner.tick(mc);
         if (runner.isFailed()) {
             restartRunner = null;
-            String message = "Strider fishing stopped: restart route failed (" + runner.failure() + ").";
+            String message = activeKind.displayName() + " stopped: restart route failed (" + runner.failure() + ").";
             ClientUtils.sendMessage("§c" + message, false);
             MacroStateManager.stopMacro(mc, message, false);
             return;
