@@ -8,6 +8,8 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PestDestroyerRuntimeTest {
@@ -115,6 +117,28 @@ class PestDestroyerRuntimeTest {
         runtime.transitionTo(PestDestroyer.State.APPROACH_PEST, 1_000_020L);
         runtime.transitionTo(PestDestroyer.State.KILL_PEST, 1_000_030L);
         assertTrue(runtime.acquisition.isHolding());
+    }
+
+    @Test
+    void whatThePlayerSawLastsAsLongAsTheRun() {
+        PestDestroyerRuntime runtime = new PestDestroyerRuntime();
+        runtime.sightings.record(7, Vec3.ZERO, 1_000_000L);
+
+        runtime.beginRun(3, 1_000_100L);
+        assertNull(runtime.sightings.lastSeen(7, 1_000_100L, Long.MAX_VALUE));
+
+        runtime.sightings.record(7, Vec3.ZERO, 1_000_200L);
+        for (PestDestroyer.State state : PestDestroyer.State.values()) {
+            runtime.transitionTo(state, 1_000_300L);
+        }
+        assertNotNull(runtime.sightings.lastSeen(7, 1_000_300L, Long.MAX_VALUE));
+
+        runtime.stopRun();
+        assertNull(runtime.sightings.lastSeen(7, 1_000_300L, Long.MAX_VALUE));
+
+        runtime.sightings.record(7, Vec3.ZERO, 1_000_400L);
+        runtime.resetAll();
+        assertNull(runtime.sightings.lastSeen(7, 1_000_400L, Long.MAX_VALUE));
     }
 
     @Test

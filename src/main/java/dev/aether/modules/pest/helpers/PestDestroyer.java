@@ -219,8 +219,10 @@ public class PestDestroyer {
             return;
         }
 
+        long now = System.currentTimeMillis();
+        recordSightings(client, now);
         // before the kill check, so a dead pest's turn is dropped before the next pest's turn begins
-        runtime.acquisition.tick(client, runtime, System.currentTimeMillis());
+        runtime.acquisition.tick(client, runtime, now);
 
         if (PestTargetController.reconcileTrackedKills(
                 client, runtime, CONTEXT)) {
@@ -258,6 +260,18 @@ public class PestDestroyer {
 
         PestDestroyerInputController.updateVacuumRetryPulse(client, runtime);
         PestCombatCoordinator.updateEtherwarpAltitudeHold(client, runtime);
+    }
+
+    private static void recordSightings(Minecraft client, long now) {
+        for (Entity pest : PestTargetTracker.getLoadedPests(client)) {
+            Vec3 eye = pest.position().add(0, pest.getEyeHeight(pest.getPose()), 0);
+            if (PestView.canSee(client, eye)) {
+                runtime.sightings.record(pest.getId(), eye, now);
+            }
+        }
+        if (client.player.tickCount % 20 == 0) {
+            runtime.sightings.prune(now);
+        }
     }
 
     private static void processState(Minecraft client) {

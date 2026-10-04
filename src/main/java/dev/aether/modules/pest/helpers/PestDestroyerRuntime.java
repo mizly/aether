@@ -22,6 +22,7 @@ final class PestDestroyerRuntime {
     final PestFlightController flightController = new PestFlightController();
     final PestFlightRecovery flightRecovery = new PestFlightRecovery();
     final PestAimAcquisition acquisition = new PestAimAcquisition();
+    final PestSightings sightings = new PestSightings();
     final Deque<Entity> pestTargetQueue = new ArrayDeque<>();
     final Set<Integer> accountedKilledPestEntityIds = ConcurrentHashMap.newKeySet();
 
@@ -228,6 +229,7 @@ final class PestDestroyerRuntime {
         killVacuumReleaseUntil = 0L;
         // stopping the macro resets the run before PestDestroyer.stop(), which then does nothing, so the turn ends here
         acquisition.reset();
+        sightings.clear();
         lastPathHandoffArmAt = 0L;
         aotvSlot = -1;
         aotvUseCount = 0;

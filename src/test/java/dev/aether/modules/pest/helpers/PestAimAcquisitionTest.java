@@ -3,6 +3,8 @@ package dev.aether.modules.pest.helpers;
 import dev.aether.modules.pest.helpers.PestAimAcquisition.Phase;
 import dev.aether.modules.pest.helpers.PestAimAcquisition.Step;
 import dev.aether.modules.rotation.HumanFlick;
+import dev.aether.util.RotationUtils;
+import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -10,6 +12,8 @@ import java.util.SplittableRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PestAimAcquisitionTest {
@@ -155,5 +159,114 @@ class PestAimAcquisitionTest {
         assertEquals(Phase.IDLE, acquisition.phase());
         assertFalse(acquisition.isHolding());
         assertEquals(0L, acquisition.completedAt());
+    }
+
+    @Test
+    void aPestSeenInTheLastEightSecondsIsRecalledButNotOnASecondLook() {
+        PestSightings sightings = new PestSightings();
+        sightings.record(7, new Vec3(3, 70, 4), NOW);
+
+        PestSightings.Sighting recalled = PestAimAcquisition.recall(sightings, 7, false, NOW + 8_000);
+        assertNotNull(recalled);
+        assertEquals(new Vec3(3, 70, 4), recalled.eye());
+        assertEquals(8_000L, recalled.ageMs());
+        assertNull(PestAimAcquisition.recall(sightings, 7, false, NOW + 8_001));
+        assertNull(PestAimAcquisition.recall(sightings, 7, true, NOW + 1_000));
+        assertNull(PestAimAcquisition.recall(sightings, 8, false, NOW + 1_000));
+    }
+
+    @Test
+    void aMemoryGrowsVaguerWithAgeAndAnUnseenPestIsOnlyARoughBearing() {
+        assertEquals(6.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(0L), 6.0), 1.0e-9);
+        assertEquals(9.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(2_000L), 6.0), 1.0e-9);
+        assertEquals(12.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(4_000L), 6.0), 1.0e-9);
+        assertEquals(18.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(8_000L), 6.0), 1.0e-9);
+        assertEquals(18.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(20_000L), 6.0), 1.0e-9);
+        assertEquals(0.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(5_000L), 0.0), 1.0e-9);
+
+        assertEquals(18.0, PestAimAcquisition.memoryErrorDegrees(null, 6.0), 1.0e-9);
+        assertEquals(60.0, PestAimAcquisition.memoryErrorDegrees(null, 20.0), 1.0e-9);
+        assertEquals(8.0, PestAimAcquisition.memoryErrorDegrees(null, 2.0), 1.0e-9);
+        assertEquals(8.0, PestAimAcquisition.memoryErrorDegrees(null, 0.0), 1.0e-9);
+    }
+
+    @Test
+    void aRememberedBearingMissesMostlySidewaysAndNeverWildly() {
+        SplittableRandom random = new SplittableRandom(17);
+        double yawSquares = 0.0;
+        double pitchSquares = 0.0;
+        for (int i = 0; i < 500; i++) {
+            RotationUtils.Rotation guess = PestAimAcquisition.misjudge(
+                    new RotationUtils.Rotation(120.0f, 20.0f), 10.0, random);
+            double yawError = guess.yaw - 120.0;
+            double pitchError = guess.pitch - 20.0;
+            assertTrue(Math.abs(yawError) <= 25.0 + 1.0e-4, "yaw " + yawError);
+            assertTrue(Math.abs(pitchError) <= 12.5 + 1.0e-4, "pitch " + pitchError);
+            yawSquares += yawError * yawError;
+            pitchSquares += pitchError * pitchError;
+        }
+        double yawSpread = Math.sqrt(yawSquares / 500);
+        double pitchSpread = Math.sqrt(pitchSquares / 500);
+        assertTrue(yawSpread > 8.5 && yawSpread < 11.5, "yaw spread " + yawSpread);
+        assertTrue(pitchSpread > 4.25 && pitchSpread < 5.75, "pitch spread " + pitchSpread);
+    }
+
+    @Test
+    void aRememberedLookStaysClearOfThePoles() {
+        SplittableRandom random = new SplittableRandom(23);
+        boolean clamped = false;
+        for (int i = 0; i < 500; i++) {
+            RotationUtils.Rotation up = PestAimAcquisition.misjudge(new RotationUtils.Rotation(0.0f, -80.0f), 20.0,
+                    random);
+            RotationUtils.Rotation down = PestAimAcquisition.misjudge(new RotationUtils.Rotation(0.0f, 80.0f), 20.0,
+                    random);
+            assertTrue(up.pitch >= -85.0f && up.pitch <= 85.0f, "up " + up.pitch);
+            assertTrue(down.pitch >= -85.0f && down.pitch <= 85.0f, "down " + down.pitch);
+            clamped |= up.pitch == -85.0f || down.pitch == 85.0f;
+        }
+        assertTrue(clamped);
+
+        RotationUtils.Rotation exact = PestAimAcquisition.misjudge(new RotationUtils.Rotation(33.0f, -12.0f), 0.0,
+                random);
+        assertEquals(33.0f, exact.yaw);
+        assertEquals(-12.0f, exact.pitch);
+    }
+
+    @Test
+    void aRememberedSwingIsFollowedByAReactionAndASearch() {
+        SplittableRandom random = new SplittableRandom(29);
+        for (double tempo : new double[]{0.90, 1.0, 1.15}) {
+            for (int i = 0; i < 500; i++) {
+                long search = PestAimAcquisition.searchMs(random, tempo, 150, 320);
+                assertTrue(search >= Math.floor(190.0 * tempo) && search <= Math.ceil(460.0 * tempo),
+                        tempo + " -> " + search);
+                long swapped = PestAimAcquisition.searchMs(random, tempo, 320, 150);
+                assertTrue(swapped >= Math.floor(190.0 * tempo) && swapped <= Math.ceil(460.0 * tempo),
+                        tempo + " swapped -> " + swapped);
+                assertTrue(search > PestAimAcquisition.reactMs(random, tempo));
+            }
+        }
+        for (int i = 0; i < 500; i++) {
+            long fixed = PestAimAcquisition.searchMs(random, 1.0, 200, 200);
+            assertTrue(fixed >= 240L && fixed <= 340L, "fixed " + fixed);
+            long instant = PestAimAcquisition.searchMs(random, 1.0, 0, 0);
+            assertTrue(instant >= 40L && instant <= 140L, "instant " + instant);
+        }
+    }
+
+    @Test
+    void aRememberedSwingLandsExactlyWhereThePlayerThinksThePestIs() {
+        HumanFlick.Style live = PestAimAcquisition.style(90.0, 40, 5, 12, 450.0, 4.0);
+
+        HumanFlick.Style remembered = PestAimAcquisition.withoutSpread(live);
+
+        assertEquals(0.0, remembered.finalSpreadDegrees());
+        assertEquals(live, new HumanFlick.Style(remembered.overshootFromDegrees(), remembered.overshootChance(),
+                remembered.overshootMinFraction(), remembered.overshootMaxFraction(), remembered.turnSpeedCap(),
+                remembered.targetWidthDegrees(), live.finalSpreadDegrees(), remembered.stagedCorrections()));
+    }
+
+    private static PestSightings.Sighting seenAgo(long ageMs) {
+        return new PestSightings.Sighting(Vec3.ZERO, ageMs);
     }
 }

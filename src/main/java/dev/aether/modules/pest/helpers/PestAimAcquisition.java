@@ -48,8 +48,17 @@ final class PestAimAcquisition {
     private static final double MIN_FLICK_HORIZONTAL = 1.2;
     private static final double REACT_MIN_MS = 30.0;
     private static final double REACT_MAX_MS = 90.0;
+    private static final double SEARCH_MIN_MS = 40.0;
+    private static final double SEARCH_MAX_MS = 140.0;
     private static final double MIN_TEMPO = 0.90;
     private static final double MAX_TEMPO = 1.15;
+    private static final long MEMORY_WINDOW_MS = 8_000L;
+    private static final double MEMORY_DOUBLES_AFTER_MS = 4_000.0;
+    private static final double UNSEEN_ERROR_SCALE = 3.0;
+    private static final double UNSEEN_MIN_ERROR_DEGREES = 8.0;
+    private static final double PITCH_ERROR_SCALE = 0.5;
+    private static final double MAX_ERROR_SIGMAS = 2.5;
+    private static final double MAX_REMEMBERED_PITCH = 85.0;
 
     private Phase phase = Phase.IDLE;
     private int targetId = -1;
@@ -57,6 +66,7 @@ final class PestAimAcquisition {
     private long beganAt;
     private long phaseUntil;
     private long flickId;
+    private boolean usedMemory;
     private int followUps;
     private long completedAt;
     private double tempo = 1.0;
@@ -105,7 +115,7 @@ final class PestAimAcquisition {
             }
             case EXPIRED -> finish(now);
             case DECIDE -> decide(client, runtime, target, FLICK_MIN_DEGREES, now);
-            case LANDED -> hold(Phase.REACT, now, reactMs(ThreadLocalRandom.current(), tempo));
+            case LANDED -> hold(Phase.REACT, now, reactionAfterFlick());
             case REASSESS -> {
                 double residual = PestView.angleFromCrosshair(client, liveAim(client, runtime, target, kind));
                 if (needsFollowUp(residual, followUps)) {
@@ -145,29 +155,51 @@ final class PestAimAcquisition {
         kind = AimKind.VACUUM;
         beganAt = 0L;
         phaseUntil = 0L;
+        usedMemory = false;
         followUps = 0;
         completedAt = 0L;
     }
 
     private void decide(Minecraft client, PestDestroyerRuntime runtime, Entity target, double minDegrees, long now) {
         Vec3 eye = client.player.getEyePosition();
-        Vec3 aim = liveAim(client, runtime, target, kind);
+        Vec3 liveEye = eyeOf(target);
+        // out of sight the turn goes where the player believes the pest is, the look after it finds the real one
+        usedMemory = AetherConfig.PEST_MEMORY_ROTATION.get() && !PestView.canSee(client, liveEye);
+        PestSightings.Sighting sighting = usedMemory
+                ? recall(runtime.sightings, target.getId(), followUps > 0, now)
+                : null;
+        Vec3 believedEye = sighting != null ? sighting.eye() : liveEye;
+        Vec3 aim = aimFrom(client, runtime, target, kind, believedEye);
         RotationUtils.Rotation look = RotationUtils.calculateLookAt(eye, aim);
-        if (!wantsFlick(PestView.angleFromCrosshair(client, aim), minDegrees, look.pitch,
+        Vec3 lookPoint = aim;
+        if (usedMemory) {
+            look = misjudge(look, memoryErrorDegrees(sighting, AetherConfig.PEST_MEMORY_ERROR.get()),
+                    ThreadLocalRandom.current());
+            lookPoint = eye.add(Vec3.directionFromRotation(look.pitch, look.yaw));
+        }
+        if (!wantsFlick(PestView.angleFromCrosshair(client, lookPoint), minDegrees, look.pitch,
                 Math.hypot(aim.x - eye.x, aim.z - eye.z))) {
             finish(now);
             return;
         }
-        double width = targetWidthDegrees(target.getBbWidth(), eye.distanceTo(eyeOf(target)));
-        flickId = HumanFlick.start(client, look.yaw, look.pitch, style(
-                AetherConfig.PEST_OVERSHOOT_MIN_ANGLE.get(), AetherConfig.PEST_OVERSHOOT_CHANCE.get(),
-                AetherConfig.PEST_OVERSHOOT_AMOUNT_MIN.get(), AetherConfig.PEST_OVERSHOOT_AMOUNT_MAX.get(),
-                AetherConfig.PEST_NEXT_TARGET_TURN_SPEED.get(), width));
+        HumanFlick.Style style = style(AetherConfig.PEST_OVERSHOOT_MIN_ANGLE.get(),
+                AetherConfig.PEST_OVERSHOOT_CHANCE.get(), AetherConfig.PEST_OVERSHOOT_AMOUNT_MIN.get(),
+                AetherConfig.PEST_OVERSHOOT_AMOUNT_MAX.get(), AetherConfig.PEST_NEXT_TARGET_TURN_SPEED.get(),
+                targetWidthDegrees(target.getBbWidth(), eye.distanceTo(believedEye)));
+        flickId = HumanFlick.start(client, look.yaw, look.pitch, usedMemory ? withoutSpread(style) : style);
         if (flickId == 0L) {
             finish(now);
             return;
         }
         phase = Phase.FLICK;
+    }
+
+    private long reactionAfterFlick() {
+        if (!usedMemory) {
+            return reactMs(ThreadLocalRandom.current(), tempo);
+        }
+        return searchMs(ThreadLocalRandom.current(), tempo, AetherConfig.PEST_REACTION_MIN_MS.get(),
+                AetherConfig.PEST_REACTION_MAX_MS.get());
     }
 
     private void hold(Phase phase, long now, long ms) {
@@ -212,6 +244,36 @@ final class PestAimAcquisition {
         return Math.round(tempo * HumanFlick.skewed(random, REACT_MIN_MS, REACT_MAX_MS));
     }
 
+    // after a swing toward where the pest should be it still has to be spotted, then reacted to
+    static long searchMs(RandomGenerator random, double tempo, int reactionMinMs, int reactionMaxMs) {
+        return Math.round(tempo * (HumanFlick.skewed(random, reactionMinMs, reactionMaxMs)
+                + HumanFlick.skewed(random, SEARCH_MIN_MS, SEARCH_MAX_MS)));
+    }
+
+    // a pest still out of sight on a second look is placed by its rough bearing, not where it was remembered
+    static PestSightings.Sighting recall(PestSightings sightings, int targetId, boolean followUp, long now) {
+        return followUp ? null : sightings.lastSeen(targetId, now, MEMORY_WINDOW_MS);
+    }
+
+    // a fresh memory is off by about the configured error, growing to three times it over 8 s,
+    // and a pest never seen is only a rough bearing, as if heard rather than seen
+    static double memoryErrorDegrees(PestSightings.Sighting sighting, double errorDegrees) {
+        if (sighting == null) {
+            return Math.max(UNSEEN_MIN_ERROR_DEGREES, UNSEEN_ERROR_SCALE * errorDegrees);
+        }
+        return errorDegrees * (1.0 + Math.min(sighting.ageMs(), MEMORY_WINDOW_MS) / MEMORY_DOUBLES_AFTER_MS);
+    }
+
+    // pests keep to a band of height but can be anywhere around, so memory errs mostly in bearing,
+    // and the cut at 2.5 sigma stops a rare draw from swinging somewhere absurd
+    static RotationUtils.Rotation misjudge(RotationUtils.Rotation look, double errorDegrees, RandomGenerator random) {
+        double yawError = Math.clamp(random.nextGaussian(), -MAX_ERROR_SIGMAS, MAX_ERROR_SIGMAS) * errorDegrees;
+        double pitchError = Math.clamp(random.nextGaussian(), -MAX_ERROR_SIGMAS, MAX_ERROR_SIGMAS)
+                * PITCH_ERROR_SCALE * errorDegrees;
+        return new RotationUtils.Rotation((float) (look.yaw + yawError),
+                (float) Math.clamp(look.pitch + pitchError, -MAX_REMEMBERED_PITCH, MAX_REMEMBERED_PITCH));
+    }
+
     // close to the crosshair the trackers finish the job, and near the poles yaw is so ill defined a flick spins
     static boolean wantsFlick(double offAxisDegrees, double minDegrees, float pitch, double horizontalDistance) {
         return offAxisDegrees > minDegrees
@@ -236,9 +298,20 @@ final class PestAimAcquisition {
                 Math.max(0.25, 0.3 * targetWidthDegrees / 2.0));
     }
 
-    // read without PestAimTracker, whose lead and drift advance on every read
+    // a remembered swing lands exactly where the player thinks the pest is, its error is in the memory
+    static HumanFlick.Style withoutSpread(HumanFlick.Style style) {
+        return new HumanFlick.Style(style.overshootFromDegrees(), style.overshootChance(),
+                style.overshootMinFraction(), style.overshootMaxFraction(), style.turnSpeedCap(),
+                style.targetWidthDegrees(), 0.0, style.stagedCorrections());
+    }
+
     private static Vec3 liveAim(Minecraft client, PestDestroyerRuntime runtime, Entity target, AimKind kind) {
-        Vec3 eye = eyeOf(target);
+        return aimFrom(client, runtime, target, kind, eyeOf(target));
+    }
+
+    // read without PestAimTracker, whose lead and drift advance on every read
+    private static Vec3 aimFrom(Minecraft client, PestDestroyerRuntime runtime, Entity target, AimKind kind,
+                                Vec3 eye) {
         return switch (kind) {
             case VACUUM -> PestCombatCoordinator.buildVacuumAimTarget(client, target, eye);
             case EYE -> eye;

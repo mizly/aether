@@ -436,6 +436,9 @@ public final class AetherConfig {
                         .range(1, 30);
         public static final IntEntry PEST_OVERSHOOT_AMOUNT_MAX = Config.integer("pestOvershootAmountMax", 12)
                         .range(1, 30);
+        public static final BooleanEntry PEST_MEMORY_ROTATION = Config.bool("pestMemoryRotation", true);
+        public static final FloatEntry PEST_MEMORY_ERROR = Config.floatVal("pestMemoryError", 6.0f)
+                        .range(0.0f, 20.0f);
 
         // -- PEST HUNTING ----------------------------------------------------------
 
