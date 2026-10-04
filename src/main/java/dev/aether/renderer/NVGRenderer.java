@@ -578,24 +578,6 @@ public class NVGRenderer {
         nvgRestore(vg);
     }
 
-    // -- Minecraft item icons -------------------------------------------------
-
-    // tint multiplies the icon, alpha included; size and origin snap to device pixels (see mcIconSnap)
-    public void mcIcon(McIcon icon, float x, float y, float size, int tint) {
-        McIconRenderer.draw(vg, paint, icon, x, y, size, tint, false, 0f);
-    }
-
-    // mcIcon plus an additive enchant-glint sheen that moves with timeSeconds
-    public void mcIconGlint(McIcon icon, float x, float y, float size, int tint, float timeSeconds) {
-        McIconRenderer.draw(vg, paint, icon, x, y, size, tint, true, timeSeconds);
-    }
-
-    // the size mcIcon really draws at under the current transform: whole device pixels per texel once the
-    // icon reaches 16 device pixels, so at fractional ui scales it can differ from the requested size
-    public float mcIconSnap(float size) {
-        return McIconRenderer.snappedSize(vg, size);
-    }
-
     // borders are source texels drawn 1:1 in local units (scale the canvas for chunkier pixels); edges and centre stretch
     public void nineSlice(int handle, float imgW, float imgH, float srcX, float srcY, float srcW, float srcH,
                           float borderL, float borderT, float borderR, float borderB,
@@ -613,6 +595,24 @@ public class NVGRenderer {
                         dx[col], dy[row], dx[col + 1] - dx[col], dy[row + 1] - dy[row], tint);
             }
         }
+    }
+
+    // -- Minecraft item icons -------------------------------------------------
+
+    // tint multiplies the icon, alpha included; size and origin snap to device pixels (see mcIconSnap)
+    public void mcIcon(McIcon icon, float x, float y, float size, int tint) {
+        McIconRenderer.draw(vg, paint, icon, x, y, size, tint, false, 0f);
+    }
+
+    // mcIcon plus an additive enchant-glint sheen that moves with timeSeconds
+    public void mcIconGlint(McIcon icon, float x, float y, float size, int tint, float timeSeconds) {
+        McIconRenderer.draw(vg, paint, icon, x, y, size, tint, true, timeSeconds);
+    }
+
+    // the size mcIcon really draws at under the current transform: whole device pixels per texel once the
+    // icon reaches 16 device pixels, so at fractional ui scales it can differ from the requested size
+    public float mcIconSnap(float size) {
+        return McIconRenderer.snappedSize(vg, size);
     }
 
     // -- Text ------------------------------------------------------------------
