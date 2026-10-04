@@ -84,6 +84,11 @@ class McBitmapFontSheetTest {
     }
 
     @Test
+    void loadsEveryUiFont() {
+        for (String font : Fonts.UI_ALL) assertNotEquals(-1, NanoVGManager.getFontId(font), font);
+    }
+
+    @Test
     void rendersTheFontSheet() throws Exception {
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
         GL11.glViewport(0, 0, WIDTH, HEIGHT);

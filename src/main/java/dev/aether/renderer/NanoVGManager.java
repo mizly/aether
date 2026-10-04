@@ -418,12 +418,7 @@ public final class NanoVGManager {
         addFallback(Fonts.BOLD, fallbackId);
         addFallback(Fonts.MONO, fallbackId);
         addFallback(Fonts.SCOREBOARD_BOLD, fallbackId);
-        addFallback(Fonts.UI_REGULAR, fallbackId);
-        addFallback(Fonts.UI_MEDIUM, fallbackId);
-        addFallback(Fonts.UI_SEMIBOLD, fallbackId);
-        addFallback(Fonts.UI_BOLD, fallbackId);
-        addFallback(Fonts.UI_MONO, fallbackId);
-        addFallback(Fonts.UI_MONO_BOLD, fallbackId);
+        for (String font : Fonts.UI_ALL) addFallback(font, fallbackId);
     }
 
     private static void addFallback(String baseFont, int fallbackId) {
