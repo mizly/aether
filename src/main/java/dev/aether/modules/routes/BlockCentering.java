@@ -11,7 +11,7 @@ import java.util.Locale;
 
 // shuffles the player onto the middle of the block they stand on, crouched so an edge can never be walked off;
 // a warp landing or a walk can stop right at the lip, and aiming from there is not the spot the route was recorded on
-final class BlockCentering {
+public final class BlockCentering {
     // inside this the eye is within a hair of where it was recorded, and a crouched step overshoots by less
     static final double TOLERANCE = 0.12;
     private static final long TIMEOUT_MS = 2_500L;
@@ -20,13 +20,14 @@ final class BlockCentering {
     private BlockPos block;
 
     // target is the recorded block when the route knows it, otherwise the block the player is held up by
-    BlockCentering(long now, BlockPos target) {
+    public BlockCentering(long now, BlockPos target) {
         this.startedAt = now;
         this.block = target;
     }
 
-    // true once centred, or once it has tried long enough that waiting longer would only stall the route
-    boolean tick(Minecraft mc, long now) {
+    // true once centred, or once it has tried long enough that waiting longer would only stall the route;
+    // the sneak is left held, so lifting it is up to the caller
+    public boolean tick(Minecraft mc, long now) {
         MacroInput.set(mc.options.keyShift, true);
         if (!mc.player.onGround()) {
             releaseSteps(mc);
