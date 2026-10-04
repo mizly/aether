@@ -345,6 +345,11 @@ public final class GuiCanvas {
         return metrics.caretX(font, size, text);
     }
 
+    // this frame's measuring backend, which the focused field hands to TextEditor.layout
+    public TextMetrics metrics() {
+        return metrics;
+    }
+
     // keeps explicit line breaks and splits words wider than a line; never returns an empty list
     public List<String> wrap(String font, float size, String text, float maxWidth) {
         List<String> lines = new ArrayList<>();
