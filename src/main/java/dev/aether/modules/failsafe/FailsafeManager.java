@@ -146,6 +146,10 @@ public final class FailsafeManager {
         RotationFailsafe.addGracePeriod(durationMs);
     }
 
+    public static void expectOwnTeleport(long windowMs) {
+        TeleportFailsafe.expectOwnTeleport(windowMs);
+    }
+
     public static int getExpectedSelectedSlot() {
         return InventorySlotFailsafe.getExpectedSelectedSlot();
     }

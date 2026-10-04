@@ -32,6 +32,14 @@ class FishingFailsafeRulesTest {
     }
 
     @Test
+    void anOwnWarpWindowExcusesTheJump() {
+        assertTrue(TeleportFailsafe.isOwnMovement(false, false, 1_000L, 2_000L));
+        assertFalse(TeleportFailsafe.isOwnMovement(false, false, 2_000L, 2_000L));
+        assertTrue(TeleportFailsafe.isOwnMovement(true, false, 5_000L, 0L));
+        assertTrue(TeleportFailsafe.isOwnMovement(false, true, 5_000L, 0L));
+    }
+
+    @Test
     void restartActionParsesFromConfig() {
         assertEquals(FailsafeAction.RESTART, FailsafeAction.fromConfig("restart"));
         assertEquals(FailsafeAction.STOP, FailsafeAction.fromConfig("bogus"));
