@@ -652,6 +652,18 @@ public final class AetherConfig {
         public static final BooleanEntry CLOSE_GAME_ON_DAILY_THRESHOLD = Config.bool("closeGameOnDailyThreshold",
                         false);
 
+        // -- MICROPAUSES -----------------------------------------------------------
+
+        public static final BooleanEntry MICROPAUSE_ENABLED = Config.bool("micropauseEnabled", false);
+        public static final IntEntry MICROPAUSE_INTERVAL_MIN_MINUTES = Config.integer("micropauseIntervalMinMinutes", 3)
+                        .range(1, 60);
+        public static final IntEntry MICROPAUSE_INTERVAL_MAX_MINUTES = Config.integer("micropauseIntervalMaxMinutes", 10)
+                        .range(1, 60);
+        public static final IntEntry MICROPAUSE_DURATION_MIN_SECONDS = Config.integer("micropauseDurationMinSeconds", 3)
+                        .range(1, 60);
+        public static final IntEntry MICROPAUSE_DURATION_MAX_SECONDS = Config.integer("micropauseDurationMaxSeconds", 12)
+                        .range(1, 60);
+
         // -- REWARP --------------------------------------------------------
         
         public static final BooleanEntry ENABLE_REWARP = Config.bool("enableRewarp", false);
