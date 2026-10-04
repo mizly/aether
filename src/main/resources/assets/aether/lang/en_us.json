@@ -845,6 +845,7 @@
   "text.aether.route_editor": "Route Editor",
   "text.aether.esc_to_exit": "Esc to exit",
   "text.aether.no_route_selected": "No route selected",
+  "text.aether.no_route_selected_fishes_at_the_sawyer_spot_694_120_78": "No route selected: fishes at the Sawyer spot (-694 120 78)",
   "text.aether.edit_waypoint": "Edit Waypoint",
   "text.aether.position": "Position",
   "text.aether.the_highlighted_block": "The highlighted block",

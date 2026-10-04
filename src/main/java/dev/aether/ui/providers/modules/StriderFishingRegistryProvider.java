@@ -164,7 +164,9 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
                         () -> Minecraft.getInstance().setScreen(new RoutesScreen(RouteStore.STRIDER_FISHING))))
                 .add(new InfoSetting("Selected Route", () -> {
                     String selected = AetherConfig.STRIDER_FISHING_RESTART_ROUTE.get();
-                    return selected == null || selected.isBlank() ? AetherLang.localize("No route selected") : selected;
+                    return selected == null || selected.isBlank()
+                            ? AetherLang.localize("No route selected: fishes at the Sawyer spot (-694 120 78)")
+                            : selected;
                 })));
 
         return groups;

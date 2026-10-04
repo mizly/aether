@@ -1156,9 +1156,9 @@ public final class AetherConfig {
                         .range(0, 3000);
         public static final IntEntry STRIDER_FISHING_CAST_DELAY_MAX = Config.integer("striderFishingCastDelayMax", 900)
                         .range(0, 3000);
-        // blank means the macro fishes wherever it was started, with no warp or route first
+        // blank walks to the sawyer spot (-694 120 78) on galatea and fishes there
         public static final StringEntry STRIDER_FISHING_RESTART_ROUTE = Config.string("striderFishingRestartRoute",
-                        "default_strider");
+                        "");
         public static final BooleanEntry STRIDER_FISHING_RANDOM_LOOK = Config.bool("striderFishingRandomLook", true);
         public static final BooleanEntry STRIDER_FISHING_BLOCK_SHUFFLE = Config.bool("striderFishingBlockShuffle", true);
         // soul whip fishing leaves each catch stuck in a small pool and only clears the pool once it holds this many

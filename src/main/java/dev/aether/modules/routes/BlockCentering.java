@@ -80,6 +80,10 @@ public final class BlockCentering {
         return best != null ? best : under;
     }
 
+    public static boolean isCentred(Vec3 feet, BlockPos block) {
+        return offsetToCentre(feet, block).horizontalDistance() <= TOLERANCE;
+    }
+
     static Vec3 offsetToCentre(Vec3 feet, BlockPos block) {
         return new Vec3(block.getX() + 0.5 - feet.x, 0.0, block.getZ() + 0.5 - feet.z);
     }

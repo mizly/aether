@@ -86,6 +86,10 @@ public final class RouteRunner {
         return failure;
     }
 
+    public boolean isEtherwarping() {
+        return etherwarpLeg != null;
+    }
+
     public void cancel() {
         if (phase == Phase.LEG_WAIT) {
             PathfindingManager.stop(false);

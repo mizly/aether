@@ -2,12 +2,15 @@ package dev.aether.macro.fishing;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.config.ConfigHelpers;
+import dev.aether.macro.MacroInput;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.failsafe.FailsafeManager;
+import dev.aether.modules.routes.BlockCentering;
 import dev.aether.modules.routes.Route;
 import dev.aether.modules.routes.RouteRunner;
 import dev.aether.modules.routes.RouteStore;
 import dev.aether.util.ClientUtils;
+import dev.aether.util.SkyblockLocation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 
@@ -21,6 +24,9 @@ public final class FishingMacroManager {
     private static FishingMacroKind activeKind;
     private static int pendingEnableTicks;
     private static volatile RouteRunner restartRunner;
+    private static boolean restartToFixedSpot;
+    private static boolean restartJumpHeld;
+    private static String reportedRoute;
 
     private FishingMacroManager() {
     }
@@ -32,14 +38,25 @@ public final class FishingMacroManager {
         activeKind = kind;
         activeMacro = kind.create();
         pendingEnableTicks = ConfigHelpers.getRandomizedDelay(START_DELAY_MIN_TICKS, START_DELAY_MAX_TICKS);
+        reportedRoute = null;
 
-        // the route ends on the fishing spot, so standing there already skips the warp and the walk
-        Route route = restartRoute(kind);
+        Route selected = selectedRoute(kind);
+        boolean fixedSpot = usesFixedSpot(kind, selected);
+        Route route = fixedSpot ? fixedSpotRoute(mc, false) : selected;
         activeMacro.setHome(homeOf(route));
-        if (route != null && mc.player != null && !RouteRunner.isStandingAt(mc, route.end())) {
+        if (route != null && mc.player != null && !alreadyThere(mc, route, fixedSpot)) {
             ClientUtils.sendDebugMessage("[" + kind.displayName() + "] walking route " + route.name());
-            restartRunner = new RouteRunner(route, false);
+            startRunner(route, false, fixedSpot);
         }
+    }
+
+    // the route ends on the fishing spot, so standing there already skips the warp and the walk;
+    // the sawyer pit is a small target for the cast, so there only a player already centred skips it
+    private static boolean alreadyThere(Minecraft mc, Route route, boolean fixedSpot) {
+        boolean standing = RouteRunner.isStandingAt(mc, route.end());
+        return fixedSpot
+                ? standing && BlockCentering.isCentred(mc.player.position(), StriderFishingMacro.FIXED_SPOT)
+                : standing;
     }
 
     // main client thread only
@@ -92,7 +109,12 @@ public final class FishingMacroManager {
     }
 
     private static void beginRestart(Minecraft mc, boolean hopThroughHub) {
-        Route route = activeMacro == null ? null : restartRoute(activeKind);
+        if (activeMacro == null) {
+            return;
+        }
+        Route selected = selectedRoute(activeKind);
+        boolean fixedSpot = usesFixedSpot(activeKind, selected);
+        Route route = fixedSpot ? fixedSpotRoute(mc, true) : selected;
         if (route == null) {
             return;
         }
@@ -101,13 +123,19 @@ public final class FishingMacroManager {
             activeMacro.onDisable(mc);
             activeMacro.setHome(homeOf(route));
             pendingEnableTicks = 0;
-            restartRunner = new RouteRunner(route, hopThroughHub);
+            startRunner(route, hopThroughHub, fixedSpot);
         };
         if (mc.isSameThread()) {
             start.run();
         } else {
             mc.execute(start);
         }
+    }
+
+    private static void startRunner(Route route, boolean hopThroughHub, boolean fixedSpot) {
+        restartToFixedSpot = fixedSpot;
+        restartJumpHeld = false;
+        restartRunner = new RouteRunner(route, hopThroughHub);
     }
 
     private static void cancelRestart() {
@@ -118,14 +146,41 @@ public final class FishingMacroManager {
         }
     }
 
-    // only a route that ends somewhere can be walked
     static Route restartRoute(FishingMacroKind kind) {
+        Route selected = selectedRoute(kind);
+        return usesFixedSpot(kind, selected) ? fixedSpotRoute(Minecraft.getInstance(), true) : selected;
+    }
+
+    // only a route that ends somewhere can be walked, and one that cannot is pointed out once per start
+    private static Route selectedRoute(FishingMacroKind kind) {
         String name = kind.routeSelection().get();
         if (name == null || name.isBlank()) {
             return null;
         }
         Route route = RouteStore.config().load(kind.folder(), name);
-        return route == null || route.end() == null ? null : route;
+        if (route != null && route.end() != null) {
+            return route;
+        }
+        if (kind == FishingMacroKind.STRIDER && !name.equals(reportedRoute)) {
+            reportedRoute = name;
+            ClientUtils.sendMessage("§e" + kind.displayName() + " cannot use route \"" + name
+                    + "\" (missing or no waypoints), fishing at the Sawyer spot (-694 120 78) instead.", false);
+        }
+        return null;
+    }
+
+    // with routes off, or a selection that cannot be walked, the strider fishes at the sawyer spot
+    private static boolean usesFixedSpot(FishingMacroKind kind, Route selected) {
+        return selected == null && kind == FishingMacroKind.STRIDER;
+    }
+
+    private static Route fixedSpotRoute(Minecraft mc, boolean restart) {
+        BlockPos spot = StriderFishingMacro.FIXED_SPOT;
+        boolean onGalatea = mc.player != null && SkyblockLocation.isOnGalatea(mc);
+        double horizontal = mc.player == null
+                ? Double.POSITIVE_INFINITY
+                : Math.hypot(mc.player.getX() - (spot.getX() + 0.5), mc.player.getZ() - (spot.getZ() + 0.5));
+        return StriderFishingMacro.fixedSpotRoute(StriderFishingMacro.fixedSpotWarp(restart, onGalatea, horizontal));
     }
 
     // home is the route's last block, even when a start right beside it skipped the walk
@@ -165,9 +220,13 @@ public final class FishingMacroManager {
 
     private static void tickRestart(Minecraft mc, RouteRunner runner) {
         runner.tick(mc);
+        holdJumpInLava(mc, runner);
         if (runner.isFailed()) {
             restartRunner = null;
-            String message = activeKind.displayName() + " stopped: restart route failed (" + runner.failure() + ").";
+            String message = restartToFixedSpot
+                    ? activeKind.displayName() + " stopped: could not reach the Sawyer spot (" + runner.failure()
+                            + "). Select a recorded route that ends there."
+                    : activeKind.displayName() + " stopped: restart route failed (" + runner.failure() + ").";
             ClientUtils.sendMessage("§c" + message, false);
             MacroStateManager.stopMacro(mc, message, false);
             return;
@@ -183,5 +242,15 @@ public final class FishingMacroManager {
         FailsafeManager.addRotationGracePeriod(AetherConfig.FAILSAFE_ROTATION_WARP_GRACE_MS.get());
         pendingEnableTicks = 0;
         activeMacro.onEnable(mc);
+    }
+
+    // the walker never swims out of lava, so a leg that sinks into the pit would retry from its floor;
+    // an etherwarp is left alone, since bobbing up mid aim moves the eye off its line
+    private static void holdJumpInLava(Minecraft mc, RouteRunner runner) {
+        boolean hold = mc.player.isInLava() && !runner.isEtherwarping();
+        if (hold || restartJumpHeld) {
+            MacroInput.set(mc.options.keyJump, hold);
+            restartJumpHeld = hold;
+        }
     }
 }

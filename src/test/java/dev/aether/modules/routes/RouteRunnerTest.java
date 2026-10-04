@@ -33,4 +33,13 @@ class RouteRunnerTest {
         assertTrue(Math.abs(offset.z + 0.4) < 1.0e-9);
         assertTrue(offset.y == 0.0);
     }
+
+    @Test
+    void onlyAPlayerInsideTheToleranceCountsAsCentred() {
+        net.minecraft.core.BlockPos block = new net.minecraft.core.BlockPos(-694, 120, 78);
+
+        assertTrue(BlockCentering.isCentred(new net.minecraft.world.phys.Vec3(-693.5, 120.0, 78.5), block));
+        assertTrue(BlockCentering.isCentred(new net.minecraft.world.phys.Vec3(-693.42, 121.0, 78.42), block));
+        assertFalse(BlockCentering.isCentred(new net.minecraft.world.phys.Vec3(-693.35, 120.0, 78.5), block));
+    }
 }

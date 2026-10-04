@@ -1,6 +1,9 @@
 package dev.aether.macro.fishing;
 
+import dev.aether.modules.routes.Route;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -336,5 +339,28 @@ class StriderFishingMacroTest {
                 new net.minecraft.world.phys.Vec3(-2.0, 64.0, -2.0), home));
         assertTrue(StriderFishingMacro.escapedCage(null,
                 new net.minecraft.world.phys.Vec3(9.0, 64.0, 0.5), home));
+    }
+
+    @Test
+    void theSawyerSpotRouteIsOneWalkOntoTheSpot() {
+        Route route = StriderFishingMacro.fixedSpotRoute("");
+
+        assertEquals(List.of(new Route.Waypoint(-694, 120, 78, Route.LegType.WALK)), route.waypoints());
+        assertFalse(route.hasWarp());
+        assertEquals("/warp galatea", StriderFishingMacro.fixedSpotRoute("galatea").warpCommand());
+    }
+
+    @Test
+    void aRestartAlwaysWarpsToGalateaBeforeWalkingToTheSawyerSpot() {
+        assertEquals("galatea", StriderFishingMacro.fixedSpotWarp(true, true, 0.0));
+        assertEquals("galatea", StriderFishingMacro.fixedSpotWarp(true, false, 500.0));
+    }
+
+    @Test
+    void aStartOnlyWalksStraightToTheSawyerSpotFromCloseByOnGalatea() {
+        assertEquals("", StriderFishingMacro.fixedSpotWarp(false, true, 0.0));
+        assertEquals("", StriderFishingMacro.fixedSpotWarp(false, true, 96.0));
+        assertEquals("galatea", StriderFishingMacro.fixedSpotWarp(false, true, 96.5));
+        assertEquals("galatea", StriderFishingMacro.fixedSpotWarp(false, false, 10.0));
     }
 }
