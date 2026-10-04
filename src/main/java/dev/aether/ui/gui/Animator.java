@@ -3,9 +3,8 @@ package dev.aether.ui.gui;
 import java.util.HashMap;
 import java.util.Map;
 
-// keyed, time-based animation for immediate-mode drawing. durations scale with the theme's animation time
-// (250 ms is 1x) and everything snaps at the minimum animation time, which doubles as reduced motion.
-// keys untouched for two seconds are forgotten
+// keyed, time-based animation; durations scale with the theme's animation time (250 ms is 1x), everything
+// snaps at its minimum (reduced motion), and keys idle for two seconds are forgotten
 public final class Animator {
     public static final float BASE_MS = 250f;
     private static final long EVICT_AFTER_NANOS = 2_000_000_000L;

@@ -7,9 +7,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-// a text field's editing state, apart from drawing. the focused field calls layout() while it draws, which
-// records real caret positions per line, so pointer and up/down mapping work between frames without nanovg.
-// what escape does (commit, cancel or clear) is decided by the field that owns the editor, not here
+// a text field's editing state apart from drawing; layout(), called while the focused field draws, records
+// real caret positions so pointer and up/down mapping work between frames without nanovg
 public final class TextEditor {
     public enum Result { IGNORED, HANDLED, SUBMIT }
 
@@ -232,6 +231,7 @@ public final class TextEditor {
 
     // -- keys and chars --------------------------------------------------------
 
+    // escape never comes here: the owning field decides whether it commits, cancels or clears
     public Result key(KeyInput k, Clipboard clipboard) {
         boolean extend = k.shift();
         boolean word = k.shortcut();

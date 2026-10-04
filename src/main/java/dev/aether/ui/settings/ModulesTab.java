@@ -10,7 +10,7 @@ import dev.aether.util.AetherLang;
 // just holds the SubTab type now; MainGUI does the rendering
 public class ModulesTab {
 
-    // FEATURE switches gate a feature; RUNTIME switches act right away (open the PiP window, free the cursor)
+    // feature switches gate a feature; runtime switches act right away (open the PiP window, free the cursor)
     public enum ToggleKind { FEATURE, RUNTIME }
 
     // named grouping of SettingGroups with its own header metadata and state. names are localised once, at

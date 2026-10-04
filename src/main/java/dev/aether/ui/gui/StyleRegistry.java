@@ -7,9 +7,10 @@ import java.util.Map;
 // the gui styles by id; Theme.GUI_STYLE names the active one
 public final class StyleRegistry {
     public static final String DEFAULT_ID = "aurora";
-    private static final GuiStyle DEBUG = new DebugStyle();
 
+    // styles keep per-view state such as scroll positions, so every registry holds its own instances
     private final Map<String, GuiStyle> styles = new LinkedHashMap<>();
+    private final GuiStyle debug = new DebugStyle();
 
     public StyleRegistry(List<GuiStyle> styles) {
         for (GuiStyle style : styles) {
@@ -32,6 +33,6 @@ public final class StyleRegistry {
         if (style == null) {
             style = styles.get(DEFAULT_ID);
         }
-        return style != null ? style : DEBUG;
+        return style != null ? style : debug;
     }
 }

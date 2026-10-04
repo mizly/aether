@@ -3,9 +3,8 @@ package dev.aether.ui.gui;
 import java.util.ArrayList;
 import java.util.List;
 
-// immediate-mode hit testing: regions are registered while drawing, mapped through the canvas transform and
-// cut to its clip. input between frames routes against the last finished frame, topmost (last added) first.
-// register the stable layout rect, not an animated one, and give regions ids built from stable keys
+// regions registered while drawing, mapped through the canvas transform and clip; input routes against the
+// last finished frame, topmost first. register stable layout rects under ids built from stable keys
 public final class HitRegions {
     private static final Object BLOCKER = new Object();
 
