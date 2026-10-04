@@ -2,12 +2,12 @@ package dev.aether.ui.providers.modules;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.ui.MainGUIRegistry;
+import dev.aether.ui.gui.plot.PlotSettings;
 import dev.aether.ui.providers.base.AbstractModulesRegistryProvider;
 import dev.aether.ui.settings.ListSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
-import dev.aether.ui.settings.TextSetting;
 import dev.aether.ui.settings.ToggleSetting;
 
 import java.util.ArrayList;
@@ -174,12 +174,7 @@ public final class QualityOfLifeRegistryProvider extends AbstractModulesRegistry
                         .visibleWhen(() -> AetherConfig.AUTO_DROP_JUNK.get()))
                 .add(FarmingSettingsFactory.junkDropDelaySetting()
                         .visibleWhen(() -> AetherConfig.AUTO_DROP_JUNK.get()))
-                .add(new TextSetting("Drop at Plot TP", "Plot number (e.g. 5)",
-                        () -> AetherConfig.DROP_JUNK_PLOT_TP.get(),
-                        v -> {
-                            AetherConfig.DROP_JUNK_PLOT_TP.set(v);
-                            AetherConfig.save();
-                        })
+                .add(PlotSettings.teleport("Drop at Plot TP", AetherConfig.DROP_JUNK_PLOT_TP)
                         .visibleWhen(() -> AetherConfig.AUTO_DROP_JUNK.get()))
                 .add(new ListSetting("Junk Items", "Add item name",
                         () -> AetherConfig.JUNK_ITEMS.get(),

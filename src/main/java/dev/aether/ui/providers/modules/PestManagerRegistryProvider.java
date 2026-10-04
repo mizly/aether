@@ -5,12 +5,13 @@ import dev.aether.config.AetherConfig;
 import dev.aether.modules.failsafe.FailsafeSoundManager;
 import dev.aether.notification.NotificationManager;
 import dev.aether.ui.MainGUIRegistry;
+import dev.aether.ui.gui.plot.PlotSettings;
 import dev.aether.ui.providers.base.AbstractModulesRegistryProvider;
 import dev.aether.ui.settings.ColorSetting;
 import dev.aether.ui.settings.DropdownSetting;
 import dev.aether.ui.settings.KeybindSetting;
-import dev.aether.ui.settings.ListSetting;
 import dev.aether.ui.settings.MultiDropdownSetting;
+import dev.aether.ui.settings.PlotSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.PositionSetting;
 import dev.aether.ui.settings.SettingGroup;
@@ -155,12 +156,8 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.LEAVE_ONE_PEST_ALIVE.set(v);
                             AetherConfig.save();
                         }))
-                .add(new ListSetting("Leave One Pest Plots", "Add plot number",
-                        () -> AetherConfig.LEAVE_ONE_PEST_PLOTS.get(),
-                        v -> {
-                            AetherConfig.LEAVE_ONE_PEST_PLOTS.set(v);
-                            AetherConfig.save();
-                        })
+                .add(PlotSettings.list("Leave One Pest Plots", PlotSetting.Mode.MULTI,
+                                AetherConfig.LEAVE_ONE_PEST_PLOTS, PlotSetting.EmptyMeaning.NONE)
                         .visibleWhen(() -> AetherConfig.LEAVE_ONE_PEST_ALIVE.get()))
                 .add(new ToggleSetting("Sunset Pests",
                         () -> AetherConfig.SUNSET_PESTS.get(),
@@ -351,12 +348,8 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.BALLSACK_SHREDDER.set(v);
                             AetherConfig.save();
                         })
-                .add(new ListSetting("Ballsack Shredder Plots", "Add plot number",
-                        () -> AetherConfig.BALLSACK_SHREDDER_PLOTS.get(),
-                        v -> {
-                            AetherConfig.BALLSACK_SHREDDER_PLOTS.set(v);
-                            AetherConfig.save();
-                        })
+                .add(PlotSettings.list("Ballsack Shredder Plots", PlotSetting.Mode.MULTI,
+                                AetherConfig.BALLSACK_SHREDDER_PLOTS, PlotSetting.EmptyMeaning.ALL)
                         .visibleWhen(AetherConfig.BALLSACK_SHREDDER::get))
                 .add(new SliderSetting("AOTV Warps", 1, 5,
                         () -> (float) AetherConfig.BALLSACK_WARPS.get(),
@@ -389,12 +382,8 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.AOTV_TO_ROOF.set(v);
                             AetherConfig.save();
                         })
-                .add(new ListSetting("AOTV Roof Plots", "Add plot number",
-                        () -> AetherConfig.AOTV_ROOF_PLOTS.get(),
-                        v -> {
-                            AetherConfig.AOTV_ROOF_PLOTS.set(v);
-                            AetherConfig.save();
-                        }))
+                .add(PlotSettings.list("AOTV Roof Plots", PlotSetting.Mode.MULTI,
+                        AetherConfig.AOTV_ROOF_PLOTS, PlotSetting.EmptyMeaning.ALL))
                 .add(FarmingSettingsFactory.aotvToRoofPitchSetting())
                 .add(new ToggleSetting("Break Blocks Before AOTV",
                         () -> AetherConfig.BREAK_BLOCKS_BEFORE_AOTV.get(),
@@ -536,12 +525,7 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         })
                         .withDecimals(0)
                         .visibleWhen(() -> AetherConfig.AUTO_REFILL_PEST_TRAPS.get()))
-                .add(new TextSetting("Pest Traps Plot", "Plot number (e.g. 5)",
-                        () -> AetherConfig.PEST_TRAPS_PLOT.get(),
-                        v -> {
-                            AetherConfig.PEST_TRAPS_PLOT.set(v);
-                            AetherConfig.save();
-                        })
+                .add(PlotSettings.teleport("Pest Traps Plot", AetherConfig.PEST_TRAPS_PLOT)
                         .visibleWhen(() -> AetherConfig.AUTO_CLEAR_PEST_TRAPS.get()
                                 || AetherConfig.AUTO_REFILL_PEST_TRAPS.get()))
                 .add(new ToggleSetting("Pathfind to Traps",
