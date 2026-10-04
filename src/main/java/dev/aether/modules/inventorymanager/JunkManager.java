@@ -20,6 +20,7 @@ import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.pest.helpers.PestPrepSwapManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.modules.visitor.VisitorManager;
 
 public class JunkManager {
@@ -99,7 +100,8 @@ public class JunkManager {
         }
 
         if (isPriorityEventActive(client) ||
-                LoadoutManager.isSwappingLoadout)
+                LoadoutManager.isSwappingLoadout ||
+                MicropauseManager.isHoldingTasks())
             return;
 
         int junkCount = countJunkItems(client);

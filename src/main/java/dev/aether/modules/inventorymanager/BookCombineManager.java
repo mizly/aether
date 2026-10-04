@@ -20,6 +20,7 @@ import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.pest.helpers.PestPrepSwapManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.modules.visitor.VisitorManager;
 
 public class BookCombineManager {
@@ -182,7 +183,7 @@ public class BookCombineManager {
             return;
         }
 
-        if (isPriorityEventActive(client))
+        if (isPriorityEventActive(client) || MicropauseManager.isHoldingTasks())
             return;
 
         int bookCount = countBooksInInventory(client);

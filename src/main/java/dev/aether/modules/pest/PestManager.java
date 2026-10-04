@@ -16,6 +16,7 @@ import dev.aether.modules.GreenhouseManager;
 import dev.aether.modules.CropFeverManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.inventorymanager.GeorgeManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.util.ClientUtils;
 
 import net.minecraft.client.Minecraft;
@@ -43,6 +44,7 @@ public class PestManager {
     private static volatile boolean pendingChatTriggerWaitsForLoadout = false;
     private static volatile long pendingChatTriggerDelayAfterLoadoutMs = 0L;
     private static volatile boolean pendingChatTriggerUsesBallsack = false;
+    private static volatile int deferredBallsackLoadoutSlot = 0;
     private static volatile int lastCleaningAliveCount = -1;
     private static volatile long lastCleaningProgressAtMs = 0L;
     private static volatile boolean rewarpTriggerAvailable = false;
@@ -133,7 +135,8 @@ public class PestManager {
                 || ManualPestManager.isActive()
                 || PestReturnManager.isFinishingInProgress()
                 || PestReturnManager.isReturnToLocationActive()
-                || LoadoutManager.isSwappingLoadout) {
+                || LoadoutManager.isSwappingLoadout
+                || MicropauseManager.isHoldingTasks()) {
             return false;
         }
         isCleaningTriggerPending = true;
@@ -231,6 +234,7 @@ public class PestManager {
         pendingChatTrigger = null;
         pendingChatTriggerWaitsForLoadout = false;
         pendingChatTriggerDelayAfterLoadoutMs = 0L;
+        deferredBallsackLoadoutSlot = 0;
         lastCleaningAliveCount = -1;
         lastCleaningProgressAtMs = 0L;
         rewarpTriggerAvailable = false;
@@ -285,7 +289,8 @@ public class PestManager {
         }
 
         // Handle prep swap flag updates based on cooldown
-        if (data.cooldownSeconds() != -1) {
+        // the flag update can also restore the farming loadout, so a micropause holds the whole block
+        if (data.cooldownSeconds() != -1 && !MicropauseManager.isHoldingTasks()) {
             boolean thresholdMet = isThresholdMet(effectiveAlive);
             PestPrepSwapManager.updatePrepSwapFlag(
                     data.cooldownSeconds(), isCleaningInProgress, thresholdMet);
@@ -341,6 +346,11 @@ public class PestManager {
         }
 
         if (!canStartCleaningInState(currentState)) {
+            return;
+        }
+
+        // the threshold block below would repeat its overlay message every tick of a pause
+        if (MicropauseManager.isHoldingTasks()) {
             return;
         }
 
@@ -442,7 +452,12 @@ public class PestManager {
                     && LoadoutManager.trackedLoadoutSlot != farmingSlot
                     && !(LoadoutManager.isSwappingLoadout
                             && LoadoutManager.targetLoadoutSlot == farmingSlot)) {
-                LoadoutManager.triggerLoadoutSwap(Minecraft.getInstance(), farmingSlot);
+                // processPendingChatTrigger sends a deferred swap once the micropause is over
+                if (MicropauseManager.isHoldingTasks()) {
+                    deferredBallsackLoadoutSlot = farmingSlot;
+                } else {
+                    LoadoutManager.triggerLoadoutSwap(Minecraft.getInstance(), farmingSlot);
+                }
                 requestedBallsackLoadout = true;
             }
         }
@@ -491,6 +506,12 @@ public class PestManager {
             if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()) {
                 pendingChatTriggerWaitsForLoadout = false;
                 pendingChatTriggerDelayAfterLoadoutMs = 0L;
+            } else if (deferredBallsackLoadoutSlot > 0) {
+                if (!MicropauseManager.isHoldingTasks() && currentState == MacroState.State.FARMING) {
+                    LoadoutManager.triggerLoadoutSwap(client, deferredBallsackLoadoutSlot);
+                    deferredBallsackLoadoutSlot = 0;
+                }
+                return false;
             } else if (LoadoutManager.isSwappingLoadout
                     || !LoadoutManager.loadoutGuiCloseComplete
                     || currentState != MacroState.State.FARMING) {
@@ -511,6 +532,10 @@ public class PestManager {
             clearPendingChatTrigger();
             return false;
         }
+        // held, not cleared, so the trigger still fires once the micropause is over
+        if (MicropauseManager.isHoldingTasks()) {
+            return false;
+        }
         if (System.currentTimeMillis() < pending.triggerAtMs) {
             return false;
         }
@@ -528,6 +553,7 @@ public class PestManager {
         pendingChatTriggerWaitsForLoadout = false;
         pendingChatTriggerDelayAfterLoadoutMs = 0L;
         pendingChatTriggerUsesBallsack = false;
+        deferredBallsackLoadoutSlot = 0;
     }
 
     private record PendingChatTrigger(String plot, int spawnedCount, long triggerAtMs, long createdAtMs) {}

@@ -194,7 +194,8 @@ public final class AetherAutomationTickHandler {
         if (client.screen != null
                 || stashState == MacroState.State.VISITING
                 || stashState == MacroState.State.CLEANING
-                || stashState == MacroState.State.SPRAYING) {
+                || stashState == MacroState.State.SPRAYING
+                || MicropauseManager.isHoldingTasks()) {
             return;
         }
 

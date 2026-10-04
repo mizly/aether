@@ -15,6 +15,7 @@ import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.rotation.RotationManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.util.ClientUtils;
 import it.unimi.dsi.fastutil.ints.*;
 import net.minecraft.client.Minecraft;
@@ -269,6 +270,7 @@ public final class PestOnTheTrackManager {
 			&& !LoadoutManager.isSwappingLoadout
 			&& (!AetherConfig.DELAY_PEST_FOR_CROP_FEVER.get() || !CropFeverManager.isCropFeverActive)
 			&& (!AetherConfig.PEST_ON_THE_TRACK_SKIP_JACOB.get() || ClientUtils.getJacobsContestRemainingMs() <= 0L)
+			&& !MicropauseManager.isHoldingTasks()
 		;
 	}
 	

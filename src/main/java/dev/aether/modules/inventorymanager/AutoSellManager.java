@@ -7,6 +7,7 @@ import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.pest.helpers.PestPrepSwapManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -244,7 +245,8 @@ public class AutoSellManager {
             return;
         }
 
-        if (MacroStateManager.getCurrentState() != MacroState.State.FARMING) {
+        if (MacroStateManager.getCurrentState() != MacroState.State.FARMING
+                || MicropauseManager.isHoldingTasks()) {
             thresholdMetStartTime = 0;
             return;
         }

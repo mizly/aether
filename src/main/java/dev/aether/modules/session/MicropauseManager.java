@@ -73,7 +73,7 @@ public final class MicropauseManager {
         return paused;
     }
 
-    // the pest trigger, rests, rewarps and inventory tasks also wait a moment after a resume instead of firing at once
+    // the pest trigger, rests, stash pickups and inventory tasks also wait a moment after a resume instead of firing at once
     public static boolean isHoldingTasks() {
         return paused || now() < holdTasksUntilMs;
     }
