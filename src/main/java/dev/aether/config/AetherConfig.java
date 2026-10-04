@@ -409,6 +409,9 @@ public final class AetherConfig {
         public static final BooleanEntry PEST_AOTV_CONFIRM_BETWEEN = Config.bool("pestAotvConfirmBetween", false);
         public static final IntEntry PEST_AOTV_DELAY_MIN = Config.integer("pestAotvDelayMin", 150).range(100, 250);
         public static final IntEntry PEST_AOTV_DELAY_MAX = Config.integer("pestAotvDelayMax", 250).range(100, 250);
+        public static final BooleanEntry PEST_AOTV_BACK_UP = Config.bool("pestAotvBackUp", true);
+        public static final FloatEntry PEST_AOTV_BACK_UP_PITCH = Config.floatVal("pestAotvBackUpPitch", 55.0f)
+                        .range(30.0f, 80.0f);
         public static final FloatEntry PEST_FOV_RANGE = Config.floatVal("pestFovRange", 20.0f).range(0.0f, 90.0f);
         public static final FloatEntry PEST_MAX_TURN_SPEED =
                         Config.floatVal("pestMaxTurnSpeed", 300.0f).range(60.0f, 1200.0f);

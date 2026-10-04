@@ -23,6 +23,7 @@ final class PestDestroyerRuntime {
     final PestFlightRecovery flightRecovery = new PestFlightRecovery();
     final PestAimAcquisition acquisition = new PestAimAcquisition();
     final PestSightings sightings = new PestSightings();
+    final PestCloseRangeBackoff closeBackoff = new PestCloseRangeBackoff();
     final Deque<Entity> pestTargetQueue = new ArrayDeque<>();
     final Set<Integer> accountedKilledPestEntityIds = ConcurrentHashMap.newKeySet();
 
@@ -191,6 +192,7 @@ final class PestDestroyerRuntime {
             lastPreRotateAt = 0L;
             resetKillVacuumRetry();
             resetAirborneRecovery();
+            closeBackoff.cancel();
         }
         if (newState != PestDestroyer.State.HUNT_PEST) {
             resetHuntState();
@@ -230,6 +232,7 @@ final class PestDestroyerRuntime {
         // stopping the macro resets the run before PestDestroyer.stop(), which then does nothing, so the turn ends here
         acquisition.reset();
         sightings.clear();
+        closeBackoff.reset();
         lastPathHandoffArmAt = 0L;
         aotvSlot = -1;
         aotvUseCount = 0;

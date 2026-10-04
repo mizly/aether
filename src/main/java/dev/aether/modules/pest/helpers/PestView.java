@@ -8,7 +8,7 @@ import net.minecraft.world.phys.Vec3;
 // what the player can actually see: their fov setting, the window's shape and the blocks in the way
 final class PestView {
     // a pest right at the edge of the screen is easy to miss, so it only counts once it is a little way in
-    private static final double SIGHT_MARGIN_DEGREES = 5.0;
+    static final double SIGHT_MARGIN_DEGREES = 5.0;
 
     private PestView() {
     }

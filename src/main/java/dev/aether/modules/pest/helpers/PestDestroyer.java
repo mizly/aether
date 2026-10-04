@@ -2,6 +2,7 @@ package dev.aether.modules.pest.helpers;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.modules.pathfinding.PathfindingManager;
+import dev.aether.modules.pathfinding.execution.FlightMotion;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.failsafe.FailsafeManager;
@@ -165,6 +166,9 @@ public class PestDestroyer {
         PestHuntingController.clearHunt(client, runtime);
         runtime.navigation.trackerSearch.stopLooking();
         PestTrackerAbility.clear();
+        if (runtime.closeBackoff.holdsKeys() && client != null && client.options != null) {
+            FlightMotion.apply(client, PestCloseRangeBackoff.RELEASED);
+        }
         runtime.stopRun();
         PathfindingManager.stop();
         PestAotvManager.resetState();
@@ -197,6 +201,11 @@ public class PestDestroyer {
         if (FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
             RotationManager.cancelRotation();
             runtime.acquisition.reset();
+        }
+
+        // a back-up cut short by a state change still holds its keys, and the next state may never touch them
+        if (runtime.closeBackoff.takeAbandonedKeys()) {
+            FlightMotion.apply(client, PestCloseRangeBackoff.RELEASED);
         }
 
         if (ClientUtils.isInventoryScreenOpen()) {
@@ -543,6 +552,9 @@ public class PestDestroyer {
         ClientUtils.setKeyMappingState(client.options.keyUp, false);
         ClientUtils.setKeyMappingState(client.options.keyJump, false);
         ClientUtils.setKeyMappingState(client.options.keyShift, false);
+        if (runtime.closeBackoff.holdsKeys()) {
+            FlightMotion.apply(client, PestCloseRangeBackoff.RELEASED);
+        }
         int killed = runtime.killedEntities.size();
         ClientUtils.sendMessage("\u00A7aPest destroyer finished. Tracked " + killed + " pest(s).", false);
         runtime.resetAll();

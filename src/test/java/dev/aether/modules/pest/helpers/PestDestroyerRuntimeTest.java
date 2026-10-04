@@ -1,5 +1,6 @@
 package dev.aether.modules.pest.helpers;
 
+import dev.aether.modules.pathfinding.execution.FlightMotion;
 import org.junit.jupiter.api.Test;
 import net.minecraft.world.phys.Vec3;
 
@@ -142,6 +143,60 @@ class PestDestroyerRuntimeTest {
     }
 
     @Test
+    void leavingKillPestCancelsTheBackUpButKeepsItsKeys() {
+        PestDestroyerRuntime runtime = new PestDestroyerRuntime();
+        runtime.closeBackoff.begin(7, Vec3.ZERO, backStraight(), 3.6, 100, 3);
+
+        runtime.transitionTo(PestDestroyer.State.KILL_PEST, 1_000_000L);
+
+        assertTrue(runtime.closeBackoff.isActive());
+
+        runtime.transitionTo(PestDestroyer.State.AOTV_BETWEEN_PESTS, 1_000_050L);
+
+        assertFalse(runtime.closeBackoff.isActive());
+        assertTrue(runtime.closeBackoff.takeAbandonedKeys());
+        assertFalse(runtime.closeBackoff.takeAbandonedKeys());
+    }
+
+    @Test
+    void everyStateButKillPestEndsTheBackUp() {
+        for (PestDestroyer.State state : PestDestroyer.State.values()) {
+            PestDestroyerRuntime runtime = new PestDestroyerRuntime();
+            runtime.closeBackoff.begin(7, Vec3.ZERO, backStraight(), 3.6, 100, 3);
+
+            runtime.transitionTo(state, 1_000_000L);
+
+            assertEquals(state == PestDestroyer.State.KILL_PEST, runtime.closeBackoff.isActive(), state.name());
+        }
+    }
+
+    @Test
+    void resettingTheRunDropsTheBackUpAndItsKeys() {
+        PestDestroyerRuntime runtime = new PestDestroyerRuntime();
+        runtime.beginRun(3, 1_000_000L);
+        runtime.closeBackoff.begin(7, Vec3.ZERO, backStraight(), 3.6, 100, 3);
+
+        runtime.resetAll();
+
+        assertFalse(runtime.closeBackoff.isActive());
+        assertFalse(runtime.closeBackoff.holdsKeys());
+        assertFalse(runtime.closeBackoff.takeAbandonedKeys());
+
+        runtime.beginRun(3, 1_000_100L);
+        runtime.closeBackoff.begin(7, Vec3.ZERO, backStraight(), 3.6, 100, 3);
+        runtime.stopRun();
+
+        assertFalse(runtime.closeBackoff.isActive());
+        assertFalse(runtime.closeBackoff.holdsKeys());
+
+        runtime.closeBackoff.begin(7, Vec3.ZERO, backStraight(), 3.6, 100, 3);
+        runtime.beginRun(3, 1_000_200L);
+
+        assertFalse(runtime.closeBackoff.isActive());
+        assertFalse(runtime.closeBackoff.holdsKeys());
+    }
+
+    @Test
     void claimsMultipleKilledPestsOncePerEntity() {
         PestDestroyerRuntime runtime = new PestDestroyerRuntime();
 
@@ -151,5 +206,9 @@ class PestDestroyerRuntimeTest {
         assertFalse(runtime.claimKilledPestEntityId(10));
         assertFalse(runtime.claimKilledPestEntityId(12));
         assertEquals(3, runtime.accountedKilledPestEntityIds.size());
+    }
+
+    private static PestCloseRangeBackoff.Retreat backStraight() {
+        return new PestCloseRangeBackoff.Retreat(new FlightMotion.Input(-1, 0), new Vec3(0, 0, -1), 3.0);
     }
 }

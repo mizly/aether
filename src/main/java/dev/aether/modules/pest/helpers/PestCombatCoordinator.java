@@ -5,10 +5,12 @@ import dev.aether.mixin.AccessorInventory;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
+import dev.aether.modules.pathfinding.execution.FlightMotion;
 import dev.aether.modules.pathfinding.execution.FlightPathClearance;
 import dev.aether.modules.pathfinding.etherwarp.EtherwarpHelper;
 import dev.aether.modules.pathfinding.movement.WalkabilityChecker;
 import dev.aether.modules.pathfinding.wrapper.PathPosition;
+import dev.aether.modules.rotation.HumanFlick;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
 
@@ -17,6 +19,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.concurrent.ThreadLocalRandom;
 
 final class PestCombatCoordinator {
     private static final long AOTV_POST_CLICK_GRACE_MS = 250L;
@@ -256,6 +260,9 @@ final class PestCombatCoordinator {
     ) {
         Entity currentTarget = context.getCurrentTarget();
         if (currentTarget == null || currentTarget.isRemoved() || (currentTarget instanceof LivingEntity le && le.isDeadOrDying())) {
+            if (context.runtime().closeBackoff.isActive()) {
+                stopCloseRangeBackoff(client, context.runtime().closeBackoff);
+            }
             ClientUtils.setKeyMappingState(client.options.keyUse, false);
             if (currentTarget != null) {
                 if (context.recordTrackedPestKill(client, currentTarget)) {
@@ -279,6 +286,10 @@ final class PestCombatCoordinator {
                 currentTarget.getZ() - client.player.getZ());
         double verticalGap = getEntityEyePosition(currentTarget).y - client.player.getEyePosition().y;
         PestDestroyerRuntime runtime = context.runtime();
+        // ahead of the airborne climb and the flight controller, both of which would turn the camera mid back-up
+        if (updateCloseRangeBackoff(client, context, currentTarget, horizontalDistance, verticalGap)) {
+            return;
+        }
         boolean sameAirborneTarget = runtime.airborneRecoveryActive
                 && runtime.airborneRecoveryTargetEntityId == currentTarget.getId();
         boolean shouldEnterAirborneRecovery = client.player.getAbilities().flying
@@ -590,12 +601,16 @@ final class PestCombatCoordinator {
                         + ". Switching to pathfinding.");
         if (dist <= PestHuntingController.handoffRange(client, currentTarget, context.getVacuumRange())) {
             context.beginTerminalState(client);
-            // a hop can land beside or past the pest, so finding it again is a fresh turn
-            context.runtime().acquisition.begin(client, context.runtime(), currentTarget,
-                    context.runtime().currentTargetUsesLasso
-                            ? PestAimAcquisition.AimKind.HUNT
-                            : PestAimAcquisition.AimKind.VACUUM,
-                    System.currentTimeMillis());
+            PestDestroyerRuntime runtime = context.runtime();
+            // a hop can land beside or past the pest, so finding it again is a fresh turn,
+            // made by the back-up check on the first kill tick when it may back up first
+            if (runtime.currentTargetUsesLasso) {
+                runtime.acquisition.begin(client, runtime, currentTarget, PestAimAcquisition.AimKind.HUNT,
+                        System.currentTimeMillis());
+            } else if (!arrivedViaAotv || !AetherConfig.PEST_AOTV_BACK_UP.get()) {
+                runtime.acquisition.begin(client, runtime, currentTarget, PestAimAcquisition.AimKind.VACUUM,
+                        System.currentTimeMillis());
+            }
         } else {
             context.startPathToPest(client, currentTarget);
             context.setState(PestDestroyer.State.FLY_TO_PEST);
@@ -666,6 +681,139 @@ final class PestCombatCoordinator {
         boolean inVacuumRange = dist <= context.getVacuumRange();
         boolean retryingUse = context.shouldTemporarilyReleaseKillVacuum(client, true, inVacuumRange);
         ClientUtils.setKeyMappingState(client.options.keyUse, inVacuumRange && !retryingUse);
+    }
+
+    // true while backing away from a pest that landed too close to frame, which owns the movement keys
+    // and leaves the camera to the one tilt it may have started
+    private static boolean updateCloseRangeBackoff(
+            Minecraft client, Context context, Entity target, double horizontal, double eyeGap) {
+        PestDestroyerRuntime runtime = context.runtime();
+        PestCloseRangeBackoff backoff = runtime.closeBackoff;
+        boolean flying = client.player.getAbilities().flying;
+        if (backoff.isActive()) {
+            if (!backoff.isFor(target.getId()) || !flying) {
+                stopCloseRangeBackoff(client, backoff);
+                return false;
+            }
+            if (stepCloseRangeBackoff(client, backoff, horizontal)) {
+                return true;
+            }
+            stopCloseRangeBackoff(client, backoff);
+            turnOntoPest(client, runtime, target);
+            return false;
+        }
+        if (!runtime.arrivedAtCurrentTargetViaAotv || !AetherConfig.PEST_AOTV_BACK_UP.get() || !flying) {
+            return false;
+        }
+        int tick = client.player.tickCount;
+        if (runtime.acquisition.ownsCamera(target)) {
+            backoff.holdArm(tick);
+            return false;
+        }
+        if (backoff.armExpired(tick)) {
+            settleArrival(client, runtime, target);
+            return false;
+        }
+        float bucket = PestPitchRange.configured().bucketFor(target.getId());
+        double hoverDrop = PestCloseRangeBackoff.hoverDrop(
+                client.player.getEyeHeight(), target.getEyeHeight(target.getPose()));
+        double comfort = PestCloseRangeBackoff.comfortDegrees(
+                AetherConfig.PEST_AOTV_BACK_UP_PITCH.get(), bucket, client.options.fov().get());
+        // any further back and the flight controller flies straight in again
+        double cap = Math.min(PestCloseRangeBackoff.MAX_HORIZONTAL_BLOCKS, PestFlightController.followDistance(
+                AetherConfig.PEST_VACUUM_FOLLOW_DISTANCE.get(), context.getVacuumRange(),
+                PestCloseRangeBackoff.HOVER_HEIGHT));
+        double required = PestCloseRangeBackoff.requiredHorizontal(eyeGap, hoverDrop, comfort, cap);
+        if (!PestCloseRangeBackoff.worthBackingUp(required, horizontal)) {
+            settleArrival(client, runtime, target);
+            return false;
+        }
+        Vec3 offset = target.position().subtract(client.player.position());
+        if (PestCloseRangeBackoff.isBehind(offset, client.player.getYRot())) {
+            // backing away from a pest behind flies over it, so turn round first and look again
+            if (backoff.requestTurn()) {
+                ClientUtils.sendDebugMessage("[PestDestroyer] AOTV landed past the pest. Turning before backing up.");
+                runtime.acquisition.begin(client, runtime, target, PestAimAcquisition.AimKind.VACUUM,
+                        System.currentTimeMillis());
+            }
+            return false;
+        }
+        PestCloseRangeBackoff.Retreat retreat = PestCloseRangeBackoff.chooseRetreat(
+                client.player.position(), offset, client.player.getYRot(), required,
+                PestPlotNavigator.currentPlotBounds(client, runtime.navigation),
+                (from, to) -> FlightPathClearance.isClear(client, from, to, PestCloseRangeBackoff.CORRIDOR_MARGIN));
+        if (retreat == null) {
+            settleArrival(client, runtime, target);
+            return false;
+        }
+        startCloseRangeBackoff(client, runtime, target, retreat, required, eyeGap, bucket);
+        return true;
+    }
+
+    private static void startCloseRangeBackoff(
+            Minecraft client,
+            PestDestroyerRuntime runtime,
+            Entity target,
+            PestCloseRangeBackoff.Retreat retreat,
+            double required,
+            double eyeGap,
+            float bucket) {
+        runtime.arrivedAtCurrentTargetViaAotv = false;
+        runtime.resetAirborneRecovery();
+        runtime.acquisition.reset();
+        RotationManager.cancelRotation();
+        ClientUtils.setKeyMappingState(client.options.keyJump, false);
+        ClientUtils.setKeyMappingState(client.options.keyShift, false);
+        FlightMotion.apply(client, PestCloseRangeBackoff.RELEASED);
+        PestCloseRangeBackoff backoff = runtime.closeBackoff;
+        backoff.begin(target.getId(), client.player.position(), retreat, required, client.player.tickCount,
+                PestCloseRangeBackoff.reactTicks(ThreadLocalRandom.current()));
+        // the yaw never moves, so nothing can spin, and only a pest off the top or bottom of the screen tilts it
+        if (!FailsafeManager.shouldSuppressPestCleanerRotation(client)
+                && !PestView.inView(client, getEntityEyePosition(target), PestView.SIGHT_MARGIN_DEGREES)) {
+            backoff.tilting(HumanFlick.start(client, client.player.getYRot(),
+                    PestCloseRangeBackoff.settledPitch(eyeGap, required, bucket), HumanFlick.Style.PRECISE));
+        }
+        ClientUtils.sendDebugMessage("[PestDestroyer] Pest too close to see after AOTV. Backing up "
+                + String.format("%.1f", retreat.travel()) + " blocks.");
+    }
+
+    private static boolean stepCloseRangeBackoff(
+            Minecraft client, PestCloseRangeBackoff backoff, double horizontal) {
+        // the plan assumes this height and touching ground ends the flight, though the etherwarp
+        // altitude hold may still press jump after this
+        ClientUtils.setKeyMappingState(client.options.keyJump, false);
+        ClientUtils.setKeyMappingState(client.options.keyShift, false);
+        FlightMotion.Input keys = backoff.step(client.player.tickCount, client.player.position(),
+                client.player.getDeltaMovement(), horizontal, client.player.horizontalCollision,
+                client.player.getAbilities().getFlyingSpeed());
+        if (keys == null) {
+            return false;
+        }
+        FlightMotion.apply(client, keys);
+        return true;
+    }
+
+    private static void stopCloseRangeBackoff(Minecraft client, PestCloseRangeBackoff backoff) {
+        FlightMotion.apply(client, PestCloseRangeBackoff.RELEASED);
+        backoff.reset();
+    }
+
+    // the arrival is decided either way, and the pest still has to be found unless it was already turned onto
+    private static void settleArrival(Minecraft client, PestDestroyerRuntime runtime, Entity target) {
+        boolean turned = runtime.closeBackoff.turnRequested();
+        runtime.arrivedAtCurrentTargetViaAotv = false;
+        runtime.closeBackoff.disarm();
+        if (!turned) {
+            turnOntoPest(client, runtime, target);
+        }
+    }
+
+    private static void turnOntoPest(Minecraft client, PestDestroyerRuntime runtime, Entity target) {
+        if (!runtime.acquisition.ownsCamera(target)) {
+            runtime.acquisition.begin(client, runtime, target, PestAimAcquisition.AimKind.VACUUM,
+                    System.currentTimeMillis());
+        }
     }
 
     private static void clearAotvBetweenPests(Minecraft client, Context context) {
