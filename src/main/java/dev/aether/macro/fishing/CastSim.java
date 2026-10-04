@@ -76,6 +76,11 @@ final class CastSim {
         return null;
     }
 
+    // a rejected cell is one the sim promised and a real float then missed, so no throw may count on it again
+    static boolean acceptsLanding(BlockPos landing, Set<BlockPos> rejected) {
+        return landing != null && !rejected.contains(landing);
+    }
+
     static Vec3[] castPath(Vec3 eye, float yaw, float pitch, int ticks) {
         double yawRad = Math.toRadians(yaw);
         double dirX = -Math.sin(yawRad);
@@ -143,7 +148,7 @@ final class CastSim {
                     for (int i = 0; i < steps; i++) {
                         landings[i] = predictCastLanding(level, eye, yaw, CAST_PITCH_MIN + i * CAST_PITCH_STEP,
                                 liquid, DEFAULT_TICKS);
-                        lands[i] = landings[i] != null;
+                        lands[i] = landings[i] != null && acceptsLanding(BlockPos.containing(landings[i]), rejected);
                     }
                     for (int i = 0; i < steps; i++) {
                         if (!lands[i]) {

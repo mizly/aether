@@ -1,9 +1,13 @@
 package dev.aether.macro.fishing;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CastSimTest {
@@ -30,6 +34,16 @@ class CastSimTest {
         assertEquals(0, CastSim.castMargin(lands, 1));
         assertEquals(2, CastSim.castMargin(lands, 3));
         assertEquals(0, CastSim.castMargin(lands, 5));
+    }
+
+    @Test
+    void aCellWhereAFloatAlreadyMissedIsNeverCountedOnAgain() {
+        BlockPos landing = new BlockPos(3, 63, -2);
+        assertTrue(CastSim.acceptsLanding(landing, Set.of()));
+        assertTrue(CastSim.acceptsLanding(landing, Set.of(new BlockPos(3, 63, -1))));
+        assertFalse(CastSim.acceptsLanding(landing, Set.of(new BlockPos(3, 63, -2))));
+        // no landing at all is never a cast worth making
+        assertFalse(CastSim.acceptsLanding(null, Set.of()));
     }
 
     @Test

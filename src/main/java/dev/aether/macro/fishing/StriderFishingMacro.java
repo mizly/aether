@@ -141,6 +141,9 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private boolean emptyCatch;
     private final Set<BlockPos> rejectedLava = new HashSet<>();
     private BlockPos aimTargetBlock;
+    // what the last throw was meant to do, so a float that comes down off the lava can rule both out
+    private BlockPos castLanding;
+    private BlockPos castAimBlock;
     private long aimRetryAt;
     private int aimSweep;
     private int returnAttempts;
@@ -325,14 +328,14 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return;
         }
 
-        if (castLandsInLava(mc)) {
+        if (lookLanding(mc) != null) {
             FailsafeManager.selectHotbarSlot(mc, rodSlot());
             changeState(State.CAST);
             nextActionAt = now + castDelayForCycle();
             return;
         }
 
-        // the turn landed somewhere that is not lava after all, so never pick that spot again this sweep
+        // the turn landed somewhere a float cannot go after all, so never pick that spot again this sweep
         if (aimTargetBlock != null) {
             rejectedLava.add(aimTargetBlock);
             aimTargetBlock = null;
@@ -370,7 +373,8 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
         // the camera can still be settling from the walk back, so the lava is confirmed again at the last moment
         // aiming handles the retry, and it drops this spot from the running once it sees the miss
-        if (!castLandsInLava(mc)) {
+        BlockPos landing = lookLanding(mc);
+        if (landing == null) {
             changeState(State.AIM_LAVA);
             return;
         }
@@ -382,7 +386,9 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             nextActionAt = now + castDelayMs();
             return;
         }
-        clearAimSearch();
+        castLanding = landing;
+        castAimBlock = aimTargetBlock;
+        aimTargetBlock = null;
         emptyCatch = false;
         anchorIdle(now);
         changeState(State.WAIT_BITE);
@@ -413,19 +419,26 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
         if (hasCatchMarker(mc, mc.player.fishing)) {
             clearIdle();
+            clearAimSearch();
             snapshotLoadedEntities(mc);
             changeState(State.REEL);
             return;
         }
 
-        // a float sitting on stone will never get a bite, so reel it in and aim somewhere else
-        if (now - stateEnteredAt > BOBBER_LANDED_MS && !isInLava(mc, mc.player.fishing)) {
-            ClientUtils.sendDebugMessage("[StriderFishing] float landed out of the lava, recasting");
-            rejectCurrentAim();
-            clearIdle();
-            ClientUtils.performUseClick();
-            changeState(State.AIM_LAVA);
-            return;
+        if (now - stateEnteredAt > BOBBER_LANDED_MS) {
+            // a float sitting on stone will never get a bite, so reel it in and aim somewhere else
+            if (!isInLava(mc, mc.player.fishing)) {
+                ClientUtils.sendDebugMessage("[StriderFishing] float landed out of the lava, recasting");
+                rejectCast();
+                clearIdle();
+                ClientUtils.performUseClick();
+                changeState(State.AIM_LAVA);
+                return;
+            }
+            // a float down in the lava proves the spot, so the misses before it are forgiven
+            if (castLanding != null) {
+                clearAimSearch();
+            }
         }
 
         if (now - stateEnteredAt > BITE_TIMEOUT_MS) {
@@ -1076,6 +1089,8 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         aimTargetBlock = null;
         aimRetryAt = 0L;
         aimSweep = 0;
+        castLanding = null;
+        castAimBlock = null;
     }
 
     static long nextAimRetryDelayMs(ThreadLocalRandom random) {
@@ -1235,9 +1250,12 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         return hook != null && !hook.isRemoved();
     }
 
-    private static boolean castLandsInLava(Minecraft mc) {
-        return CastSim.predictCastLanding(mc.level, mc.player.getEyePosition(), mc.player.getYRot(),
-                mc.player.getXRot(), CastSim::isLava, CastSim.DEFAULT_TICKS) != null;
+    // where a cast at the current look comes down, or null when that is off the lava or where a float already missed
+    private BlockPos lookLanding(Minecraft mc) {
+        Vec3 landing = CastSim.predictCastLanding(mc.level, mc.player.getEyePosition(), mc.player.getYRot(),
+                mc.player.getXRot(), CastSim::isLava, CastSim.DEFAULT_TICKS);
+        BlockPos block = landing == null ? null : BlockPos.containing(landing);
+        return CastSim.acceptsLanding(block, rejectedLava) ? block : null;
     }
 
     private static boolean hasCatchMarker(Minecraft mc, FishingHook hook) {
@@ -1259,11 +1277,16 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         return CastSim.isLava(mc.level.getBlockState(at)) || CastSim.isLava(mc.level.getBlockState(at.below()));
     }
 
-    private void rejectCurrentAim() {
-        if (aimTargetBlock != null) {
-            rejectedLava.add(aimTargetBlock);
-            aimTargetBlock = null;
+    // the sim promised this throw the lava, so neither the cell nor the block it aimed at is trusted again
+    private void rejectCast() {
+        if (castLanding != null) {
+            rejectedLava.add(castLanding);
         }
+        if (castAimBlock != null) {
+            rejectedLava.add(castAimBlock);
+        }
+        castLanding = null;
+        castAimBlock = null;
     }
 
     // the bite marker shows a single ? and flips to !! once the catch is on the line
