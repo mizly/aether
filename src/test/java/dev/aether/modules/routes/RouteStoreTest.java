@@ -107,6 +107,20 @@ class RouteStoreTest {
     }
 
     @Test
+    void aWarpWithNoLegsIsAWarpOnlyRoute() {
+        Route warpOnly = new Route("a", "crimson");
+        assertTrue(warpOnly.hasWarp());
+        assertTrue(warpOnly.isWarpOnly());
+
+        Route nothing = new Route("a", "  ");
+        assertFalse(nothing.hasWarp());
+        assertFalse(nothing.isWarpOnly());
+
+        assertTrue(sampleRoute("a").hasWarp());
+        assertFalse(sampleRoute("a").isWarpOnly());
+    }
+
+    @Test
     void theBundledStriderRouteIsPutBackWhenMissing() {
         RouteStore store = new RouteStore(root);
 

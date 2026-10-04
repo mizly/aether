@@ -199,6 +199,11 @@ public final class RouteRunner {
 
     private void tickLeg(Minecraft mc, long now) {
         if (legIndex >= route.waypoints().size()) {
+            // a warp-only route has no block to centre on, so the warp landing finishes it
+            if (route.end() == null) {
+                phase = Phase.DONE;
+                return;
+            }
             // the macro takes its home from the block the player stands on, so the route ends dead centre on it
             if (mc.player == null || mc.screen != null) {
                 return;
