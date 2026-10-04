@@ -28,6 +28,19 @@ public class MainGUIRegistry {
         }
     }
 
+    // one immutable, consistent view of a registry build; the subtabs' group lists stay live because providers
+    // rebuild some of them in place on ordinary edits
+    public record Snapshot(long generation, List<ModuleSection> sections, List<ModulesTab.SubTab> colors,
+                           List<ModulesTab.SubTab> keybinds, List<ModulesTab.SubTab> settings) {
+        public static final Snapshot EMPTY = new Snapshot(0L, List.of(), List.of(), List.of(), List.of());
+
+        public List<ModulesTab.SubTab> modules() {
+            return sections.stream().flatMap(section -> section.subtabs().stream()).toList();
+        }
+    }
+
+    public record ProviderFailure(String provider, Throwable error) {}
+
     private record OrderedSubTab(int order, ModulesTab.SubTab subTab) {}
     private record OrderedModuleSection(String id, String displayName, int sectionOrder, List<OrderedSubTab> subtabs) {}
 
@@ -45,6 +58,9 @@ public class MainGUIRegistry {
 
     private static ClassLoader lastServiceClassLoader;
     private static boolean populated;
+    private static long builds;
+    private static volatile Snapshot snapshot = Snapshot.EMPTY;
+    private static volatile List<ProviderFailure> lastFailures = List.of();
 
     static {
         refresh();
@@ -54,6 +70,20 @@ public class MainGUIRegistry {
         List<MainGUIRegistryProvider> providers = new ArrayList<>();
         providers.add(new BootstrapSettingsRegistryProvider());
         return List.copyOf(providers);
+    }
+
+    // the gui reads this instead of the static lists, which are refilled in place for the old menu
+    public static Snapshot snapshot() {
+        return snapshot;
+    }
+
+    public static long generation() {
+        return snapshot.generation();
+    }
+
+    // providers that threw during the last build; they are skipped, so their settings are missing
+    public static List<ProviderFailure> lastFailures() {
+        return lastFailures;
     }
 
     public static synchronized void invalidate() {
@@ -74,6 +104,7 @@ public class MainGUIRegistry {
         List<OrderedSubTab> keybinds = new ArrayList<>();
         List<OrderedSubTab> settings = new ArrayList<>();
         Set<String> registeredProviders = new HashSet<>();
+        List<ProviderFailure> failures = new ArrayList<>();
 
         Registrar registrar = new Registrar() {
             @Override
@@ -105,7 +136,7 @@ public class MainGUIRegistry {
         };
 
         for (MainGUIRegistryProvider provider : BOOTSTRAP_PROVIDERS) {
-            registerProvider(provider, registeredProviders, registrar);
+            registerProvider(provider, registeredProviders, registrar, failures);
         }
 
         List<MainGUIRegistryProvider> externalProviders;
@@ -116,17 +147,21 @@ public class MainGUIRegistry {
                     .toList();
         } catch (RuntimeException | LinkageError e) {
             Aether.LOGGER.warn("Skipping MainGUI providers due to service-load failure: {}", e.getMessage());
+            failures.add(new ProviderFailure(ServiceLoader.class.getName(), e));
             externalProviders = List.of();
         }
 
         for (MainGUIRegistryProvider provider : externalProviders) {
-            registerProvider(provider, registeredProviders, registrar);
+            registerProvider(provider, registeredProviders, registrar, failures);
         }
 
         publishModuleSections(MODULE_SECTIONS, MODULE_SUBTABS, moduleSections);
         publish(COLORS_SUBTABS, colors);
         publish(KEYBINDS_SUBTABS, keybinds);
         publish(SETTINGS_SUBTABS, settings);
+        lastFailures = List.copyOf(failures);
+        snapshot = new Snapshot(++builds, List.copyOf(MODULE_SECTIONS), List.copyOf(COLORS_SUBTABS),
+                List.copyOf(KEYBINDS_SUBTABS), List.copyOf(SETTINGS_SUBTABS));
         populated = true;
     }
 
@@ -174,7 +209,8 @@ public class MainGUIRegistry {
                 });
     }
 
-    private static void registerProvider(MainGUIRegistryProvider provider, Set<String> registeredProviders, Registrar registrar) {
+    private static void registerProvider(MainGUIRegistryProvider provider, Set<String> registeredProviders,
+                                         Registrar registrar, List<ProviderFailure> failures) {
         if (provider == null || !registeredProviders.add(provider.getClass().getName())) {
             return;
         }
@@ -184,6 +220,7 @@ public class MainGUIRegistry {
             Aether.LOGGER.warn("Skipping MainGUI provider '{}' due to load/register failure: {}",
                     provider.getClass().getName(),
                     e.getMessage());
+            failures.add(new ProviderFailure(provider.getClass().getName(), e));
         }
     }
 }
