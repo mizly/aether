@@ -33,6 +33,7 @@ import dev.aether.modules.pest.helpers.PestExchangeManager;
 import dev.aether.modules.pest.helpers.PestOnTheTrackManager;
 import dev.aether.modules.pest.helpers.PestTrapManager;
 import dev.aether.modules.profit.ProfitManager;
+import dev.aether.modules.rotation.HumanFlick;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.modules.session.DailyFarmTimeTracker;
 import dev.aether.modules.session.DynamicRestManager;
@@ -131,6 +132,7 @@ public class MacroStateManager {
                 || AutoSellManager.isSelling || AutoSellManager.isPreparingToSell
                 || TablistSetupManager.isActive()
                 || RotationManager.isRotating()
+                || HumanFlick.isActive()
                 || MovementPlaybackManager.isPlaying()
                 || MacroWorkerThread.getInstance().hasActiveWork();
     }
@@ -295,6 +297,7 @@ public class MacroStateManager {
         PathfindingManager.stop();
         VisitorsMacro.stop(client);
         RotationManager.cancelRotation();
+        HumanFlick.cancel();
         ClientUtils.forceReleaseKeys();
     }
 

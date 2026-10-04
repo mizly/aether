@@ -2,6 +2,7 @@ package dev.aether.modules.pathfinding.rotation;
 
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.pathfinding.rotation.strategy.TrackingRotationStrategy;
+import dev.aether.modules.rotation.HumanFlick;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 
@@ -26,6 +27,7 @@ public final class RotationExecutor {
 
     public static void rotateTo(Rotation endRot, IRotationStrategy strategy) {
         if (FailsafeManager.shouldSuppressPestCleanerRotation(mc)) return;
+        HumanFlick.cancel();
         stopRotating();
         targetYaw   = endRot.yaw;
         targetPitch = endRot.pitch;

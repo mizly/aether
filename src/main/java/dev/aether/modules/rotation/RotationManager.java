@@ -90,6 +90,8 @@ public class RotationManager {
         hasLastApplied = false;
         maxDegreesPerSecond = Math.max(0.0f, turnSpeedLimit);
         trackingMode = false;
+        // the newest rotation owns the camera, a flick left running would fight it with an fps dependent winner
+        HumanFlick.cancel();
         isRotating = true;
     }
 
@@ -120,6 +122,7 @@ public class RotationManager {
         hasLastApplied = false;
         maxDegreesPerSecond = 0.0f;
         trackingMode = false;
+        HumanFlick.cancel();
         isRotating = true;
     }
 
@@ -137,6 +140,7 @@ public class RotationManager {
         hasLastApplied = false;
         maxDegreesPerSecond = 0.0f;
         trackingMode = false;
+        HumanFlick.cancel();
         isRotating = true;
     }
 
@@ -157,6 +161,7 @@ public class RotationManager {
         maxDegreesPerSecond = Math.max(0.0f, turnSpeedLimit);
         trackingSmoothingMs = Math.max(MIN_TRACKING_SMOOTHING_MS, smoothingMs);
         trackingMode = true;
+        HumanFlick.cancel();
         isRotating = true;
     }
 
