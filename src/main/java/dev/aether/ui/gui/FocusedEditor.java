@@ -2,7 +2,7 @@ package dev.aether.ui.gui;
 
 // a field that owns keyboard input while focused; it lives in one layer's EditorSlot
 public interface FocusedEditor {
-    // DONE: the editor committed itself (enter on a single line) and gives up focus
+    // done means the editor already committed itself (enter on a single line) and gives up focus
     enum Result { IGNORED, HANDLED, DONE }
 
     // the field's hit region id, so pressing the field again keeps the editor instead of committing it
