@@ -50,7 +50,10 @@ public final class AetherConfig {
 
         public static void save() {
                 Config.save();
-                ConfigProfileManager.syncActiveProfileFromLiveConfig();
+                // a batched gui drag flushes the file and the active profile once, when it ends
+                if (!Config.batching()) {
+                        ConfigProfileManager.syncActiveProfileFromLiveConfig();
+                }
         }
 
         public static void flush() {

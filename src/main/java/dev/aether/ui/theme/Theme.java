@@ -275,8 +275,14 @@ public class Theme {
     private static final File THEME_FILE = FabricLoader.getInstance().getConfigDir()
             .resolve("aether_theme.json").toFile();
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+    private static int saveBatchDepth;
+    private static boolean savePending;
 
     public static void saveTheme() {
+        if (saveBatchDepth > 0) {
+            savePending = true;
+            return;
+        }
         JsonObject obj = new JsonObject();
         for (ThemeEntry e : ENTRIES) {
             obj.addProperty(e.label, String.format("%08X", e.getter.get()));
@@ -298,6 +304,18 @@ public class Theme {
             fw.write(GSON.toJson(obj));
         } catch (IOException ex) {
             ex.printStackTrace();
+        }
+    }
+
+    // colour drags save on every step; inside a batch the file is written once, when the batch ends
+    public static void beginSaveBatch() {
+        saveBatchDepth++;
+    }
+
+    public static void endSaveBatch() {
+        if (saveBatchDepth > 0 && --saveBatchDepth == 0 && savePending) {
+            savePending = false;
+            saveTheme();
         }
     }
 
