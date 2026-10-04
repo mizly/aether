@@ -877,5 +877,7 @@
   "text.aether.short_random_breaks_while_farming_like_checking_your_phone": "Short random breaks while farming, like checking your phone",
   "text.aether.pause_every": "Pause Every",
   "text.aether.pause_length": "Pause Length",
-  "text.aether.micropause": "Micropause"
+  "text.aether.micropause": "Micropause",
+  "text.aether.back_up_when_too_close": "Back Up When Too Close",
+  "text.aether.back_up_past_pitch": "Back Up Past Pitch"
 }

@@ -45,7 +45,9 @@ final class SettingDescriptionCatalog {
             Map.entry("Remember Pest Positions", "When the next pest is out of sight, swings toward where it was last seen, then looks again and corrects onto the real pest. Off turns straight onto the pest even when it is out of sight."),
             Map.entry("Pest Memory Error", "How far off, in degrees, a swing toward a remembered pest typically lands. It grows the longer ago the pest was seen, to three times this after 8 seconds, and a pest never seen gets only a rough direction."),
             Map.entry("Pause Every", "Farming time between micropauses. Time spent killing pests, on visitors or other tasks does not count."),
-            Map.entry("Pause Length", "How long each micropause lasts. All keys are released and the camera stays still while paused.")
+            Map.entry("Pause Length", "How long each micropause lasts. All keys are released and the camera stays still while paused."),
+            Map.entry("Back Up When Too Close", "After an AOTV or etherwarp lands too close above or below a pest to keep it on screen, flies straight back until it can be seen instead of spinning around to face it. A pest left behind is turned to first."),
+            Map.entry("Back Up Past Pitch", "Backs up when the pest would sit more than this many degrees below eye level once hovering over it. Never more than your FOV and Pest Above Aim Pitch allow, so the pest stays on screen.")
 
     );
 

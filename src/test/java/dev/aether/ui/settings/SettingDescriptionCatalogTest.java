@@ -40,6 +40,16 @@ class SettingDescriptionCatalogTest {
         }
     }
 
+    @Test
+    void theBackUpSettingsHaveTheirOwnDescriptions() {
+        for (String name : List.of("Back Up When Too Close", "Back Up Past Pitch")) {
+            String description = describe(name);
+
+            assertFalse(description.isBlank(), name);
+            assertNotEquals("Turns " + name + " on or off.", description, name);
+        }
+    }
+
     private static String describe(String name) {
         return SettingDescriptionCatalog.describe(new ToggleSetting(name, () -> true, value -> {
         }));

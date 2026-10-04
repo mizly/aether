@@ -201,6 +201,22 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()))
                 .add(FarmingSettingsFactory.aotvBetweenPestsDelaySetting()
                         .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()))
+                .add(new ToggleSetting("Back Up When Too Close",
+                        AetherConfig.PEST_AOTV_BACK_UP::get,
+                        v -> {
+                            AetherConfig.PEST_AOTV_BACK_UP.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(AetherConfig.PEST_AOTV_BETWEEN::get))
+                .add(new SliderSetting("Back Up Past Pitch", 30, 80,
+                        AetherConfig.PEST_AOTV_BACK_UP_PITCH::get,
+                        v -> {
+                            AetherConfig.PEST_AOTV_BACK_UP_PITCH.set((float) Math.round(v));
+                            AetherConfig.save();
+                        })
+                        .withDecimals(0).withSuffix("\u00B0")
+                        .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()
+                                && AetherConfig.PEST_AOTV_BACK_UP.get()))
                 .add(new SectionSetting("Combat", "Aiming and vacuum engagement behavior"))
                 .add(FarmingSettingsFactory.pestFovRangeSetting())
                 .add(FarmingSettingsFactory.pestAboveAimPitchRangeSetting())
