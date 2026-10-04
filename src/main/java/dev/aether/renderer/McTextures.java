@@ -63,6 +63,7 @@ public final class McTextures {
                 (ResourceManagerReloadListener) manager -> {
                     invalidate();
                     McIcons.invalidate();
+                    McBitmapFont.invalidate();
                 });
     }
 

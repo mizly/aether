@@ -615,6 +615,19 @@ public class NVGRenderer {
         return McIconRenderer.snappedSize(vg, size);
     }
 
+    // -- Minecraft bitmap font ------------------------------------------------
+
+    // minecraft's gui text with § colour and style codes; scale is local units per font pixel, kept whole so the
+    // pixels stay crisp; returns the advance
+    public float mcText(String text, float x, float y, int scale, int color, boolean shadow) {
+        return McBitmapFont.draw(vg, paint, text, x, y, scale, color, shadow, true);
+    }
+
+    // user text in minecraft's font: § draws as itself
+    public float mcTextLiteral(String text, float x, float y, int scale, int color, boolean shadow) {
+        return McBitmapFont.draw(vg, paint, text, x, y, scale, color, shadow, false);
+    }
+
     // -- Text ------------------------------------------------------------------
 
     public void text(String fontName, String text, float x, float y, float size, int color) {
