@@ -4,6 +4,7 @@ import dev.aether.config.AetherConfig;
 import dev.aether.macro.farming.FarmingMacroManager;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
+import dev.aether.modules.pest.helpers.PestOnTheTrackManager;
 import dev.aether.notification.NotificationManager;
 import dev.aether.util.NickHiderUtils;
 import net.minecraft.client.Minecraft;
@@ -122,6 +123,10 @@ final class GhostBlockFailsafe {
         }
 
         if (!FarmingMacroManager.isActive()) {
+            return false;
+        }
+
+        if (PestOnTheTrackManager.getInstance().isBlockingFarming()) {
             return false;
         }
 
