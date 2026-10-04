@@ -138,7 +138,7 @@ class HumanFlickStyleTest {
             float[] end = HumanFlick.sample(plan, plan.endMs());
             assertEquals(last.toYaw(), end[0], 1.0e-3f);
             assertEquals(last.toPitch(), end[1], 1.0e-3f);
-            double off = Math.hypot(end[0] - (170f + Mth.wrapDegrees(targetYaw - 170f)), end[1] - 35f);
+            double off = Math.hypot(Mth.wrapDegrees(end[0] - targetYaw), end[1] - 35f);
             assertTrue(off <= 0.75 + 1.0e-3, "off " + off);
             farthest = Math.max(farthest, off);
         }
@@ -322,6 +322,90 @@ class HumanFlickStyleTest {
     }
 
     @Test
+    void theRampFollowsASmoothstep() {
+        HumanFlick.Style always = HumanFlick.Style.humanized(90.0, 1.0, 0.10, 0.14, 0.0, 2.0, 0.0);
+        assertEquals(0.15625, HumanFlick.overshootChance(always, 56.25), 1.0e-9);
+        assertEquals(0.84375, HumanFlick.overshootChance(always, 78.75), 1.0e-9);
+    }
+
+    @Test
+    void throwsAndCorrectionsAreTimedOnTheTargetWidth() {
+        for (double width : new double[] {1.0, 8.0}) {
+            HumanFlick.Style style = HumanFlick.Style.humanized(30.0, 1.0, 0.06, 0.14, 0.0, width, 0.0);
+            for (int seed = 0; seed < 300; seed++) {
+                HumanFlick.Plan plan = HumanFlick.plan(0f, 0f, 100f, 5f, NOW, style, new SplittableRandom(seed));
+                assertEquals(1, plan.strokes());
+                assertFitts(plan.main(), 55.0, 34.0, width, 70L, 320L);
+                for (HumanFlick.Segment correction : plan.segments().subList(plan.strokes(), plan.segments().size())) {
+                    assertFitts(correction, 45.0, 30.0, width, 55L, 260L);
+                }
+            }
+        }
+    }
+
+    @Test
+    void noFlickPeaksBelowSeventyPercentOfTheCap() {
+        for (int seed = 0; seed < 500; seed++) {
+            double peak = peakSpeed(HumanFlick.plan(0f, 0f, 150f, 10f, NOW, PEST, new SplittableRandom(seed)));
+            assertTrue(peak >= 0.70 * 450.0 * 0.95, "peak " + peak);
+        }
+    }
+
+    @Test
+    void twoGoCorrectionsGrowMoreLikelyWithTheMiss() {
+        HumanFlick.Style fixed = HumanFlick.Style.humanized(30.0, 1.0, 0.10, 0.10, 0.0, 2.0, 0.0);
+        int draws = 2000;
+        int twoGoes = 0;
+        double expected = 0.0;
+        for (int seed = 0; seed < draws; seed++) {
+            HumanFlick.Plan plan = HumanFlick.plan(0f, 0f, 75f, 0f, NOW, fixed, new SplittableRandom(seed));
+            HumanFlick.Segment landing = landing(plan);
+            double miss = Math.hypot(75f - landing.toYaw(), landing.toPitch());
+            expected += Math.clamp((miss - 3.0) / 9.0, 0.0, 0.85);
+            if (plan.segments().size() - plan.strokes() == 2) {
+                twoGoes++;
+            }
+        }
+        assertTrue(Math.abs(twoGoes - expected) <= 4.0 * Math.sqrt(draws * 0.25), twoGoes + " vs " + expected);
+    }
+
+    @Test
+    void onlyThrowsLongerThanASweepAreSplit() {
+        SplittableRandom inputs = new SplittableRandom(3);
+        for (int seed = 0; seed < 2000; seed++) {
+            HumanFlick.Style style = HumanFlick.Style.humanized(90.0, inputs.nextDouble(), 0.06, 0.14,
+                    inputs.nextDouble(60.0, 1200.0), inputs.nextDouble(1.0, 8.0), 0.0);
+            HumanFlick.Plan plan = HumanFlick.plan(0f, 0f, (float) inputs.nextDouble(-179.0, 179.0),
+                    (float) inputs.nextDouble(-60.0, 60.0), NOW, style, new SplittableRandom(seed));
+            if (plan.strokes() == 1) {
+                assertTrue(plan.main().durationMs() <= 560L, "single sweep " + plan.main().durationMs());
+            }
+        }
+        HumanFlick.Style never = HumanFlick.Style.humanized(90.0, 0.0, 0.06, 0.14, 450.0, 2.0, 0.0);
+        for (int seed = 0; seed < 500; seed++) {
+            assertEquals(1, HumanFlick.plan(0f, 0f, 85f, 0f, NOW, never, new SplittableRandom(seed)).strokes());
+        }
+    }
+
+    @Test
+    void aCorrectionNeverOutrunsTheCap() {
+        SplittableRandom inputs = new SplittableRandom(21);
+        for (int seed = 0; seed < 400; seed++) {
+            double cap = inputs.nextDouble(100.0, 400.0);
+            HumanFlick.Style style = HumanFlick.Style.humanized(30.0, 1.0, 0.06, 0.30, cap,
+                    inputs.nextDouble(1.0, 8.0), 0.0);
+            HumanFlick.Plan plan = HumanFlick.plan(0f, 0f, (float) inputs.nextDouble(40.0, 179.0),
+                    (float) inputs.nextDouble(-30.0, 30.0), NOW, style, new SplittableRandom(seed));
+            for (HumanFlick.Segment correction : plan.segments().subList(plan.strokes(), plan.segments().size())) {
+                if (correction.durationMs() < HumanFlick.MAX_CAPPED_CORRECTION_MS) {
+                    double peak = segmentPeak(correction);
+                    assertTrue(peak <= cap, "correction " + peak + " cap " + cap);
+                }
+            }
+        }
+    }
+
+    @Test
     void theStrokesOfASplitTurnStayUnderACapOneSweepWouldKeep() {
         HumanFlick.Style steady = HumanFlick.Style.humanized(90.0, 0.0, 0.06, 0.14, 250.0, 2.0, 0.0);
         for (int seed = 0; seed < 500; seed++) {
@@ -355,6 +439,16 @@ class HumanFlickStyleTest {
 
     private static double segmentPeak(HumanFlick.Segment segment) {
         return peakSpeed(new HumanFlick.Plan(List.of(segment), 1));
+    }
+
+    private static void assertFitts(HumanFlick.Segment segment, double baseMs, double logMs, double width,
+                                    long minMs, long maxMs) {
+        double length = Math.hypot(segment.toYaw() - segment.fromYaw(), segment.toPitch() - segment.fromPitch());
+        double ms = baseMs + logMs * (Math.log(1.0 + length / width) / Math.log(2.0));
+        long low = Math.clamp(Math.round(ms * 0.85), minMs, maxMs);
+        long high = Math.clamp(Math.round(ms * 1.15), minMs, maxMs);
+        assertTrue(segment.durationMs() >= low && segment.durationMs() <= high,
+                "width " + width + " length " + length + " took " + segment.durationMs() + " ms");
     }
 
     private static double peakSpeed(HumanFlick.Plan plan) {
