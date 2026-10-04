@@ -37,6 +37,7 @@ final class SettingDescriptionCatalog {
             Map.entry("Restart Route", "Opens the routes area, where the warp and walk to the fishing spot are recorded."),
             Map.entry("Time Nearby", "How long a player has to stay within the distance before the failsafe triggers."),
             Map.entry("Teleport Distance", "How far a single jump in position has to be to count as a teleport."),
+            Map.entry("Pest Aim Drift", "How much of the pest's body the aim wanders over instead of sitting on its centre. 1 roams most of it, 0 keeps the aim on the centre."),
             Map.entry("Human Target Switch", "Turns onto each new pest the way a player does: a short reaction, a quick flick that can stop short or swing past, then a correction. Off keeps the smooth tracking turn."),
             Map.entry("Pest Reaction Time", "Pause after a pest dies or a new one is picked before the camera starts turning. A quarter shorter when the next pest is already near the crosshair. Set it to 0 to turn at once. Pests you are already flying to or just landed next to are turned to at once either way."),
             Map.entry("Pest Overshoot Chance", "Chance that a big turn onto a new pest swings past it before correcting back."),

@@ -331,12 +331,13 @@ final class PestAimAcquisition {
         return aimFrom(client, runtime, target, kind, eyeOf(target));
     }
 
-    // read without PestAimTracker, whose lead and drift advance on every read
+    // aims at the body spot the tracker holds afterwards, so the hand-over does not pull the view to the centre
     private static Vec3 aimFrom(Minecraft client, PestDestroyerRuntime runtime, Entity target, AimKind kind,
                                 Vec3 eye) {
         return switch (kind) {
-            case VACUUM -> PestCombatCoordinator.buildVacuumAimTarget(client, target, eye);
-            case EYE -> eye;
+            case VACUUM -> PestCombatCoordinator.buildVacuumAimTarget(client, target,
+                    PestAimTracker.bodySpot(target, eye));
+            case EYE -> PestAimTracker.bodySpot(target, eye);
             case HUNT -> PestHuntingController.acquisitionAimPoint(client, runtime, target, eye);
         };
     }
