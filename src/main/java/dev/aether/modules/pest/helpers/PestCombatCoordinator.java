@@ -54,6 +54,8 @@ final class PestCombatCoordinator {
     private static final double ETHERWARP_POST_HOVER_MIN_CLEARANCE = 3.0;
     private static final double ETHERWARP_POST_HOVER_RELEASE_CLEARANCE = 3.35;
     private static final int ETHERWARP_POST_HOVER_GROUND_SCAN_DEPTH = 32;
+    // a restarted turn barely moves in its first tick, so a handoff flickering with line of sight would freeze it
+    private static final long PATH_HANDOFF_REARM_MS = 1_000L;
     interface Context {
         PestDestroyerRuntime runtime();
 
@@ -147,7 +149,9 @@ final class PestCombatCoordinator {
             PathfindingManager.stop();
             context.setState(PestDestroyer.State.APPROACH_PEST);
             if (directApproach) {
-                context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), true);
+                armPathHandoff(client, context, currentTarget, PestAimAcquisition.AimKind.VACUUM);
+                context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), true,
+                        trackerMayAim(context, currentTarget));
             }
             return;
         }
@@ -184,7 +188,10 @@ final class PestCombatCoordinator {
         }
 
         double dist = client.player.distanceTo(currentTarget);
-        context.setApproachTicks(context.getApproachTicks() + 1);
+        // turning onto the pest is not a stalled approach
+        if (trackerMayAim(context, currentTarget)) {
+            context.setApproachTicks(context.getApproachTicks() + 1);
+        }
 
         boolean lassoTarget = PestHuntingController.shouldLassoTarget(client, currentTarget);
         double terminalRange = PestHuntingController.handoffRange(client, currentTarget, context.getVacuumRange());
@@ -196,15 +203,27 @@ final class PestCombatCoordinator {
                 && client.player.getAbilities().flying
                 && approachHorizontalDistance <= terminalRange
                 && approachVerticalGap > AIRBORNE_RECOVERY_TRIGGER_GAP) {
+            boolean pathHadCamera = PathfindingManager.isNavigating();
             PathfindingManager.stop(false);
             context.beginTerminalState(client);
+            if (pathHadCamera) {
+                armPathHandoff(client, context, currentTarget, PestAimAcquisition.AimKind.VACUUM);
+            }
             return;
         }
         boolean directApproach = !lassoTarget && context.runtime().flightController.canApproachDirectly(client, currentTarget, context.getVacuumRange());
         if (dist <= terminalRange && (lassoTarget || directApproach)) {
+            // read first: beginning the terminal state stops the path
+            boolean pathHadCamera = PathfindingManager.isNavigating();
             context.beginTerminalState(client);
+            if (pathHadCamera) {
+                armPathHandoff(client, context, currentTarget, lassoTarget
+                        ? PestAimAcquisition.AimKind.HUNT
+                        : PestAimAcquisition.AimKind.VACUUM);
+            }
             if (!lassoTarget) {
-                context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), true);
+                context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), true,
+                        trackerMayAim(context, currentTarget));
             }
             return;
         }
@@ -212,8 +231,10 @@ final class PestCombatCoordinator {
         if (directApproach) {
             if (PathfindingManager.isNavigating()) {
                 PathfindingManager.stop();
+                armPathHandoff(client, context, currentTarget, PestAimAcquisition.AimKind.VACUUM);
             }
-            context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), true);
+            context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), true,
+                    trackerMayAim(context, currentTarget));
         } else if (!PathfindingManager.isNavigating()) {
             RotationManager.cancelRotation();
             context.startPathToPest(client, currentTarget);
@@ -295,7 +316,8 @@ final class PestCombatCoordinator {
         if (PathfindingManager.isNavigating()) {
             PathfindingManager.stop();
         }
-        context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), directApproach);
+        context.runtime().flightController.update(client, currentTarget, context.getVacuumRange(), directApproach,
+                trackerMayAim(context, currentTarget));
         if (context.getVacuumSlot() == -1) {
             context.setVacuumSlot(context.findVacuumHotbarSlot(client));
         }
@@ -424,6 +446,15 @@ final class PestCombatCoordinator {
         if (!suppressRotation) {
             ClientUtils.setKeyMappingState(client.options.keyUp, false);
             ClientUtils.setKeyMappingState(client.options.keySprint, false);
+            ClientUtils.setKeyMappingState(client.options.keyDown, false);
+            ClientUtils.setKeyMappingState(client.options.keyLeft, false);
+            ClientUtils.setKeyMappingState(client.options.keyRight, false);
+            // no hop mid-turn, and the settle window and hop delay are both measured from where the turn lands
+            if (!trackerMayAim(context, currentTarget)) {
+                context.setAotvAimStartedAt(0L);
+                context.setAotvNextUseAt(0L);
+                return;
+            }
 
             if (context.getAotvAimStartedAt() == 0L) {
                 context.setAotvAimStartedAt(now);
@@ -488,6 +519,7 @@ final class PestCombatCoordinator {
             long anchor = context.getAotvLastUseAt() == 0L
                     ? context.getStateEnteredAt()
                     : context.getAotvLastUseAt();
+            anchor = Math.max(anchor, context.runtime().acquisition.completedAt());
             readyAt = anchor + dev.aether.config.ConfigHelpers.getRandomizedDelay(
                     AetherConfig.PEST_AOTV_DELAY_MIN.get(),
                     AetherConfig.PEST_AOTV_DELAY_MAX.get());
@@ -555,6 +587,12 @@ final class PestCombatCoordinator {
                         + ". Switching to pathfinding.");
         if (dist <= PestHuntingController.handoffRange(client, currentTarget, context.getVacuumRange())) {
             context.beginTerminalState(client);
+            // a hop can land beside or past the pest, so finding it again is a fresh turn
+            context.runtime().acquisition.begin(client, context.runtime(), currentTarget,
+                    context.runtime().currentTargetUsesLasso
+                            ? PestAimAcquisition.AimKind.HUNT
+                            : PestAimAcquisition.AimKind.VACUUM,
+                    System.currentTimeMillis());
         } else {
             context.startPathToPest(client, currentTarget);
             context.setState(PestDestroyer.State.FLY_TO_PEST);
@@ -614,7 +652,7 @@ final class PestCombatCoordinator {
             runtime.airborneRecoveryAimUpdatedAt = now;
         }
 
-        if (!FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
+        if (!FailsafeManager.shouldSuppressPestCleanerRotation(client) && trackerMayAim(context, currentTarget)) {
             RotationManager.trackRotation(
                     client,
                     runtime.airborneRecoveryAimPoint,
@@ -736,6 +774,11 @@ final class PestCombatCoordinator {
         if (!etherwarpSelected) {
             client.execute(() -> FailsafeManager.selectHotbarSlot(client, etherwarpSlot));
         }
+        // the block aim starts over once the turn onto the pest has landed
+        if (!trackerMayAim(context, currentTarget)) {
+            context.setAotvAimStartedAt(0L);
+            return true;
+        }
 
         Vec3 aimPoint = runtime.pestEtherwarpAimPoint;
         if (context.getAotvAimStartedAt() == 0L) {
@@ -765,6 +808,8 @@ final class PestCombatCoordinator {
         if (readyAt == 0L) {
             long anchor = context.getAotvLastUseAt() == 0L
                     ? context.getStateEnteredAt() : context.getAotvLastUseAt();
+            // the click waits its delay after the turn onto the pest has landed, not from before it
+            anchor = Math.max(anchor, runtime.acquisition.completedAt());
             readyAt = anchor + dev.aether.config.ConfigHelpers.getRandomizedDelay(
                     AetherConfig.PEST_AOTV_DELAY_MIN.get(), AetherConfig.PEST_AOTV_DELAY_MAX.get());
             context.setAotvNextUseAt(readyAt);
@@ -1019,6 +1064,21 @@ final class PestCombatCoordinator {
         double dy = client.player.getY() - context.getAotvLastUsePlayerY();
         double dz = client.player.getZ() - context.getAotvLastUsePlayerZ();
         return (dx * dx) + (dy * dy) + (dz * dz);
+    }
+
+    private static boolean trackerMayAim(Context context, Entity target) {
+        return !context.runtime().acquisition.ownsCamera(target);
+    }
+
+    // the path lets go of the camera still facing its own heading, so the first aim at the pest is a fresh turn
+    private static void armPathHandoff(
+            Minecraft client, Context context, Entity target, PestAimAcquisition.AimKind kind) {
+        PestDestroyerRuntime runtime = context.runtime();
+        long now = System.currentTimeMillis();
+        if (now - runtime.lastPathHandoffArmAt >= PATH_HANDOFF_REARM_MS
+                && runtime.acquisition.begin(client, runtime, target, kind, now)) {
+            runtime.lastPathHandoffArmAt = now;
+        }
     }
 
     static Vec3 buildCombatAimTarget(Minecraft client, Entity target) {

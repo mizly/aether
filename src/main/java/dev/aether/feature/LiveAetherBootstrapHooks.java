@@ -287,7 +287,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public boolean shouldCancelMouseTurn() {
-        return (RotationManager.isRotating() || HumanFlick.isActive())
+        return (RotationManager.isRotating() || HumanFlick.isActive() || PestDestroyer.isHoldingCamera())
                 && !FreecamManager.isEnabled() && !FreelookManager.isActive();
     }
 

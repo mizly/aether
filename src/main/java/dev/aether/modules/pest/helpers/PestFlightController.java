@@ -61,7 +61,7 @@ final class PestFlightController {
         return FlightPathClearance.isClear(client, client.player.position(), destination);
     }
 
-    void update(Minecraft client, Entity target, double vacuumRange, boolean canTranslate) {
+    void update(Minecraft client, Entity target, double vacuumRange, boolean canTranslate, boolean aimCamera) {
         Vec3 velocity = client.player.getDeltaMovement();
         Vec3 pestVelocity = sampleVelocity(target.getId(), target.position(), client.player.tickCount);
         Vec3 offset = target.position().subtract(client.player.position());
@@ -80,8 +80,11 @@ final class PestFlightController {
                 ? FlightMotion.verticalInput(offset.y + 3.0, velocity.y, 0.5) : 0;
         ClientUtils.setKeyMappingState(client.options.keyJump, vertical > 0);
         ClientUtils.setKeyMappingState(client.options.keyShift, vertical < 0);
-        RotationManager.trackRotation(client, PestAimTracker.trackingAim(client, target),
-                AetherConfig.PEST_TRACKING_SMOOTHING_MS.get(), AetherConfig.PEST_MAX_TURN_SPEED.get());
+        // not even read while a turn owns the camera, since reading the aim advances its lead and drift
+        if (aimCamera) {
+            RotationManager.trackRotation(client, PestAimTracker.trackingAim(client, target),
+                    AetherConfig.PEST_TRACKING_SMOOTHING_MS.get(), AetherConfig.PEST_MAX_TURN_SPEED.get());
+        }
     }
 
     static double followDistance(double configured, double range, double heightDifference) {

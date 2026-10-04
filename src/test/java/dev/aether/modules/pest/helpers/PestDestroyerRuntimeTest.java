@@ -3,6 +3,9 @@ package dev.aether.modules.pest.helpers;
 import org.junit.jupiter.api.Test;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -55,6 +58,63 @@ class PestDestroyerRuntimeTest {
         assertEquals(PestDestroyer.State.IDLE, runtime.state);
         assertEquals(0, runtime.zeroPestTabTicks);
         assertTrue(runtime.navigation.plotQueue.isEmpty());
+    }
+
+    @Test
+    void aRunStartsAtItsOwnPaceWithNoTurnInFlight() {
+        PestDestroyerRuntime runtime = new PestDestroyerRuntime();
+        runtime.acquisition.perceive(7, PestAimAcquisition.AimKind.VACUUM, 1_000_000L, 200L);
+        runtime.lastPathHandoffArmAt = 1_000_000L;
+
+        runtime.beginRun(3, 1_000_500L);
+
+        assertEquals(PestAimAcquisition.Phase.IDLE, runtime.acquisition.phase());
+        assertEquals(0L, runtime.lastPathHandoffArmAt);
+        assertTrue(runtime.acquisition.tempo() >= 0.90 && runtime.acquisition.tempo() < 1.15);
+    }
+
+    @Test
+    void stoppingOrResettingTheRunDropsTheTurn() {
+        PestDestroyerRuntime runtime = new PestDestroyerRuntime();
+        runtime.beginRun(3, 1_000_000L);
+        runtime.acquisition.perceive(7, PestAimAcquisition.AimKind.EYE, 1_000_000L, 200L);
+        runtime.lastPathHandoffArmAt = 1_000_000L;
+
+        runtime.stopRun();
+
+        assertEquals(PestAimAcquisition.Phase.IDLE, runtime.acquisition.phase());
+        assertEquals(0L, runtime.lastPathHandoffArmAt);
+
+        runtime.beginRun(3, 1_000_000L);
+        runtime.acquisition.perceive(7, PestAimAcquisition.AimKind.HUNT, 1_000_000L, 200L);
+
+        runtime.resetAll();
+
+        assertEquals(PestAimAcquisition.Phase.IDLE, runtime.acquisition.phase());
+    }
+
+    @Test
+    void aTurnSurvivesOnlyTheStatesThatAimAtThePest() {
+        Set<PestDestroyer.State> aiming = EnumSet.of(
+                PestDestroyer.State.KILL_PEST,
+                PestDestroyer.State.APPROACH_PEST,
+                PestDestroyer.State.AOTV_BETWEEN_PESTS,
+                PestDestroyer.State.HUNT_PEST);
+        for (PestDestroyer.State state : PestDestroyer.State.values()) {
+            PestDestroyerRuntime runtime = new PestDestroyerRuntime();
+            runtime.acquisition.perceive(7, PestAimAcquisition.AimKind.VACUUM, 1_000_000L, 200L);
+
+            runtime.transitionTo(state, 1_000_050L);
+
+            assertEquals(aiming.contains(state), runtime.acquisition.isHolding(), state.name());
+        }
+
+        PestDestroyerRuntime runtime = new PestDestroyerRuntime();
+        runtime.acquisition.perceive(7, PestAimAcquisition.AimKind.VACUUM, 1_000_000L, 200L);
+        runtime.transitionTo(PestDestroyer.State.KILL_PEST, 1_000_010L);
+        runtime.transitionTo(PestDestroyer.State.APPROACH_PEST, 1_000_020L);
+        runtime.transitionTo(PestDestroyer.State.KILL_PEST, 1_000_030L);
+        assertTrue(runtime.acquisition.isHolding());
     }
 
     @Test

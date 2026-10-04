@@ -58,11 +58,13 @@ final class PestTargetController {
             PestDestroyerRuntime runtime,
             Context context,
             Entity pest) {
+        long now = System.currentTimeMillis();
         runtime.currentTarget = pest;
         runtime.flightController.reset();
         runtime.arrivedAtCurrentTargetViaAotv = false;
         runtime.navigation.waypointCycleCount = 0;
         runtime.navigation.getLocationAttempts = 0;
+        runtime.acquisition.reset();
         resetRotationForHandoff(runtime);
 
         double distance = client.player.distanceTo(pest);
@@ -80,20 +82,27 @@ final class PestTargetController {
         }
 
         if (distance <= PestHuntingController.handoffRange(client, pest, runtime.vacuumRange)) {
+            boolean lassoTarget = PestHuntingController.shouldLassoTarget(client, pest);
             // Lasso hunting performs its own precise, short aim immediately
             // before the stun/throw. Starting a second generic rotation here
             // made the cleaner stare at the pest before the hunt began.
-            if (!PestHuntingController.shouldLassoTarget(client, pest)) {
+            if (!lassoTarget
+                    && !runtime.acquisition.begin(client, runtime, pest, PestAimAcquisition.AimKind.VACUUM, now)) {
                 rotateToTarget(client, pest);
             }
             runtime.aotvSlot = -1;
             beginTerminalState(client, runtime, context);
+            // only once the hunt has begun, since its stage decides where it aims
+            if (lassoTarget) {
+                runtime.acquisition.begin(client, runtime, pest, PestAimAcquisition.AimKind.HUNT, now);
+            }
         } else if (shouldUseAotv && runtime.aotvSlot != -1) {
             runtime.aotvUseCount = 0;
             ClientUtils.sendDebugMessage(
                     "[PestDestroyer] Distance too large ("
                             + String.format("%.1f", distance)
                             + "). Using AOTV to close gap.");
+            runtime.acquisition.begin(client, runtime, pest, PestAimAcquisition.AimKind.EYE, now);
             context.setState(PestDestroyer.State.AOTV_BETWEEN_PESTS);
         } else {
             // The fly executor owns the camera while approaching. Pre-rotating

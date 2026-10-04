@@ -426,6 +426,16 @@ public final class AetherConfig {
                         .range(20.0f, 40.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MAX = Config.floatVal("pestAboveTargetPitchMax", 40.0f)
                         .range(10.0f, 90.0f);
+        public static final BooleanEntry PEST_HUMAN_TARGET_SWITCH = Config.bool("pestHumanTargetSwitch", true);
+        public static final IntEntry PEST_REACTION_MIN_MS = Config.integer("pestReactionMinMs", 150).range(0, 1000);
+        public static final IntEntry PEST_REACTION_MAX_MS = Config.integer("pestReactionMaxMs", 320).range(0, 1000);
+        public static final IntEntry PEST_OVERSHOOT_CHANCE = Config.integer("pestOvershootChance", 40).range(0, 100);
+        public static final FloatEntry PEST_OVERSHOOT_MIN_ANGLE = Config.floatVal("pestOvershootMinAngle", 90.0f)
+                        .range(30.0f, 180.0f);
+        public static final IntEntry PEST_OVERSHOOT_AMOUNT_MIN = Config.integer("pestOvershootAmountMin", 5)
+                        .range(1, 30);
+        public static final IntEntry PEST_OVERSHOOT_AMOUNT_MAX = Config.integer("pestOvershootAmountMax", 12)
+                        .range(1, 30);
 
         // -- PEST HUNTING ----------------------------------------------------------
 

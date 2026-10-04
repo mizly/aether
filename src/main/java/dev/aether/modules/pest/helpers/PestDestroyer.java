@@ -196,11 +196,13 @@ public class PestDestroyer {
 
         if (FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
             RotationManager.cancelRotation();
+            runtime.acquisition.reset();
         }
 
         if (ClientUtils.isInventoryScreenOpen()) {
             runtime.navigation.trackerSearch.stopLooking();
             ClientUtils.forceReleaseMovementKeys();
+            runtime.acquisition.reset();
             return;
         }
 
@@ -216,6 +218,9 @@ public class PestDestroyer {
         if (tryStartPeriodicRoofAotv(client)) {
             return;
         }
+
+        // before the kill check, so a dead pest's turn is dropped before the next pest's turn begins
+        runtime.acquisition.tick(client, runtime, System.currentTimeMillis());
 
         if (PestTargetController.reconcileTrackedKills(
                 client, runtime, CONTEXT)) {
@@ -364,9 +369,9 @@ public class PestDestroyer {
         }
 
         if (returnState == State.FLY_TO_PEST && runtime.currentTarget != null) {
-            PestTargetController.startPathToPest(client, runtime.currentTarget);
+            CONTEXT.startPathToPest(client, runtime.currentTarget);
         } else if (returnState == State.APPROACH_PEST && runtime.currentTarget != null) {
-            PestTargetController.startPathToPest(client, runtime.currentTarget);
+            CONTEXT.startPathToPest(client, runtime.currentTarget);
         } else if (returnState == State.FLY_TO_WAYPOINT && runtime.navigation.calculatedWaypoint != null) {
             Vec3 waypoint = runtime.navigation.calculatedWaypoint;
             PathfindingManager.startPathfind(client, (int) waypoint.x, (int) waypoint.y, (int) waypoint.z, true);
@@ -614,6 +619,11 @@ public class PestDestroyer {
 
     public static boolean isCatchInProgress() {
         return runtime.active && runtime.state == State.HUNT_PEST;
+    }
+
+    // the pauses around a turn onto a pest hold the camera as firmly as the turn itself
+    public static boolean isHoldingCamera() {
+        return runtime.active && runtime.acquisition.isHolding();
     }
 
     public static void setAotvStartY(double startY) {
