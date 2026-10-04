@@ -25,6 +25,7 @@ import dev.aether.modules.visuals.PestEspManager;
 import dev.aether.notification.NotificationManager;
 import dev.aether.renderer.FunRenderer;
 import dev.aether.renderer.CosmeticWorldRenderer;
+import dev.aether.renderer.McTextures;
 import dev.aether.renderer.PositionHighlighter;
 import dev.aether.telemetry.AetherAuthService;
 import dev.aether.telemetry.AetherTelemetryService;
@@ -67,6 +68,7 @@ public final class ClientFeatureBootstrap {
         IrcManager.initialize();
         PlaySessionTracker.register();
         PathVisualizer.register();
+        McTextures.registerReloadListener();
 
         LevelRenderEvents.END_MAIN.register(ctx -> {
             if (StreamerModeManager.isEnabled()) {
