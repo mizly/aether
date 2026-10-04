@@ -91,6 +91,7 @@ final class SettingDescriptionCatalog {
             case ACTION -> "Runs the “" + subject + "” action immediately.";
             case INFO -> "Displays current information for " + subject + ".";
             case SECTION -> "Groups settings related to " + subject + ".";
+            case PLOT -> "Picks the garden plots used for " + subject + ".";
         };
     }
 }

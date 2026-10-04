@@ -77,6 +77,10 @@ public abstract class AbstractSetting<S extends AbstractSetting<S>> implements S
         return mirrorOf;
     }
 
+    String rawDescription() {
+        return description;
+    }
+
     @SuppressWarnings("unchecked")
     private S self() {
         return (S) this;
