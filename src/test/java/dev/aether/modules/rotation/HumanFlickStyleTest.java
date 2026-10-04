@@ -337,7 +337,7 @@ class HumanFlickStyleTest {
                 assertEquals(1, plan.strokes());
                 assertFitts(plan.main(), 55.0, 34.0, width, 70L, 320L);
                 for (HumanFlick.Segment correction : plan.segments().subList(plan.strokes(), plan.segments().size())) {
-                    assertFitts(correction, 45.0, 30.0, width, 55L, 260L);
+                    assertFitts(correction, 35.0, 24.0, width, 45L, 200L);
                 }
             }
         }
@@ -361,7 +361,7 @@ class HumanFlickStyleTest {
             HumanFlick.Plan plan = HumanFlick.plan(0f, 0f, 75f, 0f, NOW, fixed, new SplittableRandom(seed));
             HumanFlick.Segment landing = landing(plan);
             double miss = Math.hypot(75f - landing.toYaw(), landing.toPitch());
-            expected += Math.clamp((miss - 3.0) / 9.0, 0.0, 0.85);
+            expected += Math.clamp((miss - 5.0) / 12.0, 0.0, 0.5);
             if (plan.segments().size() - plan.strokes() == 2) {
                 twoGoes++;
             }

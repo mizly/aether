@@ -29,10 +29,10 @@ public final class HumanFlick {
     // the server reads the camera once a tick, so a swing past the target lingers about that long
     private static final double OVERSHOOT_DWELL_MIN_MS = 45.0;
     private static final double OVERSHOOT_DWELL_MAX_MS = 110.0;
-    private static final double CORRECTION_BASE_MS = 45.0;
-    private static final double CORRECTION_LOG_MS = 30.0;
-    private static final long MIN_CORRECTION_MS = 55L;
-    private static final long MAX_CORRECTION_MS = 260L;
+    private static final double CORRECTION_BASE_MS = 35.0;
+    private static final double CORRECTION_LOG_MS = 24.0;
+    private static final long MIN_CORRECTION_MS = 45L;
+    private static final long MAX_CORRECTION_MS = 200L;
     // a very low speed cap would hold the camera for seconds, past this the cap gives way
     static final long MAX_CAPPED_MAIN_MS = 1_500L;
     static final long MAX_CAPPED_CORRECTION_MS = 450L;
@@ -218,9 +218,7 @@ public final class HumanFlick {
         }
         int strokes = pen.segments.size();
 
-        pen.pause(overshoot
-                ? Math.round(skewed(random, OVERSHOOT_DWELL_MIN_MS, OVERSHOOT_DWELL_MAX_MS))
-                : random.nextLong(15L, 55L));
+        pen.pause(landingPause(style, overshoot, random));
         if (style.stagedCorrections()) {
             correct(pen, endYaw, endPitch, style, peak, random);
         } else {
@@ -287,13 +285,21 @@ public final class HumanFlick {
         pen.move(toYaw, toPitch, strokeMs(length, style, pace, peak, ceilingMs), bulge(length, random));
     }
 
-    // a miss past 3 degrees is more and more often closed in two goes,
+    // a throw that falls short is carried straight on into its correction, one that went past has to stop and reverse
+    private static long landingPause(Style style, boolean overshoot, RandomGenerator random) {
+        if (overshoot) {
+            return Math.round(skewed(random, OVERSHOOT_DWELL_MIN_MS, OVERSHOOT_DWELL_MAX_MS));
+        }
+        return style.stagedCorrections() ? Math.round(skewed(random, 5.0, 35.0)) : random.nextLong(15L, 55L);
+    }
+
+    // a miss past 5 degrees is sometimes closed in two goes,
     // the first one stopping a little short and to one side
     private static void correct(Pen pen, float toYaw, float toPitch, Style style, double peak,
                                 RandomGenerator random) {
         float dYaw = toYaw - pen.yaw;
         float dPitch = toPitch - pen.pitch;
-        double twoGoChance = Math.clamp((Math.hypot(dYaw, dPitch) - 3.0) / 9.0, 0.0, 0.85);
+        double twoGoChance = Math.clamp((Math.hypot(dYaw, dPitch) - 5.0) / 12.0, 0.0, 0.5);
         if (twoGoChance > 0.0 && random.nextDouble() < twoGoChance) {
             double rest = random.nextDouble(0.08, 0.25);
             double restSide = random.nextDouble(-0.05, 0.05);
