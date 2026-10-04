@@ -21,6 +21,16 @@ final class FarmingSettingsFactory {
                                                            java.util.function.Supplier<Integer> minGetter,
                                                            java.util.function.Supplier<Integer> maxGetter,
                                                            java.util.function.BiConsumer<Integer, Integer> setter) {
+        return intRangeSetting(name, minBound, maxBound, "ms", minGetter, maxGetter, setter);
+    }
+
+    private static RangeSliderSetting intRangeSetting(String name,
+                                                      float minBound,
+                                                      float maxBound,
+                                                      String suffix,
+                                                      java.util.function.Supplier<Integer> minGetter,
+                                                      java.util.function.Supplier<Integer> maxGetter,
+                                                      java.util.function.BiConsumer<Integer, Integer> setter) {
         return new RangeSliderSetting(name, minBound, maxBound,
                 () -> minGetter.get().floatValue(),
                 () -> maxGetter.get().floatValue(),
@@ -28,7 +38,7 @@ final class FarmingSettingsFactory {
                     setter.accept(Math.round(lower), Math.round(upper));
                     AetherConfig.save();
                 })
-                .withDecimals(0).withSuffix("ms");
+                .withDecimals(0).withSuffix(suffix);
     }
 
     static RangeSliderSetting laneSwitchDelaySetting() {
