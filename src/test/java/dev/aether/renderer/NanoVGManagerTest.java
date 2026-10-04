@@ -279,6 +279,27 @@ class NanoVGManagerTest {
         }
     }
 
+    @Test
+    void keepsSvgRastersBoundedAndDeletesEvictedOnesOnTheNextFrame() {
+        NanoVGManager.beginFrame(64, 64, 1f);
+        try {
+            for (int width = 1; width <= 300; width++) {
+                NanoVGManager.getRenderer().renderSVG("/assets/aether/icons/settings.svg", 0, 0, width * 2, 4, 0xFFFFFFFF);
+            }
+            assertEquals(256, SVGRenderer.cachedRasters());
+        } finally {
+            NanoVGManager.endFrame();
+        }
+        renderOverlay();
+        NanoVGManager.beginFrame(64, 64, 1f);
+        try {
+            NanoVGManager.getRenderer().renderSVG("/assets/aether/icons/settings.svg", 0, 0, 16, 16, 0xFFFFFFFF);
+        } finally {
+            NanoVGManager.endFrame();
+        }
+        assertEquals(GL11.GL_NO_ERROR, GL11.glGetError());
+    }
+
     private static void renderOverlay() {
         NanoVGManager.beginFrame(64, 64);
         try {
