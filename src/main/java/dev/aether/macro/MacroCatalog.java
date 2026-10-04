@@ -5,6 +5,7 @@ import dev.aether.modules.failsafe.FailsafeColourFlashManager;
 import net.minecraft.client.Minecraft;
 
 import java.util.List;
+import java.util.Optional;
 
 // every macro the start menu can run, grouped by the type it is listed under
 public final class MacroCatalog {
@@ -19,6 +20,8 @@ public final class MacroCatalog {
             new Entry("strider_fishing", "Strider Fishing",
                     "Fishes Stridersurfers out of lava and kills them", "Fishing", "Strider Fishing",
                     () -> AetherKeybindHandler.startStriderFishingMacro(Minecraft.getInstance())));
+
+    private static volatile Entry lastStarted;
 
     private MacroCatalog() {
     }
@@ -46,6 +49,16 @@ public final class MacroCatalog {
     public static void start(Entry entry) {
         // the open menu is an automation stop screen, so it has to go before the macro starts
         Minecraft.getInstance().setScreen(null);
+        recordStarted(entry.id());
         entry.start().run();
+    }
+
+    // remembered so the gui can offer Resume after opening it stopped the macro
+    public static void recordStarted(String id) {
+        ENTRIES.stream().filter(entry -> entry.id().equals(id)).findFirst().ifPresent(entry -> lastStarted = entry);
+    }
+
+    public static Optional<Entry> lastStarted() {
+        return Optional.ofNullable(lastStarted);
     }
 }
