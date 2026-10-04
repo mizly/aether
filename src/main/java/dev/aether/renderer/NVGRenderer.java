@@ -73,6 +73,15 @@ public class NVGRenderer {
         nvgFill(vg);
     }
 
+    public void roundedRect(float x, float y, float w, float h,
+                            float topLeft, float topRight, float bottomRight, float bottomLeft, int color) {
+        nvgBeginPath(vg);
+        nvgRoundedRectVarying(vg, x, y, w, h, topLeft, topRight, bottomRight, bottomLeft);
+        color(color, c1);
+        nvgFillColor(vg, c1);
+        nvgFill(vg);
+    }
+
 
     public void rectOutline(float x, float y, float w, float h, float radius, float thickness, int color) {
         float half = thickness / 2f;
@@ -295,6 +304,21 @@ public class NVGRenderer {
         nvgFill(vg);
     }
 
+    // fills the circle of outerRadius, fading from innerColor at innerRadius to outerColor at the rim
+    public void radialGradient(float cx, float cy, float innerRadius, float outerRadius, int innerColor, int outerColor) {
+        nvgBeginPath(vg);
+        nvgCircle(vg, cx, cy, outerRadius);
+        fillPathRadialGradient(cx, cy, innerRadius, outerRadius, innerColor, outerColor);
+    }
+
+    // innerColor inside the rounded box fading to outerColor across feather; fills the feathered area too
+    public void boxGradient(float x, float y, float w, float h, float radius, float feather,
+                            int innerColor, int outerColor) {
+        nvgBeginPath(vg);
+        nvgRect(vg, x - feather, y - feather, w + feather * 2f, h + feather * 2f);
+        fillPathBoxGradient(x, y, w, h, radius, feather, innerColor, outerColor);
+    }
+
     // -- Shadow / Glow ---------------------------------------------------------
 
     // draw this before the element it belongs to so it lands underneath
@@ -437,6 +461,71 @@ public class NVGRenderer {
         nvgStroke(vg);
     }
 
+    // -- Paths -----------------------------------------------------------------
+
+    public void beginPath() { nvgBeginPath(vg); }
+
+    public void moveTo(float x, float y) { nvgMoveTo(vg, x, y); }
+
+    public void lineTo(float x, float y) { nvgLineTo(vg, x, y); }
+
+    public void bezierTo(float c1x, float c1y, float c2x, float c2y, float x, float y) {
+        nvgBezierTo(vg, c1x, c1y, c2x, c2y, x, y);
+    }
+
+    public void quadTo(float cx, float cy, float x, float y) { nvgQuadTo(vg, cx, cy, x, y); }
+
+    public void arcTo(float x1, float y1, float x2, float y2, float radius) { nvgArcTo(vg, x1, y1, x2, y2, radius); }
+
+    public void closePath() { nvgClosePath(vg); }
+
+    public void pathRect(float x, float y, float w, float h) { nvgRect(vg, x, y, w, h); }
+
+    public void pathRoundedRect(float x, float y, float w, float h, float radius) {
+        nvgRoundedRect(vg, x, y, w, h, radius);
+    }
+
+    public void pathCircle(float cx, float cy, float radius) { nvgCircle(vg, cx, cy, radius); }
+
+    public void fillPath(int color) {
+        color(color, c1);
+        nvgFillColor(vg, c1);
+        nvgFill(vg);
+    }
+
+    public void strokePath(float width, int color) {
+        nvgStrokeWidth(vg, width);
+        color(color, c1);
+        nvgStrokeColor(vg, c1);
+        nvgStroke(vg);
+    }
+
+    public void fillPathLinearGradient(float sx, float sy, float ex, float ey, int startColor, int endColor) {
+        color(startColor, c1);
+        color(endColor, c2);
+        nvgLinearGradient(vg, sx, sy, ex, ey, c1, c2, paint);
+        nvgFillPaint(vg, paint);
+        nvgFill(vg);
+    }
+
+    public void fillPathRadialGradient(float cx, float cy, float innerRadius, float outerRadius,
+                                       int innerColor, int outerColor) {
+        color(innerColor, c1);
+        color(outerColor, c2);
+        nvgRadialGradient(vg, cx, cy, innerRadius, outerRadius, c1, c2, paint);
+        nvgFillPaint(vg, paint);
+        nvgFill(vg);
+    }
+
+    public void fillPathBoxGradient(float x, float y, float w, float h, float radius, float feather,
+                                    int innerColor, int outerColor) {
+        color(innerColor, c1);
+        color(outerColor, c2);
+        nvgBoxGradient(vg, x, y, w, h, radius, feather, c1, c2, paint);
+        nvgFillPaint(vg, paint);
+        nvgFill(vg);
+    }
+
 
     // -- SVG rendering ---------------------------------------------------------
 
@@ -447,6 +536,11 @@ public class NVGRenderer {
 
     public int createImageRGBA(int width, int height, java.nio.ByteBuffer pixels) {
         return nvgCreateImageRGBA(vg, width, height, 0, pixels);
+    }
+
+    // flags are NanoVG.NVG_IMAGE_*, e.g. NVG_IMAGE_NEAREST for pixel art; returns 0 on failure
+    public int createImageRGBA(int width, int height, int flags, java.nio.ByteBuffer pixels) {
+        return nvgCreateImageRGBA(vg, width, height, flags, pixels);
     }
 
     // nanovg hands out ids from 1 and returns 0 on failure
@@ -463,6 +557,44 @@ public class NVGRenderer {
         nvgFillPaint(vg, paint);
         nvgFill(vg);
         nvgRestore(vg);
+    }
+
+    // draws the source rect (image pixels) into x/y/w/h as texture * tint; alpha comes from the tint, never globalAlpha
+    // edge antialiasing stays off because its fringe would sample texels outside the source rect
+    public void imageRegion(int handle, float imgW, float imgH, float srcX, float srcY, float srcW, float srcH,
+                            float x, float y, float w, float h, int tint) {
+        if (handle <= 0 || srcW == 0f || srcH == 0f || w <= 0f || h <= 0f) return;
+        float sx = w / srcW;
+        float sy = h / srcH;
+        nvgSave(vg);
+        nvgShapeAntiAlias(vg, false);
+        nvgImagePattern(vg, x - srcX * sx, y - srcY * sy, imgW * sx, imgH * sy, 0f, handle, 1f, paint);
+        color(tint, paint.innerColor());
+        color(tint, paint.outerColor());
+        nvgBeginPath(vg);
+        nvgRect(vg, x, y, w, h);
+        nvgFillPaint(vg, paint);
+        nvgFill(vg);
+        nvgRestore(vg);
+    }
+
+    // borders are source texels drawn 1:1 in local units (scale the canvas for chunkier pixels); edges and centre stretch
+    public void nineSlice(int handle, float imgW, float imgH, float srcX, float srcY, float srcW, float srcH,
+                          float borderL, float borderT, float borderR, float borderB,
+                          float x, float y, float w, float h, int tint) {
+        if (handle <= 0 || w <= 0f || h <= 0f) return;
+        float fitX = Math.min(1f, w / Math.max(1e-3f, borderL + borderR));
+        float fitY = Math.min(1f, h / Math.max(1e-3f, borderT + borderB));
+        float[] sx = {srcX, srcX + borderL, srcX + srcW - borderR, srcX + srcW};
+        float[] sy = {srcY, srcY + borderT, srcY + srcH - borderB, srcY + srcH};
+        float[] dx = {x, x + borderL * fitX, x + w - borderR * fitX, x + w};
+        float[] dy = {y, y + borderT * fitY, y + h - borderB * fitY, y + h};
+        for (int row = 0; row < 3; row++) {
+            for (int col = 0; col < 3; col++) {
+                imageRegion(handle, imgW, imgH, sx[col], sy[row], sx[col + 1] - sx[col], sy[row + 1] - sy[row],
+                        dx[col], dy[row], dx[col + 1] - dx[col], dy[row + 1] - dy[row], tint);
+            }
+        }
     }
 
     // -- Text ------------------------------------------------------------------
@@ -599,6 +731,12 @@ public class NVGRenderer {
         nvgResetScissor(vg);
     }
 
+    // intersects in the current transform's space, so nested clips stay right under translate/scale (pushScissor does not)
+    // undo it with restore()
+    public void intersectScissor(float x, float y, float w, float h) {
+        nvgIntersectScissor(vg, x, y, w, h);
+    }
+
     // -- Transform state -------------------------------------------------------
 
     // pair with restore()
@@ -611,6 +749,20 @@ public class NVGRenderer {
     public void scale(float sx, float sy) { nvgScale(vg, sx, sy); }
 
     public void skewX(float radians) { nvgSkewX(vg, radians); }
+
+    public void rotate(float radians) { nvgRotate(vg, radians); }
+
+    // premultiplies the affine [a c e; b d f] onto the current transform
+    public void transform(float a, float b, float c, float d, float e, float f) { nvgTransform(vg, a, b, c, d, e, f); }
+
+    // fills out with [a b c d e f]; local units times the transform give frame units, times getPxRatio() device pixels
+    public float[] currentTransform(float[] out) {
+        nvgCurrentTransform(vg, out);
+        return out;
+    }
+
+    // part of the save()/restore() state
+    public void shapeAntiAlias(boolean enabled) { nvgShapeAntiAlias(vg, enabled); }
 
     // alpha is clamped to [0, 1]
     public void globalAlpha(float alpha) { nvgGlobalAlpha(vg, Math.max(0f, Math.min(1f, alpha))); }
