@@ -115,6 +115,75 @@ class McBitmapFontSheetTest {
         }
     }
 
+    @Test
+    void rendersVanillaWidgetSprites() throws Exception {
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        GL11.glViewport(0, 0, WIDTH, HEIGHT);
+        GL11.glClearColor(0f, 0f, 0f, 1f);
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_STENCIL_BUFFER_BIT);
+        NanoVGManager.beginFrame(WIDTH, HEIGHT, 1f);
+        NVGRenderer nvg = NanoVGManager.getRenderer();
+        try {
+            nvg.rect(0, 0, WIDTH, HEIGHT, BACKGROUND);
+            nvg.textLiteral(Fonts.UI_SEMIBOLD, "guiSprite at 2x: nine-slice with tiled middles, stretch_inner frame, plain sprites",
+                    12, 12, 14, 0xFFB8BCC4);
+            nvg.save();
+            nvg.translate(12, 40);
+            nvg.scale(2f, 2f);
+            String[] buttons = {"widget/button", "widget/button_highlighted", "widget/button_disabled"};
+            float[] widths = {60, 150, 300};
+            float y = 0;
+            for (float width : widths) {
+                float x = 0;
+                for (String button : buttons) {
+                    nvg.guiSprite("minecraft:" + button, x, y, width, 20, McIcon.UNTINTED);
+                    String label = width < 100 ? "Done" : "Leave One Pest Plots: ON";
+                    int color = button.endsWith("disabled") ? 0xFFA0A0A0 : 0xFFFFFFFF;
+                    nvg.mcText(label, x + (width - McBitmapFont.width(label, 1)) / 2f, y + 6, 1, color, true);
+                    x += width + 4;
+                    if (width == 300) break;
+                }
+                y += 24;
+            }
+            nvg.guiSprite("minecraft:widget/slider", 0, y, 150, 20, McIcon.UNTINTED);
+            nvg.guiSprite("minecraft:widget/slider_handle", 60, y, 8, 20, McIcon.UNTINTED);
+            String value = "Rotation Speed: 45%";
+            nvg.mcText(value, (150 - McBitmapFont.width(value, 1)) / 2f, y + 6, 1, 0xFFFFFFFF, true);
+            nvg.guiSprite("minecraft:widget/text_field_highlighted", 154, y, 150, 20, McIcon.UNTINTED);
+            nvg.mcTextLiteral("/warp garden§a_", 158, y + 6, 1, 0xFFE0E0E0, true);
+            nvg.guiSprite("minecraft:widget/checkbox_selected", 308, y, 20, 20, McIcon.UNTINTED);
+            nvg.guiSprite("minecraft:widget/checkbox_highlighted", 332, y, 20, 20, McIcon.UNTINTED);
+            y += 24;
+            nvg.guiSprite("minecraft:widget/tab_selected", 0, y, 90, 24, McIcon.UNTINTED);
+            nvg.guiSprite("minecraft:widget/tab", 92, y, 90, 24, McIcon.UNTINTED);
+            nvg.mcText("Farming", 45 - McBitmapFont.width("Farming", 1) / 2f, y + 8, 1, 0xFFFFFFFF, true);
+            nvg.mcText("Pests", 137 - McBitmapFont.width("Pests", 1) / 2f, y + 8, 1, 0xFFA0A0A0, true);
+            nvg.guiSprite("minecraft:widget/scroller_background", 190, y, 6, 60, McIcon.UNTINTED);
+            nvg.guiSprite("minecraft:widget/scroller", 190, y + 10, 6, 20, McIcon.UNTINTED);
+            float tipX = 210;
+            String[] tip = {"§aPlot §7- §b5", "§7Greenhouse Plot", "", "§eClick to open!"};
+            float tipW = 0;
+            for (String line : tip) tipW = Math.max(tipW, McBitmapFont.width(line, 1));
+            float tipH = tip.length * 10 + 2 - 10 + 8;
+            // vanilla pads tooltip text by 3 inside the 9-pixel frame sprite
+            nvg.guiSprite("minecraft:tooltip/background", tipX - 12, y + 6 - 12, tipW + 24, tipH + 24, McIcon.UNTINTED);
+            nvg.guiSprite("minecraft:tooltip/frame", tipX - 12, y + 6 - 12, tipW + 24, tipH + 24, McIcon.UNTINTED);
+            float lineY = y + 6;
+            for (int i = 0; i < tip.length; i++) {
+                nvg.mcText(tip[i], tipX, lineY, 1, 0xFFFFFFFF, true);
+                lineY += i == 0 ? 12 : 10;
+            }
+            nvg.restore();
+        } finally {
+            NanoVGManager.endFrame();
+        }
+        assertEquals(GL11.GL_NO_ERROR, GL11.glGetError());
+        BufferedImage sheet = capture();
+        Path out = Path.of("build/reports/font/gui-sprites.png");
+        Files.createDirectories(out.getParent());
+        ImageIO.write(sheet, "png", out.toFile());
+    }
+
     // the real chest title: generic_54's top strip at 1-3x with the title at (8, 6) in 0x404040, no shadow
     private static void chestTitles(NVGRenderer nvg, float x, float y) {
         McTextures.Texture chest = McTextures.get("minecraft:textures/gui/container/generic_54.png");

@@ -597,6 +597,12 @@ public class NVGRenderer {
         }
     }
 
+    // a gui sprite ("minecraft:widget/button") or texture id drawn the way vanilla blits it, honouring its .mcmeta
+    // gui scaling; one sprite pixel per local unit, so scale the canvas for chunkier pixels
+    public void guiSprite(String id, float x, float y, float w, float h, int tint) {
+        GuiSpritePainter.draw(this, McTextures.sprite(id), x, y, w, h, tint);
+    }
+
     // -- Minecraft item icons -------------------------------------------------
 
     // tint multiplies the icon, alpha included; size and origin snap to device pixels (see mcIconSnap)
