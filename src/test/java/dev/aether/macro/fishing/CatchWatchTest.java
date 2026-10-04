@@ -1,10 +1,14 @@
 package dev.aether.macro.fishing;
 
+import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CatchWatchTest {
@@ -32,5 +36,105 @@ class CatchWatchTest {
         Set<Integer> beforeReel = Set.of(11, 22, 33);
         assertFalse(CatchWatch.shouldAcceptTarget(22, beforeReel));
         assertTrue(CatchWatch.shouldAcceptTarget(44, beforeReel));
+    }
+
+    @Test
+    void aPlateIsNeverTheHotspotTheHookTimerOrTheBiteMarker() {
+        assertFalse(CatchWatch.isPlateName("HOTSPOT"));
+        assertFalse(CatchWatch.isPlateName("1.5"));
+        assertFalse(CatchWatch.isPlateName("12"));
+        assertFalse(CatchWatch.isPlateName("!!!"));
+        assertFalse(CatchWatch.isPlateName(" "));
+        assertFalse(CatchWatch.isPlateName(null));
+        assertTrue(CatchWatch.isPlateName("[Lv45] Stridersurfer 1,500/1,500❤"));
+    }
+
+    @Test
+    void theHookTimerIsABareCountdown() {
+        assertTrue(CatchWatch.isHookTimer("0.5"));
+        assertTrue(CatchWatch.isHookTimer("12"));
+        assertFalse(CatchWatch.isHookTimer("[Lv12] Squid"));
+        assertFalse(CatchWatch.isHookTimer("!!!"));
+        assertFalse(CatchWatch.isHookTimer(null));
+    }
+
+    @Test
+    void aPlateFloatsJustOverItsMob() {
+        Vec3 mob = new Vec3(0.5, 64.0, 0.5);
+        assertTrue(CatchWatch.platesOver(mob, new Vec3(0.5, 64.0, 0.5)));
+        assertTrue(CatchWatch.platesOver(mob, new Vec3(1.05, 67.0, 0.5)));
+        assertFalse(CatchWatch.platesOver(mob, new Vec3(1.2, 65.0, 0.5)));
+        assertFalse(CatchWatch.platesOver(mob, new Vec3(0.5, 67.1, 0.5)));
+        assertFalse(CatchWatch.platesOver(mob, new Vec3(0.5, 63.9, 0.5)));
+    }
+
+    @Test
+    void onlyAStandRightUnderTheHotspotIsItsBuffLine() {
+        Vec3 hotspot = new Vec3(10.5, 66.0, 10.5);
+        assertTrue(CatchWatch.sitsUnderHotspot(hotspot, new Vec3(10.5, 65.5, 10.5)));
+        assertTrue(CatchWatch.sitsUnderHotspot(hotspot, new Vec3(10.5, 65.0, 10.5)));
+        assertFalse(CatchWatch.sitsUnderHotspot(hotspot, new Vec3(10.5, 64.9, 10.5)));
+        assertFalse(CatchWatch.sitsUnderHotspot(hotspot, new Vec3(10.8, 65.5, 10.5)));
+        assertFalse(CatchWatch.sitsUnderHotspot(hotspot, new Vec3(10.5, 66.5, 10.5)));
+    }
+
+    @Test
+    void theStandSpawnedRightAfterTheMobIsItsPlate() {
+        Vec3 mob = new Vec3(0.5, 64.0, 0.5);
+        List<CatchWatch.Stand> stands = List.of(
+                new CatchWatch.Stand(107, new Vec3(0.5, 64.5, 0.5), "[Lv5] Flaming Worm"),
+                new CatchWatch.Stand(102, new Vec3(0.5, 65.8, 0.5), "[Lv45] Stridersurfer"));
+        assertEquals(102, CatchWatch.pickPlate(100, mob, stands, List.of()).id());
+    }
+
+    @Test
+    void withNoStandNextInLineTheClosestOneOverTheMobIsItsPlate() {
+        Vec3 mob = new Vec3(0.5, 64.0, 0.5);
+        List<CatchWatch.Stand> stands = List.of(
+                new CatchWatch.Stand(301, new Vec3(0.9, 65.8, 0.5), "[Lv5] Flaming Worm"),
+                new CatchWatch.Stand(300, new Vec3(0.5, 65.8, 0.5), "[Lv45] Stridersurfer"),
+                new CatchWatch.Stand(302, new Vec3(0.5, 67.5, 0.5), "[Lv9] Too High"));
+        assertEquals(300, CatchWatch.pickPlate(100, mob, stands, List.of()).id());
+    }
+
+    @Test
+    void eachMobReadsThePlateItFloatsRightUnder() {
+        Vec3 left = new Vec3(0.0, 64.0, 0.0);
+        Vec3 right = new Vec3(0.5, 64.0, 0.0);
+        List<CatchWatch.Stand> stands = List.of(
+                new CatchWatch.Stand(300, new Vec3(0.0, 65.8, 0.0), "Left"),
+                new CatchWatch.Stand(301, new Vec3(0.5, 65.8, 0.0), "Right"));
+        assertEquals("Left", CatchWatch.pickPlate(100, left, stands, List.of(right)).name());
+        assertEquals("Right", CatchWatch.pickPlate(200, right, stands, List.of(left)).name());
+    }
+
+    @Test
+    void aNeighboursPlateIsNeverBorrowed() {
+        Vec3 bare = new Vec3(0.0, 64.0, 0.0);
+        Vec3 named = new Vec3(0.5, 64.0, 0.0);
+        List<CatchWatch.Stand> stands = List.of(new CatchWatch.Stand(301, new Vec3(0.5, 65.8, 0.0), "Right"));
+        assertNull(CatchWatch.pickPlate(100, bare, stands, List.of(named)));
+        // not even when that plate happens to be next in line after the bare mob
+        assertNull(CatchWatch.pickPlate(300, bare, stands, List.of(named)));
+    }
+
+    @Test
+    void aRiderLeavesItsMountThePlateNextInLine() {
+        Vec3 mount = new Vec3(0.5, 64.0, 0.5);
+        Vec3 rider = new Vec3(0.5, 65.0, 0.5);
+        List<CatchWatch.Stand> stands = List.of(
+                new CatchWatch.Stand(102, new Vec3(0.5, 66.4, 0.5), "[Lv45] Stridersurfer"));
+        assertEquals(102, CatchWatch.pickPlate(100, mount, stands, List.of(rider)).id());
+    }
+
+    @Test
+    void theHotspotItsBuffLineAndTheHookTimerAreNeverAPlate() {
+        Vec3 mob = new Vec3(0.5, 64.0, 0.5);
+        List<CatchWatch.Stand> stands = List.of(
+                new CatchWatch.Stand(101, new Vec3(0.5, 66.0, 0.5), "HOTSPOT"),
+                new CatchWatch.Stand(102, new Vec3(0.5, 65.6, 0.5), "+5 Sea Creature Chance"),
+                new CatchWatch.Stand(103, new Vec3(0.6, 64.6, 0.5), "2.5"),
+                new CatchWatch.Stand(104, new Vec3(0.6, 64.6, 0.5), "!!!"));
+        assertNull(CatchWatch.pickPlate(100, mob, stands, List.of()));
     }
 }

@@ -1,5 +1,6 @@
 package dev.aether.macro.fishing;
 
+import dev.aether.util.EntityUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -10,18 +11,38 @@ import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 
 // what the float and the stands around it give away: the bite, where the float came down, what the reel pulled up
 final class CatchWatch {
 
     private static final double MARKER_SEARCH_SIZE = 6.0;
     private static final double TARGET_SEARCH_RADIUS = 16.0;
+    // hypixel spawns a mob's plate stand right after the mob, give or take whatever else spawned in between
+    private static final int PLATE_ID_SPAN = 3;
+    private static final double PLATE_RADIUS = 0.6;
+    private static final double PLATE_ABOVE = 3.0;
+    // where a plate can sit at all; tall enough to also catch the hotspot stand over a buff line
+    private static final double PLATE_SEARCH_RADIUS = 1.5;
+    private static final double PLATE_SEARCH_BELOW = 2.0;
+    private static final double PLATE_SEARCH_ABOVE = 5.0;
+    private static final String HOTSPOT_NAME = "HOTSPOT";
+    // the buff line hangs at the hotspot stand's own x/z, at most a block under it
+    private static final double HOTSPOT_BUFF_DROP = 1.0;
+    private static final double SAME_SPOT = 0.05;
+    private static final Pattern HOOK_TIMER = Pattern.compile("\\d+(?:\\.\\d+)?");
 
     private CatchWatch() {
+    }
+
+    record Stand(int id, Vec3 pos, String name) {
     }
 
     static boolean hasLiveHook(Minecraft mc) {
@@ -78,7 +99,8 @@ final class CatchWatch {
         double bestDistance = Double.MAX_VALUE;
 
         for (Entity entity : mc.level.getEntities(mc.player, box)) {
-            if (!(entity instanceof LivingEntity) || entity instanceof ArmorStand || !isAlive(entity)) {
+            if (!(entity instanceof LivingEntity) || entity instanceof ArmorStand || !isAlive(entity)
+                    || EntityUtils.isRealPlayer(mc, entity)) {
                 continue;
             }
             if (!shouldAcceptTarget(entity.getId(), preReelEntityIds)) {
@@ -96,20 +118,116 @@ final class CatchWatch {
         return best;
     }
 
-    // sea creatures carry their name on a separate plate, so a miss on the mob still has to check above it
+    // the vanilla type name would match every sea creature built on the same mob, so only the plate counts
     static boolean matchesName(Level level, Entity entity, String needle) {
-        if (stripFormatting(entity.getDisplayName().getString()).toLowerCase(Locale.ROOT).contains(needle)) {
-            return true;
-        }
-        AABB box = AABB.ofSize(entity.position().add(0.0, 1.0, 0.0), 3.0, 4.0, 3.0);
-        for (ArmorStand marker : level.getEntitiesOfClass(ArmorStand.class, box)) {
-            if (marker.getCustomName() != null
-                    && stripFormatting(marker.getCustomName().getString())
-                            .toLowerCase(Locale.ROOT).contains(needle)) {
-                return true;
+        String plate = plateName(level, entity);
+        return plate != null && plate.toLowerCase(Locale.ROOT).contains(needle);
+    }
+
+    // sea creatures carry their name on a stand of their own; null until that stand has shown up
+    static String plateName(Level level, Entity mob) {
+        AABB box = new AABB(mob.getX() - PLATE_SEARCH_RADIUS, mob.getY() - PLATE_SEARCH_BELOW,
+                mob.getZ() - PLATE_SEARCH_RADIUS, mob.getX() + PLATE_SEARCH_RADIUS,
+                mob.getY() + PLATE_SEARCH_ABOVE, mob.getZ() + PLATE_SEARCH_RADIUS);
+        List<Stand> stands = new ArrayList<>();
+        for (ArmorStand stand : level.getEntitiesOfClass(ArmorStand.class, box)) {
+            if (!stand.isRemoved() && stand.getCustomName() != null) {
+                stands.add(new Stand(stand.getId(), stand.position(),
+                        stripFormatting(stand.getCustomName().getString())));
             }
         }
-        return false;
+        if (stands.isEmpty()) {
+            return null;
+        }
+        List<Vec3> others = new ArrayList<>();
+        for (LivingEntity other : level.getEntitiesOfClass(LivingEntity.class,
+                box.inflate(PLATE_RADIUS, PLATE_ABOVE, PLATE_RADIUS))) {
+            if (other != mob && !(other instanceof ArmorStand)) {
+                others.add(other.position());
+            }
+        }
+        Stand plate = pickPlate(mob.getId(), mob.position(), stands, others);
+        return plate == null ? null : plate.name();
+    }
+
+    // a stand a few ids on is the surest match, then the closest one floating over the mob
+    static Stand pickPlate(int mobId, Vec3 mob, List<Stand> stands, List<Vec3> others) {
+        for (int step = 1; step <= PLATE_ID_SPAN; step++) {
+            for (Stand stand : stands) {
+                if (stand.id() == mobId + step && isPlate(stand, stands) && ownedBy(stand.pos(), mob, others)) {
+                    return stand;
+                }
+            }
+        }
+        Stand best = null;
+        for (Stand stand : stands) {
+            if (platesOver(mob, stand.pos()) && isPlate(stand, stands) && ownedBy(stand.pos(), mob, others)
+                    && (best == null || nearer(mob, stand, best))) {
+                best = stand;
+            }
+        }
+        return best;
+    }
+
+    static boolean isPlateName(String name) {
+        return name != null && !name.isBlank() && !name.equals(HOTSPOT_NAME)
+                && !isHookTimer(name) && !isCatchMarker(name);
+    }
+
+    // the stand over a float counts down the seconds until the catch arrives
+    static boolean isHookTimer(String name) {
+        return name != null && HOOK_TIMER.matcher(name).matches();
+    }
+
+    static boolean sitsUnderHotspot(Vec3 hotspot, Vec3 stand) {
+        double drop = hotspot.y - stand.y;
+        return Math.abs(hotspot.x - stand.x) <= SAME_SPOT && Math.abs(hotspot.z - stand.z) <= SAME_SPOT
+                && drop > 0.0 && drop <= HOTSPOT_BUFF_DROP;
+    }
+
+    static boolean platesOver(Vec3 mob, Vec3 stand) {
+        double rise = stand.y - mob.y;
+        return horizontalSq(mob, stand) <= PLATE_RADIUS * PLATE_RADIUS && rise >= 0.0 && rise <= PLATE_ABOVE;
+    }
+
+    // a plate floats right over its own mob, so a stand some other mob sits closer under is that mob's
+    static boolean ownedBy(Vec3 stand, Vec3 mob, List<Vec3> others) {
+        double mine = horizontalSq(mob, stand);
+        for (Vec3 other : others) {
+            if (platesOver(other, stand) && horizontalSq(other, stand) < mine) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isPlate(Stand stand, List<Stand> stands) {
+        if (!isPlateName(stand.name())) {
+            return false;
+        }
+        for (Stand other : stands) {
+            if (other.name().equals(HOTSPOT_NAME) && sitsUnderHotspot(other.pos(), stand.pos())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean nearer(Vec3 mob, Stand stand, Stand best) {
+        double across = horizontalSq(mob, stand.pos());
+        double bestAcross = horizontalSq(mob, best.pos());
+        if (across != bestAcross) {
+            return across < bestAcross;
+        }
+        double up = Math.abs(stand.pos().y - mob.y);
+        double bestUp = Math.abs(best.pos().y - mob.y);
+        return up != bestUp ? up < bestUp : stand.id() < best.id();
+    }
+
+    private static double horizontalSq(Vec3 a, Vec3 b) {
+        double dx = a.x - b.x;
+        double dz = a.z - b.z;
+        return dx * dx + dz * dz;
     }
 
     static boolean isAlive(Entity entity) {

@@ -2,12 +2,11 @@ package dev.aether.modules.failsafe;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.notification.NotificationManager;
+import dev.aether.util.EntityUtils;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.Locale;
-import java.util.UUID;
 
 final class PlayerNearbyFailsafe {
     private static volatile long nearbySince = 0L;
@@ -53,25 +52,15 @@ final class PlayerNearbyFailsafe {
         return since > 0L && now - since >= requiredMs;
     }
 
-    // hypixel npcs and watchdog bots are fake profiles with version 2 uuids, real accounts are version 4
-    static boolean isRealPlayerUuid(UUID uuid) {
-        return uuid != null && uuid.version() == 4;
-    }
-
     private static long requiredMs() {
         return Math.round(AetherConfig.FAILSAFE_PLAYER_NEARBY_SECONDS.get() * 1000.0f);
     }
 
     private static Player findNearestRealPlayer(Minecraft client, double radius) {
-        ClientPacketListener connection = client.getConnection();
         Player nearest = null;
         double nearestSq = radius * radius;
         for (Player other : client.level.players()) {
-            if (other == client.player || other.isRemoved() || !isRealPlayerUuid(other.getUUID())) {
-                continue;
-            }
-            // tab list membership filters out the leftover fake entities that still carry a random uuid
-            if (connection != null && connection.getPlayerInfo(other.getUUID()) == null) {
+            if (other == client.player || other.isRemoved() || !EntityUtils.isRealPlayer(client, other)) {
                 continue;
             }
             double distanceSq = other.distanceToSqr(client.player);
