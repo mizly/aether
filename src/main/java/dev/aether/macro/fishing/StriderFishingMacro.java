@@ -92,6 +92,8 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private static final double ATTACK_RANGE_SLACK = 0.85;
     private static final double FOLLOW_BAND = 0.35;
     private static final double MAX_LAVA_SCAN_RADIUS = 14.0;
+    // every cell sweeps the whole pitch range, so a few a tick keeps the search from stalling the client
+    private static final int AIM_CELLS_PER_TICK = 2;
     private static final long AIM_RETRY_MIN_MS = 400L;
     private static final long AIM_RETRY_MAX_MS = 900L;
     private static final int MAX_RETURN_ATTEMPTS = 6;
@@ -144,6 +146,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     // what the last throw was meant to do, so a float that comes down off the lava can rule both out
     private BlockPos castLanding;
     private BlockPos castAimBlock;
+    private CastAimSearch aimSearch;
     private long aimRetryAt;
     private int aimSweep;
     private int returnAttempts;
@@ -341,16 +344,24 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             aimTargetBlock = null;
         }
 
-        CastSim.CastAim aim = CastSim.findCastAim(mc.level, mc.player.blockPosition(), mc.player.getEyePosition(),
-                scanRadius(), rejectedLava, CastSim::isLava, ThreadLocalRandom.current());
-        if (aim == null) {
+        if (aimSearch == null) {
+            aimSearch = new CastAimSearch(mc.level, mc.player.blockPosition(), mc.player.getEyePosition(),
+                    scanRadius(), rejectedLava, CastSim::isLava, ThreadLocalRandom.current());
+        }
+        CastAimSearch.Step step = aimSearch.step(AIM_CELLS_PER_TICK);
+        if (step.status() == CastAimSearch.Status.WORKING) {
+            return;
+        }
+        if (step.status() == CastAimSearch.Status.EXHAUSTED) {
             // out of candidates rather than out of luck: widen the search and come back to it
+            aimSearch = null;
             rejectedLava.clear();
             aimSweep++;
             aimRetryAt = now + nextAimRetryDelayMs(ThreadLocalRandom.current());
             ClientUtils.sendDebugMessage("[StriderFishing] no lava lined up, widening the search");
             return;
         }
+        CastSim.CastAim aim = step.aim();
         aimTargetBlock = aim.block();
         RotationManager.rotateToYawPitch(mc, aim.yaw(), aim.pitch(), AetherConfig.ROTATION_TIME.get());
     }
@@ -1086,6 +1097,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
     private void clearAimSearch() {
         rejectedLava.clear();
+        aimSearch = null;
         aimTargetBlock = null;
         aimRetryAt = 0L;
         aimSweep = 0;

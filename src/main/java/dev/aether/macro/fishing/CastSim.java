@@ -11,16 +11,12 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.Set;
 import java.util.function.Predicate;
-import java.util.random.RandomGenerator;
 
 // where a cast float comes down and which look puts it in the liquid, worked out without touching the camera
 final class CastSim {
 
     static final int DEFAULT_TICKS = 60;
 
-    private static final double SCAN_DEPTH = 4.0;
-    // the nearest lava is usually straight down at our feet, which is no way to cast
-    private static final double MIN_CAST_HORIZONTAL = 1.0;
     // vanilla bobber flight: 0.3 ahead of the eye, 0.6/len + ~0.5 speed per axis, -0.03 gravity then 0.92 drag each tick
     private static final double CAST_START_OFFSET = 0.3;
     private static final double CAST_SPEED_BASE = 0.6;
@@ -30,14 +26,8 @@ final class CastSim {
     private static final int CAST_SUBSTEPS = 4;
     private static final double CAST_HOOK_HALF_WIDTH = 0.125;
     private static final double CAST_HOOK_HEIGHT = 0.25;
-    // an upward lob is allowed, since a rim above the lava can leave no downward throw that clears it
-    private static final float CAST_PITCH_MIN = -30.0f;
-    private static final float CAST_PITCH_MAX = 89.0f;
-    private static final float CAST_PITCH_STEP = 0.5f;
     // pitches either side that still land in lava, so a little aim error or throw scatter does not hit the rim
     private static final int CAST_MARGIN_CAP = 6;
-    // aim somewhere inside the block rather than its exact centre, so casts do not stack on one pixel
-    private static final double CAST_TARGET_JITTER = 0.2;
 
     private CastSim() {
     }
@@ -68,7 +58,8 @@ final class CastSim {
                 }
                 AABB hook = new AABB(at.x - CAST_HOOK_HALF_WIDTH, at.y, at.z - CAST_HOOK_HALF_WIDTH,
                         at.x + CAST_HOOK_HALF_WIDTH, at.y + CAST_HOOK_HEIGHT, at.z + CAST_HOOK_HALF_WIDTH);
-                if (!level.noCollision(hook)) {
+                // blocks only; the entity half of noCollision ran an entity lookup every substep for nothing a cast meets
+                if (!level.noBlockCollision(null, hook)) {
                     return null;
                 }
             }
@@ -115,58 +106,6 @@ final class CastSim {
             right++;
         }
         return Math.min(left, right);
-    }
-
-    // the throw with the most room for error wins, then the one that comes down nearest the block centre
-    static CastAim findCastAim(CollisionGetter level, BlockPos base, Vec3 eye, int radius, Set<BlockPos> rejected,
-                               Predicate<BlockState> liquid, RandomGenerator random) {
-        int steps = Math.round((CAST_PITCH_MAX - CAST_PITCH_MIN) / CAST_PITCH_STEP) + 1;
-        boolean[] lands = new boolean[steps];
-        Vec3[] landings = new Vec3[steps];
-        CastAim best = null;
-        int bestMargin = 0;
-        double bestError = Double.MAX_VALUE;
-
-        int depth = (int) SCAN_DEPTH;
-        for (int dx = -radius; dx <= radius; dx++) {
-            for (int dz = -radius; dz <= radius; dz++) {
-                for (int dy = -depth; dy <= 1; dy++) {
-                    BlockPos pos = base.offset(dx, dy, dz);
-                    if (rejected.contains(pos) || !liquid.test(level.getBlockState(pos))) {
-                        continue;
-                    }
-                    BlockPos above = pos.above();
-                    if (!level.getBlockState(above).getCollisionShape(level, above).isEmpty()) {
-                        continue;
-                    }
-                    double tx = pos.getX() + 0.5 + random.nextDouble(-CAST_TARGET_JITTER, CAST_TARGET_JITTER);
-                    double tz = pos.getZ() + 0.5 + random.nextDouble(-CAST_TARGET_JITTER, CAST_TARGET_JITTER);
-                    if (Math.hypot(tx - eye.x, tz - eye.z) < MIN_CAST_HORIZONTAL) {
-                        continue;
-                    }
-                    float yaw = yawTo(tx - eye.x, tz - eye.z);
-                    for (int i = 0; i < steps; i++) {
-                        landings[i] = predictCastLanding(level, eye, yaw, CAST_PITCH_MIN + i * CAST_PITCH_STEP,
-                                liquid, DEFAULT_TICKS);
-                        lands[i] = landings[i] != null && acceptsLanding(BlockPos.containing(landings[i]), rejected);
-                    }
-                    for (int i = 0; i < steps; i++) {
-                        if (!lands[i]) {
-                            continue;
-                        }
-                        int margin = castMargin(lands, i);
-                        double error = Math.hypot(landings[i].x - tx, landings[i].z - tz);
-                        if (margin < 1 || margin < bestMargin || (margin == bestMargin && error >= bestError)) {
-                            continue;
-                        }
-                        best = new CastAim(pos, yaw, CAST_PITCH_MIN + i * CAST_PITCH_STEP);
-                        bestMargin = margin;
-                        bestError = error;
-                    }
-                }
-            }
-        }
-        return best;
     }
 
     static float yawTo(double dx, double dz) {
