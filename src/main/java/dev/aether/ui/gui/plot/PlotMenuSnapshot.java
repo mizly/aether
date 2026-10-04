@@ -2,52 +2,56 @@ package dev.aether.ui.gui.plot;
 
 import dev.aether.ui.settings.PlotToken;
 
-import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 
-// the Configure Plots menu as last read on one skyblock profile: the 24 plots and the barn by plot number
-public final class PlotMenuSnapshot {
-    private final long capturedAt;
-    private final Map<Integer, PlotMenuItem> items;
-    private final Map<Integer, PlotInfo> infos = new TreeMap<>();
-
-    public PlotMenuSnapshot(long capturedAt, Map<Integer, PlotMenuItem> items) {
-        this.capturedAt = capturedAt;
-        Map<Integer, PlotMenuItem> copy = new TreeMap<>();
-        items.forEach((plot, item) -> {
-            if (plot != null && item != null && plot >= PlotToken.BARN && plot <= PlotToken.MAX_PLOT) {
-                copy.put(plot, item);
-                infos.put(plot, PlotInfo.of(plot, item));
+// the Configure Plots chest as last read, slot contents by plot number with the barn at 0
+public record PlotMenuSnapshot(Map<Integer, Slot> plots, long readAtMillis) {
+    public PlotMenuSnapshot {
+        Map<Integer, Slot> copy = new TreeMap<>();
+        plots.forEach((plot, slot) -> {
+            if (plot != null && slot != null && plot >= PlotToken.BARN && plot <= PlotToken.MAX_PLOT) {
+                copy.put(plot, slot);
             }
         });
-        this.items = Collections.unmodifiableMap(copy);
+        plots = Map.copyOf(copy);
     }
 
-    public long capturedAt() {
-        return capturedAt;
-    }
-
-    public Map<Integer, PlotMenuItem> items() {
-        return items;
+    public Slot slot(int plot) {
+        return plots.get(plot);
     }
 
     // null when that slot was not read
     public PlotInfo info(int plot) {
-        return infos.get(plot);
+        Slot slot = plots.get(plot);
+        return slot == null ? null : PlotInfo.of(plot, slot);
     }
 
     // every plot slot and the barn held an item, so the menu had finished loading
     public boolean complete() {
-        return items.size() == PlotToken.MAX_PLOT + 1;
+        return plots.size() == PlotToken.MAX_PLOT + 1;
     }
 
     public boolean isGreenhouse(int plot) {
-        PlotInfo info = infos.get(plot);
+        PlotInfo info = info(plot);
         return info != null && info.status() == PlotStatus.GREENHOUSE;
     }
 
-    public boolean sameItems(PlotMenuSnapshot other) {
-        return other != null && items.equals(other.items);
+    public boolean sameSlots(PlotMenuSnapshot other) {
+        return other != null && plots.equals(other.plots);
+    }
+
+    // item id as "minecraft:lime_stained_glass_pane", name and lore with their formatting codes
+    public record Slot(String itemId, String name, List<String> lore) {
+        public Slot {
+            itemId = itemId == null ? "minecraft:air" : itemId.trim().toLowerCase(Locale.ROOT);
+            if (itemId.indexOf(':') < 0) {
+                itemId = "minecraft:" + itemId;
+            }
+            name = name == null ? "" : name;
+            lore = lore == null ? List.of() : List.copyOf(lore);
+        }
     }
 }

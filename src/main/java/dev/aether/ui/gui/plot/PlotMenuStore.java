@@ -53,7 +53,7 @@ public final class PlotMenuStore {
     public synchronized boolean put(String profileId, PlotMenuSnapshot snapshot) {
         load();
         String key = profileId == null ? UNKNOWN_PROFILE : profileId;
-        boolean changed = !snapshot.sameItems(profiles.get(key)) || !key.equals(lastProfile);
+        boolean changed = !snapshot.sameSlots(profiles.get(key)) || !key.equals(lastProfile);
         profiles.put(key, snapshot);
         lastProfile = key;
         return changed;
@@ -101,9 +101,9 @@ public final class PlotMenuStore {
 
     private static JsonObject toJson(PlotMenuSnapshot snapshot) {
         JsonObject json = new JsonObject();
-        json.addProperty("capturedAt", snapshot.capturedAt());
+        json.addProperty("readAt", snapshot.readAtMillis());
         JsonObject plots = new JsonObject();
-        snapshot.items().forEach((plot, item) -> {
+        snapshot.plots().forEach((plot, item) -> {
             JsonObject entry = new JsonObject();
             entry.addProperty("item", item.itemId());
             entry.addProperty("name", item.name());
@@ -117,7 +117,7 @@ public final class PlotMenuStore {
     }
 
     private static PlotMenuSnapshot fromJson(JsonObject json) {
-        Map<Integer, PlotMenuItem> items = new HashMap<>();
+        Map<Integer, PlotMenuSnapshot.Slot> items = new HashMap<>();
         JsonObject plots = json.getAsJsonObject("plots");
         for (Map.Entry<String, JsonElement> plot : plots.entrySet()) {
             JsonObject entry = plot.getValue().getAsJsonObject();
@@ -125,9 +125,9 @@ public final class PlotMenuStore {
             if (entry.has("lore")) {
                 entry.getAsJsonArray("lore").forEach(line -> lore.add(line.getAsString()));
             }
-            items.put(Integer.parseInt(plot.getKey()), new PlotMenuItem(entry.get("item").getAsString(),
+            items.put(Integer.parseInt(plot.getKey()), new PlotMenuSnapshot.Slot(entry.get("item").getAsString(),
                     entry.has("name") ? entry.get("name").getAsString() : "", lore));
         }
-        return new PlotMenuSnapshot(json.has("capturedAt") ? json.get("capturedAt").getAsLong() : 0L, items);
+        return new PlotMenuSnapshot(items, json.has("readAt") ? json.get("readAt").getAsLong() : 0L);
     }
 }

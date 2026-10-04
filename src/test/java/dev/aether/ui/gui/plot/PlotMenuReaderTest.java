@@ -14,7 +14,7 @@ class PlotMenuReaderTest {
                 .append(Component.literal("- ").withStyle(ChatFormatting.GRAY))
                 .append(Component.literal("S 4").withStyle(ChatFormatting.AQUA));
         assertEquals("§aPlot §7- §bS 4", PlotMenuReader.legacy(name));
-        assertEquals("S 4", PlotInfo.of(4, new PlotMenuItem("minecraft:wheat", PlotMenuReader.legacy(name),
+        assertEquals("S 4", PlotInfo.of(4, new PlotMenuSnapshot.Slot("minecraft:wheat", PlotMenuReader.legacy(name),
                 java.util.List.of())).label());
 
         Component pests = Component.empty()
@@ -25,7 +25,7 @@ class PlotMenuReaderTest {
                 .append(Component.literal("!").withStyle(ChatFormatting.RED));
         String legacy = PlotMenuReader.legacy(pests);
         assertEquals("§4§lൠ §cThis plot has §23§2 Pests§c!", legacy);
-        assertEquals(3, PlotInfo.of(4, new PlotMenuItem("minecraft:wheat", "", java.util.List.of(legacy))).pests());
+        assertEquals(3, PlotInfo.of(4, new PlotMenuSnapshot.Slot("minecraft:wheat", "", java.util.List.of(legacy))).pests());
     }
 
     @Test

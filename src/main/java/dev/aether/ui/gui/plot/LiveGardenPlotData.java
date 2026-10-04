@@ -5,10 +5,10 @@ import dev.aether.util.ClientUtils;
 import dev.aether.util.GardenPlots;
 import net.minecraft.client.Minecraft;
 
-import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -26,33 +26,51 @@ public final class LiveGardenPlotData implements GardenPlotData {
     }
 
     @Override
-    public GardenFacts now() {
-        PlotMenuSnapshot menu = PlotMenuReader.current();
+    public int currentPlot() {
         Minecraft minecraft = client.get();
-        if (minecraft == null || minecraft.player == null || minecraft.level == null) {
-            return new GardenFacts(GardenFacts.UNKNOWN, Map.of(), menu);
+        if (minecraft == null || minecraft.player == null || minecraft.level == null
+                || !onGarden(ClientUtils.getSidebarLines())) {
+            return UNKNOWN_PLOT;
         }
-        List<String> sidebar = ClientUtils.getSidebarLines();
-        if (!onGarden(sidebar)) {
-            return new GardenFacts(GardenFacts.UNKNOWN, Map.of(), menu);
-        }
-        int current = PlotSlots.plotAtCell(GardenPlots.gridIndex(minecraft.player.getX()) + 2,
+        return PlotSlots.plotAtCell(GardenPlots.gridIndex(minecraft.player.getX()) + 2,
                 GardenPlots.gridIndex(minecraft.player.getZ()) + 2);
-        Map<Integer, Integer> pests = new HashMap<>();
+    }
+
+    @Override
+    public Set<Integer> infestedPlots() {
+        Minecraft minecraft = client.get();
+        if (minecraft == null || minecraft.player == null) {
+            return Set.of();
+        }
+        Set<Integer> plots = new LinkedHashSet<>();
         for (String plot : PestManager.getInfestedPlotsFromTab(minecraft)) {
             int number = number(plot);
             if (number > 0) {
-                pests.put(number, -1);
+                plots.add(number);
             }
         }
-        // the sidebar counts pests only on the plot you stand on
-        for (String line : sidebar) {
+        return plots;
+    }
+
+    // the sidebar counts pests only on the plot you stand on
+    @Override
+    public int pestCount() {
+        int current = currentPlot();
+        if (current <= 0) {
+            return 0;
+        }
+        for (String line : ClientUtils.getSidebarLines()) {
             Matcher matcher = SIDEBAR_PESTS.matcher(line);
-            if (matcher.find() && number(matcher.group(1)) == current && current > 0) {
-                pests.put(current, number(matcher.group(2)));
+            if (matcher.find() && number(matcher.group(1)) == current) {
+                return Math.max(0, number(matcher.group(2)));
             }
         }
-        return new GardenFacts(current, pests, menu);
+        return 0;
+    }
+
+    @Override
+    public PlotMenuSnapshot snapshot() {
+        return PlotMenuReader.current();
     }
 
     private static boolean onGarden(List<String> sidebar) {

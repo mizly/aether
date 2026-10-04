@@ -41,7 +41,7 @@ public final class PlotSettings {
 
     static PlotSetting restrictToGreenhouses(PlotSetting setting) {
         return setting.restrictTo(token -> {
-            PlotMenuSnapshot menu = GardenPlotData.active().now().menu();
+            PlotMenuSnapshot menu = GardenPlotData.active().snapshot();
             return menu == null || menu.isGreenhouse(token.number());
         }, "Only greenhouse plots can be picked.");
     }

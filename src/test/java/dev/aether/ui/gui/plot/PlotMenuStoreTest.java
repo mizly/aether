@@ -19,8 +19,8 @@ class PlotMenuStoreTest {
         Path file = dir.resolve("aether").resolve("garden_plots.json");
         PlotMenuStore store = new PlotMenuStore(file);
         PlotMenuSnapshot banana = PlotPickerModelTest.menu();
-        PlotMenuSnapshot apple = new PlotMenuSnapshot(2L, Map.of(5,
-                new PlotMenuItem("minecraft:carrot", "§aPlot §7- §b5", List.of("§4§l §cThis plot has §22 §2Pests§c!"))));
+        PlotMenuSnapshot apple = new PlotMenuSnapshot(Map.of(5,
+                new PlotMenuSnapshot.Slot("minecraft:carrot", "§aPlot §7- §b5", List.of("§4§l §cThis plot has §22 §2Pests§c!"))), 2L);
         assertTrue(store.put("banana-id", banana));
         assertFalse(store.put("banana-id", banana), "the same menu again is not a change");
         assertTrue(store.put("apple-id", apple));
@@ -28,9 +28,9 @@ class PlotMenuStoreTest {
         assertTrue(Files.readString(file).contains("§aPlot §7- §b5"), "colour codes stay readable in the file");
 
         PlotMenuStore restarted = new PlotMenuStore(file);
-        assertTrue(banana.sameItems(restarted.current("banana-id")));
+        assertTrue(banana.sameSlots(restarted.current("banana-id")));
         assertEquals(2, restarted.current("apple-id").info(5).pests());
-        assertTrue(apple.sameItems(restarted.current(null)), "before hypixel names the profile, the last one read answers");
+        assertTrue(apple.sameSlots(restarted.current(null)), "before hypixel names the profile, the last one read answers");
         assertNull(restarted.current("cherry-id"), "a known profile never borrows another garden");
     }
 

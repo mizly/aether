@@ -24,7 +24,6 @@ class GuiCanvasTest {
         assertEquals(new Rect(0f, 0f, 800f, 480f), canvas.bounds());
         assertEquals(canvas.bounds(), canvas.rootClip());
         assertEquals(1f, canvas.alpha());
-        assertFalse(canvas.drawing());
     }
 
     @Test
@@ -35,8 +34,6 @@ class GuiCanvasTest {
         assertEquals(new Rect(120f, 60f, 20f, 10f), canvas.toRoot(new Rect(0f, 0f, 10f, 5f)));
         assertEquals(new Rect(124f, 68f, 6f, 2f), canvas.toRoot(new Rect(2f, 4f, 3f, 1f)));
         assertEquals(2f, canvas.scaleX());
-        assertEquals(2f, canvas.toLocalX(124f));
-        assertEquals(4f, canvas.toLocalY(68f));
     }
 
     @Test

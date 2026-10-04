@@ -95,7 +95,7 @@ public final class PlotMenuReader {
     }
 
     static PlotMenuSnapshot read(AbstractContainerMenu menu, long now) {
-        Map<Integer, PlotMenuItem> items = new HashMap<>();
+        Map<Integer, PlotMenuSnapshot.Slot> items = new HashMap<>();
         for (int plot = PlotToken.BARN; plot <= PlotToken.MAX_PLOT; plot++) {
             int slotIndex = PlotSlots.slotOf(plot);
             if (slotIndex >= menu.slots.size()) {
@@ -106,16 +106,16 @@ public final class PlotMenuReader {
                 items.put(plot, item(slot.getItem()));
             }
         }
-        return new PlotMenuSnapshot(now, items);
+        return new PlotMenuSnapshot(items, now);
     }
 
-    static PlotMenuItem item(ItemStack stack) {
+    static PlotMenuSnapshot.Slot item(ItemStack stack) {
         List<String> lore = new ArrayList<>();
         ItemLore itemLore = stack.get(DataComponents.LORE);
         if (itemLore != null) {
             itemLore.lines().forEach(line -> lore.add(legacy(line)));
         }
-        return new PlotMenuItem(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(), legacy(stack.getHoverName()), lore);
+        return new PlotMenuSnapshot.Slot(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(), legacy(stack.getHoverName()), lore);
     }
 
     // back to § codes, the way hypixel wrote them, so the picker can draw names and lore in their colours

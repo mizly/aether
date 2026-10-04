@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 
 // a plot slot read into facts: label is the custom name or number hypixel shows after "Plot - ", cleanup is
 // -1 once cleaned or when the lore says nothing, pests is what the lore counted when the menu was read
-public record PlotInfo(int plot, PlotMenuItem item, PlotStatus status, String label, int cleanup, int pests,
+public record PlotInfo(int plot, PlotMenuSnapshot.Slot item, PlotStatus status, String label, int cleanup, int pests,
                        String spray) {
     private static final Pattern FORMATTING = Pattern.compile("(?i)§[0-9a-fk-orx]");
     private static final Pattern NAME = Pattern.compile("(?i)^plot\\s*-\\s*(.+)$");
@@ -15,7 +15,7 @@ public record PlotInfo(int plot, PlotMenuItem item, PlotStatus status, String la
     private static final Pattern CLEANUP = Pattern.compile("(?i)cleanup:\\s*(\\d{1,3})(?:[.,]\\d+)?\\s*%");
     private static final Pattern SPRAY = Pattern.compile("(?i)^sprayed with\\s+(.+)$");
 
-    public static PlotInfo of(int plot, PlotMenuItem item) {
+    public static PlotInfo of(int plot, PlotMenuSnapshot.Slot item) {
         String label = plot == 0 ? "The Barn" : Integer.toString(plot);
         Matcher name = NAME.matcher(strip(item.name()));
         if (plot != 0 && name.find() && !name.group(1).isBlank()) {

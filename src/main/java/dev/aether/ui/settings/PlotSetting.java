@@ -135,7 +135,7 @@ public final class PlotSetting extends AbstractSetting<PlotSetting> {
         return token.isKnown() && (!token.isBarn() || allowBarn) && restriction.test(token);
     }
 
-    // SINGLE picks the plot; MULTI and ORDERED add it at the end or take it out, which renumbers the rest
+    // a single setting picks the plot; multi and ordered add it at the end or take it out, renumbering the rest
     public void toggle(PlotToken token) {
         if (!isSelectable(token)) {
             return;

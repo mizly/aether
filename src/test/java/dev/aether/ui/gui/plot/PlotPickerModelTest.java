@@ -110,7 +110,7 @@ class PlotPickerModelTest {
     @Test
     void orderedPicksOnlyGreenhousesOnceTheMenuIsKnown() {
         GardenFacts facts = new GardenFacts(GardenFacts.UNKNOWN, Map.of(), menu());
-        GardenPlotData.install(GardenPlotData.of(facts));
+        GardenPlotData.install(withMenu(facts.menu()));
         PlotPickerModel model = new PlotPickerModel(PlotSettings.restrictToGreenhouses(
                 new PlotSetting("Plots", Mode.ORDERED, this::read, this::write)));
         assertFalse(model.click(5, facts));
@@ -182,6 +182,15 @@ class PlotPickerModelTest {
         assertEquals("§aHelp", leaveOne.getFirst());
     }
 
+    private static GardenPlotData withMenu(PlotMenuSnapshot menu) {
+        return new GardenPlotData() {
+            @Override
+            public PlotMenuSnapshot snapshot() {
+                return menu;
+            }
+        };
+    }
+
     private PlotPickerModel.ToolLook tool(PlotPickerModel model, PlotPickerModel.Tool tool) {
         return model.tools(GardenFacts.NONE).stream().filter(t -> t.tool() == tool).findFirst().orElseThrow();
     }
@@ -200,18 +209,18 @@ class PlotPickerModelTest {
 
     // the user's garden from their screenshot: greenhouses on 1 and 9, wart presets, oak buttons, one locked corner
     static PlotMenuSnapshot menu() {
-        Map<Integer, PlotMenuItem> items = new HashMap<>();
+        Map<Integer, PlotMenuSnapshot.Slot> items = new HashMap<>();
         for (int plot = 1; plot <= 24; plot++) {
-            items.put(plot, new PlotMenuItem("minecraft:lime_stained_glass_pane", "§aPlot §7- §b" + plot, List.of()));
+            items.put(plot, new PlotMenuSnapshot.Slot("minecraft:lime_stained_glass_pane", "§aPlot §7- §b" + plot, List.of()));
         }
-        items.put(0, new PlotMenuItem("minecraft:spruce_planks", "§aThe Barn", List.of()));
-        items.put(1, new PlotMenuItem("minecraft:white_stained_glass", "§aPlot §7- §b1", List.of("§7Greenhouse Plot")));
-        items.put(9, new PlotMenuItem("minecraft:white_stained_glass", "§aPlot §7- §b9", List.of("§7Greenhouse Plot")));
-        items.put(2, new PlotMenuItem("minecraft:nether_wart", "§aPlot §7- §b2", List.of()));
-        items.put(3, new PlotMenuItem("minecraft:nether_wart", "§aPlot §7- §b3", List.of()));
-        items.put(4, new PlotMenuItem("minecraft:wheat", "§aPlot §7- §bS 4", List.of()));
-        items.put(11, new PlotMenuItem("minecraft:oak_button", "§ePlot §8- §b11", List.of("§7Cost:", "§aCompost §8x2")));
-        items.put(21, new PlotMenuItem("minecraft:red_stained_glass_pane", "§ePlot §8- §b21", List.of("§7Cost:")));
-        return new PlotMenuSnapshot(1L, items);
+        items.put(0, new PlotMenuSnapshot.Slot("minecraft:spruce_planks", "§aThe Barn", List.of()));
+        items.put(1, new PlotMenuSnapshot.Slot("minecraft:white_stained_glass", "§aPlot §7- §b1", List.of("§7Greenhouse Plot")));
+        items.put(9, new PlotMenuSnapshot.Slot("minecraft:white_stained_glass", "§aPlot §7- §b9", List.of("§7Greenhouse Plot")));
+        items.put(2, new PlotMenuSnapshot.Slot("minecraft:nether_wart", "§aPlot §7- §b2", List.of()));
+        items.put(3, new PlotMenuSnapshot.Slot("minecraft:nether_wart", "§aPlot §7- §b3", List.of()));
+        items.put(4, new PlotMenuSnapshot.Slot("minecraft:wheat", "§aPlot §7- §bS 4", List.of()));
+        items.put(11, new PlotMenuSnapshot.Slot("minecraft:oak_button", "§ePlot §8- §b11", List.of("§7Cost:", "§aCompost §8x2")));
+        items.put(21, new PlotMenuSnapshot.Slot("minecraft:red_stained_glass_pane", "§ePlot §8- §b21", List.of("§7Cost:")));
+        return new PlotMenuSnapshot(items, 1L);
     }
 }

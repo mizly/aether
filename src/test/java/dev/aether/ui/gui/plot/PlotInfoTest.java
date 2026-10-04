@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PlotInfoTest {
     @Test
     void readsUnlockedPlotsWithCustomNamesPestsAndSprays() {
-        PlotInfo info = PlotInfo.of(4, new PlotMenuItem("minecraft:wheat", "§aPlot §7- §bS 4", List.of(
+        PlotInfo info = PlotInfo.of(4, new PlotMenuSnapshot.Slot("minecraft:wheat", "§aPlot §7- §bS 4", List.of(
                 "§7Pasting in progress: 0%",
                 "§4§l §cThis plot has §21 §2Pest§c!",
                 "§7Sprayed with §aCompost §7- §a5m 30s",
@@ -59,25 +59,25 @@ class PlotInfoTest {
 
     @Test
     void aSnapshotIsCompleteWithAllTwentyFiveSlots() {
-        Map<Integer, PlotMenuItem> items = new java.util.HashMap<>();
+        Map<Integer, PlotMenuSnapshot.Slot> items = new java.util.HashMap<>();
         for (int plot = 0; plot <= 24; plot++) {
             items.put(plot, item(plot == 1 ? "white_stained_glass" : "lime_stained_glass_pane", "§aPlot §7- §b" + plot,
                     plot == 1 ? "§7Greenhouse Plot" : "§7"));
         }
-        PlotMenuSnapshot snapshot = new PlotMenuSnapshot(1L, items);
+        PlotMenuSnapshot snapshot = new PlotMenuSnapshot(items, 1L);
         assertTrue(snapshot.complete());
         assertTrue(snapshot.isGreenhouse(1));
         assertFalse(snapshot.isGreenhouse(2));
         items.remove(24);
-        assertFalse(new PlotMenuSnapshot(1L, items).complete());
-        assertNull(new PlotMenuSnapshot(1L, items).info(24));
+        assertFalse(new PlotMenuSnapshot(items, 1L).complete());
+        assertNull(new PlotMenuSnapshot(items, 1L).info(24));
     }
 
     private static PlotStatus status(int plot, String id, String... lore) {
         return PlotInfo.of(plot, item(id, "§aPlot §7- §b" + plot, lore)).status();
     }
 
-    private static PlotMenuItem item(String id, String name, String... lore) {
-        return new PlotMenuItem(id, name, List.of(lore));
+    private static PlotMenuSnapshot.Slot item(String id, String name, String... lore) {
+        return new PlotMenuSnapshot.Slot(id, name, List.of(lore));
     }
 }

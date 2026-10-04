@@ -5,10 +5,11 @@ import dev.aether.ui.settings.PlotToken;
 import java.util.HashMap;
 import java.util.Map;
 
-// what the picker knows about the garden at one moment: the plot you stand on (0 = barn, -1 unknown), pests
-// by plot (-1 = infested, count unknown) and the last Configure Plots menu read on this profile, or null
-public record GardenFacts(int currentPlot, Map<Integer, Integer> pests, PlotMenuSnapshot menu) {
-    public static final int UNKNOWN = -1;
+// one frame's read of the garden: the plot you stand on (0 = barn, -1 unknown), pests by plot (-1 = infested,
+// count unknown) and the last Configure Plots menu read on this profile with its slots parsed, or null
+public record GardenFacts(int currentPlot, Map<Integer, Integer> pests, PlotMenuSnapshot menu,
+                          Map<Integer, PlotInfo> infos) {
+    public static final int UNKNOWN = GardenPlotData.UNKNOWN_PLOT;
     public static final GardenFacts NONE = new GardenFacts(UNKNOWN, Map.of(), null);
 
     public GardenFacts {
@@ -24,6 +25,25 @@ public record GardenFacts(int currentPlot, Map<Integer, Integer> pests, PlotMenu
         if (currentPlot < PlotToken.BARN || currentPlot > PlotToken.MAX_PLOT) {
             currentPlot = UNKNOWN;
         }
+        infos = infos == null ? Map.of() : Map.copyOf(infos);
+    }
+
+    public GardenFacts(int currentPlot, Map<Integer, Integer> pests, PlotMenuSnapshot menu) {
+        this(currentPlot, pests, menu, parse(menu));
+    }
+
+    // asks each source once, so a frame never mixes two different reads
+    public static GardenFacts read(GardenPlotData data) {
+        int current = data.currentPlot();
+        Map<Integer, Integer> pests = new HashMap<>();
+        for (Integer plot : data.infestedPlots()) {
+            pests.put(plot, -1);
+        }
+        int here = data.pestCount();
+        if (current > PlotToken.BARN && here > 0) {
+            pests.put(current, here);
+        }
+        return new GardenFacts(current, pests, data.snapshot());
     }
 
     public boolean infested(int plot) {
@@ -39,10 +59,18 @@ public record GardenFacts(int currentPlot, Map<Integer, Integer> pests, PlotMenu
     }
 
     public PlotInfo info(int plot) {
-        return menu == null ? null : menu.info(plot);
+        return infos.get(plot);
     }
 
     public boolean onGarden() {
         return currentPlot != UNKNOWN;
+    }
+
+    private static Map<Integer, PlotInfo> parse(PlotMenuSnapshot menu) {
+        Map<Integer, PlotInfo> infos = new HashMap<>();
+        if (menu != null) {
+            menu.plots().forEach((plot, slot) -> infos.put(plot, PlotInfo.of(plot, slot)));
+        }
+        return infos;
     }
 }
