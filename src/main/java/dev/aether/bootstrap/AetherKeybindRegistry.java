@@ -35,6 +35,12 @@ public final class AetherKeybindRegistry {
 
         Identifier categoryId = Identifier.fromNamespaceAndPath("aether", "main");
         KeyMapping.Category category = new KeyMapping.Category(categoryId);
+        // fabric's registration reads the client's options, so headless registry builds use detached mappings
+        if (Minecraft.getInstance() == null) {
+            resolveAll(category);
+            registered = true;
+            return;
+        }
         try {
             macroToggleKey = KeyMappingHelper
                     .registerKeyMapping(new KeyMapping("key.aether.start_script", GLFW.GLFW_KEY_K, category));
@@ -60,19 +66,23 @@ public final class AetherKeybindRegistry {
                     .registerKeyMapping(new KeyMapping("Open Macro Menu", GLFW.GLFW_KEY_N, category));
         } catch (IllegalStateException ex) {
             // External feature jars can initialize after options are already built; reuse existing mappings if present.
-            macroToggleKey = resolveExistingOrDetached("key.aether.start_script", GLFW.GLFW_KEY_K, category);
-            clickGuiKey = resolveExistingOrDetached("key.aether.clickgui", GLFW.GLFW_KEY_INSERT, category);
-            nvgDemoKey = resolveExistingOrDetached("Open NVG Demo", GLFW.GLFW_KEY_HOME, category);
-            freecamKey = resolveExistingOrDetached("key.aether.freecam", GLFW.GLFW_KEY_F6, category);
-            freecamTeleportToPlayerKey = resolveExistingOrDetached("key.aether.freecam_teleport_to_player", GLFW.GLFW_KEY_F7, category);
-            freelookKey = resolveExistingOrDetached("key.aether.freelook", GLFW.GLFW_KEY_LEFT_ALT, category);
-            pipKey = resolveExistingOrDetached("key.aether.pip", GLFW.GLFW_KEY_P, category);
-            ungrabMouseKey = resolveExistingOrDetached("key.aether.ungrab_mouse", GLFW.GLFW_KEY_U, category);
-            manualPestEarlyFinishKey = resolveExistingOrDetached("Manual Pest Early Finish", GLFW.GLFW_KEY_UNKNOWN, category);
-            striderFishingKey = resolveExistingOrDetached("Strider Fishing Macro", GLFW.GLFW_KEY_UNKNOWN, category);
-            macroMenuKey = resolveExistingOrDetached("Open Macro Menu", GLFW.GLFW_KEY_N, category);
+            resolveAll(category);
         }
         registered = true;
+    }
+
+    private static void resolveAll(KeyMapping.Category category) {
+        macroToggleKey = resolveExistingOrDetached("key.aether.start_script", GLFW.GLFW_KEY_K, category);
+        clickGuiKey = resolveExistingOrDetached("key.aether.clickgui", GLFW.GLFW_KEY_INSERT, category);
+        nvgDemoKey = resolveExistingOrDetached("Open NVG Demo", GLFW.GLFW_KEY_HOME, category);
+        freecamKey = resolveExistingOrDetached("key.aether.freecam", GLFW.GLFW_KEY_F6, category);
+        freecamTeleportToPlayerKey = resolveExistingOrDetached("key.aether.freecam_teleport_to_player", GLFW.GLFW_KEY_F7, category);
+        freelookKey = resolveExistingOrDetached("key.aether.freelook", GLFW.GLFW_KEY_LEFT_ALT, category);
+        pipKey = resolveExistingOrDetached("key.aether.pip", GLFW.GLFW_KEY_P, category);
+        ungrabMouseKey = resolveExistingOrDetached("key.aether.ungrab_mouse", GLFW.GLFW_KEY_U, category);
+        manualPestEarlyFinishKey = resolveExistingOrDetached("Manual Pest Early Finish", GLFW.GLFW_KEY_UNKNOWN, category);
+        striderFishingKey = resolveExistingOrDetached("Strider Fishing Macro", GLFW.GLFW_KEY_UNKNOWN, category);
+        macroMenuKey = resolveExistingOrDetached("Open Macro Menu", GLFW.GLFW_KEY_N, category);
     }
 
     private static KeyMapping resolveExistingOrDetached(String translationKey, int defaultKey, KeyMapping.Category category) {
@@ -99,6 +109,10 @@ public final class AetherKeybindRegistry {
 
     private static KeyMapping[] getRegisteredMappingsFromOptions() {
         Minecraft client = Minecraft.getInstance();
+        // headless (tests, the gui preview) there are no options to search, so the mappings stay detached
+        if (client == null || client.options == null) {
+            return null;
+        }
         Object options = client.options;
         for (Field field : options.getClass().getDeclaredFields()) {
             if (!field.getType().isArray() || !KeyMapping.class.isAssignableFrom(field.getType().getComponentType())) {
