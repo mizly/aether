@@ -142,6 +142,38 @@ tasks.withType(Test).configureEach {
     inputs.property('aetherTestOpenGl', providers.environmentVariable('AETHER_TEST_OPENGL').orElse('0'))
 }
 
+tasks.named('test', Test) {
+    useJUnitPlatform {
+        excludeTags 'gui-preview'
+    }
+}
+
+// renders the new gui to build/reports/gui-preview in its own jvm; needs a display, AETHER_GUI_PREVIEW=1 and,
+// on NixOS, LD_LIBRARY_PATH (see src/test/java/dev/aether/ui/gui/preview/README.md)
+tasks.register('guiPreview', Test) {
+    group = 'verification'
+    description = 'Renders GUI preview PNGs into build/reports/gui-preview.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'gui-preview'
+    }
+    inputs.property('aetherGuiPreview', providers.environmentVariable('AETHER_GUI_PREVIEW').orElse('0'))
+    inputs.property('ldLibraryPath', providers.environmentVariable('LD_LIBRARY_PATH').orElse(''))
+    ['preview.style', 'preview.theme', 'preview.scenario'].each { key ->
+        def value = providers.systemProperty(key).orNull
+        if (value != null) {
+            systemProperty key, value
+        }
+    }
+    systemProperty 'preview.outputDir', layout.buildDirectory.dir('reports/gui-preview').get().asFile.absolutePath
+    systemProperty 'java.awt.headless', 'true'
+    testLogging {
+        showStandardStreams = true
+    }
+    outputs.upToDateWhen { false }
+}
+
 java {
     sourceCompatibility = JavaVersion.VERSION_25
     targetCompatibility = JavaVersion.VERSION_25

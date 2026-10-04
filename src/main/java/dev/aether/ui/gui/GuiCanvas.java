@@ -99,10 +99,6 @@ public final class GuiCanvas {
         }
     }
 
-    public boolean drawing() {
-        return nvg != null;
-    }
-
     public Rect bounds() {
         return viewport;
     }
@@ -188,14 +184,6 @@ public final class GuiCanvas {
     public Rect toRoot(Rect local) {
         return new Rect(state.tx + local.x() * state.sx, state.ty + local.y() * state.sy,
                 local.w() * state.sx, local.h() * state.sy);
-    }
-
-    public float toLocalX(float rootX) {
-        return (rootX - state.tx) / state.sx;
-    }
-
-    public float toLocalY(float rootY) {
-        return (rootY - state.ty) / state.sy;
     }
 
     public boolean isVisible(Rect local) {
@@ -339,10 +327,6 @@ public final class GuiCanvas {
 
     public float lineHeight(String font, float size) {
         return lineHeights.computeIfAbsent(new FontKey(font, size), key -> metrics.lineHeight(font, size));
-    }
-
-    public float[] caretX(String font, float size, String text) {
-        return metrics.caretX(font, size, text);
     }
 
     // this frame's measuring backend, which the focused field hands to TextEditor.layout
