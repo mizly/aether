@@ -8,12 +8,14 @@ final class SettingDescriptionCatalog {
     private static final Map<String, String> EXPLICIT = Map.ofEntries(
             Map.entry("Pest Loadout Swap Time (~170s for eq swap, ~5s for no eq swap)", "Pest cooldown time left on the scoreboard before Pest Destroyer swaps to the next loadout. This is NOT the same as cooldown time, it's cooldown time REMAINING. PLEASE DO NOT PUT WRONG VALUES AND COMPLAIN.\n Timing is same for Finnegan."),
             Map.entry("Pest Threshold", "Number of pests required before Pest Destroyer starts automatically."),
+            Map.entry("Walk Mode", "Walk instead of fly to pests. Will likely not work unless you have a glass roof and AOTV to roof."),
             Map.entry("Leave One Pest Alive", "Preserves one pest on selected plots (Earthworm Shard)."),
             Map.entry("Sunset Pests", "Swaps to night for farming, and day for killing pests. Useful for the Sunset enchantment, or spawning Fireflies."),
+            Map.entry("Change Time Directly Before Pest Spawn", "Swaps to night only for spawning pests. Useful for spawning Fireflies, while still keeping daytime for extra Overbloom on crops."),
             Map.entry("AOTV Between Distant Pests", "Uses AOTV between distant pests."),
             Map.entry("Etherwarp Directly Near Pests", "Etherwarp to land on a safe block beside a distant pest."),
             Map.entry("Etherwarp Minimum Distance (Blocks)", "Minimum distance before Pest Destroyer considers a direct etherwarp to the target pest."),
-            Map.entry("Next Pest Turn Speed", "Controls how quickly the camera turns when handing off to the next pest or aiming etherwarp."),
+            Map.entry("Next Pest Turn Speed", "Peak camera speed when turning onto a new pest or aiming AOTV and etherwarp. With Human Target Switch on, each turn onto a new pest peaks somewhere between 70% and 100% of it."),
             Map.entry("Smart AOTV Routing", "Chooses AOTV using horizontal and vertical travel cost, line of sight, and the configured start and stop distances."),
             Map.entry("AOTV Start Distance (Blocks)", "Minimum travel distance at which Smart AOTV Routing begins considering AOTV."),
             Map.entry("AOTV Stop Distance (Blocks)", "Distance from the target where Smart AOTV Routing stops chaining teleports."),
@@ -36,7 +38,19 @@ final class SettingDescriptionCatalog {
             Map.entry("Warp Grace Period", "Allows position checks to settle briefly after a warp."),
             Map.entry("Restart Route", "Opens the routes area, where the warp and walk to the fishing spot are recorded."),
             Map.entry("Time Nearby", "How long a player has to stay within the distance before the failsafe triggers."),
-            Map.entry("Teleport Distance", "How far a single jump in position has to be to count as a teleport.")
+            Map.entry("Teleport Distance", "How far a single jump in position has to be to count as a teleport."),
+            Map.entry("Pest Aim Drift", "How much of the pest's body the aim wanders over instead of sitting on its centre. 1 roams most of it, 0 keeps the aim on the centre."),
+            Map.entry("Human Target Switch", "Turns onto each new pest the way a player does: a short reaction, a quick flick that can stop short or swing past, then a correction. Off keeps the smooth tracking turn."),
+            Map.entry("Pest Reaction Time", "Pause after a pest dies or a new one is picked before the camera starts turning. A quarter shorter when the next pest is already near the crosshair. Set it to 0 to turn at once. Pests you are already flying to or just landed next to are turned to at once either way."),
+            Map.entry("Pest Overshoot Chance", "Chance that a big turn onto a new pest swings past it before correcting back."),
+            Map.entry("Pest Overshoot Min Turn", "Turns of at least this many degrees can overshoot at the full chance. Below that the chance fades out, reaching zero at half this size, where turns only land a little short or long."),
+            Map.entry("Pest Overshoot Amount", "How far an overshoot swings past the pest, as a share of the turn. Lower turn speeds swing less far."),
+            Map.entry("Remember Pest Positions", "When the next pest is out of sight, swings toward where it was last seen, then looks again and corrects onto the real pest. Off turns straight onto the pest even when it is out of sight."),
+            Map.entry("Pest Memory Error", "How far off, in degrees, a swing toward a remembered pest typically lands. It grows the longer ago the pest was seen, to twice this after 8 seconds, and a pest never seen gets a rougher direction. Up and down stay within a few degrees."),
+            Map.entry("Pause Every", "Farming time between micropauses. Time spent killing pests, on visitors or other tasks does not count."),
+            Map.entry("Pause Length", "How long each micropause lasts. All keys are released and the camera stays still while paused."),
+            Map.entry("Back Up When Too Close", "After an AOTV or etherwarp lands too close above or below a pest to keep it on screen, flies straight back until it can be seen instead of spinning around to face it. A pest left behind is turned to first."),
+            Map.entry("Back Up Past Pitch", "Backs up when the pest would sit more than this many degrees below eye level once hovering over it. Never more than your FOV and Pest Above Aim Pitch allow, so the pest stays on screen.")
 
     );
 

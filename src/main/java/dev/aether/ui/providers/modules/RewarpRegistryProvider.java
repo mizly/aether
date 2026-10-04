@@ -87,6 +87,9 @@ public final class RewarpRegistryProvider extends AbstractModulesRegistryProvide
         group.add(new ToggleSetting("Hold W Until Wall",
                 () -> RewarpPointPairs.get(index).holdWUntilWall,
                 v -> RewarpPointPairs.update(index, p -> p.holdWUntilWall = v)));
+        group.add(new ToggleSetting("Reverse Direction After Rewarp",
+                () -> RewarpPointPairs.get(index).reverseDirection,
+                v -> RewarpPointPairs.update(index, p -> p.reverseDirection = v)));
         group.add(new ToggleSetting("AOTV/AOTE Align",
                 () -> RewarpPointPairs.get(index).aotvAlign,
                 v -> RewarpPointPairs.update(index, p -> p.aotvAlign = v))

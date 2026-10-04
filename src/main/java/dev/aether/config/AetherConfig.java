@@ -359,6 +359,7 @@ public final class AetherConfig {
                         .range(0, 5000);
         public static final IntEntry PEST_CHAT_TRIGGER_DELAY_MAX = Config.integer("pestChatTriggerDelayMax", 3000)
                         .range(0, 5000);
+        public static final BooleanEntry PEST_DESTROYER_WALK_MODE = Config.bool("pestDestroyerWalkMode", false);
         public static final BooleanEntry DELAY_PEST_FOR_CROP_FEVER = Config.bool("delayPestForCropFever", false);
         public static final BooleanEntry PEST_ON_TRACK_ENABLED = Config.bool("pestOnTrackEnabled", false);
         // start: farmhelper ish pest on track
@@ -386,6 +387,12 @@ public final class AetherConfig {
         public static final ListEntry<String> LEAVE_ONE_PEST_PLOTS = Config.list("leaveOnePestPlots",
                         Collections.emptyList(), String.class);
         public static final BooleanEntry SUNSET_PESTS = Config.bool("sunsetPests", false);
+        // When enabled, the day->night restore doesn't happen right after cleaning finishes -
+        // it stays day (Overbloom) through the whole farming stretch, and only flips to night
+        // right before the pre-spawn loadout swap (long enough to let Fireflies spawn), then
+        // back to day again the moment actual cleaning starts.
+        public static final BooleanEntry SUNSET_PESTS_NIGHT_BEFORE_SPAWN =
+                        Config.bool("sunsetPestsNightBeforeSpawn", false);
         public static final BooleanEntry BALLSACK_SHREDDER = Config.bool("ballsackShredder", false);
         public static final IntEntry BALLSACK_SHREDDER_TRIGGER_DELAY_MIN =
                         Config.integer("ballsackShredderTriggerDelayMin", 20000).range(0, 30000);
@@ -399,7 +406,7 @@ public final class AetherConfig {
                         .range(0, 3000);
         public static final BooleanEntry PEST_AOTV_BETWEEN = Config.bool("pestAotvBetween", false);
         public static final BooleanEntry PEST_SMART_AOTV_ROUTING = Config.bool("pestSmartAotvRouting", true);
-        public static final BooleanEntry PEST_ETHERWARP_TO_PEST = Config.bool("pestEtherwarpToPest", false);
+        public static final BooleanEntry PEST_ETHERWARP_TO_PEST = Config.bool("pestEtherwarpToPest", true);
         public static final FloatEntry PEST_ETHERWARP_MIN_DISTANCE =
                         Config.floatVal("pestEtherwarpMinDistance", 20.0f).range(10.0f, 50.0f);
         public static final FloatEntry PEST_AOTV_START_DISTANCE =
@@ -409,6 +416,9 @@ public final class AetherConfig {
         public static final BooleanEntry PEST_AOTV_CONFIRM_BETWEEN = Config.bool("pestAotvConfirmBetween", false);
         public static final IntEntry PEST_AOTV_DELAY_MIN = Config.integer("pestAotvDelayMin", 150).range(100, 250);
         public static final IntEntry PEST_AOTV_DELAY_MAX = Config.integer("pestAotvDelayMax", 250).range(100, 250);
+        public static final BooleanEntry PEST_AOTV_BACK_UP = Config.bool("pestAotvBackUp", true);
+        public static final FloatEntry PEST_AOTV_BACK_UP_PITCH = Config.floatVal("pestAotvBackUpPitch", 55.0f)
+                        .range(30.0f, 80.0f);
         public static final FloatEntry PEST_FOV_RANGE = Config.floatVal("pestFovRange", 20.0f).range(0.0f, 90.0f);
         public static final FloatEntry PEST_MAX_TURN_SPEED =
                         Config.floatVal("pestMaxTurnSpeed", 300.0f).range(60.0f, 1200.0f);
@@ -426,6 +436,19 @@ public final class AetherConfig {
                         .range(20.0f, 40.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MAX = Config.floatVal("pestAboveTargetPitchMax", 40.0f)
                         .range(10.0f, 90.0f);
+        public static final BooleanEntry PEST_HUMAN_TARGET_SWITCH = Config.bool("pestHumanTargetSwitch", true);
+        public static final IntEntry PEST_REACTION_MIN_MS = Config.integer("pestReactionMinMs", 60).range(0, 1000);
+        public static final IntEntry PEST_REACTION_MAX_MS = Config.integer("pestReactionMaxMs", 150).range(0, 1000);
+        public static final IntEntry PEST_OVERSHOOT_CHANCE = Config.integer("pestOvershootChance", 40).range(0, 100);
+        public static final FloatEntry PEST_OVERSHOOT_MIN_ANGLE = Config.floatVal("pestOvershootMinAngle", 90.0f)
+                        .range(30.0f, 180.0f);
+        public static final IntEntry PEST_OVERSHOOT_AMOUNT_MIN = Config.integer("pestOvershootAmountMin", 5)
+                        .range(1, 30);
+        public static final IntEntry PEST_OVERSHOOT_AMOUNT_MAX = Config.integer("pestOvershootAmountMax", 12)
+                        .range(1, 30);
+        public static final BooleanEntry PEST_MEMORY_ROTATION = Config.bool("pestMemoryRotation", true);
+        public static final FloatEntry PEST_MEMORY_ERROR = Config.floatVal("pestMemoryError", 6.0f)
+                        .range(0.0f, 20.0f);
 
         // -- PEST HUNTING ----------------------------------------------------------
 
@@ -612,7 +635,7 @@ public final class AetherConfig {
         public static final IntEntry GUI_CLICK_DELAY_MAX = Config.integer("guiClickDelayMax", 250).range(0, 1000);
         public static final IntEntry BAZAAR_DELAY_MIN = Config.integer("bazaarDelayMin", 250).range(0, 1000);
         public static final IntEntry BAZAAR_DELAY_MAX = Config.integer("bazaarDelayMax", 500).range(0, 1000);
-        public static final StringEntry HUMANIZATION_PRESET = Config.string("humanizationPreset", "NORMAL");
+        public static final StringEntry HUMANIZATION_PRESET = Config.string("humanizationPreset", "LEGIT");
         public static final IntEntry ROTATION_TIME = Config.integer("rotationTime", 100).range(0, 5000);
         public static final FloatEntry ROTATION_DYNAMIC_DURATION_MS_PER_DEGREE = Config
                         .floatVal("rotationDynamicDurationMsPerDegree", 2.0f)
@@ -638,6 +661,18 @@ public final class AetherConfig {
         public static final DoubleEntry DAILY_FARM_THRESHOLD_HOURS = Config.doubleVal("dailyFarmThresholdHours", 0.0);
         public static final BooleanEntry CLOSE_GAME_ON_DAILY_THRESHOLD = Config.bool("closeGameOnDailyThreshold",
                         false);
+
+        // -- MICROPAUSES -----------------------------------------------------------
+
+        public static final BooleanEntry MICROPAUSE_ENABLED = Config.bool("micropauseEnabled", false);
+        public static final IntEntry MICROPAUSE_INTERVAL_MIN_MINUTES = Config.integer("micropauseIntervalMinMinutes", 3)
+                        .range(1, 60);
+        public static final IntEntry MICROPAUSE_INTERVAL_MAX_MINUTES = Config.integer("micropauseIntervalMaxMinutes", 10)
+                        .range(1, 60);
+        public static final IntEntry MICROPAUSE_DURATION_MIN_SECONDS = Config.integer("micropauseDurationMinSeconds", 3)
+                        .range(1, 60);
+        public static final IntEntry MICROPAUSE_DURATION_MAX_SECONDS = Config.integer("micropauseDurationMaxSeconds", 12)
+                        .range(1, 60);
 
         // -- REWARP --------------------------------------------------------
         
@@ -691,10 +726,13 @@ public final class AetherConfig {
         public static final BooleanEntry COMPACT_PROFIT_CALCULATOR = Config.bool("compactProfitCalculator", true);
         public static final StringEntry PROFIT_PRICE_SOURCE = Config.string("profitPriceSource", "BAZAAR");
         public static final StringEntry SHARD_PRICE_SOURCE = Config.string("shardPriceSource", "INSTA_SELL");
-        public static final BooleanEntry FARMING_XP_HUD = Config.bool("farmingXpHud", true);
-        public static final BooleanEntry FARMING_HUD_XP_RATE = Config.bool("farmingHudXpRate", true);
-        public static final BooleanEntry FARMING_HUD_ETA_NEXT = Config.bool("farmingHudEtaNext", true);
-        public static final BooleanEntry FARMING_HUD_ETA_MAX = Config.bool("farmingHudEtaMax", true);
+        // the saved keys still say farming so existing configs keep their choices
+        public static final BooleanEntry SKILL_XP_HUD = Config.bool("farmingXpHud", true);
+        public static final BooleanEntry SKILL_HUD_XP_RATE = Config.bool("farmingHudXpRate", true);
+        public static final BooleanEntry SKILL_HUD_ETA_NEXT = Config.bool("farmingHudEtaNext", true);
+        public static final BooleanEntry SKILL_HUD_ETA_MAX = Config.bool("farmingHudEtaMax", true);
+        public static final BooleanEntry PROFIT_MOBS_PER_HOUR = Config.bool("profitMobsPerHour", true);
+        public static final BooleanEntry PROFIT_BLOCKS_PER_HOUR = Config.bool("profitBlocksPerHour", true);
         public static final BooleanEntry HIDE_FILTERED_CHAT = Config.bool("hideFilteredChat", true);
         public static final BooleanEntry GUI_ONLY_IN_GARDEN = Config.bool("guiOnlyInGarden", false);
         public static final BooleanEntry HUD_ONLY_WHILE_MACRO_RUNNING = Config.bool("hudOnlyWhileMacroRunning", false);
@@ -1121,4 +1159,19 @@ public final class AetherConfig {
         // blank means the macro fishes wherever it was started, with no warp or route first
         public static final StringEntry STRIDER_FISHING_RESTART_ROUTE = Config.string("striderFishingRestartRoute",
                         "default_strider");
+        public static final BooleanEntry STRIDER_FISHING_RANDOM_LOOK = Config.bool("striderFishingRandomLook", true);
+        public static final BooleanEntry STRIDER_FISHING_BLOCK_SHUFFLE = Config.bool("striderFishingBlockShuffle", true);
+        // soul whip fishing leaves each catch stuck in a small pool and only clears the pool once it holds this many
+        public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP_FISHING = Config
+                        .bool("striderFishingSoulWhipFishing", false);
+        public static final IntEntry STRIDER_FISHING_SOUL_WHIP_COUNT = Config.integer("striderFishingSoulWhipCount", 10)
+                        .range(5, 20);
+        public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP = Config.bool("striderFishingSoulWhip", false);
+        public static final IntEntry STRIDER_FISHING_SOUL_WHIP_SLOT = Config.integer("striderFishingSoulWhipSlot", 3)
+                        .range(1, 9);
+        // right click to weapon key; a practised attribute swap lands one to three ticks after the click
+        public static final IntEntry STRIDER_FISHING_WHIP_SWAP_MIN = Config.integer("striderFishingWhipSwapMin", 40)
+                        .range(0, 250);
+        public static final IntEntry STRIDER_FISHING_WHIP_SWAP_MAX = Config.integer("striderFishingWhipSwapMax", 130)
+                        .range(0, 250);
 }

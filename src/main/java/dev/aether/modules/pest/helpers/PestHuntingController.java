@@ -309,6 +309,7 @@ final class PestHuntingController {
             }
             runtime.currentTarget = lassoed;
             target = lassoed;
+            runtime.acquisition.reset();
         }
 
         if (runtime.lassoSlot == -1) {
@@ -331,7 +332,8 @@ final class PestHuntingController {
 
         // Descending to the pest's level can put us on the ground and drop
         // flight, at which point holding jump to climb is just bunny hopping.
-        if (!client.player.getAbilities().flying && client.player.getAbilities().mayfly) {
+        if (!AetherConfig.PEST_DESTROYER_WALK_MODE.get()
+                && !client.player.getAbilities().flying && client.player.getAbilities().mayfly) {
             clearHunt(client, runtime);
             context.setState(PestDestroyer.State.FLY_UP);
             return;
@@ -383,6 +385,12 @@ final class PestHuntingController {
         } else {
             runtime.huntAttachedSince = 0L;
         }
+        // nothing clicks while the camera is still turning onto the pest, and the stage clocks wait for the turn
+        boolean turning = runtime.acquisition.ownsCamera(runtime.currentTarget);
+        if (turning && !attached && (runtime.huntStage == Stage.STUN || runtime.huntStage == Stage.THROW)) {
+            runtime.huntStunRangeSince = 0L;
+            runtime.huntStageEnteredAt = now;
+        }
 
         if (reelPromptUp) {
             runtime.huntReelPromptTicks++;
@@ -431,7 +439,7 @@ final class PestHuntingController {
         // Outside this the stage machine is skipped below, so holding still on
         // aim leaves the hunter frozen and staring until the catch times out.
         boolean withinLeashRange = horizontal <= AetherConfig.PEST_HUNTING_MAX_DISTANCE.get();
-        boolean clickWindow = clickPending
+        boolean clickWindow = !turning && (clickPending
                 || (inActionRange
                         && !attached
                         && runtime.huntStage != Stage.REEL
@@ -439,7 +447,7 @@ final class PestHuntingController {
                                 client,
                                 runtime,
                                 focus,
-                                THROW_AIM_TOLERANCE_DEGREES));
+                                THROW_AIM_TOLERANCE_DEGREES)));
         if (attached) {
             // Only the reel click itself needs a still camera. Holding position
             // for the whole leash let the pest walk to the end of the line and
@@ -602,6 +610,7 @@ final class PestHuntingController {
             if (runtime.huntStunHoldStartedAt == 0L) {
                 if (!inStunRange
                         || waitForLanding(runtime, target, now)
+                        || runtime.acquisition.ownsCamera(runtime.currentTarget)
                         || !isAimedAtTarget(client, runtime, target, THROW_AIM_TOLERANCE_DEGREES)) {
                     return;
                 }
@@ -668,6 +677,7 @@ final class PestHuntingController {
             return;
         }
         if (waitForLanding(runtime, target, now)
+                || runtime.acquisition.ownsCamera(runtime.currentTarget)
                 || !isAimedAtTarget(client, runtime, target, THROW_AIM_TOLERANCE_DEGREES)) {
             return;
         }
@@ -733,7 +743,8 @@ final class PestHuntingController {
         }
         // The prompt is only up for a moment, so click on the tick it appears; a
         // reaction delay here spends the whole window and misses the reel.
-        if (!isAimedAtTarget(client, runtime, target, REEL_AIM_TOLERANCE_DEGREES)) {
+        if (runtime.acquisition.ownsCamera(runtime.currentTarget)
+                || !isAimedAtTarget(client, runtime, target, REEL_AIM_TOLERANCE_DEGREES)) {
             return;
         }
 
@@ -814,7 +825,8 @@ final class PestHuntingController {
             float tolerance,
             boolean precise,
             long now) {
-        if (FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
+        if (FailsafeManager.shouldSuppressPestCleanerRotation(client)
+                || runtime.acquisition.ownsCamera(runtime.currentTarget)) {
             return;
         }
         Vec3 aim = aimPoint(client, runtime, target);
@@ -966,6 +978,16 @@ final class PestHuntingController {
         return usesVacuumAim(runtime)
                 ? PestCombatCoordinator.buildVacuumAimTarget(client, target)
                 : huntAimPoint(client, target);
+    }
+
+    // the hunt's aim point for an eye the caller picks, so a turn toward a believed position aims like the hunt
+    static Vec3 acquisitionAimPoint(
+            Minecraft client, PestDestroyerRuntime runtime, Entity target, Vec3 eye) {
+        if (usesVacuumAim(runtime)) {
+            return PestCombatCoordinator.buildVacuumAimTarget(client, target, eye);
+        }
+        Vec3 liveEye = target.position().add(0, target.getEyeHeight(target.getPose()), 0);
+        return huntAimPoint(client, target).add(eye.subtract(liveEye));
     }
 
     // Dropped as soon as the tap is out: its fixed downward pitch is tens of degrees off the throw aim.

@@ -102,7 +102,8 @@ final class PestNavigationCoordinator {
             int maxScanWaypoints
     ) {
 
-        if (!client.player.getAbilities().flying && client.player.getAbilities().mayfly) {
+        if (!AetherConfig.PEST_DESTROYER_WALK_MODE.get()
+                && !client.player.getAbilities().flying && client.player.getAbilities().mayfly) {
             if (context.getFlyTapTicks() < PestFlightTapper.TIMEOUT_TICKS) {
                 PestFlightTapper.tick(client, context.getFlyTapTicks());
                 context.setFlyTapTicks(context.getFlyTapTicks() + 1);
@@ -223,7 +224,8 @@ final class PestNavigationCoordinator {
             } else if (context.getStuckTicks() == 1) {
                 int targetY = (int) navigationState.calculatedWaypoint.y;
                 PathfindingManager.startPathfind(client,
-                        (int) navigationState.calculatedWaypoint.x, targetY, (int) navigationState.calculatedWaypoint.z, true);
+                        (int) navigationState.calculatedWaypoint.x, targetY, (int) navigationState.calculatedWaypoint.z,
+                        !AetherConfig.PEST_DESTROYER_WALK_MODE.get());
             }
         } else {
             context.setStuckTicks(0);
@@ -261,7 +263,8 @@ final class PestNavigationCoordinator {
             return;
         }
 
-        if (!client.player.getAbilities().flying && client.player.getAbilities().mayfly) {
+        if (!AetherConfig.PEST_DESTROYER_WALK_MODE.get()
+                && !client.player.getAbilities().flying && client.player.getAbilities().mayfly) {
             ClientUtils.sendDebugMessage("[PestDestroyer] Not flying after arrival, triggering flight.");
             context.setState(PestDestroyer.State.FLY_UP);
             return;

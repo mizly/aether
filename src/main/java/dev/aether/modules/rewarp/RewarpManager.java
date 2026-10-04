@@ -15,6 +15,7 @@ import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.pest.helpers.PestReturnManager;
 import dev.aether.modules.rotation.RotationManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
@@ -52,8 +53,10 @@ public final class RewarpManager {
     }
 
     public static void handle(Minecraft client) {
+        // not held after a resume like timed tasks: farming can reach the end within that hold and must still rewarp
         if (!AetherConfig.ENABLE_REWARP.get()
-                || MacroStateManager.getCurrentState() != MacroState.State.FARMING) {
+                || MacroStateManager.getCurrentState() != MacroState.State.FARMING
+                || MicropauseManager.isPaused()) {
             return;
         }
 
@@ -77,8 +80,10 @@ public final class RewarpManager {
         ClientUtils.sendMessage("\u00A76Rewarp End Position reached!", true);
 
         MacroStateManager.setCurrentState(MacroState.State.REWARPING);
+        Integer resumeStep = pair.reverseDirection && FarmingMacroManager.getActiveMacro() != null
+                ? FarmingMacroManager.getActiveMacro().getOppositeCycleStep() : null;
         FarmingMacroManager.disable(client);
-        MacroWorkerThread.getInstance().submit("PlotTpRewarp", () -> performRewarp(client, pair));
+        MacroWorkerThread.getInstance().submit("PlotTpRewarp", () -> performRewarp(client, pair, resumeStep));
     }
 
     private static boolean isZeroRewarpDelay() {
@@ -93,6 +98,9 @@ public final class RewarpManager {
         lastRewarpTime = now;
         client.execute(() -> {
             ConfigHelpers.executeRewarpCommand(pair.rewarpMode, pair.plotTpNumber);
+            if (pair.reverseDirection && FarmingMacroManager.getActiveMacro() != null) {
+                FarmingMacroManager.getActiveMacro().reverseDirection(client);
+            }
             PestManager.markRewarpCompleted();
         });
     }
@@ -116,7 +124,7 @@ public final class RewarpManager {
         return null;
     }
 
-    private static void performRewarp(Minecraft client, RewarpPointPair pair) {
+    private static void performRewarp(Minecraft client, RewarpPointPair pair, Integer resumeStep) {
         if (MacroWorkerThread.shouldAbortTask(client, MacroState.State.REWARPING)) {
             return;
         }
@@ -147,7 +155,12 @@ public final class RewarpManager {
             queuePostResumeActions(pair);
             MacroStateManager.setCurrentState(MacroState.State.FARMING);
             SqueakyMousematManager.armReapplyAttempt();
-            client.execute(() -> FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig()));
+            client.execute(() -> {
+                if (resumeStep != null) {
+                    FarmingMacroManager.saveCycleStep(resumeStep);
+                }
+                FarmingMacroManager.enable(client, FarmingMacroManager.createMacroFromConfig());
+            });
             PestManager.markRewarpCompleted();
         }
     }

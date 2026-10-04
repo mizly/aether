@@ -3,7 +3,7 @@ package dev.aether.modules.profit;
 import dev.aether.config.AetherConfig;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
-import dev.aether.modules.profit.helpers.FarmingXpTracker;
+import dev.aether.modules.profit.helpers.SkillXpTracker;
 import dev.aether.modules.profit.helpers.PetXpTracker;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
@@ -46,9 +46,9 @@ final class ProfitLiveTracker {
         currentFarmedCrop = "Wheat";
         PetXpTracker.reset();
         if (AetherConfig.PERSIST_SESSION_TIMER.get()) {
-            FarmingXpTracker.resetLiveState();
+            SkillXpTracker.resetAllLiveState();
         } else {
-            FarmingXpTracker.reset();
+            SkillXpTracker.resetAll();
         }
         trackingLiveMetrics = false;
     }
@@ -167,7 +167,7 @@ final class ProfitLiveTracker {
         }
 
         if (client.player.tickCount % PET_XP_SAMPLE_INTERVAL_TICKS == 0) {
-            FarmingXpTracker.updateFromTablist(client);
+            SkillXpTracker.updateAllFromTablist(client);
         }
 
         refreshPrices.run();

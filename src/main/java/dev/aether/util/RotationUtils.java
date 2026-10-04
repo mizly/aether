@@ -79,6 +79,34 @@ public class RotationUtils {
         return yawDiff <= tolerance && pitchDiff <= tolerance;
     }
 
+    // a true 3d angle: near the poles a point can sit right under the crosshair while its yaw is half a turn off
+    public static double angleFromCrosshair(Vec3 eye, float yaw, float pitch, Vec3 point) {
+        Vec3 toPoint = point.subtract(eye);
+        double distance = toPoint.length();
+        if (distance < 1.0e-9) {
+            return 0.0;
+        }
+        double cos = Vec3.directionFromRotation(pitch, yaw).dot(toPoint) / distance;
+        return Math.toDegrees(Math.acos(Math.clamp(cos, -1.0, 1.0)));
+    }
+
+    // the screen is a rectangle in front of the eye, so each screen axis gets its own angle against its own half fov
+    public static boolean isInView(Vec3 eye, float yaw, float pitch, Vec3 point, double verticalFovDegrees,
+                                   double aspect, double marginDegrees) {
+        Vec3 forward = Vec3.directionFromRotation(pitch, yaw);
+        Vec3 up = Vec3.directionFromRotation(pitch - 90.0f, yaw);
+        Vec3 toPoint = point.subtract(eye);
+        double depth = toPoint.dot(forward);
+        if (depth <= 0.0) {
+            return false;
+        }
+        double halfVertical = verticalFovDegrees / 2.0;
+        double halfHorizontal = Math.toDegrees(Math.atan(Math.tan(Math.toRadians(halfVertical)) * aspect));
+        double horizontal = Math.toDegrees(Math.atan2(Math.abs(toPoint.dot(forward.cross(up))), depth));
+        double vertical = Math.toDegrees(Math.atan2(Math.abs(toPoint.dot(up)), depth));
+        return horizontal <= halfHorizontal - marginDegrees && vertical <= halfVertical - marginDegrees;
+    }
+
     // range is in degrees
     public static Rotation applyImprecision(Rotation rot, float range) {
         if (range <= 0) return rot;

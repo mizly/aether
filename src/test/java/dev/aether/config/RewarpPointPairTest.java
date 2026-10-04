@@ -46,4 +46,34 @@ class RewarpPointPairTest {
 
         assertTrue(pair.aotvAlign);
     }
+
+    @Test
+    void reverseDirectionIsOffByDefaultAndRoundTrips() {
+        RewarpPointPair pair = RewarpPointPair.defaultPair(0);
+        assertFalse(pair.reverseDirection);
+
+        pair.reverseDirection = true;
+        pair.aotvAlign = true;
+        pair.holdWUntilWall = true;
+        pair.rewarpMode = RewarpMode.WARP_GARDEN;
+        RewarpPointPair restored = new RewarpPointPair(pair.toString(), 0);
+
+        assertTrue(restored.reverseDirection);
+        assertTrue(restored.aotvAlign);
+        assertTrue(restored.holdWUntilWall);
+        assertEquals(RewarpMode.WARP_GARDEN, restored.rewarpMode);
+    }
+
+    @Test
+    void legacyV6KeepsDirectionAndExistingOptions() {
+        RewarpPointPair pair = new RewarpPointPair(
+                "v6:UmV3YXJwIDE:0.5:70.0:0.5:true:true:10.5:70.0:10.5:true:true:PLOT_TP:5:true:true",
+                0);
+
+        assertFalse(pair.reverseDirection);
+        assertTrue(pair.aotvAlign);
+        assertTrue(pair.holdWUntilWall);
+        assertEquals(RewarpMode.PLOT_TP, pair.rewarpMode);
+        assertEquals("5", pair.plotTpNumber);
+    }
 }

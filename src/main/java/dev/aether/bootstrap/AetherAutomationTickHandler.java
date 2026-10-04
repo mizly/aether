@@ -37,6 +37,7 @@ import dev.aether.modules.rewarp.RewarpManager;
 import dev.aether.modules.rotation.HumanFlick;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.modules.session.DynamicRestManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.modules.session.RecoveryManager;
 import dev.aether.modules.session.RestartManager;
 import dev.aether.modules.SupercraftManager;
@@ -134,6 +135,7 @@ public final class AetherAutomationTickHandler {
         JunkManager.update();
 
         DynamicRestManager.update();
+        MicropauseManager.update(client);
         SupercraftManager.update();
         PestBonusManager.updateFromTab();
         AutoPestExchangeManager.update();
@@ -192,7 +194,8 @@ public final class AetherAutomationTickHandler {
         if (client.screen != null
                 || stashState == MacroState.State.VISITING
                 || stashState == MacroState.State.CLEANING
-                || stashState == MacroState.State.SPRAYING) {
+                || stashState == MacroState.State.SPRAYING
+                || MicropauseManager.isHoldingTasks()) {
             return;
         }
 

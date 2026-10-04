@@ -5,9 +5,11 @@ import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.farming.FastLaneSwitchManager;
 import dev.aether.modules.session.DynamicRestManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.renderer.NVGRenderer;
 import dev.aether.telemetry.AetherAuthService;
 import dev.aether.ui.theme.Theme;
+import dev.aether.util.AetherLang;
 import dev.aether.util.BpsTracker;
 import dev.aether.util.ClientUtils;
 
@@ -35,7 +37,12 @@ public class MacroHudElement extends HudElement {
     @Override public void    savePosition()   { AetherConfig.save(); }
 
     float computeHeight() {
-        return HudStyle.CONTENT_Y + 6 * ROW_H + 8f + HudStyle.PAD;
+        return HudStyle.CONTENT_Y + rowCount() * ROW_H + 8f + HudStyle.PAD;
+    }
+
+    // the micropause row only shows while the feature is on, so the box resizes only when that setting changes
+    private static int rowCount() {
+        return AetherConfig.MICROPAUSE_ENABLED.get() ? 7 : 6;
     }
 
     @Override
@@ -58,6 +65,9 @@ public class MacroHudElement extends HudElement {
         row(nvg, y, "Current session", formatTime(sessionMs), Theme.HUD_VALUE); y += ROW_H;
         row(nvg, y, "Hours played", AetherAuthService.isAuthenticated()
                 ? formatTime(AetherAuthService.getTotalSeconds() * 1000L) : "not linked", Theme.HUD_VALUE); y += ROW_H;
+        if (AetherConfig.MICROPAUSE_ENABLED.get()) {
+            row(nvg, y, "Micropause", micropauseText(), Theme.HUD_VALUE); y += ROW_H;
+        }
         row(nvg, y, "Next rest", nextRest, Theme.HUD_VALUE); y += ROW_H;
 
         long duration = DynamicRestManager.getScheduledDurationMs();
@@ -68,6 +78,14 @@ public class MacroHudElement extends HudElement {
 
     private void row(NVGRenderer nvg, float y, String label, String value, int color) {
         HudStyle.row(nvg, HudStyle.PAD, y, W - HudStyle.PAD * 2, label, value, LABEL_SZ, color);
+    }
+
+    private static String micropauseText() {
+        if (MicropauseManager.isPaused()) {
+            return AetherLang.localize("Paused") + " " + formatTime(MicropauseManager.getPauseRemainingMs());
+        }
+        long untilNextPause = MicropauseManager.getFarmingMsUntilNextPause();
+        return untilNextPause < 0 ? "---" : formatTime(untilNextPause);
     }
 
     private static String formatTime(long ms) {

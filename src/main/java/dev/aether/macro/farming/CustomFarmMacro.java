@@ -39,6 +39,12 @@ public class CustomFarmMacro extends AbstractFarmingMacro {
         return true;
     }
 
+    // a pending waypoint switch is this macro's wait at the end of a row
+    @Override
+    public boolean canBeginMicropause() {
+        return super.canBeginMicropause() && !keySwitchConfirm;
+    }
+
     @Override
     public void updateState(Minecraft mc) {
         if (mc.player == null) {

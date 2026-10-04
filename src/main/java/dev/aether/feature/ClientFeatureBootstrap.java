@@ -19,6 +19,7 @@ import dev.aether.modules.performance.MuteManager;
 import dev.aether.modules.performance.PerformanceModeManager;
 import dev.aether.modules.profit.ProfitManager;
 import dev.aether.modules.routes.RouteEditor;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.modules.visuals.StreamerModeManager;
 import dev.aether.modules.visuals.PestEspManager;
 import dev.aether.notification.NotificationManager;
@@ -142,6 +143,7 @@ public final class ClientFeatureBootstrap {
         MacroStateManager.syncFromConfig();
         IrcManager.syncFromConfig();
         AutoCarnivalManager.syncFromConfig(Minecraft.getInstance());
+        MicropauseManager.syncFromConfig();
 
         Minecraft client = Minecraft.getInstance();
         PerformanceModeManager.stop(client);

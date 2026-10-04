@@ -225,4 +225,116 @@ class StriderFishingMacroTest {
         assertTrue(StriderFishingMacro.sneakAllowedInLiquid(true, true));
         assertTrue(StriderFishingMacro.sneakAllowedInLiquid(false, true));
     }
+    @Test
+    void thePoolIsClearedOnlyOnceItHoldsTheChosenCount() {
+        assertFalse(StriderFishingMacro.soulWhipGoalReached(4, 5));
+        assertTrue(StriderFishingMacro.soulWhipGoalReached(5, 5));
+        assertTrue(StriderFishingMacro.soulWhipGoalReached(21, 20));
+    }
+
+    @Test
+    void theWeaponSwapLandsInsideTheConfiguredWindowPlusTheOddFumble() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        boolean sawVariety = false;
+        long first = StriderFishingMacro.nextWhipSwapDelayMs(random, 40, 130);
+        for (int i = 0; i < 2000; i++) {
+            long delay = StriderFishingMacro.nextWhipSwapDelayMs(random, 40, 130);
+            assertTrue(StriderFishingMacro.whipSwapDelayInRange(delay, 40, 130));
+            assertTrue(delay >= 40L && delay <= 220L);
+            sawVariety |= delay != first;
+        }
+        assertTrue(sawVariety);
+    }
+
+    @Test
+    void swappedSwapBoundsStillProduceAValidDelay() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            long delay = StriderFishingMacro.nextWhipSwapDelayMs(random, 130, 40);
+            assertTrue(StriderFishingMacro.whipSwapDelayInRange(delay, 40, 130));
+        }
+    }
+
+    @Test
+    void theWhipIsDrawnABeatBeforeTheClickAndSwungOnALooseRhythm() {
+        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
+        for (int i = 0; i < 500; i++) {
+            long draw = StriderFishingMacro.nextWhipDrawDelayMs(random);
+            assertTrue(StriderFishingMacro.whipDrawDelayInRange(draw));
+            assertTrue(draw >= 45L);
+            assertTrue(StriderFishingMacro.whipIntervalInRange(StriderFishingMacro.nextWhipIntervalMs(random)));
+        }
+    }
+
+    @Test
+    void theWhipOnlyFiresOnceTheCrosshairIsNearTheStrider() {
+        assertTrue(StriderFishingMacro.aimWithin(10.0f, 20.0f, 14.0f, 24.0f, 6.0f));
+        assertFalse(StriderFishingMacro.aimWithin(10.0f, 20.0f, 30.0f, 20.0f, 6.0f));
+        // yaw wraps, so 179 and -179 are two degrees apart
+        assertTrue(StriderFishingMacro.aimWithin(179.0f, 0.0f, -179.0f, 0.0f, 6.0f));
+    }
+    @Test
+    void theFloatLeavesJustAheadOfTheEye() {
+        net.minecraft.world.phys.Vec3[] path = StriderFishingMacro.castPath(
+                new net.minecraft.world.phys.Vec3(0.0, 1.27, 0.0), 0.0f, 10.0f);
+        assertEquals(0.0, path[0].x, 1e-9);
+        assertEquals(1.27, path[0].y, 1e-9);
+        assertEquals(0.3, path[0].z, 1e-9);
+    }
+
+    @Test
+    void theFloatDropsUnderTheCrosshairLine() {
+        // why a crouched look over a rim that is barely below the eye still clips it
+        float pitch = 6.0f;
+        net.minecraft.world.phys.Vec3[] path = StriderFishingMacro.castPath(
+                net.minecraft.world.phys.Vec3.ZERO, 0.0f, pitch);
+        double sightY = -Math.tan(Math.toRadians(pitch)) * path[2].z;
+        assertTrue(path[2].y < sightY);
+    }
+
+    @Test
+    void theThrowOnlyCountsAsSafeWithLandingPitchesEitherSide() {
+        boolean[] lands = {false, true, true, true, true, true, false};
+        assertEquals(0, StriderFishingMacro.castMargin(lands, 1));
+        assertEquals(2, StriderFishingMacro.castMargin(lands, 3));
+        assertEquals(0, StriderFishingMacro.castMargin(lands, 5));
+    }
+    @Test
+    void onlyRememberedStridersThatAreStillThereCountTowardThePool() {
+        java.util.Set<Integer> remembered = new java.util.LinkedHashSet<>(java.util.List.of(1, 2, 3, 4, 5));
+        java.util.Set<Integer> kept = StriderFishingMacro.stillPooled(remembered, true, id -> id != 3);
+        assertEquals(java.util.Set.of(1, 2, 4, 5), kept);
+    }
+
+    @Test
+    void aNewLobbyForgetsThePool() {
+        java.util.Set<Integer> remembered = java.util.Set.of(1, 2, 3);
+        assertTrue(StriderFishingMacro.stillPooled(remembered, false, id -> true).isEmpty());
+    }
+    @Test
+    void theWhipIsGivenUpOnAfterEnoughSwingsOrTime() {
+        assertFalse(StriderFishingMacro.whipFailing(5, 7_999L));
+        assertTrue(StriderFishingMacro.whipFailing(6, 1_000L));
+        assertTrue(StriderFishingMacro.whipFailing(2, 8_000L));
+    }
+
+    @Test
+    void aStriderStillInThePoolIsLeftToTheWhip() {
+        net.minecraft.world.phys.Vec3 home = new net.minecraft.world.phys.Vec3(0.5, 64.0, 0.5);
+        net.minecraft.world.phys.Vec3 last = new net.minecraft.world.phys.Vec3(3.0, 64.0, 2.0);
+        net.minecraft.world.phys.Vec3 now = new net.minecraft.world.phys.Vec3(3.3, 64.0, 2.4);
+        assertFalse(StriderFishingMacro.escapedCage(last, now, home));
+        assertFalse(StriderFishingMacro.escapedCage(null, now, home));
+    }
+
+    @Test
+    void aTeleportedOrStrayStriderIsKilledByHand() {
+        net.minecraft.world.phys.Vec3 home = new net.minecraft.world.phys.Vec3(0.5, 64.0, 0.5);
+        net.minecraft.world.phys.Vec3 inPool = new net.minecraft.world.phys.Vec3(3.0, 64.0, 2.0);
+        // a jump inside the radius still counts, since striders cannot move that far in a tick
+        assertTrue(StriderFishingMacro.escapedCage(inPool,
+                new net.minecraft.world.phys.Vec3(-2.0, 64.0, -2.0), home));
+        assertTrue(StriderFishingMacro.escapedCage(null,
+                new net.minecraft.world.phys.Vec3(9.0, 64.0, 0.5), home));
+    }
 }

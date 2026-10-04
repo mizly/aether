@@ -278,6 +278,15 @@ public final class FailsafeManager {
         return RotationFailsafe.shouldSuppressPestCleanerRotation(client);
     }
 
+    public static boolean isAnyFailsafePending(Minecraft client) {
+        return getRotationState(client) != RotationState.IDLE
+                || getDirtCheckState(client) != DirtCheckState.IDLE
+                || getInventorySlotState(client) != InventorySlotState.IDLE
+                || getInventoryGuiState(client) != InventoryGuiState.IDLE
+                || getBpsState(client) != BpsState.IDLE
+                || getGhostBlockState(client) != GhostBlockState.IDLE;
+    }
+
     public static long sampleAdditionalTriggerDelayMs() {
         float maxAdditionalDelaySeconds = AetherConfig.FAILSAFE_ADDITIONAL_RANDOM_DELAY_SECONDS.get();
         if (maxAdditionalDelaySeconds <= 0.0f) {

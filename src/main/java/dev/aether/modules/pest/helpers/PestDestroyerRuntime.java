@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 
 final class PestDestroyerRuntime {
     volatile PestDestroyer.State state = PestDestroyer.State.IDLE;
@@ -20,6 +21,9 @@ final class PestDestroyerRuntime {
     final PestTargetDeferrals deferredTargets = new PestTargetDeferrals();
     final PestFlightController flightController = new PestFlightController();
     final PestFlightRecovery flightRecovery = new PestFlightRecovery();
+    final PestAimAcquisition acquisition = new PestAimAcquisition();
+    final PestSightings sightings = new PestSightings();
+    final PestCloseRangeBackoff closeBackoff = new PestCloseRangeBackoff();
     final Deque<Entity> pestTargetQueue = new ArrayDeque<>();
     final Set<Integer> accountedKilledPestEntityIds = ConcurrentHashMap.newKeySet();
 
@@ -29,6 +33,7 @@ final class PestDestroyerRuntime {
     long killVacuumHoldStartedAt = 0L;
     long killVacuumRetryPressAt = 0L;
     long killVacuumReleaseUntil = 0L;
+    long lastPathHandoffArmAt = 0L;
     int stuckTicks = 0;
     int approachTicks = 0;
     int flyTapTicks = 0;
@@ -129,6 +134,7 @@ final class PestDestroyerRuntime {
         killVacuumSlot = detectedVacuumSlot;
         vacuumRange = 7.5f;
         resetTransientState();
+        acquisition.newRun(ThreadLocalRandom.current());
         navigation.resetForRun();
     }
 
@@ -186,9 +192,17 @@ final class PestDestroyerRuntime {
             lastPreRotateAt = 0L;
             resetKillVacuumRetry();
             resetAirborneRecovery();
+            closeBackoff.cancel();
         }
         if (newState != PestDestroyer.State.HUNT_PEST) {
             resetHuntState();
+        }
+        // a turn onto the pest carries across the states that aim at it, anything else takes the camera elsewhere
+        if (newState != PestDestroyer.State.KILL_PEST
+                && newState != PestDestroyer.State.APPROACH_PEST
+                && newState != PestDestroyer.State.AOTV_BETWEEN_PESTS
+                && newState != PestDestroyer.State.HUNT_PEST) {
+            acquisition.reset();
         }
     }
 
@@ -215,6 +229,11 @@ final class PestDestroyerRuntime {
         killVacuumHoldStartedAt = 0L;
         killVacuumRetryPressAt = 0L;
         killVacuumReleaseUntil = 0L;
+        // stopping the macro resets the run before PestDestroyer.stop(), which then does nothing, so the turn ends here
+        acquisition.reset();
+        sightings.clear();
+        closeBackoff.reset();
+        lastPathHandoffArmAt = 0L;
         aotvSlot = -1;
         aotvUseCount = 0;
         aotvLastUseAt = 0L;

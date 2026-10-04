@@ -246,6 +246,11 @@ public final class FarmingMacroManager {
         return activeMacro != null;
     }
 
+    // isActive is already true during the random start delay, before onEnable has run
+    public static boolean isStarted() {
+        return activeMacro != null && pendingEnableTicks == 0;
+    }
+
     // releases the macro's keys without disabling it
     public static void releaseInputs(Minecraft mc) {
         if (activeMacro != null && mc != null && mc.options != null) {

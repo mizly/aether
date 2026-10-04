@@ -106,6 +106,12 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         })
                         .withDecimals(0))
                 .add(FarmingSettingsFactory.pestDestroyerTriggerDelaySetting())
+                .add(new ToggleSetting("Walk Mode",
+                        AetherConfig.PEST_DESTROYER_WALK_MODE::get,
+                        v -> {
+                            AetherConfig.PEST_DESTROYER_WALK_MODE.set(v);
+                            AetherConfig.save();
+                        }))
                 .add(new ToggleSetting("Use Pest Tracker Ability",
                         AetherConfig.USE_PEST_TRACKER_ABILITY::get,
                         v -> {
@@ -162,6 +168,12 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.SUNSET_PESTS.set(v);
                             AetherConfig.save();
                         }))
+                .add(new ToggleSetting("Change Time Directly Before Pest Spawn",
+                        () -> AetherConfig.SUNSET_PESTS_NIGHT_BEFORE_SPAWN.get(),
+                        v -> {
+                            AetherConfig.SUNSET_PESTS_NIGHT_BEFORE_SPAWN.set(v);
+                            AetherConfig.save();
+                        }).visibleWhen(AetherConfig.SUNSET_PESTS::get))
                 .add(new SectionSetting("Navigation", "Movement between pests and plot routing"))
                 .add(new ToggleSetting("AOTV Between Distant Pests",
                         () -> AetherConfig.PEST_AOTV_BETWEEN.get(),
@@ -201,6 +213,22 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                         .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()))
                 .add(FarmingSettingsFactory.aotvBetweenPestsDelaySetting()
                         .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()))
+                .add(new ToggleSetting("Back Up When Too Close",
+                        AetherConfig.PEST_AOTV_BACK_UP::get,
+                        v -> {
+                            AetherConfig.PEST_AOTV_BACK_UP.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(AetherConfig.PEST_AOTV_BETWEEN::get))
+                .add(new SliderSetting("Back Up Past Pitch", 30, 80,
+                        AetherConfig.PEST_AOTV_BACK_UP_PITCH::get,
+                        v -> {
+                            AetherConfig.PEST_AOTV_BACK_UP_PITCH.set((float) Math.round(v));
+                            AetherConfig.save();
+                        })
+                        .withDecimals(0).withSuffix("\u00B0")
+                        .visibleWhen(() -> AetherConfig.PEST_AOTV_BETWEEN.get()
+                                && AetherConfig.PEST_AOTV_BACK_UP.get()))
                 .add(new SectionSetting("Combat", "Aiming and vacuum engagement behavior"))
                 .add(FarmingSettingsFactory.pestFovRangeSetting())
                 .add(FarmingSettingsFactory.pestAboveAimPitchRangeSetting())
@@ -230,7 +258,32 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.PEST_TRACKING_SMOOTHING_MS.set(v);
                             AetherConfig.save();
                         }).withDecimals(0).withSuffix("ms"))
-                .add(FarmingSettingsFactory.pestAimDriftSetting()));
+                .add(FarmingSettingsFactory.pestAimDriftSetting())
+                .add(new SectionSetting("Target Switching", "How the camera turns onto each new pest"))
+                .add(new ToggleSetting("Human Target Switch",
+                        AetherConfig.PEST_HUMAN_TARGET_SWITCH::get,
+                        v -> {
+                            AetherConfig.PEST_HUMAN_TARGET_SWITCH.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(FarmingSettingsFactory.pestReactionTimeSetting()
+                        .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get))
+                .add(FarmingSettingsFactory.pestOvershootChanceSetting()
+                        .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get))
+                .add(FarmingSettingsFactory.pestOvershootMinTurnSetting()
+                        .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get))
+                .add(FarmingSettingsFactory.pestOvershootAmountSetting()
+                        .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get))
+                .add(new ToggleSetting("Remember Pest Positions",
+                        AetherConfig.PEST_MEMORY_ROTATION::get,
+                        v -> {
+                            AetherConfig.PEST_MEMORY_ROTATION.set(v);
+                            AetherConfig.save();
+                        })
+                        .visibleWhen(AetherConfig.PEST_HUMAN_TARGET_SWITCH::get))
+                .add(FarmingSettingsFactory.pestMemoryErrorSetting()
+                        .visibleWhen(() -> AetherConfig.PEST_HUMAN_TARGET_SWITCH.get()
+                                && AetherConfig.PEST_MEMORY_ROTATION.get())));
         groups.add(SettingGroup.of(
                         "Pest Hunting",
                         "Lassos pests for guaranteed shards instead of vacuuming them (needs a lasso in your hotbar)",

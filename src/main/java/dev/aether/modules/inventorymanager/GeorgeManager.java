@@ -10,6 +10,7 @@ import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.pest.helpers.PestPrepSwapManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -294,7 +295,8 @@ public class GeorgeManager {
         }
 
         if (isPriorityEventActive(client)
-                || LoadoutManager.isSwappingLoadout) {
+                || LoadoutManager.isSwappingLoadout
+                || MicropauseManager.isHoldingTasks()) {
             return;
         }
 
