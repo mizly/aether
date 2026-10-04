@@ -580,7 +580,10 @@ final class PestCombatCoordinator {
             return false;
         }
 
-        boolean arrivedViaAotv = context.getAotvUseCount() > 0;
+        // the landing check at the top of the aotv tick runs before a hop or etherwarp is confirmed and counted
+        boolean arrivedViaAotv = context.getAotvUseCount() > 0
+                || context.getAotvPendingUseAt() != 0L
+                || context.runtime().pestEtherwarpClickAt != 0L;
         clearAotvBetweenPests(client, context);
         context.setArrivedAtCurrentTargetViaAotv(arrivedViaAotv);
         ClientUtils.sendDebugMessage("[PestDestroyer] AOTV closed gap. Distance now " + String.format("%.1f", dist)
