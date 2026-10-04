@@ -3,9 +3,8 @@ package dev.aether.ui.gui;
 import java.util.ArrayList;
 import java.util.List;
 
-// keyboard focus, registered while drawing like hit regions, so focus order is visual order. keys between
-// frames move through the last finished frame. register every focusable, including rows culled from drawing,
-// or keyboard navigation skips them
+// keyboard focus registered while drawing, so focus order is visual order; register every focusable,
+// including rows culled from drawing, or keyboard navigation skips them
 public final class FocusManager {
     private final GuiCanvas canvas;
     private final boolean inert;

@@ -2,9 +2,8 @@ package dev.aether.ui.gui;
 
 import dev.aether.ui.theme.Theme;
 
-// every colour the gui draws with, read from Theme once per frame; skins use this, never Theme directly.
-// washes come from the text colour instead of white or black so light themes work, and the four menu
-// tokens nothing painted before now have a job (toggle knob and track, dropdown field, action buttons)
+// every colour the gui draws with, read from Theme once per frame so skins never touch Theme; washes come
+// from the text colour rather than white or black, so light themes work
 public record Palette(
         int accent, int accent2, int onAccent,
         int panel, int sidebar, int card, int element, int surface, int hoverFill, int field,

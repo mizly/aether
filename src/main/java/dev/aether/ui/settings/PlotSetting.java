@@ -8,9 +8,8 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
-// garden plots picked on the Configure Plots map. stored values are read as tokens: known plots are written
-// back as bare digits or "barn", anything unrecognised is kept until the user removes it, and nothing is
-// rewritten until an edit
+// plots picked on the Configure Plots map; known plots are written back as bare digits or "barn", anything
+// unrecognised is kept until removed, and nothing is rewritten until an edit
 public final class PlotSetting extends AbstractSetting<PlotSetting> {
     public enum Mode { SINGLE, MULTI, ORDERED }
 
