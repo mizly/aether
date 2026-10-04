@@ -29,6 +29,8 @@ import dev.aether.modules.pest.helpers.PestExchangeManager;
 import dev.aether.modules.pest.helpers.PestTrapManager;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.modules.visitor.VisitorsMacro;
+import dev.aether.ui.theme.Theme;
+import dev.aether.ui.theme.ThemePreset;
 import dev.aether.util.AetherLang;
 import dev.aether.util.BazaarUtils;
 import dev.aether.util.ClientUtils;
@@ -38,9 +40,12 @@ import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
 import net.minecraft.client.Minecraft;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
 
 public final class AetherCommandRegistrar {
+    private static final List<String> GUI_STYLES = List.of("aurora", "terminal", "inventory");
+
     private AetherCommandRegistrar() {
     }
 
@@ -133,6 +138,16 @@ public final class AetherCommandRegistrar {
                                                 false);
                                         return 0;
                                     }))
+                            .then(ClientCommands.literal("theme")
+                                    .executes(ctx -> listThemes())
+                                    .then(ClientCommands.argument("name", StringArgumentType.greedyString())
+                                            .suggests((ctx, builder) -> suggestThemes(builder))
+                                            .executes(ctx -> applyTheme(StringArgumentType.getString(ctx, "name")))))
+                            .then(ClientCommands.literal("style")
+                                    .executes(ctx -> listStyles())
+                                    .then(ClientCommands.argument("id", StringArgumentType.word())
+                                            .suggests((ctx, builder) -> suggestStyles(builder))
+                                            .executes(ctx -> setStyle(StringArgumentType.getString(ctx, "id")))))
                             .then(ClientCommands.literal("setup")
                                     .executes(ctx -> TablistSetupManager.start(Minecraft.getInstance())))
                             .then(ClientCommands.literal("printscoreboard")
@@ -561,6 +576,67 @@ public final class AetherCommandRegistrar {
             }
         }
         return builder.buildFuture();
+    }
+
+    private static CompletableFuture<Suggestions> suggestThemes(SuggestionsBuilder builder) {
+        String remaining = builder.getRemaining().toLowerCase(Locale.ROOT);
+        for (ThemePreset preset : ThemePreset.values()) {
+            if (preset.id().startsWith(remaining)) builder.suggest(preset.id());
+        }
+        return builder.buildFuture();
+    }
+
+    private static CompletableFuture<Suggestions> suggestStyles(SuggestionsBuilder builder) {
+        String remaining = builder.getRemaining().toLowerCase(Locale.ROOT);
+        for (String style : GUI_STYLES) {
+            if (style.startsWith(remaining)) builder.suggest(style);
+        }
+        return builder.buildFuture();
+    }
+
+    private static int listThemes() {
+        StringBuilder names = new StringBuilder();
+        for (ThemePreset preset : ThemePreset.values()) {
+            if (!names.isEmpty()) names.append("\u00A77, ");
+            names.append(preset.active() ? "\u00A7a" : "\u00A7f").append(preset.id());
+        }
+        ClientUtils.sendMessage("\u00A7e" + AetherLang.localize("Themes:") + " " + names, false);
+        return 1;
+    }
+
+    private static int applyTheme(String name) {
+        ThemePreset preset = ThemePreset.byName(name);
+        if (preset == null) {
+            ClientUtils.sendMessage("\u00A7c" + AetherLang.localize("Unknown theme: %s").formatted(name), false);
+            return 0;
+        }
+        ThemePreset.Target target = ThemePreset.defaultTarget();
+        preset.apply(target);
+        Theme.saveTheme();
+        String message = target == ThemePreset.Target.MENU
+                ? "Applied the %s theme to the menu; your edited HUD colours were kept."
+                : "Applied the %s theme.";
+        ClientUtils.sendMessage("\u00A7a" + AetherLang.localize(message).formatted(AetherLang.localize(preset.label())),
+                false);
+        return 1;
+    }
+
+    private static int listStyles() {
+        ClientUtils.sendMessage("\u00A7e" + AetherLang.localize("GUI style: %s (aurora, terminal, inventory)")
+                .formatted(Theme.GUI_STYLE), false);
+        return 1;
+    }
+
+    private static int setStyle(String id) {
+        String style = id.toLowerCase(Locale.ROOT);
+        if (!GUI_STYLES.contains(style)) {
+            ClientUtils.sendMessage("\u00A7c" + AetherLang.localize("Unknown GUI style: %s").formatted(id), false);
+            return 0;
+        }
+        Theme.GUI_STYLE = style;
+        Theme.saveTheme();
+        ClientUtils.sendMessage("\u00A7a" + AetherLang.localize("GUI style set to %s.").formatted(style), false);
+        return 1;
     }
 
     private static CompletableFuture<Suggestions> suggestMovementReplays(SuggestionsBuilder builder) {
