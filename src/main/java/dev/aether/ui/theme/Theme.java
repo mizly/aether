@@ -176,6 +176,8 @@ public class Theme {
     // the last applied preset's id, "" when none; PRESET_MODIFIED records a colour edited since
     public static String PRESET_ID = "";
     public static boolean PRESET_MODIFIED = false;
+    // the gui's pins and recent changes; kept beside uiScale and never exported, like the fields above
+    public static JsonObject GUI_STATE = new JsonObject();
 
     // ThemeEntry labels that cycle through rainbow colors each frame
     public static final Set<String> rainbowEntries = new HashSet<>();
@@ -297,6 +299,7 @@ public class Theme {
         obj.addProperty("guiStyle", GUI_STYLE);
         obj.addProperty("presetId", PRESET_ID);
         obj.addProperty("presetModified", PRESET_MODIFIED);
+        obj.add("guiState", GUI_STATE);
         JsonArray rainbowArr = new JsonArray();
         for (String s : rainbowEntries) rainbowArr.add(s);
         obj.add("rainbowEntries", rainbowArr);
@@ -342,6 +345,7 @@ public class Theme {
             if (obj.has("guiStyle"))      GUI_STYLE       = obj.get("guiStyle").getAsString();
             if (obj.has("presetId"))      PRESET_ID       = obj.get("presetId").getAsString();
             if (obj.has("presetModified")) PRESET_MODIFIED = obj.get("presetModified").getAsBoolean();
+            if (obj.has("guiState") && obj.get("guiState").isJsonObject()) GUI_STATE = obj.getAsJsonObject("guiState");
             rainbowEntries.clear();
             if (obj.has("rainbowEntries")) {
                 obj.get("rainbowEntries").getAsJsonArray()
