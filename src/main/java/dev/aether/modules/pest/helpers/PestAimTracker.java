@@ -15,8 +15,9 @@ final class PestAimTracker {
     private static final long SAMPLE_STALE_MS = 400L;
     private static final double VELOCITY_BLEND = 0.4;
     private static final double MAX_LEAD_BLOCKS = 2.5;
-    private static final long SPOT_HOLD_MIN_MS = 400L;
-    private static final long SPOT_HOLD_MAX_MS = 1_400L;
+    // a hand settles on a spot for a few seconds, moving more often reads as the aim being dragged around
+    private static final long SPOT_HOLD_MIN_MS = 1_500L;
+    private static final long SPOT_HOLD_MAX_MS = 4_500L;
     private static final double SPOT_SMOOTHING_MS = 350.0;
     private static final long MAX_SPOT_STEP_MS = 200L;
     private static final double REACH_PER_DRIFT = 0.8;
