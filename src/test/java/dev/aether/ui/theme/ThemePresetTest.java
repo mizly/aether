@@ -15,6 +15,9 @@ class ThemePresetTest {
     private String savedTheme;
     private float savedUiScale;
     private float savedTextScale;
+    private String savedGuiStyle;
+    private String savedPresetId;
+    private boolean savedPresetModified;
 
     @BeforeAll
     static void configureLoader() throws Exception {
@@ -29,6 +32,9 @@ class ThemePresetTest {
         savedTheme = Theme.exportJson();
         savedUiScale = Theme.UI_SCALE;
         savedTextScale = Theme.TEXT_SCALE;
+        savedGuiStyle = Theme.GUI_STYLE;
+        savedPresetId = Theme.PRESET_ID;
+        savedPresetModified = Theme.PRESET_MODIFIED;
     }
 
     @AfterEach
@@ -36,6 +42,9 @@ class ThemePresetTest {
         Theme.importJson(savedTheme);
         Theme.UI_SCALE = savedUiScale;
         Theme.TEXT_SCALE = savedTextScale;
+        Theme.GUI_STYLE = savedGuiStyle;
+        Theme.PRESET_ID = savedPresetId;
+        Theme.PRESET_MODIFIED = savedPresetModified;
     }
 
     @Test
@@ -52,6 +61,21 @@ class ThemePresetTest {
     }
 
     @Test
+    void sharedThemesNeverCarryOrApplyTheGuiStyleOrPresetState() {
+        Theme.GUI_STYLE = "terminal";
+        Theme.PRESET_ID = "sage";
+        Theme.PRESET_MODIFIED = true;
+        Theme.importJson("{\"Accent\":\"FF112233\",\"guiStyle\":\"inventory\",\"presetId\":\"dusk\",\"presetModified\":false}");
+        assertEquals("terminal", Theme.GUI_STYLE);
+        assertEquals("sage", Theme.PRESET_ID);
+        assertTrue(Theme.PRESET_MODIFIED);
+        var exported = JsonParser.parseString(Theme.exportJson()).getAsJsonObject();
+        assertFalse(exported.has("guiStyle"));
+        assertFalse(exported.has("presetId"));
+        assertFalse(exported.has("presetModified"));
+    }
+
+    @Test
     void presetsDefineEveryEditableColourWithoutChangingLayout() {
         Set<String> labels = Stream.concat(Theme.ENTRIES.stream(), Theme.HUD_ENTRIES.stream())
                 .map(entry -> entry.label).collect(Collectors.toSet());
@@ -59,6 +83,9 @@ class ThemePresetTest {
         Theme.TEXT_SCALE = 1.25f;
         Theme.ANIM_TIME_MS = 400f;
         Theme.SETTING_SPACING = 9;
+        Theme.GUI_STYLE = "terminal";
+        Theme.PRESET_ID = "slate";
+        Theme.PRESET_MODIFIED = true;
 
         for (ThemePreset preset : ThemePreset.values()) {
             var json = JsonParser.parseString(preset.json()).getAsJsonObject();
@@ -72,6 +99,9 @@ class ThemePresetTest {
             assertEquals(1.25f, Theme.TEXT_SCALE);
             assertEquals(400f, Theme.ANIM_TIME_MS);
             assertEquals(9, Theme.SETTING_SPACING);
+            assertEquals("terminal", Theme.GUI_STYLE);
+            assertEquals("slate", Theme.PRESET_ID);
+            assertTrue(Theme.PRESET_MODIFIED);
         }
     }
 
@@ -96,14 +126,26 @@ class ThemePresetTest {
     void presetsPersistAndDefaultColoursPreserveScale() {
         ThemePreset.SAGE.apply();
         Theme.UI_SCALE = 2f;
+        Theme.GUI_STYLE = "inventory";
+        Theme.PRESET_ID = "sage";
+        Theme.PRESET_MODIFIED = true;
         String expected = Theme.exportJson();
         Theme.saveTheme();
         ThemePreset.EMBER.apply();
+        Theme.GUI_STYLE = "aurora";
+        Theme.PRESET_ID = "";
+        Theme.PRESET_MODIFIED = false;
         Theme.loadTheme();
         assertEquals(expected, Theme.exportJson());
+        assertEquals("inventory", Theme.GUI_STYLE);
+        assertEquals("sage", Theme.PRESET_ID);
+        assertTrue(Theme.PRESET_MODIFIED);
 
         Theme.resetColorsToDefaults();
         assertEquals(2f, Theme.UI_SCALE);
+        assertEquals("inventory", Theme.GUI_STYLE);
+        assertEquals("sage", Theme.PRESET_ID);
+        assertTrue(Theme.PRESET_MODIFIED);
         int defaultAccent = Theme.ACCENT_PRIMARY;
         int defaultHud = Theme.HUD_ACCENT;
         ThemePreset.DUSK.apply();
@@ -111,6 +153,8 @@ class ThemePresetTest {
         assertEquals(defaultAccent, Theme.ACCENT_PRIMARY);
         assertEquals(defaultHud, Theme.HUD_ACCENT);
         assertEquals(1.5f, Theme.UI_SCALE);
+        // resetting the theme is about colours and sizes; the chosen gui style stays
+        assertEquals("inventory", Theme.GUI_STYLE);
     }
 
     private static double contrast(int first, int second) {

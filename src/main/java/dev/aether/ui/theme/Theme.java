@@ -171,6 +171,12 @@ public class Theme {
 
     public static int SETTING_SPACING = 4;
 
+    // display preferences kept beside uiScale: saved in aether_theme.json, never part of a shared or preset theme
+    public static String GUI_STYLE = "aurora";
+    // the last applied preset's id, "" when none; PRESET_MODIFIED records a colour edited since
+    public static String PRESET_ID = "";
+    public static boolean PRESET_MODIFIED = false;
+
     // ThemeEntry labels that cycle through rainbow colors each frame
     public static final Set<String> rainbowEntries = new HashSet<>();
     private static float rainbowHue = 0f;
@@ -282,6 +288,9 @@ public class Theme {
         obj.addProperty("settingSpacing", SETTING_SPACING);
         obj.addProperty("uiScale", UI_SCALE);
         obj.addProperty("textScale", TEXT_SCALE);
+        obj.addProperty("guiStyle", GUI_STYLE);
+        obj.addProperty("presetId", PRESET_ID);
+        obj.addProperty("presetModified", PRESET_MODIFIED);
         JsonArray rainbowArr = new JsonArray();
         for (String s : rainbowEntries) rainbowArr.add(s);
         obj.add("rainbowEntries", rainbowArr);
@@ -312,6 +321,9 @@ public class Theme {
             if (obj.has("settingSpacing")) SETTING_SPACING = obj.get("settingSpacing").getAsInt();
             if (obj.has("uiScale"))       UI_SCALE        = Math.max(UI_SCALE_MIN, Math.min(UI_SCALE_MAX, obj.get("uiScale").getAsFloat()));
             if (obj.has("textScale"))     TEXT_SCALE      = Math.max(TEXT_SCALE_MIN, Math.min(TEXT_SCALE_MAX, obj.get("textScale").getAsFloat()));
+            if (obj.has("guiStyle"))      GUI_STYLE       = obj.get("guiStyle").getAsString();
+            if (obj.has("presetId"))      PRESET_ID       = obj.get("presetId").getAsString();
+            if (obj.has("presetModified")) PRESET_MODIFIED = obj.get("presetModified").getAsBoolean();
             rainbowEntries.clear();
             if (obj.has("rainbowEntries")) {
                 obj.get("rainbowEntries").getAsJsonArray()
