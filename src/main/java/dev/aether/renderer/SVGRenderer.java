@@ -49,7 +49,7 @@ final class SVGRenderer {
 
         String cacheKey = resourcePath + "@" + physW + "x" + physH;
         int imgHandle = getOrLoad(vg, cacheKey, resourcePath, physW, physH);
-        if (imgHandle == -1) return;
+        if (imgHandle <= 0) return;
 
         float alpha = ((argbColor >> 24) & 0xFF) / 255f;
         float r     = ((argbColor >> 16) & 0xFF) / 255f;
@@ -81,7 +81,7 @@ final class SVGRenderer {
         if (cached != null) return cached;
 
         int handle = loadSVG(vg, resourcePath, width, height);
-        if (handle != -1) {
+        if (handle > 0) {
             imageCache.put(cacheKey, handle);
         }
         return handle;
@@ -141,8 +141,10 @@ final class SVGRenderer {
         int nvgId = NanoVG.nvgCreateImageRGBA(vg, rW, rH, 0, pixels);
         MemoryUtil.memFree(pixels);
 
-        if (nvgId == -1) {
+        // nanovg returns 0 when it cannot create the image
+        if (nvgId <= 0) {
             System.err.println("[Aether] NanoVG image creation failed: " + resourcePath);
+            return -1;
         }
         return nvgId;
     }
