@@ -31,9 +31,11 @@ class CastSimTest {
     @Test
     void theThrowOnlyCountsAsSafeWithLandingPitchesEitherSide() {
         boolean[] lands = {false, true, true, true, true, true, false};
-        assertEquals(0, CastSim.castMargin(lands, 1));
-        assertEquals(2, CastSim.castMargin(lands, 3));
-        assertEquals(0, CastSim.castMargin(lands, 5));
+        assertEquals(0, CastSim.castMargin(lands, 1, 6));
+        assertEquals(2, CastSim.castMargin(lands, 3, 6));
+        assertEquals(0, CastSim.castMargin(lands, 5, 6));
+        // past the cap more room stops counting, so a wide pool cannot outrank a closer throw
+        assertEquals(1, CastSim.castMargin(lands, 3, 1));
     }
 
     @Test

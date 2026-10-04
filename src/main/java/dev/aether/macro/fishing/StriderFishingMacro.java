@@ -41,7 +41,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
     public enum State { AIM_LAVA, CAST, WAIT_BITE, REEL, FIGHT, CLEAR, RETURN }
 
-    private static final double LAVA_SCAN_RADIUS = 6.0;
     private static final double MARKER_SEARCH_SIZE = 6.0;
     private static final double TARGET_SEARCH_RADIUS = 16.0;
     // with no route the macro fishes the lava pit beside sawyer on galatea, where a caught strider cannot walk out
@@ -91,9 +90,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private static final float AIM_MAX_TURN_SPEED = 520.0f;
     private static final double ATTACK_RANGE_SLACK = 0.85;
     private static final double FOLLOW_BAND = 0.35;
-    private static final double MAX_LAVA_SCAN_RADIUS = 14.0;
-    // every cell sweeps the whole pitch range, so a few a tick keeps the search from stalling the client
-    private static final int AIM_CELLS_PER_TICK = 2;
     private static final long AIM_RETRY_MIN_MS = 400L;
     private static final long AIM_RETRY_MAX_MS = 900L;
     private static final int MAX_RETURN_ATTEMPTS = 6;
@@ -346,9 +342,10 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
         if (aimSearch == null) {
             aimSearch = new CastAimSearch(mc.level, mc.player.blockPosition(), mc.player.getEyePosition(),
-                    scanRadius(), rejectedLava, CastSim::isLava, ThreadLocalRandom.current());
+                    mc.player.getYRot(), CastAimSearch.Spec.STRIDER_CLASSIC.widened(aimSweep), rejectedLava,
+                    CastSim::isLava, ThreadLocalRandom.current());
         }
-        CastAimSearch.Step step = aimSearch.step(AIM_CELLS_PER_TICK);
+        CastAimSearch.Step step = aimSearch.step();
         if (step.status() == CastAimSearch.Status.WORKING) {
             return;
         }
@@ -364,10 +361,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         CastSim.CastAim aim = step.aim();
         aimTargetBlock = aim.block();
         RotationManager.rotateToYawPitch(mc, aim.yaw(), aim.pitch(), AetherConfig.ROTATION_TIME.get());
-    }
-
-    private int scanRadius() {
-        return (int) Math.min(LAVA_SCAN_RADIUS + aimSweep * 2.0, MAX_LAVA_SCAN_RADIUS);
     }
 
     private void tickCast(Minecraft mc) {

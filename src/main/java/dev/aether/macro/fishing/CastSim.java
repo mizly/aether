@@ -26,8 +26,6 @@ final class CastSim {
     private static final int CAST_SUBSTEPS = 4;
     private static final double CAST_HOOK_HALF_WIDTH = 0.125;
     private static final double CAST_HOOK_HEIGHT = 0.25;
-    // pitches either side that still land in lava, so a little aim error or throw scatter does not hit the rim
-    private static final int CAST_MARGIN_CAP = 6;
 
     private CastSim() {
     }
@@ -43,14 +41,34 @@ final class CastSim {
         return !fluid.isEmpty() && fluid.getType().isSame(Fluids.LAVA);
     }
 
+    static boolean isWater(BlockState state) {
+        if (state.getBlock() == Blocks.WATER) {
+            return true;
+        }
+        var fluid = state.getFluidState();
+        return !fluid.isEmpty() && fluid.getType().isSame(Fluids.WATER);
+    }
+
     // walks the bobber's flight through the world; null when it clips a block or never reaches the liquid
     // at leg-height lava the rim sits above the surface and the float drops under the crosshair, so a look is not enough
     static Vec3 predictCastLanding(CollisionGetter level, Vec3 eye, float yaw, float pitch,
                                    Predicate<BlockState> liquid, int ticks) {
+        return predictCastLanding(level, eye, yaw, pitch, liquid, ticks, Double.POSITIVE_INFINITY);
+    }
+
+    // the float only ever moves further out along the yaw, so once past maxHorizontal it cannot land inside it
+    static Vec3 predictCastLanding(CollisionGetter level, Vec3 eye, float yaw, float pitch,
+                                   Predicate<BlockState> liquid, int ticks, double maxHorizontal) {
+        double maxSquared = maxHorizontal * maxHorizontal;
         Vec3[] path = castPath(eye, yaw, pitch, ticks);
         for (int i = 1; i < path.length; i++) {
             for (int step = 1; step <= CAST_SUBSTEPS; step++) {
                 Vec3 at = path[i - 1].lerp(path[i], step / (double) CAST_SUBSTEPS);
+                double dx = at.x - eye.x;
+                double dz = at.z - eye.z;
+                if (dx * dx + dz * dz > maxSquared) {
+                    return null;
+                }
                 BlockPos pos = BlockPos.containing(at);
                 BlockState state = level.getBlockState(pos);
                 if (liquid.test(state) && at.y <= pos.getY() + state.getFluidState().getHeight(level, pos)) {
@@ -96,13 +114,13 @@ final class CastSim {
     }
 
     // how many pitch steps either side of the pick still land, capped so a wide pool does not beat a close one
-    static int castMargin(boolean[] lands, int index) {
+    static int castMargin(boolean[] lands, int index, int cap) {
         int left = 0;
-        while (left < CAST_MARGIN_CAP && index - left - 1 >= 0 && lands[index - left - 1]) {
+        while (left < cap && index - left - 1 >= 0 && lands[index - left - 1]) {
             left++;
         }
         int right = 0;
-        while (right < CAST_MARGIN_CAP && index + right + 1 < lands.length && lands[index + right + 1]) {
+        while (right < cap && index + right + 1 < lands.length && lands[index + right + 1]) {
             right++;
         }
         return Math.min(left, right);
