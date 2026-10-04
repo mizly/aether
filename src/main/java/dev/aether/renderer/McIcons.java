@@ -144,10 +144,11 @@ public final class McIcons {
         return cached(new McIcon.Item(itemId).id());
     }
 
-    // drops resolved icons and parsed models; textures are McTextures.invalidate's job
+    // drops resolved icons, parsed models and iso geometry; textures are McTextures.invalidate's job
     public static void invalidate() {
         cache.clear();
         McModels.invalidate();
+        IsoBlockPainter.invalidate();
     }
 
     static McIcon drawable(McIcon icon) {

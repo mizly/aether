@@ -109,12 +109,14 @@ class McIconsTest {
     @Test
     void everyConstantResolvesToSomethingDrawable() throws Exception {
         for (Map.Entry<String, McIcon> constant : constants()) {
-            assertNotNull(McIcons.drawable(constant.getValue()), constant.getKey());
+            McIcon icon = McIcons.drawable(constant.getValue());
+            assertNotNull(icon, constant.getKey());
+            assertFalse(IsoBlockPainter.faces(icon).isEmpty(), constant.getKey() + " has visible faces");
         }
     }
 
     @Test
-    void nearlyEveryVanillaItemResolves() throws Exception {
+    void nearlyEveryVanillaItemResolvesAndProjects() throws Exception {
         List<String> unresolved = new ArrayList<>();
         int total = 0;
         URI jar = McIconsTest.class.getResource("/assets/minecraft/items/wheat.json").toURI();
@@ -124,10 +126,10 @@ class McIconsTest {
                 String id = file.getFileName().toString().replace(".json", "");
                 total++;
                 McIcon icon = McIcons.of(id);
-                if (icon == null) unresolved.add(id);
+                if (icon == null || IsoBlockPainter.faces(icon).isEmpty()) unresolved.add(id);
             }
         }
-        System.out.println("[McIconsTest] " + (total - unresolved.size()) + "/" + total + " vanilla items resolve; not: " + unresolved);
+        System.out.println("[McIconsTest] " + (total - unresolved.size()) + "/" + total + " vanilla items draw; not: " + unresolved);
         assertTrue(total > 1400, "found the vanilla item definitions");
         assertTrue(unresolved.size() < total / 20, "unresolved: " + unresolved);
     }
