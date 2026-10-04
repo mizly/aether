@@ -6,6 +6,7 @@ import dev.aether.modules.rotation.HumanFlick;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.RotationUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.Vec3;
@@ -42,21 +43,22 @@ final class PestAimAcquisition {
     private static final double ANTICIPATED_DEGREES = 25.0;
     private static final double ANTICIPATED_REACTION_SCALE = 0.75;
     private static final double FLICK_MIN_DEGREES = 10.0;
-    private static final double FOLLOW_UP_MIN_DEGREES = 4.0;
+    private static final double FOLLOW_UP_MIN_DEGREES = 10.0;
     private static final int MAX_FOLLOW_UPS = 2;
     private static final double MAX_FLICK_PITCH = 75.0;
     private static final double MIN_FLICK_HORIZONTAL = 1.2;
-    private static final double REACT_MIN_MS = 30.0;
-    private static final double REACT_MAX_MS = 90.0;
-    private static final double SEARCH_MIN_MS = 40.0;
-    private static final double SEARCH_MAX_MS = 140.0;
+    private static final double REACT_MIN_MS = 20.0;
+    private static final double REACT_MAX_MS = 60.0;
+    private static final double SEARCH_MIN_MS = 60.0;
+    private static final double SEARCH_MAX_MS = 160.0;
     private static final double MIN_TEMPO = 0.90;
     private static final double MAX_TEMPO = 1.15;
     private static final long MEMORY_WINDOW_MS = 8_000L;
-    private static final double MEMORY_DOUBLES_AFTER_MS = 4_000.0;
-    private static final double UNSEEN_ERROR_SCALE = 3.0;
-    private static final double UNSEEN_MIN_ERROR_DEGREES = 8.0;
-    private static final double PITCH_ERROR_SCALE = 0.5;
+    private static final double MEMORY_DOUBLES_AFTER_MS = 8_000.0;
+    private static final double UNSEEN_ERROR_SCALE = 1.5;
+    private static final double UNSEEN_MIN_ERROR_DEGREES = 5.0;
+    private static final double PITCH_ERROR_SCALE = 0.3;
+    private static final double MAX_PITCH_ERROR_DEGREES = 6.0;
     private static final double MAX_ERROR_SIGMAS = 2.5;
     private static final double MAX_REMEMBERED_PITCH = 85.0;
 
@@ -78,12 +80,27 @@ final class PestAimAcquisition {
 
     // true holds the camera through a reaction even when no flick follows, false leaves the turn to the caller
     boolean begin(Minecraft client, PestDestroyerRuntime runtime, Entity target, AimKind kind, long now) {
+        return start(client, runtime, target, kind, now, true);
+    }
+
+    // for a pest already being chased or just landed next to, where waiting to notice it would freeze the camera
+    boolean beginNow(Minecraft client, PestDestroyerRuntime runtime, Entity target, AimKind kind, long now) {
+        return start(client, runtime, target, kind, now, false);
+    }
+
+    private boolean start(Minecraft client, PestDestroyerRuntime runtime, Entity target, AimKind kind, long now,
+                          boolean noticeFirst) {
         if (isGone(target) || target != runtime.currentTarget || !AetherConfig.PEST_HUMAN_TARGET_SWITCH.get()
                 || FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
             return false;
         }
         reset();
         RotationManager.cancelRotation();
+        if (!noticeFirst) {
+            perceive(target.getId(), kind, now, 0L);
+            decide(client, runtime, target, FLICK_MIN_DEGREES, now);
+            return true;
+        }
         double offAxis = PestView.angleFromCrosshair(client, liveAim(client, runtime, target, kind));
         perceive(target.getId(), kind, now, perceiveMs(ThreadLocalRandom.current(), tempo,
                 AetherConfig.PEST_REACTION_MIN_MS.get(), AetherConfig.PEST_REACTION_MAX_MS.get(), offAxis));
@@ -183,7 +200,9 @@ final class PestAimAcquisition {
             return;
         }
         HumanFlick.Style style = style(AetherConfig.PEST_OVERSHOOT_MIN_ANGLE.get(),
-                AetherConfig.PEST_OVERSHOOT_CHANCE.get(), AetherConfig.PEST_OVERSHOOT_AMOUNT_MIN.get(),
+                mostlyVertical(client.player.getYRot(), client.player.getXRot(), look)
+                        ? 0 : AetherConfig.PEST_OVERSHOOT_CHANCE.get(),
+                AetherConfig.PEST_OVERSHOOT_AMOUNT_MIN.get(),
                 AetherConfig.PEST_OVERSHOOT_AMOUNT_MAX.get(), AetherConfig.PEST_NEXT_TARGET_TURN_SPEED.get(),
                 targetWidthDegrees(target.getBbWidth(), eye.distanceTo(believedEye)));
         flickId = HumanFlick.start(client, look.yaw, look.pitch, usedMemory ? withoutSpread(style) : style);
@@ -198,8 +217,7 @@ final class PestAimAcquisition {
         if (!usedMemory) {
             return reactMs(ThreadLocalRandom.current(), tempo);
         }
-        return searchMs(ThreadLocalRandom.current(), tempo, AetherConfig.PEST_REACTION_MIN_MS.get(),
-                AetherConfig.PEST_REACTION_MAX_MS.get());
+        return searchMs(ThreadLocalRandom.current(), tempo);
     }
 
     private void hold(Phase phase, long now, long ms) {
@@ -244,10 +262,9 @@ final class PestAimAcquisition {
         return Math.round(tempo * HumanFlick.skewed(random, REACT_MIN_MS, REACT_MAX_MS));
     }
 
-    // after a swing toward where the pest should be it still has to be spotted, then reacted to
-    static long searchMs(RandomGenerator random, double tempo, int reactionMinMs, int reactionMaxMs) {
-        return Math.round(tempo * (HumanFlick.skewed(random, reactionMinMs, reactionMaxMs)
-                + HumanFlick.skewed(random, SEARCH_MIN_MS, SEARCH_MAX_MS)));
+    // after a swing toward where the pest should be it still has to be spotted before the correction
+    static long searchMs(RandomGenerator random, double tempo) {
+        return Math.round(tempo * HumanFlick.skewed(random, SEARCH_MIN_MS, SEARCH_MAX_MS));
     }
 
     // a pest still out of sight on a second look is placed by its rough bearing, not where it was remembered
@@ -255,7 +272,7 @@ final class PestAimAcquisition {
         return followUp ? null : sightings.lastSeen(targetId, now, MEMORY_WINDOW_MS);
     }
 
-    // a fresh memory is off by about the configured error, growing to three times it over 8 s,
+    // a fresh memory is off by about the configured error, growing to twice it over 8 s,
     // and a pest never seen is only a rough bearing, as if heard rather than seen
     static double memoryErrorDegrees(PestSightings.Sighting sighting, double errorDegrees) {
         if (sighting == null) {
@@ -265,11 +282,11 @@ final class PestAimAcquisition {
     }
 
     // pests keep to a band of height but can be anywhere around, so memory errs mostly in bearing,
-    // and the cut at 2.5 sigma stops a rare draw from swinging somewhere absurd
+    // and the cuts stop a rare draw from swinging somewhere absurd like the sky
     static RotationUtils.Rotation misjudge(RotationUtils.Rotation look, double errorDegrees, RandomGenerator random) {
         double yawError = Math.clamp(random.nextGaussian(), -MAX_ERROR_SIGMAS, MAX_ERROR_SIGMAS) * errorDegrees;
-        double pitchError = Math.clamp(random.nextGaussian(), -MAX_ERROR_SIGMAS, MAX_ERROR_SIGMAS)
-                * PITCH_ERROR_SCALE * errorDegrees;
+        double pitchError = Math.clamp(random.nextGaussian() * PITCH_ERROR_SCALE * errorDegrees,
+                -MAX_PITCH_ERROR_DEGREES, MAX_PITCH_ERROR_DEGREES);
         return new RotationUtils.Rotation((float) (look.yaw + yawError),
                 (float) Math.clamp(look.pitch + pitchError, -MAX_REMEMBERED_PITCH, MAX_REMEMBERED_PITCH));
     }
@@ -279,6 +296,11 @@ final class PestAimAcquisition {
         return offAxisDegrees > minDegrees
                 && Math.abs(pitch) <= MAX_FLICK_PITCH
                 && horizontalDistance >= MIN_FLICK_HORIZONTAL;
+    }
+
+    // a mouse overshoots along its sideways sweep, a mostly up or down turn overshooting flings the view at the sky
+    static boolean mostlyVertical(float yaw, float pitch, RotationUtils.Rotation look) {
+        return Math.abs(look.pitch - pitch) > Math.abs(Mth.wrapDegrees(look.yaw - yaw));
     }
 
     static boolean needsFollowUp(double residualDegrees, int followUps) {

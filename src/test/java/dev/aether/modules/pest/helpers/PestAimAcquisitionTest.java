@@ -48,7 +48,7 @@ class PestAimAcquisitionTest {
         for (double tempo : new double[]{0.90, 1.0, 1.15}) {
             for (int i = 0; i < 500; i++) {
                 long react = PestAimAcquisition.reactMs(random, tempo);
-                assertTrue(react >= Math.floor(30.0 * tempo) && react <= Math.ceil(90.0 * tempo),
+                assertTrue(react >= Math.floor(20.0 * tempo) && react <= Math.ceil(60.0 * tempo),
                         tempo + " -> " + react);
             }
         }
@@ -67,12 +67,12 @@ class PestAimAcquisitionTest {
     }
 
     @Test
-    void aMissIsFollowedUpOnlyPastFourDegreesAndAtMostTwice() {
-        assertTrue(PestAimAcquisition.needsFollowUp(4.5, 0));
+    void aMissIsFollowedUpOnlyPastTenDegreesAndAtMostTwice() {
+        assertTrue(PestAimAcquisition.needsFollowUp(10.5, 0));
         assertTrue(PestAimAcquisition.needsFollowUp(30.0, 1));
         assertFalse(PestAimAcquisition.needsFollowUp(30.0, 2));
-        assertFalse(PestAimAcquisition.needsFollowUp(4.0, 0));
-        assertFalse(PestAimAcquisition.needsFollowUp(1.2, 0));
+        assertFalse(PestAimAcquisition.needsFollowUp(10.0, 0));
+        assertFalse(PestAimAcquisition.needsFollowUp(4.5, 0));
     }
 
     @Test
@@ -178,16 +178,16 @@ class PestAimAcquisitionTest {
     @Test
     void aMemoryGrowsVaguerWithAgeAndAnUnseenPestIsOnlyARoughBearing() {
         assertEquals(6.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(0L), 6.0), 1.0e-9);
-        assertEquals(9.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(2_000L), 6.0), 1.0e-9);
-        assertEquals(12.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(4_000L), 6.0), 1.0e-9);
-        assertEquals(18.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(8_000L), 6.0), 1.0e-9);
-        assertEquals(18.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(20_000L), 6.0), 1.0e-9);
+        assertEquals(7.5, PestAimAcquisition.memoryErrorDegrees(seenAgo(2_000L), 6.0), 1.0e-9);
+        assertEquals(9.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(4_000L), 6.0), 1.0e-9);
+        assertEquals(12.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(8_000L), 6.0), 1.0e-9);
+        assertEquals(12.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(20_000L), 6.0), 1.0e-9);
         assertEquals(0.0, PestAimAcquisition.memoryErrorDegrees(seenAgo(5_000L), 0.0), 1.0e-9);
 
-        assertEquals(18.0, PestAimAcquisition.memoryErrorDegrees(null, 6.0), 1.0e-9);
-        assertEquals(60.0, PestAimAcquisition.memoryErrorDegrees(null, 20.0), 1.0e-9);
-        assertEquals(8.0, PestAimAcquisition.memoryErrorDegrees(null, 2.0), 1.0e-9);
-        assertEquals(8.0, PestAimAcquisition.memoryErrorDegrees(null, 0.0), 1.0e-9);
+        assertEquals(9.0, PestAimAcquisition.memoryErrorDegrees(null, 6.0), 1.0e-9);
+        assertEquals(30.0, PestAimAcquisition.memoryErrorDegrees(null, 20.0), 1.0e-9);
+        assertEquals(5.0, PestAimAcquisition.memoryErrorDegrees(null, 2.0), 1.0e-9);
+        assertEquals(5.0, PestAimAcquisition.memoryErrorDegrees(null, 0.0), 1.0e-9);
     }
 
     @Test
@@ -201,14 +201,14 @@ class PestAimAcquisitionTest {
             double yawError = guess.yaw - 120.0;
             double pitchError = guess.pitch - 20.0;
             assertTrue(Math.abs(yawError) <= 25.0 + 1.0e-4, "yaw " + yawError);
-            assertTrue(Math.abs(pitchError) <= 12.5 + 1.0e-4, "pitch " + pitchError);
+            assertTrue(Math.abs(pitchError) <= 6.0 + 1.0e-4, "pitch " + pitchError);
             yawSquares += yawError * yawError;
             pitchSquares += pitchError * pitchError;
         }
         double yawSpread = Math.sqrt(yawSquares / 500);
         double pitchSpread = Math.sqrt(pitchSquares / 500);
         assertTrue(yawSpread > 8.5 && yawSpread < 11.5, "yaw spread " + yawSpread);
-        assertTrue(pitchSpread > 4.25 && pitchSpread < 5.75, "pitch spread " + pitchSpread);
+        assertTrue(pitchSpread > 2.5 && pitchSpread < 3.5, "pitch spread " + pitchSpread);
     }
 
     @Test
@@ -216,9 +216,9 @@ class PestAimAcquisitionTest {
         SplittableRandom random = new SplittableRandom(23);
         boolean clamped = false;
         for (int i = 0; i < 500; i++) {
-            RotationUtils.Rotation up = PestAimAcquisition.misjudge(new RotationUtils.Rotation(0.0f, -80.0f), 20.0,
+            RotationUtils.Rotation up = PestAimAcquisition.misjudge(new RotationUtils.Rotation(0.0f, -83.0f), 20.0,
                     random);
-            RotationUtils.Rotation down = PestAimAcquisition.misjudge(new RotationUtils.Rotation(0.0f, 80.0f), 20.0,
+            RotationUtils.Rotation down = PestAimAcquisition.misjudge(new RotationUtils.Rotation(0.0f, 83.0f), 20.0,
                     random);
             assertTrue(up.pitch >= -85.0f && up.pitch <= 85.0f, "up " + up.pitch);
             assertTrue(down.pitch >= -85.0f && down.pitch <= 85.0f, "down " + down.pitch);
@@ -233,25 +233,24 @@ class PestAimAcquisitionTest {
     }
 
     @Test
-    void aRememberedSwingIsFollowedByAReactionAndASearch() {
+    void aRememberedSwingIsFollowedByAShortSearch() {
         SplittableRandom random = new SplittableRandom(29);
         for (double tempo : new double[]{0.90, 1.0, 1.15}) {
             for (int i = 0; i < 500; i++) {
-                long search = PestAimAcquisition.searchMs(random, tempo, 150, 320);
-                assertTrue(search >= Math.floor(190.0 * tempo) && search <= Math.ceil(460.0 * tempo),
+                long search = PestAimAcquisition.searchMs(random, tempo);
+                assertTrue(search >= Math.floor(60.0 * tempo) && search <= Math.ceil(160.0 * tempo),
                         tempo + " -> " + search);
-                long swapped = PestAimAcquisition.searchMs(random, tempo, 320, 150);
-                assertTrue(swapped >= Math.floor(190.0 * tempo) && swapped <= Math.ceil(460.0 * tempo),
-                        tempo + " swapped -> " + swapped);
                 assertTrue(search > PestAimAcquisition.reactMs(random, tempo));
             }
         }
-        for (int i = 0; i < 500; i++) {
-            long fixed = PestAimAcquisition.searchMs(random, 1.0, 200, 200);
-            assertTrue(fixed >= 240L && fixed <= 340L, "fixed " + fixed);
-            long instant = PestAimAcquisition.searchMs(random, 1.0, 0, 0);
-            assertTrue(instant >= 40L && instant <= 140L, "instant " + instant);
-        }
+    }
+
+    @Test
+    void onlyAMostlySidewaysTurnMayOvershoot() {
+        assertFalse(PestAimAcquisition.mostlyVertical(0.0f, 30.0f, new RotationUtils.Rotation(170.0f, 20.0f)));
+        assertFalse(PestAimAcquisition.mostlyVertical(170.0f, 0.0f, new RotationUtils.Rotation(-170.0f, 15.0f)));
+        assertTrue(PestAimAcquisition.mostlyVertical(0.0f, 35.0f, new RotationUtils.Rotation(20.0f, -60.0f)));
+        assertTrue(PestAimAcquisition.mostlyVertical(179.0f, -40.0f, new RotationUtils.Rotation(-179.0f, 10.0f)));
     }
 
     @Test

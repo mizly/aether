@@ -605,10 +605,10 @@ final class PestCombatCoordinator {
             // a hop can land beside or past the pest, so finding it again is a fresh turn,
             // made by the back-up check on the first kill tick when it may back up first
             if (runtime.currentTargetUsesLasso) {
-                runtime.acquisition.begin(client, runtime, currentTarget, PestAimAcquisition.AimKind.HUNT,
+                runtime.acquisition.beginNow(client, runtime, currentTarget, PestAimAcquisition.AimKind.HUNT,
                         System.currentTimeMillis());
             } else if (!arrivedViaAotv || !AetherConfig.PEST_AOTV_BACK_UP.get()) {
-                runtime.acquisition.begin(client, runtime, currentTarget, PestAimAcquisition.AimKind.VACUUM,
+                runtime.acquisition.beginNow(client, runtime, currentTarget, PestAimAcquisition.AimKind.VACUUM,
                         System.currentTimeMillis());
             }
         } else {
@@ -733,7 +733,7 @@ final class PestCombatCoordinator {
             // backing away from a pest behind flies over it, so turn round first and look again
             if (backoff.requestTurn()) {
                 ClientUtils.sendDebugMessage("[PestDestroyer] AOTV landed past the pest. Turning before backing up.");
-                runtime.acquisition.begin(client, runtime, target, PestAimAcquisition.AimKind.VACUUM,
+                runtime.acquisition.beginNow(client, runtime, target, PestAimAcquisition.AimKind.VACUUM,
                         System.currentTimeMillis());
             }
             return false;
@@ -811,7 +811,7 @@ final class PestCombatCoordinator {
 
     private static void turnOntoPest(Minecraft client, PestDestroyerRuntime runtime, Entity target) {
         if (!runtime.acquisition.ownsCamera(target)) {
-            runtime.acquisition.begin(client, runtime, target, PestAimAcquisition.AimKind.VACUUM,
+            runtime.acquisition.beginNow(client, runtime, target, PestAimAcquisition.AimKind.VACUUM,
                     System.currentTimeMillis());
         }
     }
@@ -1227,7 +1227,7 @@ final class PestCombatCoordinator {
         PestDestroyerRuntime runtime = context.runtime();
         long now = System.currentTimeMillis();
         if (now - runtime.lastPathHandoffArmAt >= PATH_HANDOFF_REARM_MS
-                && runtime.acquisition.begin(client, runtime, target, kind, now)) {
+                && runtime.acquisition.beginNow(client, runtime, target, kind, now)) {
             runtime.lastPathHandoffArmAt = now;
         }
     }
