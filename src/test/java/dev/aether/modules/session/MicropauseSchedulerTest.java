@@ -256,6 +256,29 @@ class MicropauseSchedulerTest {
         assertEquals(300_000L - 31_000L, scheduler.farmingMsUntilDue());
     }
 
+    @Test
+    void thePendingIntervalStaysPutWhileTheBoundsAreUnchanged() {
+        farm(Settings.of(true, 1, 10, 5, 5));
+        long due = scheduler.farmingMsUntilDue();
+        for (int i = 1; i <= 100; i++) {
+            farm(Settings.of(true, 1, 10, 5, 5));
+            assertEquals(due - i * TICK_MS, scheduler.farmingMsUntilDue());
+        }
+    }
+
+    @Test
+    void aFarmingDropDuringTheSettleStartsItAgain() {
+        farm(ONE_SECOND);
+        for (int i = 0; i < 25; i++) {
+            assertEquals(FARM, farm(ONE_SECOND));
+        }
+        for (int i = 0; i < 200; i++) {
+            assertEquals(FARM, step(TICK_MS, false, CALM, ONE_SECOND));
+        }
+        long beganAfter = farmUntil(BEGIN_PAUSE, ONE_SECOND, 7_000L);
+        assertTrue(beganAfter >= 2_050L && beganAfter <= 6_050L, "began after " + beganAfter);
+    }
+
     private Action farm(Settings settings) {
         return step(TICK_MS, true, CALM, settings);
     }
