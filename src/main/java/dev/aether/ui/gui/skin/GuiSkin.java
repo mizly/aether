@@ -505,6 +505,28 @@ public abstract class GuiSkin {
         g.restore();
     }
 
+    public void iconButton(SkinContext c, Rect r, Icon icon, float hoverT, boolean pressed, boolean enabled) {
+        GuiCanvas g = c.canvas();
+        Palette p = c.palette();
+        float radius = metrics().fieldRadius() - 1f;
+        g.save();
+        if (!enabled) {
+            g.alpha(0.38f);
+            hoverT = 0f;
+        }
+        g.roundedRect(r, radius, Argb.mix(p.element(), p.accent(), 0.12f * hoverT));
+        if (pressed) {
+            g.roundedRect(r, radius, p.pressed());
+        }
+        g.strokeRect(r, radius, c.pixel(), Argb.mix(hairline(p, 0.09f), Argb.withAlpha(p.accent(), 0.5f), hoverT));
+        if (icon != null) {
+            float size = metrics().iconSize();
+            int tint = icon instanceof Icon.Item ? WHITE : Argb.mix(p.textMuted(), p.accent(), hoverT);
+            g.icon(icon, r.centerX() - size / 2f, r.centerY() - size / 2f, size, tint);
+        }
+        g.restore();
+    }
+
     // a text, number or value box; focused gets the accent edge and glow
     public void field(SkinContext c, Rect r, boolean focused, float hoverT, boolean invalid) {
         GuiCanvas g = c.canvas();
@@ -570,6 +592,12 @@ public abstract class GuiSkin {
     // a closed dropdown: optional option icon, the value (or "unknown: X" in muted text) and a chevron
     public void dropdownField(SkinContext c, Rect r, String value, Icon icon, boolean open, float hoverT,
                               boolean enabled, boolean unknown) {
+        dropdownField(c, r, value, icon, open, hoverT, enabled, unknown, false);
+    }
+
+    // placeholder draws the value muted, for pickers that start empty
+    public void dropdownField(SkinContext c, Rect r, String value, Icon icon, boolean open, float hoverT,
+                              boolean enabled, boolean unknown, boolean placeholder) {
         GuiCanvas g = c.canvas();
         Palette p = c.palette();
         float radius = metrics().fieldRadius();
@@ -595,7 +623,7 @@ public abstract class GuiSkin {
         }
         float chevronW = 24f;
         Rect textRect = Rect.ofEdges(x, r.y(), r.right() - chevronW, r.bottom());
-        textLeft(c, FontRole.BODY, value, textRect, unknown ? p.warning() : p.textValue());
+        textLeft(c, FontRole.BODY, value, textRect, unknown ? p.warning() : placeholder ? p.textMuted() : p.textValue());
         Glyphs.draw(g, open ? Glyph.CHEVRON_UP : Glyph.CHEVRON_DOWN, r.right() - chevronW / 2f - 3f, r.centerY(),
                 11f, 1.5f, Argb.mix(p.textMuted(), p.text(), hoverT));
         g.restore();
