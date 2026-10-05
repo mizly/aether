@@ -107,15 +107,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     // the pool sits beside the start block; a catch this far out, or one that jumped this far in a tick, was moved
     private static final double CAGE_RADIUS = 7.0;
     private static final double CAGE_TELEPORT_JUMP = 3.0;
-    // the hotbar key for the whip goes down a beat before the right click, never on the same frame
-    private static final long WHIP_DRAW_MIN_MS = 45L;
-    private static final long WHIP_DRAW_MAX_MS = 120L;
-    private static final long WHIP_INTERVAL_MIN_MS = 350L;
-    private static final long WHIP_INTERVAL_MAX_MS = 800L;
-    // now and then the weapon key is fumbled a little late, the way a real hand misses the rhythm
-    private static final int WHIP_HESITATE_ONE_IN = 12;
-    private static final long WHIP_HESITATE_MIN_MS = 30L;
-    private static final long WHIP_HESITATE_MAX_MS = 90L;
     private static final float WHIP_AIM_TOLERANCE_DEGREES = 6.0f;
     // the whip's swing lands above the crosshair, so aiming at the legs puts it through the body
     private static final double WHIP_AIM_HEIGHT = 0.15;
@@ -153,11 +144,10 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     // outlives the macro instance, so a stop and start in the same lobby picks the pool back up
     private static final Set<Integer> rememberedCatchIds = new LinkedHashSet<>();
     private static WeakReference<Level> rememberedLevel = new WeakReference<>(null);
-    private long whipClickAt;
-    private long whipSwapAt;
-    private long whipNextAt;
+    private final AbilitySwapClicker whipClicker = new AbilitySwapClicker(AbilitySwapClicker.SOUL_WHIP,
+            slot -> FailsafeManager.selectHotbarSlot(Minecraft.getInstance(), slot),
+            ClientUtils::performUseClickInstant);
     private int ticks;
-    private int whipClickTick;
     private final Map<Integer, Vec3> catchLastSeen = new HashMap<>();
     private final Set<Integer> manualKillIds = new HashSet<>();
     private int whipsAtTarget;
@@ -603,8 +593,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return;
         }
         // only between swings, so a give up never leaves the whip in hand mid swap
-        if (whipClickAt == 0L && whipSwapAt == 0L
-                && whipFailing(whipsAtTarget, now - whipTargetSince)) {
+        if (!whipClicker.midUse() && whipFailing(whipsAtTarget, now - whipTargetSince)) {
             giveUpWhip();
             engage(mc, now);
             return;
@@ -669,34 +658,11 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         Vec3 aim = whipAimPoint(target);
         RotationManager.trackRotation(mc, aim, AIM_SMOOTHING_MS, AIM_MAX_TURN_SPEED);
 
-        if (whipSwapAt != 0L) {
-            // the click is only sent on the tick after it was queued, and the swap must not beat it there
-            if (now >= whipSwapAt && ticks > whipClickTick) {
-                FailsafeManager.selectHotbarSlot(mc, weaponSlot());
-                whipSwapAt = 0L;
-                whipNextAt = now + nextWhipIntervalMs(ThreadLocalRandom.current());
-            }
-            return;
+        if (whipClicker.tick(now, ticks, soulWhipSlot(), weaponSlot(),
+                AetherConfig.STRIDER_FISHING_WHIP_SWAP_MIN.get(), AetherConfig.STRIDER_FISHING_WHIP_SWAP_MAX.get(),
+                () -> isAimedAt(mc, aim), ThreadLocalRandom.current())) {
+            whipsAtTarget++;
         }
-
-        if (whipClickAt != 0L) {
-            if (now >= whipClickAt) {
-                ClientUtils.performUseClickInstant();
-                whipsAtTarget++;
-                whipClickAt = 0L;
-                whipClickTick = ticks;
-                whipSwapAt = now + nextWhipSwapDelayMs(ThreadLocalRandom.current(),
-                        AetherConfig.STRIDER_FISHING_WHIP_SWAP_MIN.get(),
-                        AetherConfig.STRIDER_FISHING_WHIP_SWAP_MAX.get());
-            }
-            return;
-        }
-
-        if (now < whipNextAt || !isAimedAt(mc, aim)) {
-            return;
-        }
-        FailsafeManager.selectHotbarSlot(mc, soulWhipSlot());
-        whipClickAt = now + nextWhipDrawDelayMs(ThreadLocalRandom.current());
     }
 
     private void finishClear(Minecraft mc, long now) {
@@ -723,9 +689,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     }
 
     private void clearWhip() {
-        whipClickAt = 0L;
-        whipSwapAt = 0L;
-        whipNextAt = 0L;
+        whipClicker.reset();
     }
 
     private int pruneDeadCatches(Minecraft mc) {
@@ -778,38 +742,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
     static boolean soulWhipGoalReached(int pooled, int goal) {
         return pooled >= goal;
-    }
-
-    // two uniforms averaged make a triangle, so most swaps land mid range and the edges stay rare
-    static long nextWhipSwapDelayMs(ThreadLocalRandom random, int min, int max) {
-        int lo = Math.min(min, max);
-        int hi = Math.max(min, max);
-        double t = (random.nextDouble() + random.nextDouble()) / 2.0;
-        long delay = Math.round(lo + (hi - lo) * t);
-        if (random.nextInt(WHIP_HESITATE_ONE_IN) == 0) {
-            delay += random.nextLong(WHIP_HESITATE_MIN_MS, WHIP_HESITATE_MAX_MS + 1);
-        }
-        return delay;
-    }
-
-    static boolean whipSwapDelayInRange(long delay, int min, int max) {
-        return delay >= Math.min(min, max) && delay <= Math.max(min, max) + WHIP_HESITATE_MAX_MS;
-    }
-
-    static long nextWhipDrawDelayMs(ThreadLocalRandom random) {
-        return random.nextLong(WHIP_DRAW_MIN_MS, WHIP_DRAW_MAX_MS + 1);
-    }
-
-    static boolean whipDrawDelayInRange(long delay) {
-        return delay >= WHIP_DRAW_MIN_MS && delay <= WHIP_DRAW_MAX_MS;
-    }
-
-    static long nextWhipIntervalMs(ThreadLocalRandom random) {
-        return random.nextLong(WHIP_INTERVAL_MIN_MS, WHIP_INTERVAL_MAX_MS + 1);
-    }
-
-    static boolean whipIntervalInRange(long delay) {
-        return delay >= WHIP_INTERVAL_MIN_MS && delay <= WHIP_INTERVAL_MAX_MS;
     }
 
     private static boolean soulWhipFishing() {

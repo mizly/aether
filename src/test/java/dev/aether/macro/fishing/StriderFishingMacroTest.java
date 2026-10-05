@@ -194,40 +194,6 @@ class StriderFishingMacroTest {
     }
 
     @Test
-    void theWeaponSwapLandsInsideTheConfiguredWindowPlusTheOddFumble() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        boolean sawVariety = false;
-        long first = StriderFishingMacro.nextWhipSwapDelayMs(random, 40, 130);
-        for (int i = 0; i < 2000; i++) {
-            long delay = StriderFishingMacro.nextWhipSwapDelayMs(random, 40, 130);
-            assertTrue(StriderFishingMacro.whipSwapDelayInRange(delay, 40, 130));
-            assertTrue(delay >= 40L && delay <= 220L);
-            sawVariety |= delay != first;
-        }
-        assertTrue(sawVariety);
-    }
-
-    @Test
-    void swappedSwapBoundsStillProduceAValidDelay() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            long delay = StriderFishingMacro.nextWhipSwapDelayMs(random, 130, 40);
-            assertTrue(StriderFishingMacro.whipSwapDelayInRange(delay, 40, 130));
-        }
-    }
-
-    @Test
-    void theWhipIsDrawnABeatBeforeTheClickAndSwungOnALooseRhythm() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            long draw = StriderFishingMacro.nextWhipDrawDelayMs(random);
-            assertTrue(StriderFishingMacro.whipDrawDelayInRange(draw));
-            assertTrue(draw >= 45L);
-            assertTrue(StriderFishingMacro.whipIntervalInRange(StriderFishingMacro.nextWhipIntervalMs(random)));
-        }
-    }
-
-    @Test
     void theWhipOnlyFiresOnceTheCrosshairIsNearTheStrider() {
         assertTrue(StriderFishingMacro.aimWithin(10.0f, 20.0f, 14.0f, 24.0f, 6.0f));
         assertFalse(StriderFishingMacro.aimWithin(10.0f, 20.0f, 30.0f, 20.0f, 6.0f));
