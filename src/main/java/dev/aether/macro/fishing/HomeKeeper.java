@@ -41,6 +41,7 @@ final class HomeKeeper {
     private final String tag;
     private final BooleanSupplier etherwarpReturn;
     private final Predicate<Entity> escapeFrom;
+    private final boolean upright;
     private BlockPos origin;
     private int returnAttempts;
     private boolean returnPathStarted;
@@ -53,11 +54,13 @@ final class HomeKeeper {
     private long centeringSince;
     private long jumpHoldAt;
 
-    // escapeFrom picks the liquids worth jumping out of; it also holds the walk home until we are clear of them
-    HomeKeeper(String tag, BooleanSupplier etherwarpReturn, Predicate<Entity> escapeFrom) {
+    // escapeFrom picks the liquids worth jumping out of; it also holds the walk home until we are clear of them.
+    // upright walks home standing and insists on a full path, so a step up near the block cannot stall it
+    HomeKeeper(String tag, BooleanSupplier etherwarpReturn, Predicate<Entity> escapeFrom, boolean upright) {
         this.tag = tag;
         this.etherwarpReturn = etherwarpReturn;
         this.escapeFrom = escapeFrom;
+        this.upright = upright;
     }
 
     void start(BlockPos origin) {
@@ -212,6 +215,11 @@ final class HomeKeeper {
 
     private void startWalkHome(Minecraft mc, Vec3 home) {
         returnByWalk = true;
+        if (upright) {
+            PathfindingManager.startUprightWalk(mc, home, () -> returnFinished = true, () -> returnFinished = true,
+                    true, true);
+            return;
+        }
         PathfindingManager.startConfiguredWalk(mc, home,
                 () -> returnFinished = true,
                 () -> returnFinished = true,

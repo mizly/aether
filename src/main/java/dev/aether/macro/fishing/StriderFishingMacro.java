@@ -179,7 +179,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private int aimSweep;
     private Entity target;
     private final HomeKeeper homeKeeper = new HomeKeeper("[StriderFishing]",
-            () -> AetherConfig.STRIDER_FISHING_ETHERWARP_RETURN.get(), Entity::isInLiquid);
+            () -> AetherConfig.STRIDER_FISHING_ETHERWARP_RETURN.get(), Entity::isInLiquid, false);
 
     private final Set<Integer> pooledCatchIds = new LinkedHashSet<>();
     // outlives the macro instance, so a stop and start in the same lobby picks the pool back up

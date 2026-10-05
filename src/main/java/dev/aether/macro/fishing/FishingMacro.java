@@ -57,6 +57,7 @@ public final class FishingMacro extends AbstractFishingMacro {
     // a catch surfaces within a tick or two of the reel, so anything new near the float after this is not ours
     private static final long ACQUIRE_WINDOW_MS = 800L;
     private static final long FIGHT_TIMEOUT_MS = 45_000L;
+    private static final long MOVE_LIMIT_MS = 40_000L;
     // 3-6 cps, redrawn every swing so the cadence is not a metronome
     private static final long ATTACK_MIN_DELAY_MS = 167L;
     private static final long ATTACK_MAX_DELAY_MS = 333L;
@@ -101,8 +102,9 @@ public final class FishingMacro extends AbstractFishingMacro {
     private long nextActionAt;
     private long nextAttackAt;
     private boolean emptyCatch;
+    private long moveStartedAt;
 
-    private final HomeKeeper homeKeeper = new HomeKeeper("[FishingMacro]", () -> false, Entity::isInLava);
+    private final HomeKeeper homeKeeper = new HomeKeeper("[FishingMacro]", () -> false, Entity::isInLava, true);
     private final IdleMotion idle = new IdleMotion(() -> AetherConfig.FISHING_MACRO_RANDOM_LOOK.get(),
             () -> AetherConfig.FISHING_MACRO_BLOCK_SHUFFLE.get(), null);
 
@@ -806,13 +808,15 @@ public final class FishingMacro extends AbstractFishingMacro {
             changeState(State.AIM);
             return;
         }
-        HomeKeeper.Result result = homeKeeper.tick(mc, System.currentTimeMillis(), ThreadLocalRandom.current());
+        long now = System.currentTimeMillis();
+        HomeKeeper.Result result = homeKeeper.tick(mc, now, ThreadLocalRandom.current());
         if (result == HomeKeeper.Result.ARRIVED) {
             releaseAll(mc);
             // the walk leaves the camera wherever it was steering, so aiming starts from a clean slate
             RotationManager.cancelRotation();
             changeState(State.AIM);
-        } else if (result == HomeKeeper.Result.FAILED) {
+        } else if (result == HomeKeeper.Result.FAILED || moveTimedOut(moveStartedAt, now)) {
+            homeKeeper.cancel(mc);
             fail("Fishing Macro stopped: could not get back onto the start block.");
         }
     }
@@ -835,6 +839,7 @@ public final class FishingMacro extends AbstractFishingMacro {
     }
 
     private void beginMove(Minecraft mc) {
+        moveStartedAt = System.currentTimeMillis();
         target = null;
         aimTargetBlock = null;
         homeKeeper.beginTrip(mc);
@@ -993,6 +998,10 @@ public final class FishingMacro extends AbstractFishingMacro {
             }
         }
         return path.length - 1;
+    }
+
+    static boolean moveTimedOut(long startedAt, long now) {
+        return now - startedAt > MOVE_LIMIT_MS;
     }
 
     static boolean sweepsExhausted(int sweeps) {

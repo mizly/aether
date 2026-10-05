@@ -49,6 +49,12 @@ class FishingMacroTest {
     }
 
     @Test
+    void aWalkHomeIsGivenFortySeconds() {
+        assertFalse(FishingMacro.moveTimedOut(1_000L, 41_000L));
+        assertTrue(FishingMacro.moveTimedOut(1_000L, 41_001L));
+    }
+
+    @Test
     void aFloatStuckInAMobForOverASecondIsASnag() {
         assertFalse(FishingMacro.snagHeld(0L, 50_000L));
         assertFalse(FishingMacro.snagHeld(10_000L, 11_000L));
