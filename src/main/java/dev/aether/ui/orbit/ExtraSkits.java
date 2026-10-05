@@ -6,8 +6,8 @@ import org.joml.Vector3f;
 
 import java.util.function.Function;
 
-// the rest of the menu's skits: sweeping a metal detector and digging up treasure, the carnival shootout with a bow,
-// a human fidgeting for humanization, and for every other module you show off its icon, toss it and catch it
+// sweeping a metal detector and digging up treasure, the carnival shootout with a bow, and a human fidgeting for
+// humanization
 final class ExtraSkits {
     private static final Identifier DETECTOR = mc("textures/item/compass_16.png");
     private static final Identifier DIRT = mc("textures/block/dirt.png");
@@ -24,7 +24,6 @@ final class ExtraSkits {
     private final SceneParticles particles;
     private String focus;
     private float scene, time;
-    private Identifier item;
     // metal detector
     private float beepTimer;
     private int treasure;
@@ -45,22 +44,19 @@ final class ExtraSkits {
         };
     }
 
-    // own is whether some other skit already plays this module; texture is the module's icon for the showcase
-    void update(float dt, float scene, float time, String focus, boolean own, Identifier texture, PlayerFigure.Pose pose) {
+    void update(float dt, float scene, float time, String focus, PlayerFigure.Pose pose) {
         if (focus == null ? this.focus != null : !focus.equals(this.focus)) {
             this.focus = focus;
             arrow = targetHit = -1f;
         }
         this.scene = scene;
         this.time = time;
-        this.item = own || handles(focus) ? null : texture;
         if (focus == null) return;
         switch (focus) {
             case "Metal Detector" -> detect(dt, pose);
             case "Auto Carnival (Shootout)" -> shoot(dt, pose);
             case "Humanization" -> fidget(dt, pose);
             default -> {
-                if (item != null) showcase(dt, pose);
             }
         }
     }
@@ -235,49 +231,6 @@ final class ExtraSkits {
         }
     }
 
-    // -- showcase: any other module's icon held up, tossed and caught ------------------------------------------
-
-    private float catchAt = -1f;
-
-    private void showcase(float dt, PlayerFigure.Pose pose) {
-        float c = scene % 5f;
-        if (c < 1.2f) {
-            float k = c / 1.2f;
-            pose.right = -150f * smooth(k / 0.4f);
-            pose.rightWeight = 1f;
-            pose.headPitch = -22f * smooth(k / 0.4f);
-            pose.look = 0.3f;
-            if (Math.random() < 0.12) particles.crit((float) (Math.random() - 0.5) * 0.6f, 2.3f, 0.3f, 1, true);
-        } else if (c < 2.4f) {
-            // toss it up and watch it spin
-            float k = (c - 1.2f) / 1.2f;
-            pose.right = k < 0.2f ? -150f + 60f * smooth(k / 0.2f) : -90f - 70f * smooth((k - 0.6f) / 0.4f);
-            pose.rightWeight = 1f;
-            pose.headPitch = -40f * (float) Math.sin(Math.PI * k);
-            pose.look = 0f;
-            pose.squash = k < 0.15f ? 0.12f : 0f;
-        } else if (c < 3.6f) {
-            if (c - dt < 2.4f) {
-                catchAt = 0f;
-                particles.happy(-0.3f, 2.3f, 0.2f, 5, 0.3f);
-            }
-            // offer it out toward you, a little bow
-            float k = (c - 2.4f) / 1.2f;
-            pose.right = -160f + 70f * smooth(k / 0.4f);
-            pose.rightWeight = 1f;
-            pose.lean = 12f * (float) Math.sin(Math.PI * k);
-        } else {
-            float k = (c - 3.6f) / 1.4f;
-            pose.right = -90f + 50f * smooth(k);
-            pose.rightWeight = 1f;
-            pose.turn = (float) Math.sin(k * Math.PI * 2) * 15f;
-        }
-        if (catchAt >= 0f) {
-            catchAt += dt;
-            if (catchAt > 0.2f) catchAt = -1f;
-        }
-    }
-
     // -- geometry -----------------------------------------------------------------------------------------------
 
     void build(Matrix4f local, PlayerFigure figure, Function<Identifier, SceneClone.Buffer> buffer, Vector3f right,
@@ -325,19 +278,6 @@ final class ExtraSkits {
                 }
             }
             default -> {
-                if (item == null) return;
-                float c = scene % 5f;
-                if (c >= 1.2f && c < 2.4f) {
-                    float k = (c - 1.2f) / 1.2f;
-                    Vector3f hand = toFarm.transformPosition(arm.transformPosition(0f, -12f, 0f, new Vector3f()));
-                    float y = hand.y + 0.15f + (float) Math.sin(Math.PI * k) * 1.4f;
-                    float spin = (float) Math.cos(k * Math.PI * 4);
-                    Matrix4f m = new Matrix4f(local);
-                    FarmSkits.billboard(buffer.apply(item), m, hand.x, y, hand.z, 0.24f * (0.4f + 0.6f * Math.abs(spin)),
-                            new Vector3f(right).mul(Math.signum(spin) == 0 ? 1f : Math.signum(spin)), up);
-                } else {
-                    FarmSkits.held(buffer.apply(item), arm, 1f);
-                }
             }
         }
     }

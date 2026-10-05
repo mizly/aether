@@ -185,15 +185,13 @@ public final class PanelView {
     }
 
     // the module the front panel is about: its open page, else the card under the cursor; raw name and on state
-    public record Focus(String name, boolean enabled, String item) {
+    public record Focus(String name, boolean enabled) {
     }
 
     public Focus orbitFocusModule() {
         PanelNav.Page page = style.nav.page(style.location().pageId());
         if (page == null) page = style.orbit.hoveredCard();
-        if (page == null) return null;
-        String item = page.icon() instanceof dev.aether.ui.gui.Icon.Item it ? it.id() : null;
-        return new Focus(page.tab().rawName(), !page.hasToggle() || page.enabled(), item);
+        return page == null ? null : new Focus(page.tab().rawName(), !page.hasToggle() || page.enabled());
     }
 
     public Hover orbitHover() {
