@@ -3,6 +3,7 @@ package dev.aether.macro.fishing;
 import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.SplittableRandom;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -80,5 +81,43 @@ class FishingMacroTest {
             double cps = 1000.0 / delay;
             assertTrue(cps >= 3.0 && cps <= 6.0, "cps " + cps);
         }
+    }
+
+    @Test
+    void anUnnamedCatchIsFoughtOnceItsPlateHasHadTwoSeconds() {
+        assertEquals(MobFilter.Verdict.UNKNOWN,
+                FishingMacro.settleVerdict(MobFilter.Verdict.UNKNOWN, 10_000L, 11_999L));
+        assertEquals(MobFilter.Verdict.ACCEPT,
+                FishingMacro.settleVerdict(MobFilter.Verdict.UNKNOWN, 10_000L, 12_000L));
+        assertEquals(MobFilter.Verdict.IGNORE,
+                FishingMacro.settleVerdict(MobFilter.Verdict.IGNORE, 10_000L, 60_000L));
+        assertEquals(MobFilter.Verdict.ACCEPT,
+                FishingMacro.settleVerdict(MobFilter.Verdict.ACCEPT, 10_000L, 10_000L));
+    }
+
+    @Test
+    void onlyABlacklistMatchIsAnnouncedAsBlacklisted() {
+        String plate = "[Lv45] Sea Walker 1,200/1,200\u2764";
+
+        assertTrue(FishingMacro.blacklisted(plate, List.of("sea walker")));
+        assertFalse(FishingMacro.blacklisted(plate, List.of("Squid")));
+        assertFalse(FishingMacro.blacklisted(plate, List.of()));
+        assertFalse(FishingMacro.blacklisted(null, List.of("sea walker")));
+    }
+
+    @Test
+    void eightCatchesLeftAliveStopTheMacro() {
+        assertFalse(FishingMacro.capGuardTripped(0));
+        assertFalse(FishingMacro.capGuardTripped(7));
+        assertTrue(FishingMacro.capGuardTripped(8));
+        assertTrue(FishingMacro.capGuardTripped(10));
+    }
+
+    @Test
+    void theFullCapChatLineIsRecognised() {
+        assertTrue(FishingMacro.isCapFullLine("There is not enough space for another Sea Creature!"));
+        assertTrue(FishingMacro.isCapFullLine("THERE IS NOT ENOUGH SPACE FOR ANOTHER SEA CREATURE!"));
+        assertFalse(FishingMacro.isCapFullLine("You caught a Sea Walker!"));
+        assertFalse(FishingMacro.isCapFullLine(null));
     }
 }

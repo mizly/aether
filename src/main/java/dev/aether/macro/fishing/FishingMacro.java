@@ -21,10 +21,14 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
@@ -58,6 +62,15 @@ public final class FishingMacro extends AbstractFishingMacro {
     // a catch that never comes under the crosshair this long is out of reach from the block
     private static final long UNREACHED_DROP_MS = 6_000L;
     private static final long SNAG_MS = 1_000L;
+    // a plate stand spawns a moment after its mob, so an unnamed catch gets this long before it counts as wanted
+    private static final long PLATE_WAIT_MS = 2_000L;
+    // hypixel lets a player keep ten sea creatures alive, and a full cap stops anything new from spawning
+    private static final int UNFOUGHT_CAP = 8;
+    private static final String CAP_FULL_LINE = "there is not enough space for another sea creature";
+    private static final String CAP_FULL_STOP =
+            "Fishing Macro stopped: the sea creature cap is full. Kill the catches left alive or change the mob lists.";
+    private static final String TOO_MANY_LEFT_STOP =
+            "Fishing Macro stopped: too many catches were left alive. Kill them or change the mob lists.";
     private static final long BOBBER_SETTLE_MS = 1_500L;
     private static final long REEL_SETTLE_MS = 350L;
     private static final long EMPTY_CATCH_DELAY_MIN_MS = 150L;
@@ -106,8 +119,11 @@ public final class FishingMacro extends AbstractFishingMacro {
     // everything loaded when the line was reeled, so a catch is told apart from whatever was already swimming
     private final Set<Integer> preReelIds = new HashSet<>();
     private Vec3 hookAtReel;
+    private final Map<Integer, Long> unsortedIds = new LinkedHashMap<>();
     private final Set<Integer> fightIds = new LinkedHashSet<>();
+    // catches left alive on purpose or out of reach; they still count against the sea creature cap
     private final Set<Integer> unfoughtIds = new LinkedHashSet<>();
+    private boolean capFullSeen;
     private boolean caughtAny;
     private Entity target;
     private long targetReachedAt;
@@ -123,6 +139,7 @@ public final class FishingMacro extends AbstractFishingMacro {
         emptyCatch = false;
         clearFight();
         unfoughtIds.clear();
+        capFullSeen = false;
         idle.clear();
         changeState(State.AIM);
         BlockPos origin = homeKeeper.origin();
@@ -147,6 +164,9 @@ public final class FishingMacro extends AbstractFishingMacro {
         }
         if (mc.screen != null) {
             releaseAll(mc);
+            return;
+        }
+        if (guardCap(mc)) {
             return;
         }
 
@@ -380,13 +400,14 @@ public final class FishingMacro extends AbstractFishingMacro {
         long now = System.currentTimeMillis();
         boolean acquiring = now - stateEnteredAt <= ACQUIRE_WINDOW_MS;
         if (acquiring && hookAtReel != null) {
-            acquire(mc);
+            acquire(mc, now);
         }
+        sortCatches(mc, now);
         pruneFight(mc);
 
         if (fightIds.isEmpty()) {
             holdStill(mc);
-            if (acquiring) {
+            if (acquiring || !unsortedIds.isEmpty()) {
                 return;
             }
             finishFight(mc);
@@ -396,7 +417,9 @@ public final class FishingMacro extends AbstractFishingMacro {
         if (now - stateEnteredAt > FIGHT_TIMEOUT_MS) {
             ClientUtils.sendDebugMessage("[FishingMacro] fight timed out, leaving the rest");
             unfoughtIds.addAll(fightIds);
+            unfoughtIds.addAll(unsortedIds.keySet());
             fightIds.clear();
+            unsortedIds.clear();
             finishFight(mc);
             return;
         }
@@ -405,14 +428,96 @@ public final class FishingMacro extends AbstractFishingMacro {
     }
 
     // every new mob at the float counts, since a double hook brings up two
-    private void acquire(Minecraft mc) {
+    private void acquire(Minecraft mc, long now) {
         for (Entity entity : CatchWatch.newCatches(mc.level, hookAtReel, CatchWatch.CATCH_RADIUS, preReelIds)) {
             int id = entity.getId();
-            if (!unfoughtIds.contains(id)) {
-                fightIds.add(id);
+            if (!fightIds.contains(id) && !unfoughtIds.contains(id) && !unsortedIds.containsKey(id)) {
+                unsortedIds.put(id, now);
                 caughtAny = true;
             }
         }
+    }
+
+    // the lists are read off the catch's plate, which can show up a moment after the catch itself
+    private void sortCatches(Minecraft mc, long now) {
+        List<String> whitelist = AetherConfig.FISHING_MACRO_MOB_WHITELIST.get();
+        List<String> blacklist = AetherConfig.FISHING_MACRO_MOB_BLACKLIST.get();
+        Iterator<Map.Entry<Integer, Long>> pending = unsortedIds.entrySet().iterator();
+        while (pending.hasNext()) {
+            Map.Entry<Integer, Long> entry = pending.next();
+            Entity entity = mc.level.getEntity(entry.getKey());
+            if (!CatchWatch.isAlive(entity)) {
+                pending.remove();
+                continue;
+            }
+            String plate = CatchWatch.plateName(mc.level, entity);
+            MobFilter.Verdict verdict = settleVerdict(MobFilter.classify(plate, whitelist, blacklist),
+                    entry.getValue(), now);
+            if (verdict == MobFilter.Verdict.UNKNOWN) {
+                continue;
+            }
+            pending.remove();
+            if (verdict == MobFilter.Verdict.ACCEPT) {
+                fightIds.add(entity.getId());
+                continue;
+            }
+            unfoughtIds.add(entity.getId());
+            if (blacklisted(plate, blacklist)) {
+                ClientUtils.sendMessage("§e" + AetherLang.localize("Fishing Macro left a blacklisted catch alone:")
+                        + " " + plate, false);
+            } else {
+                ClientUtils.sendDebugMessage("[FishingMacro] " + plate + " is not on the whitelist, leaving it");
+            }
+        }
+    }
+
+    static MobFilter.Verdict settleVerdict(MobFilter.Verdict verdict, long acquiredAt, long now) {
+        return verdict == MobFilter.Verdict.UNKNOWN && now - acquiredAt >= PLATE_WAIT_MS
+                ? MobFilter.Verdict.ACCEPT
+                : verdict;
+    }
+
+    static boolean blacklisted(String plate, List<String> blacklist) {
+        return MobFilter.classify(plate, List.of(), blacklist) == MobFilter.Verdict.IGNORE;
+    }
+
+    // stops while there is still room for a catch the lists want, instead of fishing up nothing for good
+    private boolean guardCap(Minecraft mc) {
+        unfoughtIds.removeIf(id -> !CatchWatch.isAlive(mc.level.getEntity(id)));
+        if (!capFullSeen && !capGuardTripped(unfoughtIds.size())) {
+            return false;
+        }
+        String reason = capFullSeen ? CAP_FULL_STOP : TOO_MANY_LEFT_STOP;
+        List<String> names = unfoughtNames(mc);
+        fail(reason, names.isEmpty() ? "" : " (" + String.join(", ", names) + ")");
+        return true;
+    }
+
+    private List<String> unfoughtNames(Minecraft mc) {
+        List<String> names = new ArrayList<>();
+        for (int id : unfoughtIds) {
+            Entity entity = mc.level.getEntity(id);
+            if (entity != null) {
+                String plate = CatchWatch.plateName(mc.level, entity);
+                names.add(plate != null ? plate : entity.getName().getString());
+            }
+        }
+        return names;
+    }
+
+    static boolean capGuardTripped(int unfoughtAlive) {
+        return unfoughtAlive >= UNFOUGHT_CAP;
+    }
+
+    @Override
+    void onChat(String plain) {
+        if (isCapFullLine(plain)) {
+            capFullSeen = true;
+        }
+    }
+
+    static boolean isCapFullLine(String plain) {
+        return plain != null && plain.toLowerCase(Locale.ROOT).contains(CAP_FULL_LINE);
     }
 
     private void pruneFight(Minecraft mc) {
@@ -497,6 +602,7 @@ public final class FishingMacro extends AbstractFishingMacro {
     }
 
     private void clearFight() {
+        unsortedIds.clear();
         fightIds.clear();
         preReelIds.clear();
         hookAtReel = null;
@@ -551,9 +657,13 @@ public final class FishingMacro extends AbstractFishingMacro {
     }
 
     private void fail(String message) {
+        fail(message, "");
+    }
+
+    private void fail(String message, String detail) {
         // localised before the colour code goes on, which would otherwise end up in the lookup key
-        ClientUtils.sendMessage("§c" + AetherLang.localize(message), false);
-        MacroStateManager.stopMacro(Minecraft.getInstance(), message, false);
+        ClientUtils.sendMessage("§c" + AetherLang.localize(message) + detail, false);
+        MacroStateManager.stopMacro(Minecraft.getInstance(), message + detail, false);
     }
 
     // a new origin means new water, so nothing learned about the old one carries over
