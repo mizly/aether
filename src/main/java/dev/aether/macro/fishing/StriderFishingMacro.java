@@ -350,8 +350,8 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
                 ActivityRateTracker.onMobKilled();
             }
             if (poolGoal() < 1) {
-                fail("Strider fishing stopped: " + strayIds.size()
-                        + " striders escaped the pool, kill them by hand.");
+                fail("Strider fishing stopped: striders escaped the pool, kill them by hand.",
+                        " (" + strayIds.size() + ")");
                 return;
             }
         }
@@ -1478,8 +1478,13 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     }
 
     private void fail(String message) {
-        ClientUtils.sendMessage("§c" + AetherLang.localize(message), false);
-        MacroStateManager.stopMacro(Minecraft.getInstance(), message, false);
+        fail(message, "");
+    }
+
+    // the detail goes on after the lookup, so a count in it never lands in the translation key
+    private void fail(String message, String detail) {
+        ClientUtils.sendMessage("§c" + AetherLang.localize(message) + detail, false);
+        MacroStateManager.stopMacro(Minecraft.getInstance(), message + detail, false);
     }
 
     private void clearAimSearch() {

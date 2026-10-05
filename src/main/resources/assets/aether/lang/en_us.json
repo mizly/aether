@@ -45,6 +45,8 @@
   "text.aether.strider_fishing_the_weapon_slot_holds_no_axe_so_galatea_sea_creatures_will_not_take_its_hits": "Strider fishing: the weapon slot holds no axe, so Galatea sea creatures will not take its hits.",
   "text.aether.strider_fishing_stopped_the_float_keeps_missing_the_lava_from_this_spot": "Strider fishing stopped: the float keeps missing the lava from this spot.",
   "text.aether.strider_fishing_stopped_could_not_aim_the_soul_whip_at_the_stair_under_the_spot": "Strider fishing stopped: could not aim the Soul Whip at the stair under the spot.",
+  "text.aether.strider_fishing_stopped_striders_escaped_the_pool_kill_them_by_hand": "Strider fishing stopped: striders escaped the pool, kill them by hand.",
+  "text.aether.strider_fishing_stopped_could_not_get_back_onto_the_start_block": "Strider fishing stopped: could not get back onto the start block.",
   "text.aether.fishing_macro": "Fishing Macro",
   "text.aether.fishes_lava_or_water_next_to_you_and_fights_what_it_catches": "Fishes lava or water next to you and fights what it catches",
   "text.aether.starts_or_stops_the_fishing_macro": "Starts or stops the fishing macro",
