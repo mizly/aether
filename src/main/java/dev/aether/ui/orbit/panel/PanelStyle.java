@@ -45,6 +45,7 @@ public final class PanelStyle {
     final PanelSearch search = new PanelSearch(this);
     final PanelOverlays overlays = new PanelOverlays(this);
     final PanelOrbit orbit = new PanelOrbit(this);
+    PlotHooks plotHooks = PlotHooks.NONE;
 
     private static Location remembered = Location.HOME;
 

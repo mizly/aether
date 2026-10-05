@@ -61,6 +61,8 @@ public final class OrbitScreen extends Screen {
     private float yaw0;
     private float pitch0;
     private OrbitLayout.Result layout;
+    private OrbitPlotScreen plotScreen;
+    private long plotNanos;
     private double mouseX = -1;
     private double mouseY = -1;
 
@@ -88,6 +90,23 @@ public final class OrbitScreen extends Screen {
             pitch0 = player.getXRot();
         }
         if (!categories.isEmpty()) view.orbitFocus(categories.get(0));
+        view.orbitPlotHooks(new dev.aether.ui.orbit.panel.PlotHooks() {
+            @Override
+            public void paintThumbnail(dev.aether.ui.gui.GuiCanvas canvas, dev.aether.ui.settings.PlotSetting setting,
+                                       dev.aether.ui.gui.Rect area) {
+                var model = new dev.aether.ui.gui.plot.PlotPickerModel(setting);
+                var facts = dev.aether.ui.gui.plot.GardenFacts.read(dev.aether.ui.gui.plot.GardenPlotData.active());
+                float time = seconds();
+                var thumb = OrbitPlotScreen.thumbView(area.x(), area.y(), area.w(), area.h(), OrbitPlotScreen.thumbYaw(time));
+                canvas.legacy(nvg -> PlotDiorama.draw(nvg, thumb, plot -> model.look(plot, facts), null, -1, time, false,
+                        dev.aether.ui.gui.Palette.fromTheme().accent(), 1f));
+            }
+
+            @Override
+            public void open(dev.aether.ui.settings.PlotSetting setting, dev.aether.ui.gui.Rect area) {
+                openPlotScreen(setting, area);
+            }
+        });
     }
 
     // -- simulation --------------------------------------------------------------------------------------------
@@ -190,6 +209,34 @@ public final class OrbitScreen extends Screen {
         OrbitCamera.set(cam.pos().x, cam.pos().y, cam.pos().z, cam.look().x, cam.look().y, cam.look().z, cam.fov());
     }
 
+    private static float seconds() {
+        return (System.nanoTime() % 3_600_000_000_000L) / 1_000_000_000f;
+    }
+
+    private void openPlotScreen(dev.aether.ui.settings.PlotSetting setting, dev.aether.ui.gui.Rect area) {
+        OrbitLayout.Placement active = activePlacement();
+        if (active == null || layout == null) return;
+        float[] a = projectLocal(active, area.x(), area.y());
+        float[] b = projectLocal(active, area.right(), area.bottom());
+        float[] rect = {Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])};
+        plotScreen = new OrbitPlotScreen(setting, rect, OrbitPlotScreen.thumbYaw(seconds()));
+        plotNanos = System.nanoTime();
+    }
+
+    // a point in panel design units to gui-scaled screen coordinates through the orbit camera
+    private float[] projectLocal(OrbitLayout.Placement p, float lx, float ly) {
+        double u = lx / p.designW() - 0.5, v = 0.5 - ly / p.designH();
+        Vector3d world = new Vector3d(p.center()).fma(u * p.width(), p.right()).fma(v * p.height(), p.up());
+        OrbitLayout.Camera cam = layout.camera();
+        Vector3d rel = world.sub(cam.pos());
+        double z = rel.dot(cam.forward());
+        double t = Math.tan(Math.toRadians(cam.fov()) / 2);
+        double aspect = (double) width / height;
+        double ndcX = rel.dot(cam.right()) / (z * t * aspect);
+        double ndcY = rel.dot(cam.up()) / (z * t);
+        return new float[]{(float) ((ndcX + 1) / 2 * width), (float) ((1 - ndcY) / 2 * height)};
+    }
+
     // -- rendering ---------------------------------------------------------------------------------------------
 
     @Override
@@ -253,6 +300,13 @@ public final class OrbitScreen extends Screen {
             NVGRenderer nvg = NanoVGManager.getRenderer();
             nvg.setTextScale(1f);
             overlay.render(nvg, width, height, (float) mouseX, (float) mouseY);
+            if (plotScreen != null) {
+                long now = System.nanoTime();
+                float dt = Math.min(0.05f, (now - plotNanos) / 1_000_000_000f);
+                plotNanos = now;
+                plotScreen.render(nvg, width, height, (float) mouseX, (float) mouseY, dt, seconds());
+                if (plotScreen.finished()) plotScreen = null;
+            }
             dev.aether.notification.NotificationRenderer.render(nvg, width, height);
         } finally {
             NanoVGManager.endFrame();
@@ -350,6 +404,7 @@ public final class OrbitScreen extends Screen {
         mouseX = click.x();
         mouseY = click.y();
         if (state == State.CLOSING) return true;
+        if (plotScreen != null) return plotScreen.click(click.x(), click.y(), click.button());
         if (overlay.click(click.x(), click.y(), click.button())) return true;
         OrbitLayout.Placement hit = pick(click.x(), click.y());
         if (hit != null) {
@@ -382,6 +437,10 @@ public final class OrbitScreen extends Screen {
     public boolean mouseDragged(MouseButtonEvent click, double dx, double dy) {
         mouseX = click.x();
         mouseY = click.y();
+        if (plotScreen != null) {
+            plotScreen.drag(click.x(), click.y());
+            return true;
+        }
         if (draggingRing) {
             double delta = (click.x() - dragLastX) / width * count * 0.9;
             dragLastX = click.x();
@@ -405,6 +464,10 @@ public final class OrbitScreen extends Screen {
     public boolean mouseReleased(MouseButtonEvent click) {
         mouseX = click.x();
         mouseY = click.y();
+        if (plotScreen != null) {
+            plotScreen.release(click.x(), click.y());
+            return true;
+        }
         if (draggingRing) {
             draggingRing = false;
             ring.t = Math.round(ring.x + momentum * 0.35f);
@@ -453,6 +516,10 @@ public final class OrbitScreen extends Screen {
         int key = event.key();
         KeyInput input = new KeyInput(key, event.scancode(), event.modifiers(), hasControlDown(), hasShiftDown(),
                 hasAltDown());
+        if (plotScreen != null) {
+            if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_ENTER) plotScreen.close();
+            return true;
+        }
         if (key == GLFW.GLFW_KEY_ESCAPE) {
             if (view.orbitOverlayOpen() && view.keyPressed(input)) return true;
             if (view.orbitModuleOpen()) {

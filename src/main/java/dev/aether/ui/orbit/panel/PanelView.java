@@ -141,6 +141,10 @@ public final class PanelView {
         if (!categoryId.equals(at.categoryId()) || at.pageId() != null) style.openCategory(categoryId);
     }
 
+    public void orbitPlotHooks(PlotHooks hooks) {
+        style.plotHooks = hooks == null ? PlotHooks.NONE : hooks;
+    }
+
     public void orbitOpenPage(String pageId) {
         style.openPage(pageId);
     }

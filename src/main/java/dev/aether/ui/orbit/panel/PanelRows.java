@@ -52,6 +52,7 @@ final class PanelRows {
     private static final float DESC_LINE = 15f;
     private static final float ROW_MIN = 48f;
     private static final float FIELD_H = 30f;
+    private static final float THUMB = 68f;
 
     record Key(String page, String group, int groupIndex, String setting, int settingIndex, String part) {
     }
@@ -61,6 +62,7 @@ final class PanelRows {
 
     private final PanelStyle style;
     private final Set<String> peeked = new HashSet<>();
+    private final java.util.Map<PlotSetting, Rect> thumbs = new java.util.IdentityHashMap<>();
     private int rangeHandle;
 
     PanelRows(PanelStyle style) {
@@ -254,7 +256,7 @@ final class PanelRows {
             case COLOR -> 120f;
             case KEYBIND -> 120f;
             case INFO -> Math.min(260f, innerW * 0.45f);
-            case PLOT -> Math.min(200f, innerW * 0.4f);
+            case PLOT -> Math.min(230f, innerW * 0.46f);
             default -> 0f;
         };
     }
@@ -278,6 +280,9 @@ final class PanelRows {
         float labelW = labelWidth(setting, innerW);
         float text = labelBlock(c, setting, labelW);
         float h = Math.max(ROW_MIN, text + 24f);
+        if (setting.getType() == SettingType.PLOT) {
+            h = Math.max(h, THUMB + 16f);
+        }
         if (stacked(setting)) {
             h = text + 24f + stackedHeight(c, setting, innerW) + 10f;
         }
@@ -314,7 +319,7 @@ final class PanelRows {
         }
         boolean rowHover = f.hits().hovered(key);
         boolean wholeRow = switch (setting.getType()) {
-            case TOGGLE, ACTION, DROPDOWN, COLOR -> true;
+            case TOGGLE, ACTION, DROPDOWN, COLOR, PLOT -> true;
             default -> false;
         };
         if (wholeRow) {
@@ -410,12 +415,14 @@ final class PanelRows {
             }
             case PLOT -> {
                 PlotSetting plot = (PlotSetting) setting;
-                String text = plot.isEmpty() ? AetherLang.localize("None") : String.join(", ",
-                        plot.selection().stream().map(PlotToken::text).toList());
-                float fw = controlWidth(setting, innerW);
-                Rect field = new Rect(right - fw, cy - FIELD_H / 2f, fw, FIELD_H);
-                drawField(c, p, field, false, false);
-                PanelPaint.fitText(c, MEDIUM, 12.5f, text, field.x() + 11f, field.centerY(), fw - 22f, p.text());
+                String text = plot.isEmpty() ? AetherLang.localize(plot.emptyMeaning() == PlotSetting.EmptyMeaning.ALL
+                        ? "All plots" : "None") : AetherLang.localize(plot.selection().size() == 1 ? "Plot" : "Plots")
+                        + " " + String.join(", ", plot.selection().stream().map(PlotToken::text).toList());
+                float tw = Math.min(c.textWidth(SEMIBOLD, 13f, text), controlWidth(setting, innerW) - THUMB - 12f);
+                PanelPaint.fitText(c, SEMIBOLD, 13f, text, right - tw, cy, tw, p.text());
+                Rect thumb = new Rect(right - tw - 12f - THUMB, cy - THUMB / 2f, THUMB, THUMB);
+                style.plotHooks.paintThumbnail(c, plot, thumb);
+                thumbs.put(plot, c.toRoot(thumb));
             }
             case LIST, DROPDOWN_LIST, MULTI_DROPDOWN -> drawChips(f, setting, key, innerX,
                     labelTop + labelBlock(c, setting, labelW) + 6f, innerW);
@@ -433,6 +440,7 @@ final class PanelRows {
                 case ActionSetting action -> action.execute();
                 case DropdownSetting dropdown -> style.openDropdown(key, dropdown, f.canvas().toRoot(row));
                 case ColorSetting color -> style.openColor(key, color, f.canvas().toRoot(row));
+                case PlotSetting plot -> style.plotHooks.open(plot, thumbs.getOrDefault(plot, f.canvas().toRoot(row)));
                 default -> {
                 }
             }
