@@ -118,22 +118,22 @@ final class PanelPaint {
 
     // -- controls ---------------------------------------------------------------
 
-    // on is 0..1 so the knob and fill can spring between states
+    // the current menu's checkbox, kept on purpose; on is 0..1 so the fill and tick can spring in
     static void toggle(GuiCanvas c, Palette p, Rect r, float on, float hover, boolean enabled) {
-        float radius = r.h() / 2f;
-        int off = Argb.mix(p.toggleTrack(), p.text(), 0.04f + hover * 0.06f);
-        int track = Argb.mix(off, p.accent(), on);
+        float size = Math.min(r.h(), 20f);
+        Rect box = new Rect(r.right() - size, r.centerY() - size / 2f, size, size);
         c.save();
         if (!enabled) {
             c.alpha(0.45f);
         }
-        c.roundedRect(r, radius, track);
-        float knob = r.h() - 4f;
-        float kx = r.x() + 2f + (r.w() - knob - 4f) * on;
-        Rect knobRect = new Rect(kx, r.y() + 2f, knob, knob);
-        c.shadow(knobRect.offset(0f, 0.5f), knob / 2f, 3f, shadow(p, 0.5f));
-        int knobColor = Argb.mix(p.toggleKnob(), 0xFFFFFFFF, on);
-        c.circle(knobRect.centerX(), knobRect.centerY(), knob / 2f, knobColor);
+        c.roundedRect(box, 5f, Argb.mix(fieldFill(p), p.accent(), on));
+        c.strokeRect(box, 5f, 1f, Argb.mix(Argb.mix(p.border(), p.text(), hover * 0.4f), p.accent(), on));
+        if (on > 0.05f) {
+            c.save();
+            c.alpha(Math.min(1f, on));
+            check(c, box.centerX(), box.centerY() + 0.5f, size * 0.36f, 2f, p.onAccent());
+            c.restore();
+        }
         c.restore();
     }
 
