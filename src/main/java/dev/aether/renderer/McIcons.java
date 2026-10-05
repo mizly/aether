@@ -36,6 +36,17 @@ public final class McIcons {
     public static final McIcon BROWN_MUSHROOM = item("brown_mushroom");
     public static final McIcon SUNFLOWER = item("sunflower");
     public static final McIcon ROSE_BUSH = item("rose_bush");
+    public static final McIcon CARVED_PUMPKIN = item("carved_pumpkin");
+    public static final McIcon SUGAR = item("sugar");
+    public static final McIcon COOKIE = item("cookie");
+    public static final McIcon MELON_SEEDS = item("melon_seeds");
+    public static final McIcon PUMPKIN_SEEDS = item("pumpkin_seeds");
+    public static final McIcon RED_MUSHROOM_BLOCK = item("red_mushroom_block");
+    public static final McIcon BROWN_MUSHROOM_BLOCK = item("brown_mushroom_block");
+    public static final McIcon IRON_INGOT = item("iron_ingot");
+    public static final McIcon DIAMOND = item("diamond");
+    public static final McIcon EMERALD = item("emerald");
+    public static final McIcon BEDROCK = item("bedrock");
 
     public static final McIcon LIME_STAINED_GLASS_PANE = item("lime_stained_glass_pane");
     public static final McIcon ORANGE_STAINED_GLASS_PANE = item("orange_stained_glass_pane");
@@ -50,6 +61,13 @@ public final class McIcons {
     public static final McIcon OAK_BUTTON = item("oak_button");
     public static final McIcon OAK_PLANKS = item("oak_planks");
     public static final McIcon DARK_OAK_PLANKS = item("dark_oak_planks");
+    // the barn's skin icons after dark oak (default): mansion heights, red, medieval, sunny and cabin
+    public static final McIcon SPRUCE_PLANKS = item("spruce_planks");
+    public static final McIcon QUARTZ_BLOCK = item("quartz_block");
+    public static final McIcon SPRUCE_LOG = item("spruce_log");
+    public static final McIcon RED_SANDSTONE = item("red_sandstone");
+    public static final McIcon LIGHT_BLUE_TERRACOTTA = item("light_blue_terracotta");
+    public static final McIcon LODESTONE = item("lodestone");
     public static final McIcon OAK_SIGN = item("oak_sign");
     public static final McIcon CRAFTING_TABLE = item("crafting_table");
     public static final McIcon CHEST = item("chest");
@@ -84,6 +102,9 @@ public final class McIcons {
     public static final McIcon LEAD = item("lead");
     public static final McIcon TRIPWIRE_HOOK = item("tripwire_hook");
     public static final McIcon LAVA_BUCKET = item("lava_bucket");
+    public static final McIcon BUCKET = item("bucket");
+    public static final McIcon BOOK = item("book");
+    public static final McIcon WOODEN_AXE = item("wooden_axe");
 
     public static final McIcon ARMOR_STAND = item("armor_stand");
     public static final McIcon PAINTING = item("painting");

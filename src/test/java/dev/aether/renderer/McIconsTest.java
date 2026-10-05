@@ -87,6 +87,38 @@ class McIconsTest {
     }
 
     @Test
+    void oakButtonIsASmallCentredPlankBoxLikeTheInventoryDrawsIt() {
+        List<IsoBlockPainter.Face> faces = IsoBlockPainter.faces(McIcons.drawable(McIcons.OAK_BUTTON));
+        assertFalse(faces.isEmpty());
+        float minX = 1f, minY = 1f, maxX = 0f, maxY = 0f;
+        for (IsoBlockPainter.Face face : faces) {
+            assertEquals(BLOCK + "oak_planks.png", face.texture());
+            for (float[] uv : new float[][]{{face.u0(), face.v0()}, {face.u1(), face.v0()}, {face.u0(), face.v1()}, {face.u1(), face.v1()}}) {
+                float x = face.a() * uv[0] + face.c() * uv[1] + face.e();
+                float y = face.b() * uv[0] + face.d() * uv[1] + face.f();
+                minX = Math.min(minX, x);
+                maxX = Math.max(maxX, x);
+                minY = Math.min(minY, y);
+                maxY = Math.max(maxY, y);
+            }
+        }
+        // a 6x4x4 element under block.json's 30/225 rotation at 0.625 scale: (6 + 4) * cos 45 * 0.625 / 16 wide
+        assertEquals(10f * (float) Math.cos(Math.PI / 4) * 0.625f / 16f, maxX - minX, 0.01f);
+        assertEquals(0.5f, (minX + maxX) / 2f, 0.01f);
+        assertEquals(0.5f, (minY + maxY) / 2f, 0.02f);
+    }
+
+    @Test
+    void barnSkinsAreIsoBlocks() {
+        for (McIcon skin : List.of(McIcons.DARK_OAK_PLANKS, McIcons.SPRUCE_PLANKS, McIcons.QUARTZ_BLOCK,
+                McIcons.SPRUCE_LOG, McIcons.RED_SANDSTONE, McIcons.LIGHT_BLUE_TERRACOTTA)) {
+            assertInstanceOf(McIcon.Block.class, McIcons.drawable(skin), skin.toString());
+        }
+        assertEquals(new McIcon.Block(BLOCK + "spruce_log_top.png", BLOCK + "spruce_log.png", BLOCK + "spruce_log.png", 0f),
+                McIcons.drawable(McIcons.SPRUCE_LOG));
+    }
+
+    @Test
     void layeredItemsCarryTheirDefaultTints() {
         assertEquals(new McIcon.Layered(List.of(
                 new McIcon.Sprite(ITEM + "filled_map.png", 0xFFFFFFFF),

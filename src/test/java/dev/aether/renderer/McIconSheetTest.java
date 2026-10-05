@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @EnabledIfEnvironmentVariable(named = "AETHER_TEST_OPENGL", matches = "1")
 class McIconSheetTest {
     private static final int WIDTH = 1880;
-    private static final int HEIGHT = 2000;
+    private static final int HEIGHT = 2200;
     private static final int[] SIZES = {16, 24, 32, 48};
     // at 1x a 24px icon snaps to 32px (two device pixels per texel), so each size gets its snapped width plus a gap
     private static final int[] SIZE_ADVANCE = {22, 38, 38, 54};
