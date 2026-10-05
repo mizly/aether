@@ -69,6 +69,9 @@ public final class OrbitScreen extends Screen {
 
     private float yaw0;
     private float pitch0;
+    // where you stood when the menu opened: the farm, ring and camera stay put here even if you move after
+    private Vec3 home = Vec3.ZERO;
+    private float homeEyeHeight = 1.62f;
     private OrbitLayout.Result layout;
     private OrbitPlotScreen plotScreen;
     private long plotNanos;
@@ -111,6 +114,8 @@ public final class OrbitScreen extends Screen {
         if (player != null) {
             yaw0 = player.getYRot();
             pitch0 = player.getXRot();
+            home = player.position();
+            homeEyeHeight = player.getEyeHeight();
         }
         island = OrbitIsland.current();
         clone = buildClone();
@@ -237,7 +242,8 @@ public final class OrbitScreen extends Screen {
         var player = client.player;
         if (player == null) return;
         float partial = client.getDeltaTracker().getGameTimeDeltaPartialTick(true);
-        Vec3 feet = player.getPosition(partial);
+        // the flight home lands on wherever your eye is now, so the hand back to the game's camera is seamless
+        Vec3 feet = state == State.CLOSING ? player.getPosition(partial) : home;
         float e = switch (state) {
             case OPENING -> OrbitRig.easeInOut(OrbitRig.clamp(openT, 0f, 1f));
             case OPEN -> 1f;
@@ -245,11 +251,11 @@ public final class OrbitScreen extends Screen {
         };
         float[] unfoldNow = new float[count];
         for (int i = 0; i < count; i++) unfoldNow[i] = unfold[i].x;
-        Vector3d anchor = sceneAnchor(feet);
+        Vector3d anchor = sceneAnchor(home);
         Vector3d eye = new Vector3d(feet.x, feet.y + player.getEyeHeight(), feet.z);
         Vector3d eyeLook = OrbitLayout.lookPoint(eye, yaw0, pitch0);
         layout = OrbitLayout.compute(new OrbitLayout.Input(anchor, sceneYaw(), pitch0,
-                player.getEyeHeight(), client.options.fov().get(), count, ring.x, zoom.x, expand.x, e,
+                homeEyeHeight, client.options.fov().get(), count, ring.x, zoom.x, expand.x, e,
                 state == State.OPEN, clock, unfoldNow, activeIndex(), client.getWindow().getHeight(),
                 eye, eyeLook));
         layout = tiltFront(layout);
@@ -284,7 +290,7 @@ public final class OrbitScreen extends Screen {
         Minecraft client = Minecraft.getInstance();
         var player = client.player;
         if (client.level == null || player == null) return null;
-        Vector3d anchor = sceneAnchor(player.position());
+        Vector3d anchor = sceneAnchor(home);
         int ox = (int) Math.floor(anchor.x), oy = (int) Math.floor(anchor.y + 1e-3), oz = (int) Math.floor(anchor.z);
         Vector3d lens = rigToWorld(anchor, OrbitRig.TP_POS.x, 0, OrbitRig.TP_POS.z);
         double cx = lens.x - ox, cz = lens.z - oz;
@@ -306,7 +312,7 @@ public final class OrbitScreen extends Screen {
         Minecraft client = Minecraft.getInstance();
         var player = client.player;
         if (player == null || layout == null) return;
-        Vector3d anchor = sceneAnchor(player.getPosition(client.getDeltaTracker().getGameTimeDeltaPartialTick(true)));
+        Vector3d anchor = sceneAnchor(home);
         double yaw = Math.toRadians(sceneYaw());
         OrbitLayout.Camera cam = layout.camera();
         Vector3d dir = mouseX < 0 ? new Vector3d(cam.forward()) : rayDirection(mouseX, mouseY);
@@ -465,12 +471,12 @@ public final class OrbitScreen extends Screen {
         failsafeRing.step(lastDt, safetyFront);
         var player = Minecraft.getInstance().player;
         if (player != null) {
-            Vec3 feet = player.getPosition(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true));
+            Vec3 feet = home;
             failsafeRing.appendQuads(quads, view.orbitFailsafes(), view.orbitHoveredFailsafe(),
                     sceneAnchor(feet), layout.camera(), clock);
             settingPreview.step(lastDt, view.orbitHover(), z < 0.5f && state != State.CLOSING && plotScreen == null);
             if (settingPreview.showing()) {
-                var world = new SettingPreview.World(sceneAnchor(feet), player.getEyeHeight(), sceneYaw(),
+                var world = new SettingPreview.World(sceneAnchor(feet), homeEyeHeight, sceneYaw(),
                         pitch0, dev.aether.ui.gui.plot.GardenFacts.read(dev.aether.ui.gui.plot.GardenPlotData.active()),
                         SettingPreview.liveRewarps());
                 settingPreview.appendQuads(quads, world, layout.camera(), clock);
