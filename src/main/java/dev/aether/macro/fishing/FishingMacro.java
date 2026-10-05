@@ -373,6 +373,15 @@ public final class FishingMacro extends AbstractFishingMacro {
     private void tickWaitBite(Minecraft mc) {
         long now = System.currentTimeMillis();
 
+        // lava burns through a whole bite wait, so a fall in gives up the cast and heads home at once
+        if (mc.player.isInLava() && !homeKeeper.isOnOrigin(mc)) {
+            if (CatchWatch.hasLiveHook(mc)) {
+                ClientUtils.performUseClick();
+            }
+            beginMove(mc);
+            return;
+        }
+
         if (!CatchWatch.hasLiveHook(mc)) {
             holdStill(mc);
             // the cast never left the rod, or the line came back on its own

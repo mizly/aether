@@ -27,6 +27,13 @@ class HomeKeeperTest {
     }
 
     @Test
+    void tenSecondsStuckInTheLavaGivesUpTheWayHome() {
+        assertFalse(HomeKeeper.stuckInLiquid(0L, 60_000L));
+        assertFalse(HomeKeeper.stuckInLiquid(1_000L, 11_000L));
+        assertTrue(HomeKeeper.stuckInLiquid(1_000L, 11_001L));
+    }
+
+    @Test
     void aRefusedRouteBacksOffBeforeTryingAgain() {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         for (int i = 0; i < 500; i++) {

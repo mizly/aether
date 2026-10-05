@@ -2,6 +2,7 @@ package dev.aether.macro.fishing;
 
 import dev.aether.macro.MacroInput;
 import dev.aether.modules.pathfinding.PathfindingManager;
+import dev.aether.modules.rotation.RotationManager;
 import dev.aether.modules.routes.BlockCentering;
 import dev.aether.modules.routes.EtherwarpLeg;
 import dev.aether.modules.routes.Route;
@@ -37,6 +38,10 @@ final class HomeKeeper {
     private static final double ORIGIN_ABOVE = 1.0;
     // centring only counts its own timeout on the ground, so a landing that keeps bobbing is cut off here
     private static final long CENTRE_LIMIT_MS = 3_000L;
+    // jumping alone only bobs at the surface; the climb onto the bank needs a push into it
+    private static final long LIQUID_LIMIT_MS = 10_000L;
+    private static final float WADE_SMOOTHING_MS = 150.0f;
+    private static final float WADE_TURN_SPEED = 360.0f;
 
     private final String tag;
     private final BooleanSupplier etherwarpReturn;
@@ -53,6 +58,8 @@ final class HomeKeeper {
     private BlockCentering centering;
     private long centeringSince;
     private long jumpHoldAt;
+    private long liquidSince;
+    private boolean wading;
 
     // escapeFrom picks the liquids worth jumping out of; it also holds the walk home until we are clear of them.
     // upright walks home standing and insists on a full path, so a step up near the block cannot stall it
@@ -105,11 +112,13 @@ final class HomeKeeper {
         etherwarpUsed = false;
         returnRetryAt = 0L;
         centering = null;
+        liquidSince = 0L;
         dropReturnWarp(mc);
     }
 
     void cancel(Minecraft mc) {
         PathfindingManager.stop(false);
+        stopWading(mc);
         dropReturnWarp(mc);
         returnPathStarted = false;
         returnFinished = false;
@@ -123,6 +132,7 @@ final class HomeKeeper {
 
         if (isOnOrigin(mc)) {
             PathfindingManager.stop(false);
+            stopWading(mc);
             dropReturnWarp(mc);
             centering = new BlockCentering(now, origin.below());
             centeringSince = now;
@@ -168,6 +178,7 @@ final class HomeKeeper {
                     etherwarpReturn.getAsBoolean())) {
                 etherwarpUsed = true;
                 returnPathStarted = true;
+                stopWading(mc);
                 returnByWalk = false;
                 PathfindingManager.stop(false);
                 returnWarp = new EtherwarpLeg(
@@ -176,8 +187,16 @@ final class HomeKeeper {
             }
             // a walk route cannot be planned out of lava, so the jump has to lift us clear first
             if (inLiquid) {
+                liquidSince = liquidSince == 0L ? now : liquidSince;
+                if (stuckInLiquid(liquidSince, now)) {
+                    stopWading(mc);
+                    return Result.FAILED;
+                }
+                wade(mc, home);
                 return Result.RUNNING;
             }
+            liquidSince = 0L;
+            stopWading(mc);
             returnPathStarted = true;
             startWalkHome(mc, home);
             return Result.RUNNING;
@@ -204,6 +223,29 @@ final class HomeKeeper {
         returnRetryAt = 0L;
         returnAttempts = 0;
         return Result.ARRIVED;
+    }
+
+    // the vanilla climb out of a liquid only fires on a horizontal collision, so we push toward the block
+    private void wade(Minecraft mc, Vec3 home) {
+        wading = true;
+        RotationManager.trackRotation(mc, new Vec3(home.x, mc.player.getEyeY(), home.z),
+                WADE_SMOOTHING_MS, WADE_TURN_SPEED);
+        MacroInput.set(mc.options.keyUp, true);
+        MacroInput.set(mc.options.keySprint, false);
+        MacroInput.set(mc.options.keyShift, false);
+    }
+
+    private void stopWading(Minecraft mc) {
+        if (!wading) {
+            return;
+        }
+        wading = false;
+        RotationManager.cancelRotation();
+        MacroInput.set(mc.options.keyUp, false);
+    }
+
+    static boolean stuckInLiquid(long since, long now) {
+        return since != 0L && now - since > LIQUID_LIMIT_MS;
     }
 
     private void dropReturnWarp(Minecraft mc) {
