@@ -82,6 +82,10 @@ final class ModuleSkits {
     private final float[] crops = {1f, 1f, 1f, 1f, 1f};
     private final float[] greenhouse = new float[9];
     private String obfuscated = "";
+    // the skit whose props are on the farm and how far they have grown in; they pop in on a new module and shrink
+    // away after leaving it
+    private String shown;
+    private float pop, size;
 
     ModuleSkits(SceneParticles particles, IntFunction<Identifier> heads) {
         this.particles = particles;
@@ -119,6 +123,17 @@ final class ModuleSkits {
         this.scene = scene;
         this.time = time;
         this.dt = dt;
+        if (handles(focus)) {
+            if (!focus.equals(shown)) {
+                shown = focus;
+                pop = 0f;
+            }
+            pop = Math.min(1f, pop + dt / 0.35f);
+            size = backOut(pop);
+        } else {
+            pop = Math.max(0f, pop - dt / 0.22f);
+            size = pop * pop;
+        }
         if (!handles(focus)) return;
         float length = loop(focus);
         float c = scene % length;
@@ -543,6 +558,7 @@ final class ModuleSkits {
             }
             pose.x = -2.4f;
             pose.z = 0.4f;
+            pose.snap = true;
             pose.headYaw = (float) Math.sin((c - 1f) * 5) * 60f;
             pose.look = 0f;
             pose.squint = c < 1.3f ? 1f : 0f;
@@ -853,14 +869,15 @@ final class ModuleSkits {
 
     void build(Matrix4f local, PlayerFigure figure, Function<Identifier, SceneClone.Buffer> buffer, Vector3f right,
                Vector3f up) {
-        if (!handles(focus)) return;
-        float c = scene % loop(focus);
+        if (shown == null || pop <= 0f) return;
+        boolean live = shown.equals(focus);
+        float c = scene % loop(shown);
         Matrix4f arm = figure.rightArmFrame();
         Matrix4f toFarm = new Matrix4f(local).invert();
         Vector3f hand = toFarm.transformPosition(arm.transformPosition(0f, -11f, 0f, new Vector3f()));
-        switch (focus) {
+        switch (shown) {
             case "Auto Pest Exchange" -> {
-                Matrix4f m = new Matrix4f(local).translate(TRADER_AT.x, 0f, TRADER_AT.z)
+                Matrix4f m = place(local, TRADER_AT.x, 0f, TRADER_AT.z)
                         .rotateY((float) Math.atan2(-TRADER_AT.x, -TRADER_AT.z));
                 float nod = c >= 1.8f && c < 2.6f ? (float) Math.sin((c - 1.8f) * 12) * 0.3f : 0f;
                 SceneActors.villager(buffer.apply(TRADER), m, (float) Math.sin(time) * 0.2f, nod, 0f, 0f,
@@ -872,7 +889,7 @@ final class ModuleSkits {
                         at.y += (float) Math.sin(Math.PI * k) * 0.6f;
                         Identifier skin = heads.apply((int) (c / 0.6f) % 6);
                         if (skin != null) {
-                            SceneActors.head(buffer.apply(skin), new Matrix4f(local).translate(at.x, at.y, at.z)
+                            SceneActors.head(buffer.apply(skin), place(local, at.x, at.y, at.z)
                                     .rotateY(k * 6f).scale(0.45f).translate(0f, -1.75f, 0f));
                         }
                     }
@@ -881,7 +898,7 @@ final class ModuleSkits {
                     if (k < 1f) {
                         Vector3f at = new Vector3f(TRADER_AT.x, 1.4f, TRADER_AT.z).lerp(new Vector3f(0f, 1.2f, 0.4f), k);
                         at.y += (float) Math.sin(Math.PI * k) * 0.7f;
-                        FarmSkits.billboard(buffer.apply(GOLD_INGOT), local, at.x, at.y, at.z, 0.2f, right, up);
+                        board(buffer.apply(GOLD_INGOT), local, at.x, at.y, at.z, 0.2f, right, up);
                     }
                 }
             }
@@ -896,16 +913,16 @@ final class ModuleSkits {
                     int gx = i % 3, gz = i / 3;
                     float x = GH_X - 1f + gx, z = GH_Z - 1f + gz;
                     // walls on the outside ring, a roof over everything
-                    Matrix4f roof = new Matrix4f(local).translate(x, 1f + 0.5f, z).scale(s).translate(-0.5f, -0.5f, -0.5f);
+                    Matrix4f roof = place(local, x, 1f + 0.5f, z).scale(s).translate(-0.5f, -0.5f, -0.5f);
                     cube(buffer, roof, GLASS, GLASS, GLASS);
                     if (gx != 1 || gz != 1) {
-                        Matrix4f wall = new Matrix4f(local).translate(x, 0.5f, z).scale(s).translate(-0.5f, -0.5f, -0.5f);
+                        Matrix4f wall = place(local, x, 0.5f, z).scale(s).translate(-0.5f, -0.5f, -0.5f);
                         if (gz != 0 || gx != 1) cube(buffer, wall, GLASS, GLASS, GLASS);
                     }
                 }
             }
             case "Farming QOL" -> {
-                chest(buffer.apply(CHEST), new Matrix4f(local).translate(CHEST_AT.x, 0f, CHEST_AT.z)
+                chest(buffer.apply(CHEST), place(local, CHEST_AT.x, 0f, CHEST_AT.z)
                         .rotateY((float) Math.atan2(-CHEST_AT.x, -CHEST_AT.z)), lid);
                 if (c > 0.8f && c < 4.2f) {
                     float k = ((c - 0.8f) % 0.68f) / 0.68f;
@@ -914,18 +931,18 @@ final class ModuleSkits {
                         Vector3f at = new Vector3f(hand).lerp(new Vector3f(CHEST_AT.x, 0.9f, CHEST_AT.z), f);
                         at.y += (float) Math.sin(Math.PI * f) * 0.6f;
                         Identifier item = SORTED[(int) ((c - 0.8f) / 0.68f) % SORTED.length];
-                        FarmSkits.billboard(buffer.apply(item), local, at.x, at.y, at.z, 0.18f, right, up);
+                        board(buffer.apply(item), local, at.x, at.y, at.z, 0.18f, right, up);
                     }
                 }
             }
             case "Failsafe Settings" -> {
-                if (c < 1.2f) FarmSkits.item(buffer.apply(TOTEM), arm, 1f);
+                if (live && c < 1.2f) FarmSkits.item(buffer.apply(TOTEM), arm, 1f);
                 else if (c < 2.6f) {
                     // the totem rises and swells as it pops, the way it fills the screen in game
                     float k = (c - 1.2f) / 1.4f;
                     float size = 0.25f + 0.5f * (float) Math.sin(Math.PI * Math.min(1f, k * 1.4f));
                     if (k < 0.85f) {
-                        FarmSkits.billboard(buffer.apply(TOTEM), local, 0f, 1.5f + k * 1.2f, 0.6f, size, right, up);
+                        board(buffer.apply(TOTEM), local, 0f, 1.5f + k * 1.2f, 0.6f, size, right, up);
                     }
                 }
             }
@@ -939,12 +956,12 @@ final class ModuleSkits {
             case "Rotation" -> {
                 float spin = c >= 0.6f && c < 1.8f ? (c - 0.6f) * 40f : 0f;
                 Matrix4f m = new Matrix4f(local);
-                FarmSkits.billboard(buffer.apply(COMPASS), m, 0f, 2.55f, 0f, 0.22f,
+                board(buffer.apply(COMPASS), m, 0f, 2.55f, 0f, 0.22f,
                         new Vector3f(right).mul((float) Math.cos(spin)), up);
             }
             case "World Change" -> {
                 if (c < 1.9f) {
-                    FarmSkits.billboard(buffer.apply(ENDER_EYE), local, 0.2f, eyeY(c), 0.5f + c * 0.3f, 0.16f, right, up);
+                    board(buffer.apply(ENDER_EYE), local, 0.2f, eyeY(c), 0.5f + c * 0.3f, 0.16f, right, up);
                     if (Math.random() < 0.5) particles.portal(0.2f, eyeY(c), 0.5f + c * 0.3f, 0.2f, eyeY(c) - 0.3f, 0.5f, true);
                 }
             }
@@ -962,14 +979,14 @@ final class ModuleSkits {
                 float sx = -hw + hw * 2f * (s * 20f + 11f) / 182f;
                 Vector3f sel = new Vector3f(center).fma(sx, right).add(new Vector3f(right).cross(up).mul(0.02f));
                 panel(buffer.apply(HOTBAR_SELECTION), sel, hw * 24f / 182f, hh * 24f / 22f, right, up, 0f, 0f, 1f, 23f / 24f);
-                if (s == 0) FarmSkits.held(buffer.apply(HOTBAR_ITEMS[s]), arm, 1f);
-                else FarmSkits.item(buffer.apply(HOTBAR_ITEMS[s]), arm, 1f);
+                if (live && s == 0) FarmSkits.held(buffer.apply(HOTBAR_ITEMS[s]), arm, 1f);
+                else if (live) FarmSkits.item(buffer.apply(HOTBAR_ITEMS[s]), arm, 1f);
             }
             case "BPS" -> {
-                FarmSkits.held(buffer.apply(HOE), arm, 1f);
+                if (live) FarmSkits.held(buffer.apply(HOE), arm, 1f);
                 int frame = (int) (time * 16) % 64;
                 Matrix4f m = new Matrix4f(local);
-                FarmSkits.billboard(buffer.apply(CLOCK[frame]), m, figure.pose.x, 2.55f, 0f, 0.2f, right, up);
+                board(buffer.apply(CLOCK[frame]), m, figure.pose.x, 2.55f, 0f, 0.2f, right, up);
                 text(buffer, local, bpsText(c), figure.pose.x, 2.95f, 0f, 0.16f, c > 2.4f && c < 3.6f ? 0xFF5555 : 0x55FF55,
                         right, up);
             }
@@ -978,16 +995,15 @@ final class ModuleSkits {
                 if (c >= 0.5f && c < 3.1f) {
                     float pop = backOut(Math.min(1f, (c - 0.5f) / 0.25f));
                     float shake = c > 1.5f ? (float) Math.sin(time * 40) * 0.03f : 0f;
-                    Matrix4f m = new Matrix4f(local).translate(shake, 0f, 1.6f).scale(pop).translate(-0.5f, 0f, -0.5f);
+                    Matrix4f m = place(local, shake, 0f, 1.6f).scale(pop).translate(-0.5f, 0f, -0.5f);
                     cube(buffer, m, mc("textures/block/dirt.png"), DIRT, DIRT);
                 }
-                if (c >= 1.5f && c < 3.2f) FarmSkits.held(buffer.apply(SHOVEL), arm, 1f);
-                else FarmSkits.held(buffer.apply(HOE), arm, 1f);
+                if (live) FarmSkits.held(buffer.apply(c >= 1.5f && c < 3.2f ? SHOVEL : HOE), arm, 1f);
             }
             case "Ghost Block" -> {
                 float a = ghostAlpha(c);
                 if (a > 0.05f) {
-                    Matrix4f m = new Matrix4f(local).translate(-0.5f, 0f, 0.75f);
+                    Matrix4f m = place(local, -0.5f, 0f, 0.75f);
                     if (a > 0.5f) cube(buffer, m, GLASS, GLASS, GLASS);
                     else cube(buffer, new Matrix4f(m).translate(0.5f, 0.5f, 0.5f).scale(0.98f).translate(-0.5f, -0.5f, -0.5f),
                             GLASS, GLASS, GLASS);
@@ -999,7 +1015,7 @@ final class ModuleSkits {
             case "TP Check" -> {
                 if (c >= 0.7f && c < 1.0f) {
                     float k = (c - 0.7f) / 0.3f;
-                    FarmSkits.billboard(buffer.apply(ENDER_PEARL), local, -2.4f * k, 1.2f + (float) Math.sin(Math.PI * k) * 1f,
+                    board(buffer.apply(ENDER_PEARL), local, -2.4f * k, 1.2f + (float) Math.sin(Math.PI * k) * 1f,
                             0.4f * k, 0.12f, right, up);
                 }
             }
@@ -1019,21 +1035,23 @@ final class ModuleSkits {
                 for (int i = 0; i < ingots; i++) {
                     int row = i / 3;
                     float x = 1.1f + (i % 3 - 1) * 0.18f + (row % 2) * 0.09f, z = 1.1f + (i % 2) * 0.1f;
-                    FarmSkits.billboard(buffer.apply(GOLD_INGOT), local, x, 0.12f + row * 0.13f, z, 0.14f, right, up);
+                    board(buffer.apply(GOLD_INGOT), local, x, 0.12f + row * 0.13f, z, 0.14f, right, up);
                 }
                 text(buffer, local, profitText(c), 1.1f, 1.2f + Math.min(c, 4.5f) * 0.05f, 1.1f, 0.13f, 0xFFD700, right, up);
             }
             case "Nick Hider" -> {
-                if (c < 1.15f) FarmSkits.item(buffer.apply(NAME_TAG), arm, 1f);
+                if (live && c < 1.15f) FarmSkits.item(buffer.apply(NAME_TAG), arm, 1f);
                 text(buffer, local, nickText(c), figure.pose.x, 2.3f, figure.pose.z, 0.18f,
                         c < 1.15f ? 0xFFFFFF : c < 2.6f ? 0xAAAAAA : 0x55FFFF, right, up);
             }
             case "Freecam" -> {
-                FarmSkits.item(buffer.apply(SPYGLASS), arm, 1f);
+                if (live) FarmSkits.item(buffer.apply(SPYGLASS), arm, 1f);
                 Vector3f eye = camAt(c);
-                FarmSkits.billboard(buffer.apply(ENDER_EYE), local, eye.x, eye.y, eye.z, 0.22f, right, up);
+                board(buffer.apply(ENDER_EYE), local, eye.x, eye.y, eye.z, 0.22f, right, up);
             }
-            case "Freelook" -> FarmSkits.held(buffer.apply(HOE), arm, 1f);
+            case "Freelook" -> {
+                if (live) FarmSkits.held(buffer.apply(HOE), arm, 1f);
+            }
             case "PiP" -> {
                 Identifier painting = PAINTINGS[((int) (c / 2.25f) + round * 2) % PAINTINGS.length];
                 float pop = backOut(Math.min(1f, (c % 2.25f) / 0.3f));
@@ -1045,14 +1063,14 @@ final class ModuleSkits {
             case "Fun" -> {
                 for (int i = 0; i < 3; i++) {
                     if (rockets[i] < 0f) continue;
-                    FarmSkits.billboard(buffer.apply(ROCKET), local, rocketX[i], rockets[i] * 6f, rocketZ[i], 0.2f, right, up);
+                    board(buffer.apply(ROCKET), local, rocketX[i], rockets[i] * 6f, rocketZ[i], 0.2f, right, up);
                 }
             }
             case "Ungrab Mouse" -> {
                 // the post and its knot, and the lead to your hand while it holds
-                Matrix4f post = new Matrix4f(local).translate(POST_AT.x - 0.125f, 0f, POST_AT.z - 0.125f).scale(0.25f, 1.2f, 0.25f);
+                Matrix4f post = place(local, POST_AT.x - 0.125f, 0f, POST_AT.z - 0.125f).scale(0.25f, 1.2f, 0.25f);
                 cube(buffer, post, POST, POST, POST);
-                ModelBoxes.box(buffer.apply(KNOT), new Matrix4f(local).translate(POST_AT.x, 1.15f, POST_AT.z).scale(1f / 16f),
+                ModelBoxes.box(buffer.apply(KNOT), place(local, POST_AT.x, 1.15f, POST_AT.z).scale(1f / 16f),
                         32, 32, false, -3, -4, -3, 3, 4, 3, 0, 0, 6, 8, 6);
                 if (leashed(c)) {
                     Vector3f from = new Vector3f(POST_AT.x, 1.15f, POST_AT.z);
@@ -1074,10 +1092,12 @@ final class ModuleSkits {
                             0.375f, 0.375f, 0.625f, 0.625f);
                 }
             }
-            case "HUD Colors", "Menu Colors" -> FarmSkits.item(buffer.apply(dye(c, "Menu Colors".equals(focus))), arm, 1f);
+            case "HUD Colors", "Menu Colors" -> {
+                if (live) FarmSkits.item(buffer.apply(dye(c, "Menu Colors".equals(shown))), arm, 1f);
+            }
             case "Miscellaneous" -> circuit(buffer, local, c);
             case "Discord" -> {
-                Matrix4f base = new Matrix4f(local).translate(BELL_AT.x, 0f, BELL_AT.z);
+                Matrix4f base = place(local, BELL_AT.x, 0f, BELL_AT.z);
                 cube(buffer, new Matrix4f(base).translate(-0.6f, 0f, -0.08f).scale(0.16f, 2.3f, 0.16f), LOG, LOG, LOG);
                 cube(buffer, new Matrix4f(base).translate(0.44f, 0f, -0.08f).scale(0.16f, 2.3f, 0.16f), LOG, LOG, LOG);
                 cube(buffer, new Matrix4f(base).translate(-0.6f, 2.15f, -0.08f).scale(1.2f, 0.16f, 0.16f), LOG, LOG, LOG);
@@ -1093,11 +1113,11 @@ final class ModuleSkits {
     // the miscellaneous circuit: a lever on stone, a run of dust, a repeater and the lamp at the end
     private void circuit(Function<Identifier, SceneClone.Buffer> buffer, Matrix4f local, float c) {
         float p = power(c);
-        Matrix4f block = new Matrix4f(local).translate(WIRE_X0 - 0.5f, 0f, WIRE_Z - 0.5f);
+        Matrix4f block = place(local, WIRE_X0 - 0.5f, 0f, WIRE_Z - 0.5f);
         cube(buffer, block, STONE, STONE, STONE);
         float angle = c > 0.6f && c < 3.6f ? 0.6f : -0.6f;
-        Matrix4f lever = new Matrix4f(local).translate(WIRE_X0, 1f, WIRE_Z).rotateX(angle).scale(1f / 16f);
-        ModelBoxes.box(buffer.apply(COBBLE), new Matrix4f(local).translate(WIRE_X0, 1f, WIRE_Z).scale(1f / 16f), 16, 16, false,
+        Matrix4f lever = place(local, WIRE_X0, 1f, WIRE_Z).rotateX(angle).scale(1f / 16f);
+        ModelBoxes.box(buffer.apply(COBBLE), place(local, WIRE_X0, 1f, WIRE_Z).scale(1f / 16f), 16, 16, false,
                 -2, 0, -4, 2, 3, 4, 0, 0, 4, 3, 8);
         ModelBoxes.box(buffer.apply(LEVER), lever, 16, 16, false, -1, 0, -1, 1, 10, 1, 7, 6, 2, 10, 2);
         int dots = 6;
@@ -1107,23 +1127,33 @@ final class ModuleSkits {
             int power = lit > 0f ? Math.max(1, 15 - i * 2) : 0;
             dust(buffer.apply(DUST), local, x, WIRE_Z, power);
         }
-        Matrix4f rep = new Matrix4f(local).translate(WIRE_X0 + 3.4f - 0.5f, 0.01f, WIRE_Z - 0.5f);
+        Matrix4f rep = place(local, WIRE_X0 + 3.4f - 0.5f, 0.01f, WIRE_Z - 0.5f);
         SceneActors.face(buffer.apply(p > 0.8f ? REPEATER_ON : REPEATER), rep, 0, 0.125f, 0, 1, 0.125f, 0, 1, 0.125f, 1, 0,
                 0.125f, 1, 1f, 1f, 1f);
-        Matrix4f lamp = new Matrix4f(local).translate(WIRE_X0 + 4.1f - 0.5f, 0f, WIRE_Z - 0.5f);
+        Matrix4f lamp = place(local, WIRE_X0 + 4.1f - 0.5f, 0f, WIRE_Z - 0.5f);
         Identifier face = p >= 1f ? LAMP_ON : LAMP;
         cube(buffer, lamp, face, face, face);
     }
 
+    // a prop's frame at a farm point, grown in by how far its skit has popped in
+    private Matrix4f place(Matrix4f local, float x, float y, float z) {
+        return new Matrix4f(local).translate(x, y, z).scale(Math.max(0f, size));
+    }
+
+    private void board(SceneClone.Buffer out, Matrix4f local, float x, float y, float z, float half, Vector3f right,
+                       Vector3f up) {
+        FarmSkits.billboard(out, local, x, y, z, half * size, right, up);
+    }
+
     // a dot of redstone dust flat on the ground, coloured for its power like the wire
-    private static void dust(SceneClone.Buffer out, Matrix4f local, float x, float z, int power) {
+    private void dust(SceneClone.Buffer out, Matrix4f local, float x, float z, int power) {
         float f = power / 15f;
         float r = f * 0.6f + (f > 0f ? 0.4f : 0.3f);
         float g = Math.max(0f, Math.min(1f, f * f * 0.7f - 0.5f));
         float b = Math.max(0f, Math.min(1f, f * f * 0.6f - 0.7f));
         int rgb = Math.round(r * 255) << 16 | Math.round(g * 255) << 8 | Math.round(b * 255);
         int color = SceneClone.rgba(rgb, 1f, 255);
-        Matrix4f m = new Matrix4f(local).translate(x - 0.35f, 0.015f, z - 0.35f).scale(0.7f, 1f, 0.7f);
+        Matrix4f m = place(local, x - 0.35f, 0.015f, z - 0.35f).scale(0.7f, 1f, 0.7f);
         Vector3f a = m.transformPosition(0, 0, 0, new Vector3f()), bb = m.transformPosition(1, 0, 0, new Vector3f());
         Vector3f cc = m.transformPosition(1, 0, 1, new Vector3f()), d = m.transformPosition(0, 0, 1, new Vector3f());
         out.vertex(a.x, a.y, a.z, 0f, 0f, color);
@@ -1145,7 +1175,7 @@ final class ModuleSkits {
 
     // a farmland tile with wheat at a growth 0..1; below 0 leaves the soil bare
     private void crop(Function<Identifier, SceneClone.Buffer> buffer, Matrix4f local, float x, float z, float grown) {
-        Matrix4f m = new Matrix4f(local).translate(x - 0.5f, 0.01f, z - 0.5f);
+        Matrix4f m = place(local, x - 0.5f, 0.01f, z - 0.5f);
         SceneActors.face(buffer.apply(FARMLAND), m, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1f, 1f, 1f);
         if (grown < 0f) return;
         SceneClone.Buffer out = buffer.apply(WHEAT[Math.min(7, (int) (grown * 7.999f))]);
@@ -1166,8 +1196,10 @@ final class ModuleSkits {
     }
 
     // a camera-facing rectangle in the buffer's space showing part of a texture
-    private static void panel(SceneClone.Buffer out, Vector3f c, float hw, float hh, Vector3f right, Vector3f up,
-                              float u0, float v0, float u1, float v1) {
+    private void panel(SceneClone.Buffer out, Vector3f c, float hw, float hh, Vector3f right, Vector3f up,
+                       float u0, float v0, float u1, float v1) {
+        hw *= size;
+        hh *= size;
         float rx = right.x * hw, ry = right.y * hw, rz = right.z * hw, ux = up.x * hh, uy = up.y * hh, uz = up.z * hh;
         int color = 0xFFFFFFFF;
         out.vertex(c.x - rx + ux, c.y - ry + uy, c.z - rz + uz, u0, v0, color);
@@ -1179,8 +1211,9 @@ final class ModuleSkits {
     }
 
     // a line of text in minecraft's font facing the camera on a dark plate, like a name tag
-    private static void text(Function<Identifier, SceneClone.Buffer> buffer, Matrix4f local, String text, float x, float y,
-                             float z, float height, int rgb, Vector3f right, Vector3f up) {
+    private void text(Function<Identifier, SceneClone.Buffer> buffer, Matrix4f local, String text, float x, float y,
+                      float z, float height, int rgb, Vector3f right, Vector3f up) {
+        height *= size;
         Vector3f c = local.transformPosition(x, y, z, new Vector3f());
         float px = height / 8f;
         float width = 0f;
@@ -1188,7 +1221,8 @@ final class ModuleSkits {
         width -= px;
         Vector3f toCam = new Vector3f(right).cross(up).normalize();
         SceneClone.Buffer plate = buffer.apply(BLACK);
-        panel(plate, new Vector3f(c).fma(-0.01f, toCam), width / 2f + px * 2f, height * 0.65f, right, up, 0f, 0f, 0.1f, 0.1f);
+        panel(plate, new Vector3f(c).fma(-0.01f, toCam), (width / 2f + px * 2f) / Math.max(1e-3f, size),
+                height * 0.65f / Math.max(1e-3f, size), right, up, 0f, 0f, 0.1f, 0.1f);
         SceneClone.Buffer glyphs = buffer.apply(FONT);
         int color = SceneClone.rgba(rgb, 1f, 255);
         int shadow = SceneClone.rgba(rgb, 0.25f, 255);
