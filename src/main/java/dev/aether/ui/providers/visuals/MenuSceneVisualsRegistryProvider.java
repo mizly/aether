@@ -8,7 +8,6 @@ import dev.aether.ui.settings.DropdownSetting;
 import dev.aether.ui.settings.InfoSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.SettingGroup;
-import dev.aether.ui.settings.SliderSetting;
 import net.minecraft.client.Minecraft;
 
 import java.util.List;
@@ -25,14 +24,10 @@ public final class MenuSceneVisualsRegistryProvider extends AbstractVisualsRegis
         SettingGroup group = SettingGroup.alwaysOn("Scene", "Pick an open spot so blocks never cover the menu");
         group.add(new DropdownSetting("Scene", List.of("Around you", "Garden spot"), AetherConfig.ORBIT_SCENE::get,
                 value -> { AetherConfig.ORBIT_SCENE.set(value); AetherConfig.save(); })
-                .describe("In the Garden the camera flies to your spot and builds the ring there"));
+                .describe("In the Garden the menu opens on a copy of your spot instead of where you stand"));
         group.add(new ActionSetting("Use Where I'm Standing", MenuSceneVisualsRegistryProvider::captureSpot)
                 .describe("Saves your position and facing as the garden spot"));
         group.add(new InfoSetting("Saved Spot", MenuSceneVisualsRegistryProvider::spotText));
-        group.add(new SliderSetting("Lift", 0f, 20f, AetherConfig.ORBIT_SPOT_LIFT::get,
-                value -> { AetherConfig.ORBIT_SPOT_LIFT.set(value); AetherConfig.save(); })
-                .withDecimals(0).withSuffix(" blocks")
-                .describe("Raises the scene above the spot, clear of crops and walls"));
         return MainGUIRegistry.subTab("Menu Scene", "Where the menu opens", List.of(group));
     }
 

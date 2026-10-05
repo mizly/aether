@@ -74,6 +74,11 @@ public final class OrbitScreen extends Screen {
     private OrbitScene scene;
     private float openSeconds = 1.55f;
     private float closeSeconds = 0.8f;
+    private OrbitIsland island;
+    private SceneClone.Mesh clone;
+    private final SceneRenderer sceneRenderer = new SceneRenderer();
+    private final PlayerFigure figure = new PlayerFigure();
+    private SceneClone.Buffer figureBuffer;
     private final OrbitSearchBar searchBar;
     private String focused;
 
@@ -101,14 +106,14 @@ public final class OrbitScreen extends Screen {
             yaw0 = player.getYRot();
             pitch0 = player.getXRot();
         }
-        OrbitIsland island = OrbitIsland.current();
+        island = OrbitIsland.current();
         scene = OrbitScene.spot(island);
-        if (scene != null && player != null) {
-            // a far spot gets a little longer to fly to and back
-            double far = scene.anchor().distance(player.getX(), player.getY(), player.getZ());
-            openSeconds += (float) Math.min(1.2, far / 90.0);
-            closeSeconds += (float) Math.min(0.7, far / 150.0);
+        if (scene != null) {
+            // the camera drops in on the spot from above, which wants a beat longer than leaving your own eyes
+            openSeconds = 1.9f;
+            closeSeconds = 0.9f;
         }
+        clone = buildClone();
         OrbitIsland from = OrbitIsland.arrive(island);
         if (from != null) cinematic = new TravelCinematic(from, island, dev.aether.renderer.SkinFaceProvider::render);
         String first = OrbitIsland.initialCategory(MacroCatalog.lastStarted().map(MacroCatalog.Entry::id).orElse(null), island);
@@ -250,13 +255,88 @@ public final class OrbitScreen extends Screen {
         for (int i = 0; i < count; i++) unfoldNow[i] = unfold[i].x;
         double[] lp = {leanPos[0].x, leanPos[1].x, leanPos[2].x};
         double[] ll = {leanLook[0].x, leanLook[1].x, leanLook[2].x};
+        Vector3d anchor = sceneAnchor(feet);
         Vector3d eye = new Vector3d(feet.x, feet.y + player.getEyeHeight(), feet.z);
-        layout = OrbitLayout.compute(new OrbitLayout.Input(sceneAnchor(feet), sceneYaw(), pitch0,
+        Vector3d eyeLook = OrbitLayout.lookPoint(eye, yaw0, pitch0);
+        if (scene != null) {
+            eye = rigToWorld(anchor, 0, 18, -22);
+            eyeLook = new Vector3d(anchor).add(0, 1, 0);
+        }
+        layout = OrbitLayout.compute(new OrbitLayout.Input(anchor, sceneYaw(), pitch0,
                 player.getEyeHeight(), client.options.fov().get(), count, ring.x, zoom.x, expand.x, e,
                 state == State.OPEN, clock, unfoldNow, activeIndex(), lp, ll, client.getWindow().getHeight(),
-                eye, OrbitLayout.lookPoint(eye, yaw0, pitch0)));
+                eye, eyeLook));
         OrbitLayout.Camera cam = layout.camera();
         OrbitCamera.set(cam.pos().x, cam.pos().y, cam.pos().z, cam.look().x, cam.look().y, cam.look().z, cam.fov());
+    }
+
+    private Vector3d rigToWorld(Vector3d anchor, double rx, double ry, double rz) {
+        double yaw = Math.toRadians(sceneYaw());
+        return new Vector3d(anchor.x + Math.cos(yaw) * rx - Math.sin(yaw) * rz, anchor.y + ry,
+                anchor.z + Math.sin(yaw) * rx + Math.cos(yaw) * rz);
+    }
+
+    // the blocks around the scene, copied once; null keeps the real world behind the menu
+    private SceneClone.Mesh buildClone() {
+        Minecraft client = Minecraft.getInstance();
+        var player = client.player;
+        if (client.level == null || player == null) return null;
+        Vector3d anchor = sceneAnchor(player.position());
+        int ox = (int) Math.floor(anchor.x), oy = (int) Math.floor(anchor.y + 1e-3), oz = (int) Math.floor(anchor.z);
+        Vector3d lens = rigToWorld(anchor, OrbitRig.TP_POS.x, 0, OrbitRig.TP_POS.z);
+        double cx = lens.x - ox, cz = lens.z - oz;
+        try {
+            return SceneClone.build(client.level, ox, oy, oz, 40, (dx, dz) -> {
+                double toLens = (dx + 0.5 - cx) * (dx + 0.5 - cx) + (dz + 0.5 - cz) * (dz + 0.5 - cz);
+                if (toLens < 16) return 0;
+                return dx * dx + dz * dz <= 22 * 22 ? 1 : 64;
+            });
+        } catch (RuntimeException | LinkageError e) {
+            Aether.LOGGER.error("Orbit menu could not copy the scene", e);
+            return null;
+        }
+    }
+
+    // the menu draws its copy instead of the level once the copy exists
+    public static boolean sceneActive() {
+        return Minecraft.getInstance().screen instanceof OrbitScreen screen && screen.clone != null
+                && !screen.sceneRenderer.failed();
+    }
+
+    public static void renderSceneIfOpen() {
+        if (Minecraft.getInstance().screen instanceof OrbitScreen screen) {
+            try {
+                screen.renderScene();
+            } catch (RuntimeException | LinkageError e) {
+                Aether.LOGGER.error("Orbit menu scene pass failed", e);
+            }
+        }
+    }
+
+    private void renderScene() {
+        Minecraft client = Minecraft.getInstance();
+        var player = client.player;
+        if (player == null || layout == null) return;
+        Vector3d anchor = sceneAnchor(player.getPosition(client.getDeltaTracker().getGameTimeDeltaPartialTick(true)));
+        double yaw = Math.toRadians(sceneYaw());
+        OrbitLayout.Camera cam = layout.camera();
+        Vector3d dir = mouseX < 0 ? new Vector3d(cam.forward()) : rayDirection(mouseX, mouseY);
+        Vector3d target = new Vector3d(cam.pos()).fma(14, dir).sub(anchor);
+        float lx = (float) (target.x * Math.cos(yaw) + target.z * Math.sin(yaw));
+        float lz = (float) (-target.x * Math.sin(yaw) + target.z * Math.cos(yaw));
+        figure.lookAt(lx, (float) target.y, lz, lastDt);
+        if (figureBuffer == null) figureBuffer = new SceneClone.Buffer(512);
+        figureBuffer.reset();
+        var eye = client.gameRenderer.getMainCamera().position();
+        org.joml.Matrix4f toWorld = new org.joml.Matrix4f()
+                .translate((float) (anchor.x - eye.x), (float) (anchor.y - eye.y), (float) (anchor.z - eye.z))
+                .rotateY((float) -yaw);
+        var skin = player.getSkin();
+        figure.build(figureBuffer, toWorld, skin.model() == net.minecraft.world.entity.player.PlayerModelType.SLIM, clock);
+        boolean crimson = island == OrbitIsland.CRIMSON_ISLE;
+        sceneRenderer.draw(clone, new SceneRenderer.Frame(anchor.x, anchor.y, anchor.z, sceneYaw(), figureBuffer,
+                skin.body().texturePath(), crimson ? 0xFF2A0A10 : 0xFF6FA2E8, crimson ? 0xFF7A2E1C : 0xFFC7DDF5));
+        renderWorld();
     }
 
     // the ring's centre on the ground: the saved spot, or the player's feet
@@ -735,6 +815,11 @@ public final class OrbitScreen extends Screen {
         for (PanelSurface surface : surfaces) surface.close();
         failsafeRing.close();
         settingPreview.close();
+        sceneRenderer.close();
+        if (clone != null) clone.close();
+        clone = null;
+        if (figureBuffer != null) figureBuffer.free();
+        figureBuffer = null;
         renderer.close();
         super.removed();
     }

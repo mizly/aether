@@ -18,7 +18,7 @@ record OrbitScene(Vector3d anchor, float yaw) {
         // the ring reaches about 20 blocks out, so the chunks around the spot must be here to film it
         if (!level.hasChunksAt(x - 24, z - 24, x + 24, z + 24)) return null;
         Vector3d anchor = new Vector3d(AetherConfig.ORBIT_SPOT_X.get(),
-                AetherConfig.ORBIT_SPOT_Y.get() + AetherConfig.ORBIT_SPOT_LIFT.get(), AetherConfig.ORBIT_SPOT_Z.get());
+                AetherConfig.ORBIT_SPOT_Y.get(), AetherConfig.ORBIT_SPOT_Z.get());
         return new OrbitScene(anchor, AetherConfig.ORBIT_SPOT_YAW.get());
     }
 }

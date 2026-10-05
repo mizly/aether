@@ -938,11 +938,9 @@
   "text.aether.pick_an_open_spot_so_blocks_never_cover_the_menu": "Pick an open spot so blocks never cover the menu",
   "text.aether.around_you": "Around you",
   "text.aether.garden_spot": "Garden spot",
-  "text.aether.in_the_garden_the_camera_flies_to_your_spot_and_builds_the_ring_there": "In the Garden the camera flies to your spot and builds the ring there",
   "text.aether.use_where_i_m_standing": "Use Where I'm Standing",
   "text.aether.saves_your_position_and_facing_as_the_garden_spot": "Saves your position and facing as the garden spot",
   "text.aether.saved_spot": "Saved Spot",
-  "text.aether.lift": "Lift",
-  "text.aether.raises_the_scene_above_the_spot_clear_of_crops_and_walls": "Raises the scene above the spot, clear of crops and walls",
-  "text.aether.no_spot_saved_yet": "No spot saved yet"
+  "text.aether.no_spot_saved_yet": "No spot saved yet",
+  "text.aether.in_the_garden_the_menu_opens_on_a_copy_of_your_spot_instead_of_where_you_stand": "In the Garden the menu opens on a copy of your spot instead of where you stand"
 }

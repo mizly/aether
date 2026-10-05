@@ -1061,7 +1061,6 @@ public final class AetherConfig {
         public static final DoubleEntry ORBIT_SPOT_Y = Config.doubleVal("orbitSpotY", 0.0);
         public static final DoubleEntry ORBIT_SPOT_Z = Config.doubleVal("orbitSpotZ", 0.0);
         public static final FloatEntry ORBIT_SPOT_YAW = Config.floatVal("orbitSpotYaw", 0f);
-        public static final FloatEntry ORBIT_SPOT_LIFT = Config.floatVal("orbitSpotLift", 0f).range(0f, 20f);
         public static final BooleanEntry HAT_ENABLED = Config.bool("hatEnabled", true);
         public static final BooleanEntry HAT_FILLED = Config.bool("hatFilled", true);
         public static final BooleanEntry HAT_RENDER_FIRST_PERSON = Config.bool("hatRenderFirstPerson", false);
