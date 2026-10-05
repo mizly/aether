@@ -284,7 +284,26 @@ class OrbitPreviewTest {
                         new float[]{0.5f, 1.3f, 1.8f, 2.2f, 3.0f, 3.9f, 4.5f, 6.4f, 7.2f}, new Vector3f(1.5f, 2.6f, 9.5f),
                         new Vector3f(3f, 0.9f, 1.5f)),
                 new Stage("stage-loadout-game", new SceneActors.Inputs("Auto Loadout", true, 0, 0, 0),
-                        new float[]{0.5f, 1.3f, 1.8f, 2.2f, 3.0f, 3.9f, 4.5f, 6.4f, 7.2f}, game, gameAt));
+                        new float[]{0.5f, 1.3f, 1.8f, 2.2f, 3.0f, 3.9f, 4.5f, 6.4f, 7.2f}, game, gameAt),
+                new Stage("stage-farming", new SceneActors.Inputs("Farming Macro", true, 0, 0, 0),
+                        new float[]{0.4f, 0.9f, 1.4f, 1.9f, 2.6f, 3.4f, 4.4f, 5.6f, 7.5f}, new Vector3f(0.5f, 2.7f, 6.5f),
+                        new Vector3f(0f, 0.7f, 0.8f)),
+                new Stage("stage-rewarp", new SceneActors.Inputs("Rewarp", true, 0, 0, 0),
+                        new float[]{0.5f, 1.8f, 3.3f, 3.8f, 4.2f, 4.6f, 5.0f, 5.3f, 6.6f}, new Vector3f(0.5f, 2.7f, 7f),
+                        new Vector3f(0f, 0.7f, 0.5f)),
+                new Stage("stage-rewarp-game", new SceneActors.Inputs("Rewarp", true, 0, 0, 0),
+                        new float[]{0.5f, 1.8f, 3.3f, 3.8f, 4.2f, 4.6f, 5.0f, 5.3f, 6.6f}, game, gameAt),
+                new Stage("stage-fishing", new SceneActors.Inputs("Strider Fishing", true, 0, 0, 0),
+                        new float[]{0.5f, 0.95f, 1.1f, 1.5f, 3.2f, 4.5f, 4.8f, 5.3f, 5.9f}, new Vector3f(-3f, 3.2f, 7f),
+                        new Vector3f(-3.4f, 0.6f, 0.3f)),
+                new Stage("stage-fishing-game", new SceneActors.Inputs("Strider Fishing", true, 0, 0, 0),
+                        new float[]{0.5f, 0.95f, 1.1f, 1.5f, 3.2f, 4.5f, 4.8f, 5.3f, 5.9f}, game, gameAt),
+                new Stage("stage-composter", new SceneActors.Inputs("Auto Composter", true, 0, 0, 0),
+                        new float[]{0.2f, 0.45f, 1.2f, 1.6f, 3.0f, 5.5f, 7.1f, 7.6f, 8.1f}, new Vector3f(3.8f, 2.6f, 5.5f),
+                        new Vector3f(1f, 0.8f, 1f)),
+                new Stage("stage-spray", new SceneActors.Inputs("Auto Sprayonator", true, 0, 0, 0),
+                        new float[]{0.4f, 1.0f, 1.6f, 2.2f, 2.8f, 3.6f, 4.4f, 5.2f, 6.0f}, new Vector3f(0.5f, 2.7f, 6.5f),
+                        new Vector3f(0f, 0.7f, 0.8f)));
         int scene = link("orbit_scene.vsh", "orbit_scene.fsh");
         int stageVao = GL30.glGenVertexArrays();
         int stageVbo = GL15.glGenBuffers();
