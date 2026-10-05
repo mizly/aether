@@ -397,7 +397,8 @@ public class PestDestroyer {
         if (AetherConfig.AOTV_ROOF_PLOTS.get().isEmpty()) {
             return true;
         }
-        return plot != null && AetherConfig.AOTV_ROOF_PLOTS.get().contains(plot);
+        return plot != null && AetherConfig.AOTV_ROOF_PLOTS.get().stream()
+                .anyMatch(roofPlot -> PestPlotId.equals(roofPlot, plot));
     }
 
     private static boolean isPeriodicRoofRescanState(State state) {

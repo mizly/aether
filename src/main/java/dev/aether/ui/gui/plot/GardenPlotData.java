@@ -2,7 +2,8 @@ package dev.aether.ui.gui.plot;
 
 import java.util.Set;
 
-// live garden knowledge for the plot picker; NONE is what a fresh install and the preview harness see
+// live garden knowledge for the plot picker; NONE is what a fresh install and the preview harness see.
+// the picker reads it once per frame through GardenFacts.read
 public interface GardenPlotData {
     GardenPlotData NONE = new GardenPlotData() {
     };
@@ -27,5 +28,21 @@ public interface GardenPlotData {
     // the Configure Plots menu as last read, or null until the player opens it once
     default PlotMenuSnapshot snapshot() {
         return null;
+    }
+
+    // what plot settings consult outside a frame, e.g. which plots are greenhouses; bootstrap installs the live source
+    static GardenPlotData active() {
+        return Active.source;
+    }
+
+    static void install(GardenPlotData source) {
+        Active.source = source == null ? NONE : source;
+    }
+
+    final class Active {
+        private static volatile GardenPlotData source = NONE;
+
+        private Active() {
+        }
     }
 }
