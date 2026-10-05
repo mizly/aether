@@ -69,6 +69,8 @@ public final class ClientFeatureBootstrap {
         PlaySessionTracker.register();
         PathVisualizer.register();
         McTextures.registerReloadListener();
+        dev.aether.ui.gui.GuiCanvas.installItemPainter((nvg, id, x, y, size, tint) ->
+                nvg.mcIcon(dev.aether.renderer.McIcons.of(id), x, y, size, tint));
 
         LevelRenderEvents.END_MAIN.register(ctx -> {
             dev.aether.ui.orbit.OrbitScreen.renderWorldIfOpen();
