@@ -764,10 +764,11 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return;
         }
 
-        // only read once the float is down, so a neighbour's marker cannot pass for ours while it flies
-        Entity marker = markerId < 0 ? null : mc.level.getEntity(markerId);
-        if (marker == null || marker.isRemoved()) {
-            markerId = CatchWatch.lockMarker(mc.level, hook);
+        // only read once the float is down, so a neighbour's marker cannot pass for ours while it flies; picked
+        // again every tick, since a carried float settles before its own stand spawns and a neighbour's may be first
+        int nearest = CatchWatch.lockMarker(mc.level, hook);
+        if (nearest >= 0) {
+            markerId = nearest;
         }
         if (CatchWatch.isBite(mc.level, markerId)) {
             castLanded();

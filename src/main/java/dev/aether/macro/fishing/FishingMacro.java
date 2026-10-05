@@ -427,8 +427,10 @@ public final class FishingMacro extends AbstractFishingMacro {
 
         // the timer over the float only means anything once the float has stopped
         if (settleHandled) {
-            if (!markerStillThere(mc)) {
-                markerId = CatchWatch.lockMarker(mc.level, hook);
+            // picked again every tick, since a carried float settles before its own stand spawns
+            int nearest = CatchWatch.lockMarker(mc.level, hook);
+            if (nearest >= 0) {
+                markerId = nearest;
             }
             if (CatchWatch.isBite(mc.level, markerId)) {
                 idle.clear();
@@ -454,11 +456,6 @@ public final class FishingMacro extends AbstractFishingMacro {
         }
 
         idle.tick(mc, now, false, !mc.player.isInLiquid(), homeKeeper.isOnOrigin(mc), ThreadLocalRandom.current());
-    }
-
-    private boolean markerStillThere(Minecraft mc) {
-        Entity marker = markerId < 0 ? null : mc.level.getEntity(markerId);
-        return marker != null && !marker.isRemoved();
     }
 
     private static boolean isSnagged(Entity hookedIn) {
