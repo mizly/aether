@@ -105,7 +105,8 @@ public class PestAotvManager {
         if (AetherConfig.AOTV_ROOF_PLOTS.get().isEmpty())
             return true;
 
-        boolean inAllowedList = AetherConfig.AOTV_ROOF_PLOTS.get().contains(currentInfestedPlot);
+        boolean inAllowedList = AetherConfig.AOTV_ROOF_PLOTS.get().stream()
+                .anyMatch(roofPlot -> PestPlotId.equals(roofPlot, currentInfestedPlot));
         ClientUtils.sendDebugMessage(inAllowedList ? "plot in list, performing aotv" : "plot not in list, skipping aotv");
         return inAllowedList;
     }

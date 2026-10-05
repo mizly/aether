@@ -4,22 +4,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
-import dev.aether.util.AetherLang;
+import dev.aether.ui.gui.Icon;
 
-public class DropdownListSetting implements Setting {
+public class DropdownListSetting extends AbstractSetting<DropdownListSetting> {
 
-    private final String name;
-    private final String rawName;
     private final List<String> allOptions;
     private final DropdownSetting addPicker;
     private final Supplier<List<String>> getter;
     private final Consumer<List<String>> setter;
-    private Supplier<Boolean> visibility = () -> true;
+    private List<Icon> optionIcons = List.of();
 
     public DropdownListSetting(String name, List<String> allOptions,
                                Supplier<List<String>> getter, Consumer<List<String>> setter) {
-        this.rawName = name;
-        this.name = AetherLang.localize(name);
+        super(name);
         this.allOptions = List.copyOf(allOptions);
         int[] pendingIdx = {0};
         this.addPicker = new DropdownSetting("", allOptions, () -> pendingIdx[0], i -> pendingIdx[0] = i);
@@ -75,13 +72,16 @@ public class DropdownListSetting implements Setting {
         return addPicker;
     }
 
-    public DropdownListSetting visibleWhen(Supplier<Boolean> condition) {
-        this.visibility = condition;
+    // by index into getAllOptions(); null entries mean no icon
+    public DropdownListSetting optionIcons(List<Icon> icons) {
+        optionIcons = new ArrayList<>(icons);
+        addPicker.optionIcons(icons);
         return this;
     }
 
-    @Override public String getName()      { return name; }
-    @Override public String getRawName()   { return rawName; }
+    public Icon optionIcon(int index) {
+        return index >= 0 && index < optionIcons.size() ? optionIcons.get(index) : null;
+    }
+
     @Override public SettingType getType() { return SettingType.DROPDOWN_LIST; }
-    @Override public boolean isVisible()   { return visibility.get(); }
 }

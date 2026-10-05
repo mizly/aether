@@ -9,6 +9,7 @@ import dev.aether.ui.settings.InfoSetting;
 import dev.aether.ui.settings.MultiDropdownSetting;
 import dev.aether.ui.settings.KeybindSetting;
 import dev.aether.ui.settings.ListSetting;
+import dev.aether.ui.settings.PlotSetting;
 import dev.aether.ui.settings.PositionSetting;
 import dev.aether.ui.settings.RangeSliderSetting;
 import dev.aether.ui.settings.Setting;
@@ -29,7 +30,8 @@ final class MainGUISettingRowRenderer {
         this.owner = owner;
     }
 
-    void render(NVGRenderer nvg, Setting setting, float x, float y, float w, float h, float mx, float my) {
+    void render(NVGRenderer nvg, Setting shown, float x, float y, float w, float h, float mx, float my) {
+        Setting setting = PlotSetting.asLegacy(shown);
         if (setting instanceof SectionSetting section) {
             renderSection(nvg, section, x, y, w, h);
             return;

@@ -51,7 +51,10 @@ public final class AetherConfig {
 
         public static void save() {
                 Config.save();
-                ConfigProfileManager.syncActiveProfileFromLiveConfig();
+                // a batched gui drag flushes the file and the active profile once, when it ends
+                if (!Config.batching()) {
+                        ConfigProfileManager.syncActiveProfileFromLiveConfig();
+                }
         }
 
         public static void flush() {
@@ -767,6 +770,8 @@ public final class AetherConfig {
         public static final BooleanEntry PROFIT_BLOCKS_PER_HOUR = Config.bool("profitBlocksPerHour", true);
         public static final BooleanEntry HIDE_FILTERED_CHAT = Config.bool("hideFilteredChat", true);
         public static final BooleanEntry GUI_ONLY_IN_GARDEN = Config.bool("guiOnlyInGarden", false);
+        // open the flat settings window instead of the 3d farm menu
+        public static final BooleanEntry TRADITIONAL_GUI = Config.bool("traditionalGui", false);
         public static final BooleanEntry HUD_ONLY_WHILE_MACRO_RUNNING = Config.bool("hudOnlyWhileMacroRunning", false);
 
         // -- PET TRACKER -----------------------------------------------------------

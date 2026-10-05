@@ -425,6 +425,10 @@ public class PestTrapManager {
     }
 
     private static void teleportToTrapPlotIfNeeded(Minecraft client, String plot) throws InterruptedException {
+        if (!PestPlotId.isUsable(plot)) {
+            ClientUtils.sendDebugMessage("No trap plot set, working where the player stands.");
+            return;
+        }
         String currentPlot = ClientUtils.getCurrentPlot();
         String freshChatPlot = CommandUtils.getFreshKnownPlotChat();
         boolean scoreboardMatch = plot != null && plot.equalsIgnoreCase(currentPlot);

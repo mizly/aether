@@ -6,6 +6,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.List;
+import java.util.stream.Stream;
 
 // named theme profiles under config/aether/themes, each one a Theme.exportJson payload
 public final class ThemeProfileManager {
@@ -22,8 +23,8 @@ public final class ThemeProfileManager {
     // -- CRUD ------------------------------------------------------------------
 
     public static List<String> list() {
-        try {
-            return Files.list(DIR)
+        try (Stream<Path> files = Files.list(DIR)) {
+            return files
                     .filter(p -> p.toString().endsWith(".json"))
                     .map(p -> p.getFileName().toString().replace(".json", ""))
                     .sorted()
@@ -31,6 +32,11 @@ public final class ThemeProfileManager {
         } catch (IOException e) {
             return List.of();
         }
+    }
+
+    public static boolean exists(String name) {
+        String sanitized = sanitize(name);
+        return !sanitized.isBlank() && Files.exists(DIR.resolve(sanitized + ".json"));
     }
 
     public static void save(String name) {

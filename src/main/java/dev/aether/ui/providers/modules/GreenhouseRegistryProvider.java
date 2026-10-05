@@ -2,9 +2,9 @@ package dev.aether.ui.providers.modules;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.ui.MainGUIRegistry;
+import dev.aether.ui.gui.plot.PlotSettings;
 import dev.aether.ui.providers.base.AbstractModulesRegistryProvider;
 import dev.aether.ui.settings.ActionSetting;
-import dev.aether.ui.settings.ListSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
@@ -29,12 +29,7 @@ public final class GreenhouseRegistryProvider extends AbstractModulesRegistryPro
                             AetherConfig.save();
                         })
                         .withDecimals(0).withSuffix(" min"))
-                .add(new ListSetting("Plots", "Add plot number",
-                        () -> AetherConfig.GREENHOUSE_PLOTS.get(),
-                        v -> {
-                            AetherConfig.GREENHOUSE_PLOTS.set(v);
-                            AetherConfig.save();
-                        }))
+                .add(PlotSettings.greenhouses("Plots", AetherConfig.GREENHOUSE_PLOTS))
                 .add(new ToggleSetting("Equip Custom Item",
                         () -> AetherConfig.EQUIP_GREENHOUSE_CUSTOM_ITEM.get(),
                         v -> {

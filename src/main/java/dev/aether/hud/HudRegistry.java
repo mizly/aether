@@ -78,7 +78,7 @@ public class HudRegistry {
             if (mc.screen instanceof HudEditScreen) return;
 
             // MainGUI renders HUD elements itself (Gui.render() is suppressed while it's open)
-            if (mc.screen instanceof MainGUI) return;
+            if (mc.screen instanceof MainGUI || mc.screen instanceof dev.aether.ui.orbit.OrbitScreen) return;
             if (StreamerModeManager.isEnabled()) {
                 hudAlpha = 0f;
                 return;

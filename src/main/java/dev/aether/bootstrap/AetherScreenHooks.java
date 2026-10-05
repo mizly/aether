@@ -3,6 +3,9 @@ package dev.aether.bootstrap;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.visitor.VisitorManager;
+import dev.aether.ui.gui.plot.GardenPlotData;
+import dev.aether.ui.gui.plot.LiveGardenPlotData;
+import dev.aether.ui.gui.plot.PlotMenuReader;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -15,7 +18,10 @@ public final class AetherScreenHooks {
     }
 
     public static void register() {
+        PlotMenuReader.register();
+        GardenPlotData.install(new LiveGardenPlotData(Minecraft::getInstance));
         ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            PlotMenuReader.watch(screen);
             if (!(screen instanceof AbstractContainerScreen)) {
                 return;
             }

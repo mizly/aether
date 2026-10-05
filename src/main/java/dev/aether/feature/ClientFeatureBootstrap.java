@@ -25,6 +25,7 @@ import dev.aether.modules.visuals.PestEspManager;
 import dev.aether.notification.NotificationManager;
 import dev.aether.renderer.FunRenderer;
 import dev.aether.renderer.CosmeticWorldRenderer;
+import dev.aether.renderer.McTextures;
 import dev.aether.renderer.PositionHighlighter;
 import dev.aether.telemetry.AetherAuthService;
 import dev.aether.telemetry.AetherTelemetryService;
@@ -67,8 +68,12 @@ public final class ClientFeatureBootstrap {
         IrcManager.initialize();
         PlaySessionTracker.register();
         PathVisualizer.register();
+        McTextures.registerReloadListener();
+        dev.aether.ui.gui.GuiCanvas.installItemPainter((nvg, id, x, y, size, tint) ->
+                nvg.mcIcon(dev.aether.renderer.McIcons.of(id), x, y, size, tint));
 
         LevelRenderEvents.END_MAIN.register(ctx -> {
+            dev.aether.ui.orbit.OrbitScreen.renderWorldIfOpen();
             if (StreamerModeManager.isEnabled()) {
                 return;
             }
@@ -121,6 +126,8 @@ public final class ClientFeatureBootstrap {
         // until the game closes never fires onMacroStop(), so this prevents the day's
         // un-committed time from being lost on exit.
         dev.aether.modules.session.DailyFarmTimeTracker.persistNow();
+        // Profit totals are saved in batches; write whatever is still pending before exit.
+        dev.aether.modules.profit.ProfitManager.flush();
         AetherTelemetryService.shutdown();
         AetherBanService.shutdown();
         IrcManager.shutdown();

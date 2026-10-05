@@ -19,6 +19,7 @@ import dev.aether.modules.farming.FarmingTools;
 import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.PestManager;
+import dev.aether.modules.pest.helpers.PestPlotId;
 import dev.aether.modules.pest.helpers.PestPrepSwapManager;
 import dev.aether.modules.session.MicropauseManager;
 import dev.aether.modules.visitor.VisitorManager;
@@ -178,9 +179,12 @@ public class JunkManager {
                 // /setspawn before warping
                 dev.aether.util.CommandUtils.setSpawn();
 
-                // /plottp
-                dev.aether.util.CommandUtils.plotTp(AetherConfig.DROP_JUNK_PLOT_TP.get());
-                MacroWorkerThread.sleep(250);
+                // "0" or blank means drop where the player stands
+                String dropPlot = AetherConfig.DROP_JUNK_PLOT_TP.get();
+                if (PestPlotId.isUsable(dropPlot)) {
+                    dev.aether.util.CommandUtils.plotTp(dropPlot);
+                    MacroWorkerThread.sleep(250);
+                }
 
                 if (!isPreparingToDrop)
                     return;

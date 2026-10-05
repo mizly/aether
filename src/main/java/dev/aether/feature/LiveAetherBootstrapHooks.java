@@ -189,7 +189,13 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public boolean shouldSuppressVanillaHud(Screen screen) {
-        return AetherBootstrapHooks.isBootstrapConfigScreen(screen) || screen instanceof MainGUI || screen instanceof HudEditScreen;
+        return AetherBootstrapHooks.isBootstrapConfigScreen(screen) || screen instanceof MainGUI || screen instanceof HudEditScreen
+                || screen instanceof dev.aether.ui.orbit.OrbitScreen;
+    }
+
+    @Override
+    public dev.aether.bootstrap.CameraOverride cameraOverride() {
+        return dev.aether.ui.orbit.OrbitCamera.current();
     }
 
     @Override

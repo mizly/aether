@@ -1,9 +1,8 @@
 package dev.aether.ui;
 
-import dev.aether.config.ConfigProfileManager;
-import dev.aether.config.ThemeProfileManager;
-import dev.aether.notification.NotificationManager;
 import dev.aether.renderer.NVGRenderer;
+import dev.aether.ui.gui.Clipboard;
+import dev.aether.ui.gui.nav.ProfileActions;
 import dev.aether.ui.theme.Theme;
 import dev.aether.ui.theme.ThemePreset;
 import dev.aether.ui.util.Fonts;
@@ -13,6 +12,18 @@ import net.minecraft.client.Minecraft;
 import java.util.List;
 
 final class MainGUIProfilesPanel {
+    private static final Clipboard CLIPBOARD = new Clipboard() {
+        @Override
+        public String read() {
+            return Minecraft.getInstance().keyboardHandler.getClipboard();
+        }
+
+        @Override
+        public void write(String text) {
+            Minecraft.getInstance().keyboardHandler.setClipboard(text);
+        }
+    };
+
     private final MainGUI owner;
 
     private record LayoutCursor(float y, float tot) {}
@@ -26,23 +37,15 @@ final class MainGUIProfilesPanel {
             return;
         }
 
-        boolean isConfig = owner.profileRenameTarget == 0;
+        ProfileActions.Kind kind = owner.profileRenameTarget == 0 ? ProfileActions.Kind.CONFIG : ProfileActions.Kind.THEME;
         String oldName = owner.profileRenameOriginal;
-        String newName = owner.profileRenameInput.trim();
+        String newName = owner.profileRenameInput;
         owner.cancelProfileRename();
-        if (newName.isBlank()) {
-            return;
-        }
-        boolean renamed = isConfig
-                ? ConfigProfileManager.rename(oldName, newName)
-                : ThemeProfileManager.rename(oldName, newName);
-        if (renamed) {
-            String title = isConfig ? AetherLang.localize("Config Renamed") : AetherLang.localize("Theme Renamed");
-            NotificationManager.success(title, "\"" + oldName + "\" renamed to \"" + newName + "\"");
-        } else {
-            String title = isConfig ? AetherLang.localize("Config Rename Failed") : AetherLang.localize("Theme Rename Failed");
-            NotificationManager.error(title, "\"" + newName + "\" could not be used");
-        }
+        ProfileActions.rename(kind, oldName, newName);
+    }
+
+    private static ProfileActions.Kind kind(boolean isConfig) {
+        return isConfig ? ProfileActions.Kind.CONFIG : ProfileActions.Kind.THEME;
     }
 
     void render(NVGRenderer nvg, float mx, float my) {
@@ -161,14 +164,7 @@ final class MainGUIProfilesPanel {
                 saveBtnX, y, saveBtnW, fieldH, mx, my);
         final String capturedName = owner.profileNameInput;
         owner.addClickArea(saveBtnX, y, saveBtnW, fieldH, () -> {
-            if (!capturedName.isBlank()) {
-                if (isConfig) {
-                    ConfigProfileManager.save(capturedName);
-                    NotificationManager.success(AetherLang.localize("Config Saved"), "\"" + capturedName + "\" saved successfully");
-                } else {
-                    ThemeProfileManager.save(capturedName);
-                    NotificationManager.success(AetherLang.localize("Theme Saved"), "\"" + capturedName + "\" saved successfully");
-                }
+            if (ProfileActions.save(kind(isConfig), capturedName)) {
                 owner.profileNameInput = "";
                 owner.profileNameFocus = false;
             }
@@ -180,7 +176,7 @@ final class MainGUIProfilesPanel {
         y += 14f;
         tot += 14f;
 
-        List<String> profiles = isConfig ? ConfigProfileManager.list() : ThemeProfileManager.list();
+        List<String> profiles = ProfileActions.list(kind(isConfig));
         if (profiles.isEmpty()) {
             float emptyH = 42f;
             nvg.roundedRect(gx, y, gw, emptyH, 7f, Theme.CARD_BG);
@@ -256,37 +252,14 @@ final class MainGUIProfilesPanel {
                             label, AetherLang.localize(help), actionX, btnY, btnW, btnH, mx, my);
                     final int action = index;
                     owner.addClickArea(actionX, btnY, btnW, btnH, () -> {
-                        Minecraft mc = Minecraft.getInstance();
                         switch (action) {
                             case 0 -> {
-                                if (isConfig) {
-                                    if (ConfigProfileManager.load(profileName)) {
-                                        owner.refreshContext();
-                                        NotificationManager.success(AetherLang.localize("Config Loaded"), "\"" + profileName + "\" loaded successfully");
-                                    } else {
-                                        NotificationManager.error(AetherLang.localize("Config Load Failed"), "\"" + profileName + "\" could not be loaded");
-                                    }
-                                } else {
-                                    ThemeProfileManager.load(profileName);
-                                    NotificationManager.success(AetherLang.localize("Theme Loaded"), "\"" + profileName + "\" loaded successfully");
+                                if (ProfileActions.load(kind(isConfig), profileName) && isConfig) {
+                                    owner.refreshContext();
                                 }
                             }
-                            case 1 -> {
-                                String json = isConfig
-                                        ? ConfigProfileManager.exportJsonSanitized(profileName)
-                                        : ThemeProfileManager.exportJson(profileName);
-                                mc.keyboardHandler.setClipboard(json);
-                                NotificationManager.info(AetherLang.localize("Copied to Clipboard"), "\"" + profileName + "\" exported");
-                            }
-                            case 2 -> {
-                                if (isConfig) {
-                                    ConfigProfileManager.delete(profileName);
-                                    NotificationManager.warning(AetherLang.localize("Config Deleted"), "\"" + profileName + "\" was deleted");
-                                } else {
-                                    ThemeProfileManager.delete(profileName);
-                                    NotificationManager.warning(AetherLang.localize("Theme Deleted"), "\"" + profileName + "\" was deleted");
-                                }
-                            }
+                            case 1 -> ProfileActions.export(kind(isConfig), profileName, CLIPBOARD);
+                            case 2 -> ProfileActions.delete(kind(isConfig), profileName);
                         }
                     });
                 }
@@ -306,17 +279,9 @@ final class MainGUIProfilesPanel {
         nvg.roundedRect(gx, y, importW, importH, 7f, importBg);
         nvg.rectOutline(gx, y, importW, importH, 7f, 1f, importBrd);
         nvg.textCentered(Fonts.REGULAR, AetherLang.localize("Import from Clipboard"), gx, y, importW, importH, 12.5f, importTxt);
-        owner.addClickArea(gx, y, importW, importH, () -> {
-            String json = Minecraft.getInstance().keyboardHandler.getClipboard();
-            if (json != null && !json.isBlank()) {
-                String importName = owner.profileNameInput.isBlank() ? "imported" : owner.profileNameInput;
-                if (isConfig) {
-                    ConfigProfileManager.importFromClipboard(importName, json);
-                } else {
-                    ThemeProfileManager.importJson(importName, json);
-                }
-            }
-        });
+        // the old menu has always overwritten a same-named profile without asking
+        owner.addClickArea(gx, y, importW, importH,
+                () -> ProfileActions.importFromClipboard(kind(isConfig), owner.profileNameInput, CLIPBOARD, true));
         y += importH + 16f;
         tot += importH + 16f;
 
@@ -350,11 +315,10 @@ final class MainGUIProfilesPanel {
                 owner.commitText();
                 owner.commitColor();
                 if (preset == null) {
-                    Theme.resetColorsToDefaults();
+                    ProfileActions.defaultColours();
                 } else {
-                    preset.apply();
+                    ProfileActions.applyPreset(preset);
                 }
-                Theme.saveTheme();
             });
         }
         int rows = (presets.length + columns) / columns;

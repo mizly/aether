@@ -388,16 +388,18 @@ public class ClientUtils {
 
     public static long getPurse() {
         Minecraft client = Minecraft.getInstance();
+        // -1 means "balance unknown". Returning 0 here used to make a scoreboard flicker (world swap,
+        // lobby change) look like the purse dropped to zero and then jumped back up.
         if (client.level == null || client.player == null)
-            return 0;
+            return -1;
 
         Scoreboard scoreboard = client.level.getScoreboard();
         if (scoreboard == null)
-            return 0;
+            return -1;
 
         Objective sidebar = scoreboard.getDisplayObjective(DisplaySlot.SIDEBAR);
         if (sidebar == null)
-            return 0;
+            return -1;
 
         Collection<PlayerScoreEntry> scores = scoreboard.listPlayerScores(sidebar);
         for (PlayerScoreEntry entry : scores) {
@@ -407,16 +409,10 @@ public class ClientUtils {
             if (team != null) {
                 fullText = team.getPlayerPrefix().getString() + entryName + team.getPlayerSuffix().getString();
             }
-            String line = fullText.replaceAll("(?i)\\u00A7[0-9A-FK-ORZ]", "").replaceAll(",", "").trim();
-
-            if (line.contains("Purse:")) {
-                try {
-                    String valuePart = line.split("Purse:")[1].trim();
-                    // Handle "26,000,000 (+300)" by taking only the first part before any space
-                    String mainBalance = valuePart.split(" ")[0].replaceAll("[^0-9]", "");
-                    return Long.parseLong(mainBalance);
-                } catch (Exception ignored) {
-                }
+            String line = fullText.replaceAll("(?i)\\u00A7[0-9A-FK-ORZ]", "").trim();
+            long balance = dev.aether.modules.profit.ProfitTrackingRules.parsePurseLine(line);
+            if (balance >= 0) {
+                return balance;
             }
         }
         return -1;

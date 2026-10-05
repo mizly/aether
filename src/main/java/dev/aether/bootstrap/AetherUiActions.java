@@ -12,7 +12,9 @@ public final class AetherUiActions {
 
     public static void toggleMainGui() {
         Minecraft client = Minecraft.getInstance();
-        if (client.screen instanceof MainGUI) {
+        if (client.screen instanceof dev.aether.ui.orbit.OrbitScreen orbit) {
+            orbit.requestClose();
+        } else if (client.screen instanceof MainGUI) {
             client.setScreen(null);
         } else {
             openMainGui();
@@ -37,6 +39,13 @@ public final class AetherUiActions {
         });
     }
 
+    // the previous flat menu, kept reachable while the orbit menu settles in
+    public static void openLegacyGui() {
+        Minecraft client = Minecraft.getInstance();
+        MainGUIRegistry.refresh();
+        client.execute(() -> client.setScreen(new MainGUI()));
+    }
+
     public static void openMainGui() {
         Minecraft client = Minecraft.getInstance();
         if (client == null) {
@@ -47,7 +56,8 @@ public final class AetherUiActions {
             MainGUIRegistry.refresh();
             client.execute(() -> {
                 try {
-                    client.setScreen(new MainGUI());
+                    client.setScreen(client.level == null || dev.aether.config.AetherConfig.TRADITIONAL_GUI.get()
+                            ? new MainGUI() : new dev.aether.ui.orbit.OrbitScreen());
                 } catch (RuntimeException | LinkageError e) {
                     Aether.LOGGER.error("Failed to open Aether GUI from queued client task", e);
                     ClientUtils.sendMessage("\u00A7cFailed to open the Aether GUI. Check the client log.", false);

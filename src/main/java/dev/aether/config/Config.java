@@ -14,6 +14,7 @@ public final class Config {
     private static Path configPath;
     private static boolean dirty;
     private static int autosaveSuspendDepth;
+    private static volatile int batchDepth;
 
     private Config() {}
 
@@ -50,12 +51,27 @@ public final class Config {
 
     public static void save() {
         dirty = true;
-        flush();
+        if (batchDepth == 0) flush();
     }
 
     public static void onEntryChanged() {
         dirty = true;
-        if (autosaveSuspendDepth == 0) flush();
+        if (autosaveSuspendDepth == 0 && batchDepth == 0) flush();
+    }
+
+    // a gui drag would otherwise rewrite the file on every slider step; writes wait until the batch ends
+    public static void beginBatch() {
+        batchDepth++;
+    }
+
+    // true when the batch held back a write, which the caller then flushes once
+    public static boolean endBatch() {
+        if (batchDepth > 0) batchDepth--;
+        return batchDepth == 0 && dirty;
+    }
+
+    public static boolean batching() {
+        return batchDepth > 0;
     }
 
     public static void flush() {

@@ -70,9 +70,17 @@ final class SettingDescriptionCatalog {
         if (setting == null) {
             return "";
         }
-        String raw = setting.getRawName() == null ? setting.getName() : setting.getRawName();
-        String explicit = EXPLICIT.get(raw);
-        return AetherLang.localize(explicit != null ? explicit : fallback(setting.getType(), raw));
+        String explicit = setting.explicitDescription();
+        return explicit != null ? explicit : AetherLang.localize(fallback(setting.getType(), rawName(setting)));
+    }
+
+    static String explicit(Setting setting) {
+        String explicit = EXPLICIT.get(rawName(setting));
+        return explicit == null ? null : AetherLang.localize(explicit);
+    }
+
+    private static String rawName(Setting setting) {
+        return setting.getRawName() == null ? setting.getName() : setting.getRawName();
     }
 
     private static String fallback(SettingType type, String raw) {
@@ -92,13 +100,7 @@ final class SettingDescriptionCatalog {
             case ACTION -> "Runs the “" + subject + "” action immediately.";
             case INFO -> "Displays current information for " + subject + ".";
             case SECTION -> "Groups settings related to " + subject + ".";
+            case PLOT -> "Picks the garden plots used for " + subject + ".";
         };
-    }
-
-    private static String lowerFirst(String value) {
-        if (value == null || value.isEmpty()) {
-            return "this setting";
-        }
-        return Character.toLowerCase(value.charAt(0)) + value.substring(1);
     }
 }

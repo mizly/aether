@@ -4,23 +4,22 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import dev.aether.ui.gui.Icon;
 import dev.aether.util.AetherLang;
 
 // dropdown backed by an index getter/setter
-public class DropdownSetting implements Setting {
+public class DropdownSetting extends AbstractSetting<DropdownSetting> {
 
-    private final String name;
-    private final String rawName;
     private final List<String> options;
     private final List<IconAction> iconActions = new ArrayList<>();
     private final Supplier<Integer> indexGetter;
     private final Consumer<Integer> indexSetter;
-    private Supplier<Boolean> visibility = () -> true;
+    private List<Icon> optionIcons = List.of();
+    private boolean confirmChange;
 
     public DropdownSetting(String name, List<String> options,
                            Supplier<Integer> indexGetter, Consumer<Integer> indexSetter) {
-        this.rawName = name;
-        this.name = AetherLang.localize(name);
+        super(name);
         this.options = options;
         this.indexGetter = indexGetter;
         this.indexSetter = indexSetter;
@@ -48,15 +47,28 @@ public class DropdownSetting implements Setting {
         return this;
     }
 
-    public DropdownSetting visibleWhen(Supplier<Boolean> condition) {
-        this.visibility = condition;
+    // by option index, because option text is localised for display; null entries mean no icon
+    public DropdownSetting optionIcons(List<Icon> icons) {
+        optionIcons = new ArrayList<>(icons);
         return this;
     }
 
-    @Override public String getName() { return name; }
-    @Override public String getRawName() { return rawName; }
+    public Icon optionIcon(int index) {
+        return index >= 0 && index < optionIcons.size() ? optionIcons.get(index) : null;
+    }
+
+    // the setter is destructive (it rebuilds groups or overwrites other values), so a picker must never
+    // commit options while cycling through them; it opens the menu instead
+    public DropdownSetting confirmChange() {
+        confirmChange = true;
+        return this;
+    }
+
+    public boolean confirmsChange() {
+        return confirmChange;
+    }
+
     @Override public SettingType getType() { return SettingType.DROPDOWN; }
-    @Override public boolean isVisible() { return visibility.get(); }
 
     public record IconAction(String iconPath, Runnable action) {
         public void execute() {
