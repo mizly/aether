@@ -198,16 +198,6 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
     }
 
     @Override
-    public boolean replaceLevelRender() {
-        return dev.aether.ui.orbit.OrbitScreen.sceneActive();
-    }
-
-    @Override
-    public void renderReplacementLevel() {
-        dev.aether.ui.orbit.OrbitScreen.renderSceneIfOpen();
-    }
-
-    @Override
     public void extractScoreboardSidebar(GuiGraphicsExtractor graphics, Consumer<GuiGraphicsExtractor> vanilla) {
         if (HudRegistry.scoreboardHud == null) vanilla.accept(graphics);
         else HudRegistry.scoreboardHud.extract(graphics, vanilla);

@@ -297,22 +297,6 @@ public final class OrbitScreen extends Screen {
         }
     }
 
-    // the menu draws its copy instead of the level once the copy exists
-    public static boolean sceneActive() {
-        return Minecraft.getInstance().screen instanceof OrbitScreen screen && screen.clone != null
-                && !screen.sceneRenderer.failed();
-    }
-
-    public static void renderSceneIfOpen() {
-        if (Minecraft.getInstance().screen instanceof OrbitScreen screen) {
-            try {
-                screen.renderScene();
-            } catch (RuntimeException | LinkageError e) {
-                Aether.LOGGER.error("Orbit menu scene pass failed", e);
-            }
-        }
-    }
-
     private void renderScene() {
         Minecraft client = Minecraft.getInstance();
         var player = client.player;
@@ -416,10 +400,13 @@ public final class OrbitScreen extends Screen {
     }
 
     // called from the level pass; draws every panel into its texture, then the panels into the world
+    // called at the end of the level pass. the level always renders, so its chunk uploads never pile up; with a
+    // copy of the scene the menu paints the copy over it before the panels
     public static void renderWorldIfOpen() {
         if (Minecraft.getInstance().screen instanceof OrbitScreen screen) {
             try {
-                screen.renderWorld();
+                if (screen.clone != null && !screen.sceneRenderer.failed()) screen.renderScene();
+                else screen.renderWorld();
             } catch (RuntimeException | LinkageError e) {
                 Aether.LOGGER.error("Orbit menu world pass failed", e);
             }

@@ -23,14 +23,6 @@ public final class AetherBootstrapHooks {
             return null;
         }
 
-        // true while a menu draws its own scene in place of the level
-        default boolean replaceLevelRender() {
-            return false;
-        }
-
-        default void renderReplacementLevel() {
-        }
-
         default boolean isAttackSuppressed() {
             return false;
         }
@@ -387,14 +379,6 @@ public final class AetherBootstrapHooks {
 
     public static CameraOverride cameraOverride() {
         return hooks.cameraOverride();
-    }
-
-    public static boolean replaceLevelRender() {
-        return hooks.replaceLevelRender();
-    }
-
-    public static void renderReplacementLevel() {
-        hooks.renderReplacementLevel();
     }
 
     public static boolean isFreecamEnabled() {
