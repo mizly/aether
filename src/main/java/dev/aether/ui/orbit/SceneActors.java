@@ -20,13 +20,8 @@ final class SceneActors implements AutoCloseable {
     }
 
     // what the skits read each frame: the focused module by raw page name, whether it is on, and its numbers
-    // item is the module's icon, which a module without its own skit shows off
-    record Inputs(String focus, boolean enabled, int visitors, int pests, double money, String item) {
+    record Inputs(String focus, boolean enabled, int visitors, int pests, double money) {
         static final Inputs NONE = new Inputs(null, false, 0, 0, 0);
-
-        Inputs(String focus, boolean enabled, int visitors, int pests, double money) {
-            this(focus, enabled, visitors, pests, money, null);
-        }
     }
 
     private static final Identifier VILLAGER = mc("textures/entity/villager/villager.png");
@@ -114,6 +109,7 @@ final class SceneActors implements AutoCloseable {
     private final SceneParticles particles = new SceneParticles();
     private final FarmSkits farm = new FarmSkits(particles);
     private final ExtraSkits extra = new ExtraSkits(particles);
+    private final ModuleSkits modules;
 
     private String focus;
     private float scene;
@@ -136,6 +132,7 @@ final class SceneActors implements AutoCloseable {
 
     SceneActors(IntFunction<Identifier> heads) {
         this.heads = heads;
+        this.modules = new ModuleSkits(particles, heads);
     }
 
     // -- the skits ----------------------------------------------------------------------------------------------
@@ -185,8 +182,8 @@ final class SceneActors implements AutoCloseable {
         if (!dynamic && jukebox < 0f) jukebox = -1f;
         if (dynamic && jukebox - dt < DROP && jukebox >= DROP) landed(JUKEBOX.x, JUKEBOX.z);
         dynamicPests(dt, dynamic, pose);
-        boolean own = visitors || crafting || pestsOn || resting || loadout || dynamic || FarmSkits.handles(focus);
-        extra.update(dt, scene, time, focus, own, in.item() == null ? null : Identifier.tryParse(in.item()), pose);
+        extra.update(dt, scene, time, focus, pose);
+        modules.update(dt, scene, time, focus, pose);
         if (!pestsOn) vacuum = Math.max(0f, vacuum - dt * 4f);
 
         if (loadout) {
@@ -1049,6 +1046,7 @@ final class SceneActors implements AutoCloseable {
         toFarm.transformPosition(figure.headFrame().transformPosition(4.4f, 5f, 1.5f, browLeft));
         farm.build(local, figure, this::buffer, right, up);
         extra.build(local, figure, this::buffer, right, up);
+        modules.build(local, figure, this::buffer, right, up);
         particles.build(this::buffer, local, right, up);
         List<Draw> out = new ArrayList<>();
         for (Map.Entry<Identifier, SceneClone.Buffer> e : buffers.entrySet()) {
