@@ -11,6 +11,7 @@ import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -61,6 +62,7 @@ public final class RouteRunner {
     private volatile boolean legFailed;
     private EtherwarpLeg etherwarpLeg;
     private BlockCentering finalCentering;
+    private int walkOnlyLeg = -1;
 
     public RouteRunner(Route route, boolean hopThroughHub) {
         this.route = route;
@@ -72,6 +74,45 @@ public final class RouteRunner {
             warps.add(islandWarp);
         }
         phase = warps.isEmpty() ? Phase.LEG : Phase.WARP;
+    }
+
+    // no warp, the route picks up at the waypoint nearest the player, which is walked to even when it
+    // was recorded as an etherwarp, since that warp was thrown from the waypoint before it
+    public static RouteRunner fromHere(Route route, Vec3 feet) {
+        RouteRunner runner = new RouteRunner(route, false);
+        runner.warps.clear();
+        runner.phase = Phase.LEG;
+        runner.legIndex = Math.max(0, nearestWaypoint(route.waypoints(), feet.x, feet.y, feet.z));
+        runner.walkOnlyLeg = runner.legIndex;
+        return runner;
+    }
+
+    static int nearestWaypoint(List<Route.Waypoint> waypoints, double x, double y, double z) {
+        int best = -1;
+        double bestDistance = Double.POSITIVE_INFINITY;
+        for (int i = 0; i < waypoints.size(); i++) {
+            Route.Waypoint waypoint = waypoints.get(i);
+            double dx = waypoint.x() + 0.5 - x;
+            double dy = waypoint.y() - y;
+            double dz = waypoint.z() + 0.5 - z;
+            double distance = dx * dx + dy * dy + dz * dz;
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = i;
+            }
+        }
+        return best;
+    }
+
+    // the warp only gets the player onto its island, so someone already standing there begins from where they are
+    public static boolean isOnWarpIsland(String warpCommand, String areaName) {
+        String target = islandKey(warpCommand == null ? "" : warpCommand.replaceFirst("(?i)^/?warp\\s+", ""));
+        String area = islandKey(areaName == null ? "" : areaName);
+        return !target.isEmpty() && !area.isEmpty() && (area.contains(target) || target.contains(area));
+    }
+
+    private static String islandKey(String name) {
+        return name.toLowerCase(Locale.ROOT).replaceAll("\\bthe\\b", "").replaceAll("[^a-z0-9]", "");
     }
 
     public boolean isDone() {
@@ -241,7 +282,7 @@ public final class RouteRunner {
         ClientUtils.sendDebugMessage("[Route] " + waypoint.type().name().toLowerCase(Locale.ROOT)
                 + " to waypoint " + (legIndex + 1) + "/" + route.waypoints().size()
                 + " (attempt " + legAttempts + ")");
-        if (waypoint.type() == Route.LegType.ETHERWARP) {
+        if (waypoint.type() == Route.LegType.ETHERWARP && legIndex != walkOnlyLeg) {
             BlockPos throwFrom = legIndex == 0 ? null : floorOf(route.waypoints().get(legIndex - 1));
             etherwarpLeg = new EtherwarpLeg(waypoint, throwFrom);
             return;
@@ -252,7 +293,8 @@ public final class RouteRunner {
                 Vec3.atBottomCenterOf(new BlockPos(waypoint.x(), waypoint.y(), waypoint.z())),
                 () -> legFinished = true,
                 () -> legFailed = true,
-                mustStopOnWaypoint());
+                mustStopOnWaypoint(),
+                true);
     }
 
     private void tickLegWait(Minecraft mc, long now) {
@@ -324,7 +366,7 @@ public final class RouteRunner {
     }
 
     private boolean hasReached(Minecraft mc, Route.Waypoint waypoint) {
-        if (waypoint.type() == Route.LegType.ETHERWARP || mustStopOnWaypoint()) {
+        if (waypoint.type() == Route.LegType.ETHERWARP || legIndex == walkOnlyLeg || mustStopOnWaypoint()) {
             return isStandingAt(mc, waypoint);
         }
         return isWithin(mc, waypoint, PASSED_HORIZONTAL);

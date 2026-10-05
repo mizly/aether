@@ -22,7 +22,7 @@ class StriderConfigMigrationTest {
     }
 
     @Test
-    void aConfigFromBeforeTheRedesignTurnsRoutesOffAndLowersThePool() throws Exception {
+    void aConfigFromBeforeTheRedesignKeepsItsRouteAndLowersThePool() throws Exception {
         String saved = Config.toJsonString();
         try {
             Path file = Files.createTempFile("aether-old-strider", ".json");
@@ -33,7 +33,7 @@ class StriderConfigMigrationTest {
 
             assertTrue(AetherConfig.loadFrom(file.toFile()));
 
-            assertEquals("", AetherConfig.STRIDER_FISHING_RESTART_ROUTE.get());
+            assertEquals("Default_Strider", AetherConfig.STRIDER_FISHING_RESTART_ROUTE.get());
             assertEquals(8, AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.get());
             String written = Files.readString(AetherConfig.getConfigFile().toPath());
             assertFalse(JsonParser.parseString(written).getAsJsonObject().has("striderFishingRandomLook"));
@@ -51,7 +51,7 @@ class StriderConfigMigrationTest {
                      "striderFishingSoulWhipCount": 9}
                     """));
 
-            assertEquals("", AetherConfig.STRIDER_FISHING_RESTART_ROUTE.get());
+            assertEquals("default_strider", AetherConfig.STRIDER_FISHING_RESTART_ROUTE.get());
             assertEquals(8, AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.get());
         } finally {
             assertTrue(Config.loadFromJson(saved));

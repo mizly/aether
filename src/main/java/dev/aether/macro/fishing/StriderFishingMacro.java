@@ -7,7 +7,6 @@ import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.profit.helpers.ActivityRateTracker;
 import dev.aether.modules.routes.BlockCentering;
-import dev.aether.modules.routes.Route;
 import dev.aether.modules.rotation.HumanFlick;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.AetherLang;
@@ -68,10 +67,8 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         float confirmedYaw = Float.NaN;
     }
 
-    // with no route the macro fishes the lava pit beside sawyer on galatea, where a caught strider cannot walk out
+    // a route ending here fishes the lava pit beside sawyer on galatea, where a caught strider cannot walk out
     static final BlockPos FIXED_SPOT = new BlockPos(-694, 120, 78);
-    // the galatea warp lands about 178 blocks out, so from inside this the walk alone is the shorter way there
-    static final double FIXED_SPOT_WALK_RANGE = 96.0;
 
     private static final long BITE_TIMEOUT_MS = 90_000L;
     // a catch surfaces within a tick or two, so anything slower than this means the reel brought up loot
@@ -275,17 +272,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         if (soulWhipGoalReached(pooledCatchIds.size(), goal)) {
             startClear(mc);
         }
-    }
-
-    static Route fixedSpotRoute(String warp) {
-        Route route = new Route("Sawyer spot", warp);
-        route.add(new Route.Waypoint(FIXED_SPOT.getX(), FIXED_SPOT.getY(), FIXED_SPOT.getZ(), Route.LegType.WALK));
-        return route;
-    }
-
-    // a restart starts from the hub or a fresh lobby, so only a start already close by on galatea skips the warp
-    static String fixedSpotWarp(boolean restart, boolean onGalatea, double horizontal) {
-        return !restart && onGalatea && horizontal <= FIXED_SPOT_WALK_RANGE ? "" : "galatea";
     }
 
     static Set<Integer> stillPooled(Set<Integer> remembered, boolean sameLevel, IntPredicate stillThere) {

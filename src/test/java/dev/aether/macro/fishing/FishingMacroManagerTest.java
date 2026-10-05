@@ -11,7 +11,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FishingMacroManagerTest {
@@ -32,65 +31,35 @@ class FishingMacroManagerTest {
     }
 
     @Test
-    void aRestartFromTheSawyerSpotStillWarpsToGalatea() {
-        Route restart = FishingMacroManager.chooseRoute(FishingMacroKind.STRIDER, null, true, true, 0.0);
+    void theStriderNeedsARouteButTheFishingMacroDoesNot() {
+        Route selected = walkable("a", "galatea");
 
-        assertEquals("galatea", restart.warp());
-        assertEquals(StriderFishingMacro.FIXED_SPOT.getX(), restart.end().x());
-        assertEquals("", FishingMacroManager.chooseRoute(FishingMacroKind.STRIDER, null, false, true, 0.0).warp());
+        assertNotNull(FishingMacroManager.blockedStart(FishingMacroKind.STRIDER, null));
+        assertNull(FishingMacroManager.blockedStart(FishingMacroKind.STRIDER, selected));
+        assertNull(FishingMacroManager.blockedStart(FishingMacroKind.GENERAL, null));
     }
 
     @Test
-    void aSelectionWithNoWaypointsFallsBackToTheSawyerSpot() {
-        Route warpOnly = new Route("a", "crimson");
+    void aStartOnTheWarpsIslandBeginsWhereThePlayerIs() {
+        Route galatea = walkable("a", "galatea");
 
-        assertTrue(FishingMacroManager.usesFixedSpot(FishingMacroKind.STRIDER, warpOnly));
-        Route route = FishingMacroManager.chooseRoute(FishingMacroKind.STRIDER, warpOnly, true, false, 500.0);
-        assertEquals("galatea", route.warp());
-        assertNotNull(route.end());
-    }
-
-    @Test
-    void aWalkableSelectionIsUsedAsItIs() {
-        Route selected = new Route("a", "crimson");
-        selected.add(new Route.Waypoint(1, 2, 3, Route.LegType.WALK));
-
-        assertSame(selected, FishingMacroManager.chooseRoute(FishingMacroKind.STRIDER, selected, true, true, 0.0));
+        assertTrue(FishingMacroManager.beginsHere(galatea, "Galatea"));
+        assertFalse(FishingMacroManager.beginsHere(galatea, "Hub"));
+        assertFalse(FishingMacroManager.beginsHere(galatea, null));
+        assertTrue(FishingMacroManager.beginsHere(walkable("b", ""), "Hub"));
     }
 
     @Test
     void aRestartNeedsARouteWithAWarp() {
-        Route noWarp = new Route("a", "");
-        noWarp.add(new Route.Waypoint(1, 2, 3, Route.LegType.WALK));
-
         assertNotNull(FishingMacroManager.blockedReason(null));
-        assertNotNull(FishingMacroManager.blockedReason(noWarp));
-        assertNull(FishingMacroManager.blockedReason(
-                FishingMacroManager.chooseRoute(FishingMacroKind.STRIDER, null, true, true, 0.0)));
+        assertNotNull(FishingMacroManager.blockedReason(walkable("a", "")));
+        assertNull(FishingMacroManager.blockedReason(walkable("b", "crimson")));
     }
 
-    @Test
-    void theFishingMacroFishesWhereItStartsWithoutAWalkableSelection() {
-        Route warpOnly = new Route("a", "crimson");
-
-        assertFalse(FishingMacroManager.usesFixedSpot(FishingMacroKind.GENERAL, null));
-        assertNull(FishingMacroManager.chooseRoute(FishingMacroKind.GENERAL, null, false, true, 0.0));
-        assertNull(FishingMacroManager.chooseRoute(FishingMacroKind.GENERAL, warpOnly, true, false, 0.0));
-        assertNotNull(FishingMacroManager.blockedReason(
-                FishingMacroManager.chooseRoute(FishingMacroKind.GENERAL, null, true, true, 0.0)));
-    }
-
-    @Test
-    void theFishingMacroWalksItsSelectionAndRestartsOnlyWithAWarp() {
-        Route selected = new Route("a", "crimson");
-        selected.add(new Route.Waypoint(1, 2, 3, Route.LegType.WALK));
-        Route noWarp = new Route("b", "");
-        noWarp.add(new Route.Waypoint(1, 2, 3, Route.LegType.WALK));
-
-        assertSame(selected, FishingMacroManager.chooseRoute(FishingMacroKind.GENERAL, selected, true, true, 0.0));
-        assertNull(FishingMacroManager.blockedReason(selected));
-        assertSame(noWarp, FishingMacroManager.chooseRoute(FishingMacroKind.GENERAL, noWarp, false, false, 0.0));
-        assertNotNull(FishingMacroManager.blockedReason(noWarp));
+    private static Route walkable(String name, String warp) {
+        Route route = new Route(name, warp);
+        route.add(new Route.Waypoint(1, 2, 3, Route.LegType.WALK));
+        return route;
     }
 
     private static final class ChatRecorder extends AbstractFishingMacro {

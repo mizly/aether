@@ -155,7 +155,7 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
                 .add(new InfoSetting("Selected Route", () -> {
                     String selected = AetherConfig.STRIDER_FISHING_RESTART_ROUTE.get();
                     return selected == null || selected.isBlank()
-                            ? AetherLang.localize("No route selected: fishes at the Sawyer spot (-694 120 78)")
+                            ? AetherLang.localize("No route selected")
                             : selected;
                 })));
 

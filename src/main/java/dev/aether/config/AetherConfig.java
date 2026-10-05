@@ -314,9 +314,6 @@ public final class AetherConfig {
                 if (root == null || !root.has("striderFishingRandomLook")) {
                         return false;
                 }
-                if ("default_strider".equalsIgnoreCase(STRIDER_FISHING_RESTART_ROUTE.get())) {
-                        STRIDER_FISHING_RESTART_ROUTE.set("");
-                }
                 if (STRIDER_FISHING_SOUL_WHIP_COUNT.get() > 8) {
                         STRIDER_FISHING_SOUL_WHIP_COUNT.set(8);
                 }
@@ -1175,9 +1172,9 @@ public final class AetherConfig {
                         .range(0, 3000);
         public static final IntEntry STRIDER_FISHING_CAST_DELAY_MAX = Config.integer("striderFishingCastDelayMax", 900)
                         .range(0, 3000);
-        // blank walks to the sawyer spot (-694 120 78) on galatea and fishes there
+        // the strider needs a route; one ending on the sawyer spot (-694 120 78) casts up and whips from the stair
         public static final StringEntry STRIDER_FISHING_RESTART_ROUTE = Config.string("striderFishingRestartRoute",
-                        "");
+                        "sawyer_spot");
         // soul whip fishing leaves each catch stuck in a small pool and only clears the pool once it holds this many
         public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP_FISHING = Config
                         .bool("striderFishingSoulWhipFishing", false);
