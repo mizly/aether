@@ -48,10 +48,6 @@ final class OrbitHost implements PanelHost {
         switch (sound) {
             case CLICK -> manager.play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(
                     net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, pitch));
-            case LEVER_ON, LEVER_OFF -> manager.play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(
-                    net.minecraft.sounds.SoundEvents.LEVER_CLICK, pitch, 0.3f));
-            case NOTCH -> manager.play(net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(
-                    net.minecraft.sounds.SoundEvents.COMPARATOR_CLICK, pitch, 0.25f));
         }
     }
 

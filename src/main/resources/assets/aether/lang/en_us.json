@@ -937,6 +937,5 @@
   "text.aether._d_seen": "%d%% seen",
   "text.aether.updated_just_now": "Updated just now",
   "text.aether.updated_s_ago": "Updated %s ago",
-  "text.aether.never_in_range_yet": "Never in range yet",
-  "text.aether.run": "Run"
+  "text.aether.never_in_range_yet": "Never in range yet"
 }

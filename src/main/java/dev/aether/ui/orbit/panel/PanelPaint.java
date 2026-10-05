@@ -118,42 +118,23 @@ final class PanelPaint {
     // -- controls ---------------------------------------------------------------
 
     // the current menu's checkbox, kept on purpose; on is 0..1 so the fill and tick can spring in
-    // a switch as minecraft wires one: a lever on a cobblestone base thrown across, and the redstone lamp it powers
-    // lighting up with a warm glow; on may overshoot, so the lever wobbles as it lands
     static void toggle(GuiCanvas c, Palette p, Rect r, float on, float hover, boolean enabled) {
-        float lamp = Math.min(r.h(), 22f);
-        float k = Math.max(0f, Math.min(1f, on));
-        Rect box = new Rect(r.right() - lamp, r.centerY() - lamp / 2f, lamp, lamp);
+        float size = Math.min(r.h(), 20f);
+        Rect box = new Rect(r.right() - size, r.centerY() - size / 2f, size, size);
         c.save();
-        if (!enabled) c.alpha(0.45f);
-        if (k > 0.01f) {
-            c.legacy(nvg -> nvg.radialGradient(box.centerX(), box.centerY(), lamp * 0.3f, lamp * 1.15f,
-                    Argb.withAlpha(0xFFFFB347, 0.5f * k), 0x00FFB347));
+        if (!enabled) {
+            c.alpha(0.45f);
         }
-        c.legacy(nvg -> {
-            nvg.guiSprite(LAMP, box.x(), box.y(), lamp, lamp, 0xFFFFFFFF);
-            if (k > 0.01f) nvg.guiSprite(LAMP_ON, box.x(), box.y(), lamp, lamp, Argb.withAlpha(0xFFFFFFFF, k));
-        });
-        c.strokeRect(box, 1.5f, 1f, Argb.withAlpha(0xFF000000, 0.35f));
-        if (hover > 0.01f) c.strokeRect(box.inset(-1.5f), 2.5f, 1f, Argb.withAlpha(0xFFFFFFFF, 0.45f * hover));
-        float bx = box.x() - 10f, by = box.bottom();
-        float angle = (float) Math.toRadians(-38f + 76f * on);
-        c.legacy(nvg -> {
-            nvg.guiSprite(COBBLE, bx - 7f, by - 6f, 14f, 6f, 0xFFFFFFFF);
-            dev.aether.renderer.McTextures.Texture lever = dev.aether.renderer.McTextures.get(LEVER);
-            nvg.translate(bx, by - 5f);
-            nvg.rotate(angle);
-            if (lever.missing()) nvg.rect(-2f, -16f, 4f, 16f, 0xFF6B4A2B);
-            else nvg.imageRegion(lever.handle(), lever.width(), lever.width(), 7f, 6f, 2f, 10f, -2f, -16f, 4f, 16f,
-                    0xFFFFFFFF);
-        });
+        c.roundedRect(box, 5f, Argb.mix(fieldFill(p), p.accent(), on));
+        c.strokeRect(box, 5f, 1f, Argb.mix(Argb.mix(p.border(), p.text(), hover * 0.4f), p.accent(), on));
+        if (on > 0.05f) {
+            c.save();
+            c.alpha(Math.min(1f, on));
+            check(c, box.centerX(), box.centerY() + 0.5f, size * 0.36f, 2f, p.onAccent());
+            c.restore();
+        }
         c.restore();
     }
-
-    private static final String LAMP = "minecraft:textures/block/redstone_lamp.png";
-    private static final String LAMP_ON = "minecraft:textures/block/redstone_lamp_on.png";
-    private static final String COBBLE = "minecraft:textures/block/cobblestone.png";
-    private static final String LEVER = "minecraft:textures/block/lever.png";
 
     // minecraft's own button: the stone sprite, its highlighted frame under the cursor, pushed in a pixel while
     // held, the label in the game's font with its drop shadow. primary and danger tint the stone

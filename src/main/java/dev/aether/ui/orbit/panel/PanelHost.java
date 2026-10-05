@@ -9,7 +9,7 @@ import java.util.List;
 public interface PanelHost {
 
     // the game's own ui sounds, played on this client only
-    enum Sound { CLICK, LEVER_ON, LEVER_OFF, NOTCH }
+    enum Sound { CLICK }
 
     default void sound(Sound sound, float pitch) {
     }

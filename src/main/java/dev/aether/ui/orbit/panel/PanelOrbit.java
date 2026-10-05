@@ -186,12 +186,12 @@ final class PanelOrbit {
         float right = card.right() - 14f;
         if (page.hasToggle()) {
             String toggleId = "orbit.toggle." + page.id();
-            Rect sw = new Rect(right - 38f, card.y() + 17f, 38f, 22f);
+            Rect sw = new Rect(right - 20f, card.y() + 18f, 20f, 20f);
             float onT = f.anim().spring(toggleId, page.enabled() ? 1f : 0f);
             PanelPaint.toggle(c, p, sw, onT, f.hits().hovered(toggleId) ? 1f : 0f, true);
             f.hits().add(toggleId, sw.inset(-6f), HitHandler.click(() -> {
                 page.tab().toggle();
-                style.rows.lever(f, page.enabled());
+                style.rows.flipped(f, page.enabled());
             }), Cursor.HAND);
             right = sw.x() - 12f;
         }
@@ -356,16 +356,9 @@ final class PanelOrbit {
         PanelPaint.icon(c, category.icon(), x + 48f, y + 48f, 96f, 0xFFFFFFFF);
         float tx = x + 122f;
         PanelPaint.fitText(c, BOLD, 40f, category.name(), tx, y + 34f, area.right() - tx - 24f, p.text());
-        int toggleable = category.toggleableCount();
-        String detail = toggleable > 0
-                ? category.enabledCount() + " " + AetherLang.localize("of") + " " + toggleable + " " + AetherLang.localize("on")
-                : category.pages().size() + " " + AetherLang.localize(category.pages().size() == 1 ? "module" : "modules");
-        if (toggleable > 0 && category.enabledCount() > 0) {
-            c.circle(tx + 6f, y + 76f, 6f, p.success());
-            PanelPaint.text(c, MEDIUM, 22f, detail, tx + 20f, y + 76f, p.textSecondary());
-        } else {
-            PanelPaint.text(c, MEDIUM, 22f, detail, tx, y + 76f, p.textSecondary());
-        }
+        String detail = category.pages().size() + " "
+                + AetherLang.localize(category.pages().size() == 1 ? "module" : "modules");
+        PanelPaint.text(c, MEDIUM, 22f, detail, tx, y + 76f, p.textSecondary());
         float iy = y + 140f;
         float ix = x;
         float size = 70f;
