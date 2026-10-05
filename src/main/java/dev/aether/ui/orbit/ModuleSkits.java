@@ -1,6 +1,18 @@
 package dev.aether.ui.orbit;
 
+import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.BellBlock;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.FarmlandBlock;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.RedStoneWireBlock;
+import net.minecraft.world.level.block.RedstoneLampBlock;
+import net.minecraft.world.level.block.RepeaterBlock;
+import net.minecraft.world.level.block.state.properties.AttachFace;
+import net.minecraft.world.level.block.state.properties.BellAttachType;
+import net.minecraft.world.level.block.state.properties.RedstoneSide;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -42,9 +54,7 @@ final class ModuleSkits {
     private static final Identifier BELL = mc("textures/entity/bell/bell_body.png");
     private static final Identifier LAMP = mc("textures/block/redstone_lamp.png");
     private static final Identifier LAMP_ON = mc("textures/block/redstone_lamp_on.png");
-    private static final Identifier STONE = mc("textures/block/stone.png");
     private static final Identifier LEVER = mc("textures/block/lever.png");
-    private static final Identifier COBBLE = mc("textures/block/cobblestone.png");
     private static final Identifier DUST = mc("textures/block/redstone_dust_dot.png");
     private static final Identifier REPEATER = mc("textures/block/repeater.png");
     private static final Identifier REPEATER_ON = mc("textures/block/repeater_on.png");
@@ -80,7 +90,6 @@ final class ModuleSkits {
     private float lastC;
     private boolean strangerOut;
     private final float[] crops = {1f, 1f, 1f, 1f, 1f};
-    private final float[] greenhouse = new float[9];
     private String obfuscated = "";
     // the skit whose props are on the farm and how far they have grown in; they pop in on a new module and shrink
     // away after leaving it
@@ -116,7 +125,6 @@ final class ModuleSkits {
         if (focus == null ? this.focus != null : !focus.equals(this.focus)) {
             this.focus = focus;
             java.util.Arrays.fill(crops, 1f);
-            java.util.Arrays.fill(greenhouse, 0f);
             strangerOut = false;
             lastC = 0f;
         }
@@ -213,27 +221,48 @@ final class ModuleSkits {
 
     // -- greenhouse: glass goes up around a plot, block by block, and the wheat inside shoots up -----------------
 
-    private static final float GH_X = 3.6f, GH_Z = 1.6f;
+    // the plot is three by three of farmland round (GH_X, GH_Z), the glass a shell one block out with a door
+    // toward you, three high and roofed
+    private static final int GH_X = 3, GH_Z = 2;
+    private static final int[][] GH_GLASS = greenhouseGlass();
+    private static final float GH_UP = 7.3f;
+
+    private static int[][] greenhouseGlass() {
+        java.util.List<int[]> out = new java.util.ArrayList<>();
+        for (int y = 0; y <= 3; y++) {
+            for (int x = GH_X - 2; x <= GH_X + 2; x++) {
+                for (int z = GH_Z - 2; z <= GH_Z + 2; z++) {
+                    boolean ring = Math.abs(x - GH_X) == 2 || Math.abs(z - GH_Z) == 2;
+                    if (y < 3 && !ring || y < 2 && x == GH_X - 2 && z == GH_Z) continue;
+                    out.add(new int[]{x, y, z});
+                }
+            }
+        }
+        return out.toArray(new int[0][]);
+    }
+
+    private static float glassDue(int k) {
+        return 0.3f + 2f * k / GH_GLASS.length;
+    }
 
     private void greenhouse(float c, PlayerFigure.Pose pose) {
         pose.facing = (float) Math.toDegrees(Math.atan2(GH_X, GH_Z));
         pose.look = 0.2f;
         pose.headPitch = 10f;
-        for (int i = 0; i < 9; i++) {
-            float due = 0.3f + i * 0.22f;
-            if (at(c, due)) particles.poof(GH_X - 1f + (i % 3), 1f, GH_Z - 1f + (i / 3), 2, 0.2f);
-            greenhouse[i] = c >= due && c < 7.3f ? Math.min(1f, (c - due) / 0.2f) : 0f;
+        for (int k = 0; k < GH_GLASS.length; k += 6) {
+            int[] g = GH_GLASS[k];
+            if (at(c, glassDue(k))) particles.poof(g[0], g[1] + 0.5f, g[2], 2, 0.2f);
         }
         // inside, the wheat grows a stage at a time once the glass is up
         float grow = clamp01((c - 2.6f) / 3.2f);
         for (int i = 0; i < 5; i++) crops[i] = grow;
         if (c > 2.6f && c < 5.8f && Math.random() < 0.15) {
-            particles.happy(GH_X + (float) (Math.random() - 0.5) * 2f, 0.6f, GH_Z + (float) (Math.random() - 0.5) * 2f, 1, 0.1f);
+            particles.happy(GH_X + (float) (Math.random() - 0.5) * 2f, 1.6f, GH_Z + (float) (Math.random() - 0.5) * 2f, 1, 0.1f);
         }
-        if (at(c, 7.3f)) {
-            for (int i = 0; i < 20; i++) {
-                particles.terrain(GLASS, GH_X + (float) (Math.random() - 0.5) * 3f, 0.5f + (float) Math.random() * 1.5f,
-                        GH_Z + (float) (Math.random() - 0.5) * 3f, 0f, 0.1f, 0f, 0xFFFFFF);
+        if (at(c, GH_UP)) {
+            for (int i = 0; i < 30; i++) {
+                particles.terrain(GLASS, GH_X + (float) (Math.random() - 0.5) * 5f, 0.5f + (float) Math.random() * 3f,
+                        GH_Z + (float) (Math.random() - 0.5) * 5f, 0f, 0.1f, 0f, 0xFFFFFF);
             }
         }
         if (c > 5.8f && c < 7.2f) {
@@ -246,7 +275,7 @@ final class ModuleSkits {
 
     // -- farming qol: the chest pops open and the harvest sorts itself in ----------------------------------------
 
-    private static final Vector3f CHEST_AT = new Vector3f(1.5f, 0f, 1.5f);
+    private static final Vector3f CHEST_AT = new Vector3f(1f, 0f, 1f);
     private float lid;
 
     private void sort(float c, PlayerFigure.Pose pose) {
@@ -449,11 +478,11 @@ final class ModuleSkits {
             pose.squash = 0.08f;
             if ((int) k != (int) ((c - dt - 1.5f) * 3f)) {
                 for (int i = 0; i < 5; i++) {
-                    particles.terrain(DIRT, (float) (Math.random() - 0.5) * 0.6f, 0.8f, 1.6f, (float) (Math.random() - 0.5) * 0.15f,
+                    particles.terrain(DIRT, (float) (Math.random() - 0.5) * 0.6f, 1.05f, 2f, (float) (Math.random() - 0.5) * 0.15f,
                             0.15f, -0.05f, 0xFFFFFF);
                 }
             }
-            if (at(c, 3.1f)) particles.poof(0f, 0.5f, 1.6f, 6, 0.3f);
+            if (at(c, 3.1f)) particles.poof(0f, 0.5f, 2f, 6, 0.3f);
         } else {
             pose.x = (c - 3.2f) * 0.8f;
             pose.legs = (float) Math.sin(c * 12) * 20f;
@@ -468,7 +497,7 @@ final class ModuleSkits {
 
     private void ghostBlock(float c, PlayerFigure.Pose pose) {
         if (c < 1.2f) {
-            pose.z = -0.8f + c * 1.0f;
+            pose.z = -1.0f + c * 1.0f;
             pose.legs = (float) Math.sin(c * 10) * 30f;
             pose.legsWeight = 1f;
             pose.right = (float) Math.sin(c * 10) * 25f;
@@ -477,19 +506,19 @@ final class ModuleSkits {
         } else if (c < 1.6f) {
             // bonk
             float k = (c - 1.2f) / 0.4f;
-            if (at(c, 1.2f)) particles.crit(0f, 1.6f, 0.75f, 6, false);
-            pose.z = 0.4f - 0.35f * (float) Math.sin(Math.PI * k * 0.5f);
+            if (at(c, 1.2f)) particles.crit(0f, 1.6f, 0.5f, 6, false);
+            pose.z = 0.2f - 0.35f * (float) Math.sin(Math.PI * k * 0.5f);
             pose.lean = -20f * (float) Math.sin(Math.PI * k);
             pose.squint = 1f;
         } else if (c < 3.0f) {
-            pose.z = 0.05f;
-            if (at(c, 1.9f)) particles.glyph('?', 0xFFFF55, 0f, 2.3f, 0.05f, 0f, 0.03f, 30, 0.3f);
+            pose.z = -0.15f;
+            if (at(c, 1.9f)) particles.glyph('?', 0xFFFF55, 0f, 2.3f, -0.15f, 0f, 0.03f, 30, 0.3f);
             pose.right = -100f;
             pose.rightWeight = smooth((c - 1.9f) / 0.3f);
             pose.tilt = 12f;
-            if (at(c, 2.6f)) particles.poof(0f, 0.5f, 1.3f, 6, 0.3f);
+            if (at(c, 2.6f)) particles.poof(0f, 0.5f, 1f, 6, 0.3f);
         } else {
-            pose.z = 0.05f + (c - 3.0f) * 1.0f;
+            pose.z = -0.15f + (c - 3.0f) * 1.0f;
             pose.legs = (float) Math.sin(c * 10) * 30f;
             pose.legsWeight = 1f;
         }
@@ -733,7 +762,8 @@ final class ModuleSkits {
 
     // -- ungrab mouse: leashed to a post, you strain, the lead snaps and you tumble free -------------------------
 
-    private static final Vector3f POST_AT = new Vector3f(-2.2f, 0f, 1.2f);
+    private static final Vector3f POST_AT = new Vector3f(-2f, 0f, 1f);
+    private static final float KNOT_Y = 0.625f;
 
     private boolean leashed(float c) {
         return c < 2.6f;
@@ -821,14 +851,16 @@ final class ModuleSkits {
 
     // -- miscellaneous: throw a lever and watch the signal run down the wire to the lamp -------------------------
 
-    private static final float WIRE_X0 = -1.5f, WIRE_Z = 1.6f;
+    // a real circuit on the grass at your left: lever on the floor, two dust, a repeater, one more dust into the lamp
+    private static final int WIRE_Z = 1, LEVER_X = 2, REPEATER_X = 5, LAMP_X = 7;
+    private static final float ON = 0.8f, OFF = 3.8f, DELAY = 0.4f;
 
-    private float power(float c) {
-        return c < 0.8f ? 0f : c < 3.8f ? Math.min(1f, (c - 0.8f) / 1.2f) : 0f;
+    private static boolean lit(float c, float delay) {
+        return c >= ON + delay && c < OFF + delay;
     }
 
     private void redstone(float c, PlayerFigure.Pose pose) {
-        pose.facing = (float) Math.toDegrees(Math.atan2(WIRE_X0, WIRE_Z));
+        pose.facing = (float) Math.toDegrees(Math.atan2(LEVER_X, WIRE_Z));
         pose.headPitch = 20f;
         pose.look = 0f;
         if (c > 0.4f && c < 0.9f || c > 3.4f && c < 3.9f) {
@@ -836,17 +868,17 @@ final class ModuleSkits {
             pose.rightWeight = 1f;
             pose.lean = 10f;
         }
-        if (c > 2f && c < 3.4f) {
+        if (c > 1.4f && c < 3.4f) {
             // watch the lamp come on
-            pose.facing = (float) Math.toDegrees(Math.atan2(2f, WIRE_Z));
+            pose.facing = (float) Math.toDegrees(Math.atan2(LAMP_X, WIRE_Z));
             pose.headYaw = 10f;
         }
-        if (at(c, 2.0f)) particles.happy(2.2f, 1.2f, WIRE_Z, 4, 0.3f);
+        if (at(c, ON + DELAY)) particles.happy(LAMP_X, 1.2f, WIRE_Z, 4, 0.3f);
     }
 
     // -- discord: ring the bell, the notes ring out --------------------------------------------------------------
 
-    private static final Vector3f BELL_AT = new Vector3f(1.4f, 0f, 1.4f);
+    private static final Vector3f BELL_AT = new Vector3f(1f, 0f, 1f);
     private float swing;
     private float swingV;
 
@@ -859,7 +891,7 @@ final class ModuleSkits {
         pose.rightWeight = 1f;
         if (at(c, (int) (c / 1.5f) * 1.5f + 0.6f)) {
             swingV += 9f;
-            for (int i = 0; i < 4; i++) particles.note(BELL_AT.x, 2.1f, BELL_AT.z);
+            for (int i = 0; i < 4; i++) particles.note(BELL_AT.x, 1.4f, BELL_AT.z);
         }
         swingV += (-60f * swing - 3f * swingV) * dt;
         swing += swingV * dt;
@@ -903,27 +935,20 @@ final class ModuleSkits {
                 }
             }
             case "Auto Greenhouse" -> {
-                for (int i = 0; i < 9; i++) {
-                    float x = GH_X - 1f + (i % 3), z = GH_Z - 1f + (i / 3);
-                    crop(buffer, local, x, z, crops[i % 5]);
-                }
-                for (int i = 0; i < 9; i++) {
-                    if (greenhouse[i] <= 0f) continue;
-                    float s = backOut(greenhouse[i]);
-                    int gx = i % 3, gz = i / 3;
-                    float x = GH_X - 1f + gx, z = GH_Z - 1f + gz;
-                    // walls on the outside ring, a roof over everything
-                    Matrix4f roof = place(local, x, 1f + 0.5f, z).scale(s).translate(-0.5f, -0.5f, -0.5f);
-                    cube(buffer, roof, GLASS, GLASS, GLASS);
-                    if (gx != 1 || gz != 1) {
-                        Matrix4f wall = place(local, x, 0.5f, z).scale(s).translate(-0.5f, -0.5f, -0.5f);
-                        if (gz != 0 || gx != 1) cube(buffer, wall, GLASS, GLASS, GLASS);
-                    }
+                for (int i = 0; i < 9; i++) crop(buffer, local, GH_X - 1 + i % 3, GH_Z - 1 + i / 3, crops[i % 5]);
+                for (int k = 0; k < GH_GLASS.length; k++) {
+                    float due = glassDue(k);
+                    if (c < due || c >= GH_UP) continue;
+                    float s = backOut(Math.min(1f, (c - due) / 0.2f));
+                    int[] g = GH_GLASS[k];
+                    Matrix4f m = BlockProps.at(local, g[0], g[1], g[2], size).translate(0.5f, 0.5f, 0.5f).scale(s)
+                            .translate(-0.5f, -0.5f, -0.5f);
+                    if (!BlockProps.draw(buffer, m, () -> Blocks.GLASS.defaultBlockState())) cube(buffer, m, GLASS, GLASS, GLASS);
                 }
             }
             case "Farming QOL" -> {
-                chest(buffer.apply(CHEST), place(local, CHEST_AT.x, 0f, CHEST_AT.z)
-                        .rotateY((float) Math.atan2(-CHEST_AT.x, -CHEST_AT.z)), lid);
+                // chests only ever face straight along an axis; this one faces your row
+                chest(buffer.apply(CHEST), place(local, CHEST_AT.x, 0f, CHEST_AT.z).rotateY((float) Math.PI), lid);
                 if (c > 0.8f && c < 4.2f) {
                     float k = ((c - 0.8f) % 0.68f) / 0.68f;
                     if (k > 0.5f) {
@@ -991,22 +1016,24 @@ final class ModuleSkits {
                         right, up);
             }
             case "Dirt Check" -> {
-                for (int i = 0; i < 5; i++) crop(buffer, local, -2f + i, 1.6f, i == 2 && c >= 0.5f && c < 3.1f ? -1f : 1f);
-                if (c >= 0.5f && c < 3.1f) {
+                // the dirt takes the farmland's place in the row, the way a dirt block lands in a real farm
+                boolean dirt = c >= 0.5f && c < 3.1f;
+                for (int i = 0; i < 5; i++) if (i != 2 || !dirt) crop(buffer, local, -2f + i, 2f, 1f);
+                if (dirt) {
                     float pop = backOut(Math.min(1f, (c - 0.5f) / 0.25f));
                     float shake = c > 1.5f ? (float) Math.sin(time * 40) * 0.03f : 0f;
-                    Matrix4f m = place(local, shake, 0f, 1.6f).scale(pop).translate(-0.5f, 0f, -0.5f);
-                    cube(buffer, m, mc("textures/block/dirt.png"), DIRT, DIRT);
+                    Matrix4f m = BlockProps.at(local, 0, 0, 2, size).translate(0.5f + shake, 0f, 0.5f).scale(pop)
+                            .translate(-0.5f, 0f, -0.5f);
+                    if (!BlockProps.draw(buffer, m, () -> Blocks.DIRT.defaultBlockState())) cube(buffer, m, DIRT, DIRT, DIRT);
                 }
                 if (live) FarmSkits.held(buffer.apply(c >= 1.5f && c < 3.2f ? SHOVEL : HOE), arm, 1f);
             }
             case "Ghost Block" -> {
                 float a = ghostAlpha(c);
                 if (a > 0.05f) {
-                    Matrix4f m = place(local, -0.5f, 0f, 0.75f);
-                    if (a > 0.5f) cube(buffer, m, GLASS, GLASS, GLASS);
-                    else cube(buffer, new Matrix4f(m).translate(0.5f, 0.5f, 0.5f).scale(0.98f).translate(-0.5f, -0.5f, -0.5f),
-                            GLASS, GLASS, GLASS);
+                    Matrix4f m = BlockProps.at(local, 0, 0, 1, size);
+                    if (a <= 0.5f) m.translate(0.5f, 0.5f, 0.5f).scale(0.98f).translate(-0.5f, -0.5f, -0.5f);
+                    if (!BlockProps.draw(buffer, m, () -> Blocks.GLASS.defaultBlockState())) cube(buffer, m, GLASS, GLASS, GLASS);
                 }
             }
             case "Player Nearby" -> {
@@ -1068,12 +1095,14 @@ final class ModuleSkits {
             }
             case "Ungrab Mouse" -> {
                 // the post and its knot, and the lead to your hand while it holds
-                Matrix4f post = place(local, POST_AT.x - 0.125f, 0f, POST_AT.z - 0.125f).scale(0.25f, 1.2f, 0.25f);
-                cube(buffer, post, POST, POST, POST);
-                ModelBoxes.box(buffer.apply(KNOT), place(local, POST_AT.x, 1.15f, POST_AT.z).scale(1f / 16f),
+                Matrix4f fence = BlockProps.at(local, (int) POST_AT.x, 0, (int) POST_AT.z, size);
+                if (!BlockProps.draw(buffer, fence, () -> Blocks.OAK_FENCE.defaultBlockState())) {
+                    cube(buffer, new Matrix4f(fence).translate(0.375f, 0f, 0.375f).scale(0.25f, 1f, 0.25f), POST, POST, POST);
+                }
+                ModelBoxes.box(buffer.apply(KNOT), place(local, POST_AT.x, KNOT_Y, POST_AT.z).scale(1f / 16f),
                         32, 32, false, -3, -4, -3, 3, 4, 3, 0, 0, 6, 8, 6);
                 if (leashed(c)) {
-                    Vector3f from = new Vector3f(POST_AT.x, 1.15f, POST_AT.z);
+                    Vector3f from = new Vector3f(POST_AT.x, KNOT_Y, POST_AT.z);
                     Vector3f to = toFarm.transformPosition(figure.leftArmFrame().transformPosition(0f, -11f, 0f, new Vector3f()));
                     rope(buffer.apply(LEAD), local, from, to, right, up, 0.03f);
                 }
@@ -1098,10 +1127,15 @@ final class ModuleSkits {
             case "Miscellaneous" -> circuit(buffer, local, c);
             case "Discord" -> {
                 Matrix4f base = place(local, BELL_AT.x, 0f, BELL_AT.z);
-                cube(buffer, new Matrix4f(base).translate(-0.6f, 0f, -0.08f).scale(0.16f, 2.3f, 0.16f), LOG, LOG, LOG);
-                cube(buffer, new Matrix4f(base).translate(0.44f, 0f, -0.08f).scale(0.16f, 2.3f, 0.16f), LOG, LOG, LOG);
-                cube(buffer, new Matrix4f(base).translate(-0.6f, 2.15f, -0.08f).scale(1.2f, 0.16f, 0.16f), LOG, LOG, LOG);
-                Matrix4f bell = new Matrix4f(base).translate(0f, 2.15f, 0f).rotateX(swing * 0.4f).scale(1f / 16f);
+                // the floor bell's stand is the block; the bell itself hangs from its bar at 13 pixels and swings
+                Matrix4f stand = BlockProps.at(local, (int) BELL_AT.x, 0, (int) BELL_AT.z, size);
+                if (!BlockProps.draw(buffer, stand, () -> Blocks.BELL.defaultBlockState()
+                        .setValue(BellBlock.ATTACHMENT, BellAttachType.FLOOR).setValue(BellBlock.FACING, Direction.NORTH))) {
+                    cube(buffer, new Matrix4f(stand).translate(0f, 0f, 0.375f).scale(0.125f, 1f, 0.25f), LOG, LOG, LOG);
+                    cube(buffer, new Matrix4f(stand).translate(0.875f, 0f, 0.375f).scale(0.125f, 1f, 0.25f), LOG, LOG, LOG);
+                    cube(buffer, new Matrix4f(stand).translate(0.125f, 13f / 16f, 0.4375f).scale(0.75f, 0.125f, 0.125f), LOG, LOG, LOG);
+                }
+                Matrix4f bell = new Matrix4f(base).translate(0f, 13f / 16f, 0f).rotateX(swing * 0.4f).scale(1f / 16f);
                 ModelBoxes.box(buffer.apply(BELL), bell, 32, 32, false, -3, -9, -3, 3, -2, 3, 0, 0, 6, 7, 6);
                 ModelBoxes.box(buffer.apply(BELL), bell, 32, 32, false, -4, -11, -4, 4, -9, 4, 0, 13, 8, 2, 8);
             }
@@ -1110,29 +1144,35 @@ final class ModuleSkits {
         }
     }
 
-    // the miscellaneous circuit: a lever on stone, a run of dust, a repeater and the lamp at the end
+    // the miscellaneous circuit as real blocks, each in the state the game would have it in that tick
     private void circuit(Function<Identifier, SceneClone.Buffer> buffer, Matrix4f local, float c) {
-        float p = power(c);
-        Matrix4f block = place(local, WIRE_X0 - 0.5f, 0f, WIRE_Z - 0.5f);
-        cube(buffer, block, STONE, STONE, STONE);
-        float angle = c > 0.6f && c < 3.6f ? 0.6f : -0.6f;
-        Matrix4f lever = place(local, WIRE_X0, 1f, WIRE_Z).rotateX(angle).scale(1f / 16f);
-        ModelBoxes.box(buffer.apply(COBBLE), place(local, WIRE_X0, 1f, WIRE_Z).scale(1f / 16f), 16, 16, false,
-                -2, 0, -4, 2, 3, 4, 0, 0, 4, 3, 8);
-        ModelBoxes.box(buffer.apply(LEVER), lever, 16, 16, false, -1, 0, -1, 1, 10, 1, 7, 6, 2, 10, 2);
-        int dots = 6;
-        for (int i = 0; i < dots; i++) {
-            float x = WIRE_X0 + 0.7f + i * 0.5f;
-            float lit = p * (dots + 1) - i;
-            int power = lit > 0f ? Math.max(1, 15 - i * 2) : 0;
-            dust(buffer.apply(DUST), local, x, WIRE_Z, power);
+        boolean on = lit(c, 0f), out = lit(c, DELAY);
+        boolean real = BlockProps.draw(buffer, BlockProps.at(local, LEVER_X, 0, WIRE_Z, size), () -> Blocks.LEVER.defaultBlockState()
+                .setValue(LeverBlock.FACE, AttachFace.FLOOR).setValue(LeverBlock.FACING, Direction.EAST)
+                .setValue(LeverBlock.POWERED, on));
+        for (int x = LEVER_X + 1; x <= LAMP_X - 1; x++) {
+            if (x == REPEATER_X) continue;
+            int power = x < REPEATER_X ? (on ? 15 - (x - LEVER_X - 1) : 0) : (out ? 15 : 0);
+            if (real) BlockProps.draw(buffer, BlockProps.at(local, x, 0, WIRE_Z, size), () -> Blocks.REDSTONE_WIRE.defaultBlockState()
+                    .setValue(RedStoneWireBlock.EAST, RedstoneSide.SIDE).setValue(RedStoneWireBlock.WEST, RedstoneSide.SIDE)
+                    .setValue(RedStoneWireBlock.NORTH, RedstoneSide.NONE).setValue(RedStoneWireBlock.SOUTH, RedstoneSide.NONE)
+                    .setValue(RedStoneWireBlock.POWER, power));
+            else dust(buffer.apply(DUST), local, x, WIRE_Z, power);
         }
-        Matrix4f rep = place(local, WIRE_X0 + 3.4f - 0.5f, 0.01f, WIRE_Z - 0.5f);
-        SceneActors.face(buffer.apply(p > 0.8f ? REPEATER_ON : REPEATER), rep, 0, 0.125f, 0, 1, 0.125f, 0, 1, 0.125f, 1, 0,
+        // a repeater takes its signal from the side it faces
+        if (real) BlockProps.draw(buffer, BlockProps.at(local, REPEATER_X, 0, WIRE_Z, size), () -> Blocks.REPEATER.defaultBlockState()
+                .setValue(RepeaterBlock.FACING, Direction.WEST).setValue(RepeaterBlock.DELAY, 4)
+                .setValue(RepeaterBlock.POWERED, out));
+        if (real) BlockProps.draw(buffer, BlockProps.at(local, LAMP_X, 0, WIRE_Z, size), () -> Blocks.REDSTONE_LAMP.defaultBlockState()
+                .setValue(RedstoneLampBlock.LIT, out));
+        if (real) return;
+        Matrix4f rep = BlockProps.at(local, REPEATER_X, 0, WIRE_Z, size);
+        SceneActors.face(buffer.apply(out ? REPEATER_ON : REPEATER), rep, 0, 0.125f, 0, 1, 0.125f, 0, 1, 0.125f, 1, 0,
                 0.125f, 1, 1f, 1f, 1f);
-        Matrix4f lamp = place(local, WIRE_X0 + 4.1f - 0.5f, 0f, WIRE_Z - 0.5f);
-        Identifier face = p >= 1f ? LAMP_ON : LAMP;
-        cube(buffer, lamp, face, face, face);
+        Identifier face = out ? LAMP_ON : LAMP;
+        cube(buffer, BlockProps.at(local, LAMP_X, 0, WIRE_Z, size), face, face, face);
+        ModelBoxes.box(buffer.apply(LEVER), BlockProps.at(local, LEVER_X, 0, WIRE_Z, size).translate(0.5f, 0f, 0.5f)
+                .rotateZ(on ? -0.6f : 0.6f).scale(1f / 16f), 16, 16, false, -1, 0, -1, 1, 10, 1, 7, 6, 2, 10, 2);
     }
 
     // a prop's frame at a farm point, grown in by how far its skit has popped in
@@ -1173,18 +1213,28 @@ final class ModuleSkits {
         ModelBoxes.box(out, lid, 64, 64, false, 7, -2, 14, 9, 2, 15, 0, 0, 2, 4, 1);
     }
 
-    // a farmland tile with wheat at a growth 0..1; below 0 leaves the soil bare
+    // a block of farmland on the grid with wheat on top at a growth 0..1; below 0 leaves the soil bare
     private void crop(Function<Identifier, SceneClone.Buffer> buffer, Matrix4f local, float x, float z, float grown) {
-        Matrix4f m = place(local, x - 0.5f, 0.01f, z - 0.5f);
-        SceneActors.face(buffer.apply(FARMLAND), m, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1f, 1f, 1f);
+        int bx = Math.round(x), bz = Math.round(z);
+        int stage = Math.min(7, (int) (Math.max(0f, grown) * 7.999f));
+        Matrix4f soil = BlockProps.at(local, bx, 0, bz, size);
+        if (BlockProps.draw(buffer, soil, () -> Blocks.FARMLAND.defaultBlockState().setValue(FarmlandBlock.MOISTURE, 7))) {
+            if (grown >= 0f) {
+                BlockProps.draw(buffer, BlockProps.at(local, bx, 1, bz, size), () -> ((CropBlock) Blocks.WHEAT).getStateForAge(stage));
+            }
+            return;
+        }
+        float top = 15f / 16f;
+        cube(buffer, new Matrix4f(soil).scale(1f, top, 1f), FARMLAND, DIRT, DIRT);
         if (grown < 0f) return;
-        SceneClone.Buffer out = buffer.apply(WHEAT[Math.min(7, (int) (grown * 7.999f))]);
+        Matrix4f m = new Matrix4f(soil).translate(0f, top, 0f);
+        SceneClone.Buffer out = buffer.apply(WHEAT[stage]);
         SceneActors.face(out, m, 0.1f, 1, 0.1f, 0.9f, 1, 0.9f, 0.9f, 0, 0.9f, 0.1f, 0, 0.1f, 1f, 1f, 1f);
         SceneActors.face(out, m, 0.9f, 1, 0.1f, 0.1f, 1, 0.9f, 0.1f, 0, 0.9f, 0.9f, 0, 0.1f, 1f, 1f, 0.9f);
     }
 
     // a unit cube, its top, sides and bottom each with their own texture and the usual face shading
-    private static void cube(Function<Identifier, SceneClone.Buffer> buffer, Matrix4f m, Identifier top, Identifier side,
+    static void cube(Function<Identifier, SceneClone.Buffer> buffer, Matrix4f m, Identifier top, Identifier side,
                              Identifier bottom) {
         SceneActors.face(buffer.apply(top), m, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1f, 1f, 1f);
         SceneActors.face(buffer.apply(bottom), m, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1f, 1f, 0.5f);

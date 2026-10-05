@@ -1,6 +1,7 @@
 package dev.aether.ui.orbit;
 
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.Blocks;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -18,8 +19,9 @@ final class ExtraSkits {
     private static final Identifier ARROW = mc("textures/item/arrow.png");
     private static final Identifier TARGET_SIDE = mc("textures/block/target_side.png");
     private static final Identifier TARGET_TOP = mc("textures/block/target_top.png");
-    private static final float[] TARGET_X = {-2.4f, 0f, 2.4f};
-    private static final float TARGET_Z = 7f;
+    // target blocks on the grid out on the lawn at your left, where the menu camera sees them past the panel
+    private static final float[] TARGET_X = {2f, 4f, 6f};
+    private static final float TARGET_Z = 6f;
 
     private final SceneParticles particles;
     private String focus;
@@ -262,6 +264,7 @@ final class ExtraSkits {
                     float hit = targetHit >= 0f && targetHit < 0.25f ? (float) Math.sin(Math.PI * targetHit / 0.25f) * 0.2f : 0f;
                     Matrix4f m = new Matrix4f(local).translate(TARGET_X[i], 0f, TARGET_Z).scale(pop * (1f + hit * 0.5f),
                             pop * (1f - hit), pop * (1f + hit * 0.5f)).translate(-0.5f, 0f, -0.5f);
+                    if (BlockProps.draw(buffer, m, () -> Blocks.TARGET.defaultBlockState())) continue;
                     SceneClone.Buffer side = buffer.apply(TARGET_SIDE);
                     SceneActors.face(side, m, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1f, 1f, 0.8f);
                     SceneActors.face(side, m, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1f, 1f, 0.8f);

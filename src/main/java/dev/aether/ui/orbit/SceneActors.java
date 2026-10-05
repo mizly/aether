@@ -1,6 +1,7 @@
 package dev.aether.ui.orbit;
 
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.Blocks;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
 import org.joml.Vector3f;
@@ -53,8 +54,9 @@ final class SceneActors implements AutoCloseable {
     private static final String[] METALS = {"gold", "diamond", "netherite"};
 
     // the yard beside the path where the bed and the stands go, clear of the crops (see PresetGarden.yard)
-    private static final float BED_X = 2.9f, BED_Z = -0.6f;
-    private static final float TABLE_Z = 1.3f;
+    // block props sit on the farm's grid: whole numbers are block centres, and the bed's foot edge lies on a block edge
+    private static final float BED_X = 3f, BED_Z = -0.5f;
+    private static final float TABLE_Z = 1f;
 
     // drop-ins fall for DROP seconds, then squash on landing for LAND
     private static final float DROP = 0.35f;
@@ -779,7 +781,7 @@ final class SceneActors implements AutoCloseable {
 
     // dynamic pests: a jukebox lands, you put a vinyl on, spray all round you, and the pests that vinyl draws
     // come flying in to circle you; when the record ends it pops back out and the next one goes on
-    private static final Vector3f JUKEBOX = new Vector3f(1.7f, 0f, 1.4f);
+    private static final Vector3f JUKEBOX = new Vector3f(2f, 0f, 1f);
     private static final String[] DISCS = {"13", "cat", "blocks", "chirp", "far", "mall"};
     private static final int[] SPRAY_TINT = {0x7FE36A, 0xC26BFF, 0xFFD24A, 0x6BD8FF, 0xFF7A6B, 0xB8FF6B};
     private static final float DYN_LOOP = 9f;
@@ -1042,7 +1044,9 @@ final class SceneActors implements AutoCloseable {
             float squash = tableHit > 0f ? (float) Math.sin(Math.PI * tableHit / 0.12f) * 0.12f : 0f;
             Matrix4f m = drop(new Matrix4f(local).translate(0f, 0f, TABLE_Z), table, "Auto Supercraft".equals(focus))
                     .scale(1f + squash * 0.5f, 1f - squash, 1f + squash * 0.5f).translate(-0.5f, 0f, -0.5f);
-            cube(m, 0, 0, 0, 1, 1, 1, TABLE_TOP, PLANKS, TABLE_FRONT, TABLE_SIDE, TABLE_SIDE, TABLE_FRONT);
+            if (!BlockProps.draw(this::buffer, m, () -> Blocks.CRAFTING_TABLE.defaultBlockState())) {
+                cube(m, 0, 0, 0, 1, 1, 1, TABLE_TOP, PLANKS, TABLE_FRONT, TABLE_SIDE, TABLE_SIDE, TABLE_FRONT);
+            }
         }
         for (Crafted c : crafted) {
             float k = Math.min(1f, c.age / 0.6f);
@@ -1051,7 +1055,9 @@ final class SceneActors implements AutoCloseable {
             float land = c.age > 0.6f && c.age < 0.8f ? (float) Math.sin(Math.PI * (c.age - 0.6f) / 0.2f) * 0.2f : 0f;
             Matrix4f m = new Matrix4f(local).translate(x, y, z).rotateY((1f - k) * 6f + c.x * 3f)
                     .scale(0.3f * (1f + land * 0.5f), 0.3f * (1f - land), 0.3f * (1f + land * 0.5f)).translate(-0.5f, 0f, -0.5f);
-            cube(m, 0, 0, 0, 1, 1, 1, HAY_TOP, HAY_TOP, HAY_SIDE, HAY_SIDE, HAY_SIDE, HAY_SIDE);
+            if (!BlockProps.draw(this::buffer, m, () -> Blocks.HAY_BLOCK.defaultBlockState())) {
+                cube(m, 0, 0, 0, 1, 1, 1, HAY_TOP, HAY_TOP, HAY_SIDE, HAY_SIDE, HAY_SIDE, HAY_SIDE);
+            }
         }
         if (bed >= 0f) {
             Matrix4f m = drop(new Matrix4f(local).translate(BED_X, 0f, BED_Z), bed, "Dynamic Rest".equals(focus));
@@ -1065,7 +1071,9 @@ final class SceneActors implements AutoCloseable {
             float squash = jukeHit > 0f ? (float) Math.sin(Math.PI * jukeHit / 0.15f) * 0.15f : 0f;
             Matrix4f m = drop(new Matrix4f(local).translate(JUKEBOX.x, 0f, JUKEBOX.z), jukebox, "Dynamic Pests".equals(focus))
                     .scale(1f + squash * 0.5f, 1f - squash, 1f + squash * 0.5f).translate(-0.5f, 0f, -0.5f);
-            cube(m, 0, 0, 0, 1, 1, 1, JUKE_TOP, JUKE_SIDE, JUKE_SIDE, JUKE_SIDE, JUKE_SIDE, JUKE_SIDE);
+            if (!BlockProps.draw(this::buffer, m, () -> Blocks.JUKEBOX.defaultBlockState())) {
+                cube(m, 0, 0, 0, 1, 1, 1, JUKE_TOP, JUKE_SIDE, JUKE_SIDE, JUKE_SIDE, JUKE_SIDE, JUKE_SIDE);
+            }
             Identifier record = mc("textures/item/music_disc_" + DISCS[vinyl] + ".png");
             Matrix4f toFarm = new Matrix4f(local).invert();
             Vector3f hand = toFarm.transformPosition(figure.rightArmFrame().transformPosition(0f, -11f, 0f, new Vector3f()));

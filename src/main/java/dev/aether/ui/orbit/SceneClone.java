@@ -14,8 +14,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.GrassColor;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.joml.Vector3fc;
 import org.lwjgl.system.MemoryUtil;
 
@@ -192,6 +195,37 @@ final class SceneClone {
             Vector3fc p = quad.position(i);
             long uv = quad.packedUV(i);
             out.vertex(fx + p.x(), fy + p.y(), fz + p.z(), UVPair.unpackU(uv), UVPair.unpackV(uv), color);
+        }
+    }
+
+    // one block as the game models it, for the skits' props: unit block space mapped through m, sprites from the
+    // block atlas, tinted the way it looks in plains
+    static void model(BlockState state, Matrix4f m, Buffer out) {
+        Minecraft client = Minecraft.getInstance();
+        BlockColors colors = client.getBlockColors();
+        List<BlockStateModelPart> parts = new ArrayList<>();
+        client.getModelManager().getBlockStateModelSet().get(state).collectParts(RandomSource.create(42L), parts);
+        Vector3f p = new Vector3f();
+        for (BlockStateModelPart part : parts) {
+            for (Direction dir : Direction.values()) {
+                for (BakedQuad quad : part.getQuads(dir)) propQuad(state, quad, m, out, colors, p);
+            }
+            for (BakedQuad quad : part.getQuads(null)) propQuad(state, quad, m, out, colors, p);
+        }
+    }
+
+    private static void propQuad(BlockState state, BakedQuad quad, Matrix4f m, Buffer out, BlockColors colors, Vector3f p) {
+        BakedQuad.MaterialInfo info = quad.materialInfo();
+        int rgb = 0xFFFFFF;
+        if (info.isTinted()) {
+            BlockTintSource tint = colors.getTintSource(state, info.tintIndex());
+            if (tint != null) rgb = (state.is(Blocks.SUGAR_CANE) ? GrassColor.getDefaultColor() : tint.color(state)) & 0xFFFFFF;
+        }
+        int color = rgba(rgb, info.shade() ? shade(quad.direction()) : 1f, 255);
+        for (int i : new int[]{0, 1, 2, 0, 2, 3}) {
+            m.transformPosition(quad.position(i), p);
+            long uv = quad.packedUV(i);
+            out.vertex(p.x, p.y, p.z, UVPair.unpackU(uv), UVPair.unpackV(uv), color);
         }
     }
 

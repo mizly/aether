@@ -1,16 +1,23 @@
 package dev.aether.ui.orbit;
 
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ComposterBlock;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.FarmlandBlock;
+import net.minecraft.world.level.block.state.BlockState;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 // the farming-side skits: the macro hoeing a row of wheat that grows back, rewarp running the row and warping home,
 // fishing in the water lane, filling a composter and spraying the crops. same farm space as SceneActors: +z up the
 // path, the yard at +x, the potato field's water lane at x -7
 final class FarmSkits {
     private static final Identifier FARMLAND = mc("textures/block/farmland_moist.png");
+    private static final Identifier DIRT_SIDE = mc("textures/block/dirt.png");
     private static final Identifier[] WHEAT = new Identifier[8];
     private static final Identifier WHEAT_ITEM = mc("textures/item/wheat.png");
     private static final Identifier HOE = mc("textures/item/diamond_hoe.png");
@@ -38,7 +45,8 @@ final class FarmSkits {
     }
 
     // the strip of wheat in front of you: five crops across the path, each growing back once cut
-    private static final float STRIP_Z = 1.6f;
+    // the crop row is raised farmland on the grid a block and a half ahead, the wheat standing on top of it
+    private static final float STRIP_Z = 2f;
     private static final float[] CROP_X = {-2f, -1f, 0f, 1f, 2f};
     private final float[] growth = {1f, 1f, 1f, 1f, 1f};
     private final float[] sprayed = new float[5];
@@ -107,7 +115,7 @@ final class FarmSkits {
             if (growth[i] < 1f) {
                 float before = growth[i];
                 growth[i] = Math.min(1f, growth[i] + dt / 2.6f);
-                if (before < 1f && growth[i] >= 1f) particles.happy(CROP_X[i], 0.6f, STRIP_Z, 3, 0.25f);
+                if (before < 1f && growth[i] >= 1f) particles.happy(CROP_X[i], 1.6f, STRIP_Z, 3, 0.25f);
             }
             sprayed[i] = Math.max(0f, sprayed[i] - dt * 0.4f);
         }
@@ -159,11 +167,11 @@ final class FarmSkits {
             growth[i] = 0f;
             swing = 0f;
             for (int k = 0; k < 8; k++) {
-                particles.terrain(WHEAT[7], CROP_X[i] + (float) (Math.random() - 0.5) * 0.5f, 0.3f + (float) Math.random() * 0.4f,
+                particles.terrain(WHEAT[7], CROP_X[i] + (float) (Math.random() - 0.5) * 0.5f, 1.3f + (float) Math.random() * 0.4f,
                         STRIP_Z + (float) (Math.random() - 0.5) * 0.4f, (float) (Math.random() - 0.5) * 0.12f,
                         0.12f + (float) Math.random() * 0.08f, (float) (Math.random() - 0.5) * 0.12f, 0xFFFFFF);
             }
-            particles.item(WHEAT_ITEM, CROP_X[i], 0.5f, STRIP_Z, 0.2f, 18, 0.2f);
+            particles.item(WHEAT_ITEM, CROP_X[i], 1.5f, STRIP_Z, 0.2f, 18, 0.2f);
         }
     }
 
@@ -318,7 +326,7 @@ final class FarmSkits {
 
     // -- composting: a composter drops in, you toss scraps in until it fills, bone meal pops out ------------------
 
-    private static final Vector3f BIN = new Vector3f(1.7f, 0f, 1.5f);
+    private static final Vector3f BIN = new Vector3f(2f, 0f, 1f);
 
     private void compost(float dt, PlayerFigure.Pose pose) {
         float face = (float) Math.toDegrees(Math.atan2(BIN.x, BIN.z));
@@ -397,7 +405,7 @@ final class FarmSkits {
         for (int i = 0; i < 5; i++) {
             if (Math.abs(x - 0.34f - CROP_X[i]) < 0.3f && sprayed[i] < 0.6f) {
                 sprayed[i] = 1f;
-                particles.happy(CROP_X[i], 0.7f, STRIP_Z, 5, 0.3f);
+                particles.happy(CROP_X[i], 1.7f, STRIP_Z, 5, 0.3f);
             }
         }
     }
@@ -413,8 +421,8 @@ final class FarmSkits {
             for (int i = 0; i < 5; i++) crop(buffer, local, CROP_X[i], STRIP_Z, growth[i]);
         }
         if ("Rewarp".equals(shown)) {
-            pad(buffer.apply(START_PAD), local, START_X);
-            pad(buffer.apply(END_PAD), local, END_X);
+            pad(buffer, START_PAD, () -> Blocks.LIME_CARPET.defaultBlockState(), local, START_X);
+            pad(buffer, END_PAD, () -> Blocks.RED_CARPET.defaultBlockState(), local, END_X);
         }
         if (!handles(focus)) {
             if ("Auto Composter".equals(shown)) composter(buffer, local);
@@ -461,23 +469,31 @@ final class FarmSkits {
         }
     }
 
-    // a crop on its farmland: the moist soil flat on the ground, the wheat at its stage as two crossed planes
+    // a crop on its farmland: a block of moist soil on the grid, the wheat at its stage on top
     private void crop(Function<Identifier, SceneClone.Buffer> buffer, Matrix4f local, float x, float z, float grown) {
-        Matrix4f m = new Matrix4f(local).translate(x, 0.01f, z).scale(size).translate(-0.5f, 0f, -0.5f);
-        SceneActors.face(buffer.apply(FARMLAND), m, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 1f, 1f, 1f);
+        int bx = Math.round(x), bz = Math.round(z);
         int stage = Math.min(7, (int) (grown * 7.999f));
         float pop = grown >= 1f ? 1f : 0.9f + 0.1f * (float) Math.sin(time * 6 + x);
-        Matrix4f c = new Matrix4f(m).translate(0.5f, 0f, 0.5f).scale(1f, pop, 1f).translate(-0.5f, 0f, -0.5f);
+        Matrix4f soil = BlockProps.at(local, bx, 0, bz, size);
+        if (BlockProps.draw(buffer, soil, () -> Blocks.FARMLAND.defaultBlockState().setValue(FarmlandBlock.MOISTURE, 7))) {
+            BlockProps.draw(buffer, BlockProps.at(local, bx, 1, bz, size).scale(1f, pop, 1f),
+                    () -> ((CropBlock) Blocks.WHEAT).getStateForAge(stage));
+            return;
+        }
+        float top = 15f / 16f;
+        ModuleSkits.cube(buffer, new Matrix4f(soil).scale(1f, top, 1f), FARMLAND, DIRT_SIDE, DIRT_SIDE);
+        Matrix4f c = new Matrix4f(soil).translate(0.5f, top, 0.5f).scale(1f, pop, 1f).translate(-0.5f, 0f, -0.5f);
         SceneClone.Buffer out = buffer.apply(WHEAT[stage]);
-        // vanilla crops are four planes in a hash; two crossed ones read the same from this far
         SceneActors.face(out, c, 0.1f, 1, 0.1f, 0.9f, 1, 0.9f, 0.9f, 0, 0.9f, 0.1f, 0, 0.1f, 1f, 1f, 1f);
         SceneActors.face(out, c, 0.9f, 1, 0.1f, 0.1f, 1, 0.9f, 0.1f, 0, 0.9f, 0.9f, 0, 0.1f, 1f, 1f, 0.9f);
     }
 
-    // a glowing pad under a rewarp point, pulsing gently
-    private void pad(SceneClone.Buffer out, Matrix4f local, float x) {
-        float pulse = (1f + (float) Math.sin(time * 4) * 0.04f) * size;
-        Matrix4f m = new Matrix4f(local).translate(x, 0.02f, 0f).scale(pulse, 1f, pulse).translate(-0.5f, 0f, -0.5f);
+    // a carpet marking a rewarp point on the grid
+    private void pad(Function<Identifier, SceneClone.Buffer> buffer, Identifier stand, Supplier<BlockState> carpet,
+                     Matrix4f local, float x) {
+        Matrix4f m = BlockProps.at(local, Math.round(x), 0, 0, size);
+        if (BlockProps.draw(buffer, m, carpet)) return;
+        SceneClone.Buffer out = buffer.apply(stand);
         SceneActors.face(out, m, 0, 0.06f, 0, 1, 0.06f, 0, 1, 0.06f, 1, 0, 0.06f, 1, 1f, 1f, 1f);
         SceneActors.face(out, m, 0, 0.06f, 0, 1, 0.06f, 0, 1, 0, 0, 0, 0, 0, 1f, 0.06f, 0.8f);
         SceneActors.face(out, m, 1, 0.06f, 1, 0, 0.06f, 1, 0, 0, 1, 1, 0, 1, 1f, 0.06f, 0.8f);
@@ -566,6 +582,8 @@ final class FarmSkits {
         float land = scene > 0.35f && scene < 0.65f ? (float) Math.sin(Math.PI * (scene - 0.35f) / 0.3f) * 0.2f : 0f;
         Matrix4f m = new Matrix4f(local).translate(BIN.x, 3f * (1f - drop * drop), BIN.z).scale(Math.min(1f, size))
                 .scale(1f + land * 0.5f, 1f - land, 1f + land * 0.5f).translate(-0.5f, 0f, -0.5f);
+        int fill = ready >= 0f ? 8 : Math.min(7, level);
+        if (BlockProps.draw(buffer, m, () -> Blocks.COMPOSTER.defaultBlockState().setValue(ComposterBlock.LEVEL, fill))) return;
         SceneClone.Buffer side = buffer.apply(COMPOSTER_SIDE);
         SceneActors.face(side, m, 1, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1f, 1f, 0.8f);
         SceneActors.face(side, m, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 0, 1, 1f, 1f, 0.8f);
@@ -578,9 +596,9 @@ final class FarmSkits {
         SceneActors.face(side, m, 1 - t, 1, 1 - t, 1 - t, 1, t, 1 - t, t, t, 1 - t, t, 1 - t, 1f, 1f, 0.45f);
         SceneActors.face(buffer.apply(COMPOSTER_BOTTOM), m, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1f, 1f, 0.5f);
         SceneActors.face(buffer.apply(COMPOSTER_TOP), m, 0, 1, 0, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1f, 1f, 1f);
-        float fill = (2f + Math.min(7, level) * 2f) / 16f;
-        SceneActors.face(buffer.apply(ready >= 0f ? COMPOST_READY : COMPOST), m, t, fill, t, 1 - t, fill, t, 1 - t, fill,
-                1 - t, t, fill, 1 - t, 1f, 1f, 0.9f);
+        float h = (2f + Math.min(7, level) * 2f) / 16f;
+        SceneActors.face(buffer.apply(ready >= 0f ? COMPOST_READY : COMPOST), m, t, h, t, 1 - t, h, t, 1 - t, h,
+                1 - t, t, h, 1 - t, 1f, 1f, 0.9f);
     }
 
     private static float backOut(float t) {
