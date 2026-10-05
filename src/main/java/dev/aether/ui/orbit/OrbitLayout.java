@@ -55,6 +55,10 @@ final class OrbitLayout {
         return Math.max(0.75, Math.min(2.5, windowHeight * 0.64 / PANEL_H));
     }
 
+    private static double lerp(double a, double b, double t) {
+        return a + (b - a) * t;
+    }
+
     static double wrap(double o, int count) {
         double m = ((o % count) + count) % count;
         return m >= count / 2.0 ? m - count : m;
@@ -128,14 +132,26 @@ final class OrbitLayout {
             double sf = OrbitRig.lerp(1 - 0.27 * Math.min(ao, 2), 0.33, z);
             double crisp = new Vector3d(center).sub(cam.pos()).dot(cam.forward()) / persp;
             double s = OrbitRig.lerp(s0 * sf, crisp, w * (1 - z)) * Math.max(0.0001, u);
-            boolean moduleView = active && in.expand() > 0.5;
-            float dw = moduleView ? MODULE_W : PANEL_W;
-            float dh = moduleView ? MODULE_H : PANEL_H;
+            // the front panel eases between card and page size with the expand spring, so it grows instead of snapping
+            float grow = active ? (float) Math.max(0, Math.min(1.04, in.expand())) : 0f;
+            float dw = (float) lerp(PANEL_W, MODULE_W, grow);
+            float dh = (float) lerp(PANEL_H, MODULE_H, grow);
             float dim = (float) OrbitRig.lerp(OrbitRig.clamp((float) (ao * 0.62), 0f, 0.74f), active ? 0 : 0.2, z);
             float alpha = OrbitRig.clamp(u * 1.3f, 0f, 1f);
             out[i] = new Placement(i, center, right, up, dw * s, dh * s, dw, dh, alpha, dim, active);
         }
         return out;
+    }
+
+    // turns a panel about its own up axis (yaw: its right edge toward the viewer) and right axis (pitch: its bottom
+    // edge toward the viewer), keeping its centre and size
+    static Placement tilt(Placement p, double yaw, double pitch) {
+        Vector3d n = p.normal();
+        Vector3d right = new Vector3d(p.right()).mul(Math.cos(yaw)).fma(Math.sin(yaw), n).normalize();
+        Vector3d n2 = new Vector3d(right).cross(p.up()).normalize();
+        Vector3d up = new Vector3d(p.up()).mul(Math.cos(pitch)).fma(-Math.sin(pitch), n2).normalize();
+        return new Placement(p.index(), p.center(), right, up, p.width(), p.height(), p.designW(), p.designH(),
+                p.alpha(), p.dim(), p.active());
     }
 
     // rig space to world: +z is where the player faced on open, +x their left, around their feet

@@ -24,8 +24,13 @@ import java.util.List;
 
 // draws orbit panels as textured quads inside the level pass, depth-tested so the player stands in front of them
 final class OrbitWorldRenderer implements AutoCloseable {
+    // uMax/vMax: the share of the texture to show; cornerU/cornerV: rounded corner radius as a share of the quad
     record Quad(Vector3d topLeft, Vector3d topRight, Vector3d bottomRight, Vector3d bottomLeft, int texture,
-                float alpha, float dim) {
+                float alpha, float dim, float uMax, float vMax, float cornerU, float cornerV) {
+        Quad(Vector3d topLeft, Vector3d topRight, Vector3d bottomRight, Vector3d bottomLeft, int texture, float alpha,
+             float dim) {
+            this(topLeft, topRight, bottomRight, bottomLeft, texture, alpha, dim, 1f, 1f, 0f, 0f);
+        }
     }
 
     private final Matrix4f projection = new Matrix4f();
@@ -36,6 +41,8 @@ final class OrbitWorldRenderer implements AutoCloseable {
     private int tintUniform;
     private int dimUniform;
     private int samplerUniform;
+    private int uvMaxUniform;
+    private int cornerUniform;
     private boolean failed;
 
     boolean failed() {
@@ -120,6 +127,8 @@ final class OrbitWorldRenderer implements AutoCloseable {
                     float a = q.alpha();
                     GL20.glUniform4f(tintUniform, a, a, a, a);
                     GL20.glUniform1f(dimUniform, q.dim());
+                    GL20.glUniform2f(uvMaxUniform, q.uMax(), q.vMax());
+                    GL20.glUniform2f(cornerUniform, q.cornerU(), q.cornerV());
                     GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 6);
                 }
             } catch (RuntimeException error) {
@@ -170,6 +179,8 @@ final class OrbitWorldRenderer implements AutoCloseable {
             tintUniform = GL20.glGetUniformLocation(program, "Tint");
             dimUniform = GL20.glGetUniformLocation(program, "Dim");
             samplerUniform = GL20.glGetUniformLocation(program, "Panel");
+            uvMaxUniform = GL20.glGetUniformLocation(program, "UvMax");
+            cornerUniform = GL20.glGetUniformLocation(program, "Corner");
             vao = GL30.glGenVertexArrays();
             vbo = GL15.glGenBuffers();
             GL30.glBindVertexArray(vao);

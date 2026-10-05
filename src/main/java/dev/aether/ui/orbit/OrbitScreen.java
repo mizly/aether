@@ -41,6 +41,8 @@ public final class OrbitScreen extends Screen {
     private final OrbitSpring[] unfold;
     private final OrbitWorldRenderer renderer = new OrbitWorldRenderer();
     private final FailsafeRing failsafeRing = new FailsafeRing();
+    private final PanelSurface shadowSurface = new PanelSurface();
+    private boolean shadowDrawn;
     private final SettingPreview settingPreview = new SettingPreview();
     private float lastDt;
     private final OrbitOverlay overlay;
@@ -48,6 +50,9 @@ public final class OrbitScreen extends Screen {
     private final OrbitSpring ring = new OrbitSpring(0f, 130f, 15.5f);
     private final OrbitSpring zoom = new OrbitSpring(1f, 60f, 13f);
     private final OrbitSpring expand = new OrbitSpring(0f, 120f, 16f);
+    private final OrbitSpring tiltX = new OrbitSpring(0f, 60f, 12f);
+    private final OrbitSpring tiltY = new OrbitSpring(0f, 60f, 12f);
+    private float[] frontMouse = {-1f, -1f};
     private final OrbitSpring[] leanPos = {new OrbitSpring(0, 30, 11), new OrbitSpring(0, 30, 11), new OrbitSpring(0, 30, 11)};
     private final OrbitSpring[] leanLook = {new OrbitSpring(0, 30, 11), new OrbitSpring(0, 30, 11), new OrbitSpring(0, 30, 11)};
 
@@ -255,8 +260,25 @@ public final class OrbitScreen extends Screen {
                 player.getEyeHeight(), client.options.fov().get(), count, ring.x, zoom.x, expand.x, e,
                 state == State.OPEN, clock, unfoldNow, activeIndex(), lp, ll, client.getWindow().getHeight(),
                 eye, eyeLook));
+        layout = tiltFront(layout);
         OrbitLayout.Camera cam = layout.camera();
         OrbitCamera.set(cam.pos().x, cam.pos().y, cam.pos().z, cam.look().x, cam.look().y, cam.look().z, cam.fov());
+    }
+
+    // the front panel leans a few degrees toward the cursor, the side under it coming forward
+    private OrbitLayout.Result tiltFront(OrbitLayout.Result result) {
+        OrbitLayout.Placement[] placements = result.placements();
+        for (int i = 0; i < placements.length; i++) {
+            OrbitLayout.Placement p = placements[i];
+            if (!p.active()) continue;
+            boolean over = frontMouse[0] >= 0 && !draggingRing && zoom.x < 0.5f;
+            tiltX.t = over ? OrbitRig.clamp(frontMouse[0] / p.designW() * 2f - 1f, -1f, 1f) : 0f;
+            tiltY.t = over ? OrbitRig.clamp(frontMouse[1] / p.designH() * 2f - 1f, -1f, 1f) : 0f;
+            tiltX.step(lastDt);
+            tiltY.step(lastDt);
+            placements[i] = OrbitLayout.tilt(p, Math.toRadians(3.0) * tiltX.x, Math.toRadians(2.2) * tiltY.x);
+        }
+        return result;
     }
 
     private Vector3d rigToWorld(Vector3d anchor, double rx, double ry, double rz) {
@@ -416,6 +438,7 @@ public final class OrbitScreen extends Screen {
             String id = categories.get(p.index());
             if (p.active() && z < 0.5f) {
                 float[] local = localMouse(p);
+                frontMouse = local;
                 surfaces[p.index()].render(p.designW(), p.designH(), k,
                         nvg -> view.renderOrbitActive(nvg, p.designW(), p.designH(), local[0], local[1], id));
             } else {
@@ -423,8 +446,12 @@ public final class OrbitScreen extends Screen {
                 surfaces[p.index()].render(p.designW(), p.designH(), ratio,
                         nvg -> view.renderOrbitPassive(nvg, p.designW(), p.designH(), id, z));
             }
+            shadow(quads, p);
+            PanelSurface surface = surfaces[p.index()];
+            float radius = dev.aether.ui.orbit.panel.PanelView.ORBIT_RADIUS;
             quads.add(new OrbitWorldRenderer.Quad(p.corner(-1, 1), p.corner(1, 1), p.corner(1, -1), p.corner(-1, -1),
-                    surfaces[p.index()].texture(), p.alpha(), p.dim()));
+                    surface.texture(), p.alpha(), p.dim(), surface.uMax(), surface.vMax(), radius / p.designW(),
+                    radius / p.designH()));
         }
         boolean safetyFront = "safety".equals(activeCategory()) && z < 0.5f && state != State.CLOSING;
         failsafeRing.step(lastDt, safetyFront);
@@ -444,6 +471,21 @@ public final class OrbitScreen extends Screen {
         Vec3 eye = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         quads.sort(Comparator.comparingDouble((OrbitWorldRenderer.Quad q) -> -distanceSq(q, eye)));
         renderer.draw(quads);
+    }
+
+    // a soft dark pool behind each panel, a little larger and lower, so the panels float above the farm
+    private void shadow(List<OrbitWorldRenderer.Quad> quads, OrbitLayout.Placement p) {
+        if (!shadowDrawn) {
+            shadowSurface.render(128f, 128f, 1f, nvg -> nvg.boxGradient(24f, 24f, 80f, 80f, 18f, 22f, 0x8C000000, 0x00000000));
+            shadowDrawn = true;
+        }
+        Vector3d back = new Vector3d(p.normal()).mul(-0.06).fma(-p.height() * 0.04, p.up());
+        // the gradient's dark core is 80 of the texture's 128 px, so this scale lines the core up with the panel
+        double sx = 128.0 / 80.0, sy = 128.0 / 80.0;
+        Vector3d c = new Vector3d(p.center()).add(back);
+        Vector3d r = new Vector3d(p.right()).mul(p.width() / 2 * sx), u = new Vector3d(p.up()).mul(p.height() / 2 * sy);
+        quads.add(new OrbitWorldRenderer.Quad(new Vector3d(c).sub(r).add(u), new Vector3d(c).add(r).add(u),
+                new Vector3d(c).add(r).sub(u), new Vector3d(c).sub(r).sub(u), shadowSurface.texture(), p.alpha() * 0.9f, 0f));
     }
 
     private static double distanceSq(OrbitWorldRenderer.Quad q, Vec3 eye) {
@@ -794,6 +836,7 @@ public final class OrbitScreen extends Screen {
         view.close();
         for (PanelSurface surface : surfaces) surface.close();
         failsafeRing.close();
+        shadowSurface.close();
         settingPreview.close();
         sceneRenderer.close();
         if (clone != null) clone.close();

@@ -476,8 +476,10 @@ class OrbitPreviewTest {
         List<OrbitLayout.Placement> order = new ArrayList<>(List.of(layout.placements()));
         order.sort(Comparator.comparingDouble(p -> -p.center().distanceSquared(cam.pos())));
         for (OrbitLayout.Placement p : order) {
-            quad(p.corner(-1, 1), p.corner(1, 1), p.corner(1, -1), p.corner(-1, -1), surfaces[p.index()].texture(),
-                    p.alpha(), p.dim(), 1f, 1f, 1f);
+            PanelSurface surface = surfaces[p.index()];
+            float radius = PanelView.ORBIT_RADIUS;
+            quad(p.corner(-1, 1), p.corner(1, 1), p.corner(1, -1), p.corner(-1, -1), surface.texture(),
+                    p.alpha(), p.dim(), 1f, 1f, 1f, surface.uMax(), surface.vMax(), radius / p.designW(), radius / p.designH());
         }
         GL11.glDepthMask(true);
         GL11.glDisable(GL11.GL_DEPTH_TEST);
@@ -508,6 +510,13 @@ class OrbitPreviewTest {
 
     private void quad(Vector3d tl, Vector3d tr, Vector3d br, Vector3d bl, int texture, float alpha, float dim,
                       float r, float g, float b) {
+        quad(tl, tr, br, bl, texture, alpha, dim, r, g, b, 1f, 1f, 0f, 0f);
+    }
+
+    private void quad(Vector3d tl, Vector3d tr, Vector3d br, Vector3d bl, int texture, float alpha, float dim,
+                      float r, float g, float b, float uMax, float vMax, float cornerU, float cornerV) {
+        GL20.glUniform2f(GL20.glGetUniformLocation(program, "UvMax"), uMax, vMax);
+        GL20.glUniform2f(GL20.glGetUniformLocation(program, "Corner"), cornerU, cornerV);
         try (MemoryStack stack = MemoryStack.stackPush()) {
             FloatBuffer data = stack.mallocFloat(30);
             put(data, tl, 0, 1);

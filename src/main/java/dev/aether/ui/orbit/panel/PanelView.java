@@ -15,6 +15,9 @@ import dev.aether.ui.gui.Rect;
 
 // drives aurora frame by frame and routes input to it, until the shared gui view takes over this job
 public final class PanelView {
+    // the corner radius every orbit panel is drawn and masked with, in design units
+    public static final float ORBIT_RADIUS = PanelOrbit.RADIUS;
+
     // the setting row under the cursor on the front panel, with the page and group it sits in
     public record Hover(dev.aether.ui.settings.Setting setting, String pageId, String group) {
     }

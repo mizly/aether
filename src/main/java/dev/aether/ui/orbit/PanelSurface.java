@@ -16,9 +16,21 @@ final class PanelSurface implements AutoCloseable {
     private int depthStencil;
     private int width;
     private int height;
+    private int usedW = 1;
+    private int usedH = 1;
 
     int texture() {
         return texture;
+    }
+
+    // the share of the texture the last render filled; the texture only grows, so a resizing panel draws into a
+    // corner of it instead of reallocating every frame
+    float uMax() {
+        return width == 0 ? 1f : (float) usedW / width;
+    }
+
+    float vMax() {
+        return height == 0 ? 1f : (float) usedH / height;
     }
 
     // design units are what the panel ui lays out in; the texture holds pxRatio device pixels per unit
@@ -26,6 +38,8 @@ final class PanelSurface implements AutoCloseable {
         int w = Math.max(16, Math.min(2048, Math.round(designW * pxRatio)));
         int h = Math.max(16, Math.min(2048, Math.round(designH * pxRatio)));
         ensure(w, h);
+        usedW = w;
+        usedH = h;
         if (!NanoVGManager.isInitialized()) NanoVGManager.init();
         int previousFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
         int previousRead = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
@@ -58,8 +72,15 @@ final class PanelSurface implements AutoCloseable {
     }
 
     private void ensure(int w, int h) {
-        if (texture != 0 && w == width && h == height) return;
+        if (texture != 0 && w <= width && h <= height) return;
+        // a regrowth takes headroom, so a panel easing from card to page size reallocates once, not every frame;
+        // the first allocation is exact, so fixed-size surfaces always fill their texture
+        boolean regrow = texture != 0;
+        int nw = Math.min(2048, Math.max(w, width) + (regrow && w > width ? w / 4 : 0));
+        int nh = Math.min(2048, Math.max(h, height) + (regrow && h > height ? h / 4 : 0));
         close();
+        w = nw;
+        h = nh;
         width = w;
         height = h;
         int previousTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
