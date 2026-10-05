@@ -37,14 +37,14 @@ final class PlotMiniatures {
     private PlotMiniatures() {
     }
 
-    // the plot's picture as a nanovg image, or -1 when it was never seen
-    static int image(NVGRenderer nvg, int plot) {
+    // the plot's picture as a nanovg image: the recorded one when the plot was ever loaded, else one drawn from what
+    // the plot menu says grows there (item), so every plot has a picture
+    static int image(NVGRenderer nvg, int plot, String item) {
         if (plot < 0 || plot >= PLOTS) return -1;
         Minecraft client = Minecraft.getInstance();
-        if (client == null || !client.isSameThread()) return -1;
-        loadFor(client, nvg);
+        if (client != null && client.isSameThread()) loadFor(client, nvg);
         int[] argb = pixels[plot];
-        if (argb == null) return -1;
+        if (argb == null) return drawn(nvg, plot, item);
         if (handles[plot] <= 0 || uploaded[plot] != versions[plot]) {
             ByteBuffer rgba = MemoryUtil.memAlloc(SIZE * SIZE * 4);
             try {
@@ -61,6 +61,29 @@ final class PlotMiniatures {
             }
         }
         return handles[plot] > 0 ? handles[plot] : -1;
+    }
+
+    private static final int[] drawnHandles = new int[PLOTS];
+    private static final String[] drawnItems = new String[PLOTS];
+
+    private static int drawn(NVGRenderer nvg, int plot, String item) {
+        String key = item == null ? "" : item;
+        if (drawnHandles[plot] > 0 && key.equals(drawnItems[plot])) return drawnHandles[plot];
+        int[] argb = PlotSketch.draw(plot, item, SIZE);
+        ByteBuffer rgba = MemoryUtil.memAlloc(SIZE * SIZE * 4);
+        try {
+            for (int i = 0; i < SIZE * SIZE; i++) {
+                int c = argb[i];
+                rgba.put(i * 4, (byte) (c >> 16)).put(i * 4 + 1, (byte) (c >> 8)).put(i * 4 + 2, (byte) c)
+                        .put(i * 4 + 3, (byte) (c >>> 24));
+            }
+            if (drawnHandles[plot] > 0) nvg.deleteImage(drawnHandles[plot]);
+            drawnHandles[plot] = nvg.createImageRGBA(SIZE, SIZE, NanoVG.NVG_IMAGE_NEAREST, rgba);
+            drawnItems[plot] = key;
+        } finally {
+            MemoryUtil.memFree(rgba);
+        }
+        return drawnHandles[plot] > 0 ? drawnHandles[plot] : -1;
     }
 
     // milliseconds since the plot was last recorded, or Long.MAX_VALUE when never

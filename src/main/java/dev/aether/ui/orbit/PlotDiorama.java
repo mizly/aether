@@ -105,7 +105,7 @@ final class PlotDiorama {
         float[] tl = view.project(x0, height, z0), tr = view.project(x1, height, z0);
         float[] br = view.project(x1, height, z1), bl = view.project(x0, height, z1);
         // the plot as it stands in the world when it is loaded, else a stand-in from the plot menu's item
-        int mini = PlotMiniatures.image(nvg, plot);
+        int mini = PlotMiniatures.image(nvg, plot, item);
         int baseTint = mini > 0 ? 0xFFFFFFFF : topTint;
         int topColor = look != null && look.marked() ? Argb.mix(baseTint, accent, 0.28f) : baseTint;
         double[] t0 = {x0, height, z0}, t1 = {x1, height, z0}, t3 = {x0, height, z1};
