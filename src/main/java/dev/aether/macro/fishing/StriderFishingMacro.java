@@ -8,9 +8,12 @@ import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.profit.helpers.ActivityRateTracker;
 import dev.aether.modules.routes.Route;
 import dev.aether.modules.rotation.RotationManager;
+import dev.aether.util.AetherLang;
 import dev.aether.util.ClientUtils;
+import dev.aether.util.SkyblockItems;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.tags.ItemTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.level.Level;
@@ -108,6 +111,9 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private static final Set<Integer> rememberedStrayIds = new LinkedHashSet<>();
     private long firstCatchAt;
     private boolean capReached;
+    private boolean hotbarCheckPending;
+    private boolean axeWarned;
+    private int whipSlot = -1;
     private final AbilitySwapClicker whipClicker = new AbilitySwapClicker(AbilitySwapClicker.SOUL_WHIP,
             slot -> FailsafeManager.selectHotbarSlot(Minecraft.getInstance(), slot),
             ClientUtils::performUseClickInstant);
@@ -139,6 +145,9 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         strayIds.clear();
         firstCatchAt = 0L;
         capReached = false;
+        hotbarCheckPending = true;
+        axeWarned = false;
+        whipSlot = -1;
         clearWhip();
         clearKillPlan();
         changeState(State.AIM_LAVA);
@@ -234,6 +243,13 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         if (mc.screen != null) {
             releaseAll(mc);
             return;
+        }
+
+        if (hotbarCheckPending) {
+            hotbarCheckPending = false;
+            if (!checkHotbar(mc)) {
+                return;
+            }
         }
 
         if (pooling() && !strayIds.isEmpty()) {
@@ -558,6 +574,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
     private void startClear() {
         capReached = false;
+        hotbarCheckPending = true;
         clearWhip();
         changeState(State.CLEAR);
     }
@@ -668,7 +685,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         Vec3 aim = whipAimPoint(target);
         RotationManager.trackRotation(mc, aim, AIM_SMOOTHING_MS, AIM_MAX_TURN_SPEED);
 
-        if (whipClicker.tick(now, ticks, soulWhipSlot(), weaponSlot(),
+        if (whipClicker.tick(now, ticks, whipSlot >= 0 ? whipSlot : soulWhipSlot(), weaponSlot(),
                 AetherConfig.STRIDER_FISHING_WHIP_SWAP_MIN.get(), AetherConfig.STRIDER_FISHING_WHIP_SWAP_MAX.get(),
                 () -> isAimedAt(mc, aim), ThreadLocalRandom.current())) {
             whipsAtTarget++;
@@ -758,6 +775,40 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         return plain != null && plain.toLowerCase(Locale.ROOT).contains(CAP_LINE);
     }
 
+    // the whip and the rod are the same vanilla item, so a mixed up slot flays where it should cast or the reverse
+    private boolean checkHotbar(Minecraft mc) {
+        var inventory = mc.player.getInventory();
+        if (SkyblockItems.isSoulWhip(inventory.getItem(rodSlot()))) {
+            fail("Strider fishing stopped: the fishing rod slot holds a Soul Whip.");
+            return false;
+        }
+        if (usesWhip()) {
+            int slot = soulWhipSlot();
+            if (!SkyblockItems.isSoulWhip(inventory.getItem(slot))) {
+                slot = SkyblockItems.findHotbarSlot(mc, SkyblockItems::isSoulWhip);
+                if (slot < 0) {
+                    fail("Strider fishing needs a Soul Whip in the hotbar.");
+                    return false;
+                }
+                ClientUtils.sendDebugMessage("[StriderFishing] soul whip found in slot " + (slot + 1));
+            }
+            whipSlot = slot;
+        }
+        // galatea sea creatures only take damage from axes
+        if (!axeWarned && !inventory.getItem(weaponSlot()).is(ItemTags.AXES)) {
+            axeWarned = true;
+            ClientUtils.sendMessage("§e" + AetherLang.localize(
+                    "Strider fishing: the weapon slot holds no axe, so Galatea sea creatures will not take its hits."),
+                    false);
+        }
+        return true;
+    }
+
+    // a pool cleared by hand never swings the whip, so only the whip toggle asks for one
+    private boolean usesWhip() {
+        return AetherConfig.STRIDER_FISHING_SOUL_WHIP.get();
+    }
+
     private boolean pooling() {
         return AetherConfig.STRIDER_FISHING_SOUL_WHIP_FISHING.get();
     }
@@ -818,7 +869,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     }
 
     private void fail(String message) {
-        ClientUtils.sendMessage("§c" + message, false);
+        ClientUtils.sendMessage("§c" + AetherLang.localize(message), false);
         MacroStateManager.stopMacro(Minecraft.getInstance(), message, false);
     }
 
