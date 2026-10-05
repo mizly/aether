@@ -24,9 +24,16 @@ import java.util.List;
 
 // draws orbit panels as textured quads inside the level pass, depth-tested so the player stands in front of them
 final class OrbitWorldRenderer implements AutoCloseable {
+    // bend pushes the left and right edges along bendDir by that much, curving the quad across its width
     record Quad(Vector3d topLeft, Vector3d topRight, Vector3d bottomRight, Vector3d bottomLeft, int texture,
-                float alpha, float dim) {
+                float alpha, float dim, Vector3d bendDir, double bend) {
+        Quad(Vector3d topLeft, Vector3d topRight, Vector3d bottomRight, Vector3d bottomLeft, int texture, float alpha,
+             float dim) {
+            this(topLeft, topRight, bottomRight, bottomLeft, texture, alpha, dim, null, 0);
+        }
     }
+
+    private static final int BEND_COLUMNS = 16;
 
     private final Matrix4f projection = new Matrix4f();
     private int program;
@@ -103,24 +110,30 @@ final class OrbitWorldRenderer implements AutoCloseable {
                 GL20.glUniform1i(samplerUniform, 0);
                 GL30.glBindVertexArray(vao);
                 GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-                FloatBuffer data = stack.mallocFloat(6 * 5);
+                FloatBuffer data = stack.mallocFloat(6 * 5 * BEND_COLUMNS);
                 for (Quad q : quads) {
                     if (q.texture() == 0 || q.alpha() <= 0.001f) continue;
                     data.clear();
-                    // framebuffer textures store rows bottom-up, so the panel's top edge samples v = 1
-                    put(data, q.topLeft(), eye, 0, 1);
-                    put(data, q.bottomLeft(), eye, 0, 0);
-                    put(data, q.bottomRight(), eye, 1, 0);
-                    put(data, q.topLeft(), eye, 0, 1);
-                    put(data, q.bottomRight(), eye, 1, 0);
-                    put(data, q.topRight(), eye, 1, 1);
+                    int columns = q.bend() > 0 && q.bendDir() != null ? BEND_COLUMNS : 1;
+                    for (int c = 0; c < columns; c++) {
+                        float u0 = (float) c / columns, u1 = (float) (c + 1) / columns;
+                        Vector3d t0 = edge(q.topLeft(), q.topRight(), u0, q), t1 = edge(q.topLeft(), q.topRight(), u1, q);
+                        Vector3d b0 = edge(q.bottomLeft(), q.bottomRight(), u0, q), b1 = edge(q.bottomLeft(), q.bottomRight(), u1, q);
+                        // framebuffer textures store rows bottom-up, so the panel's top edge samples v = 1
+                        put(data, t0, eye, u0, 1);
+                        put(data, b0, eye, u0, 0);
+                        put(data, b1, eye, u1, 0);
+                        put(data, t0, eye, u0, 1);
+                        put(data, b1, eye, u1, 0);
+                        put(data, t1, eye, u1, 1);
+                    }
                     data.flip();
                     GL15.glBufferData(GL15.GL_ARRAY_BUFFER, data, GL15.GL_STREAM_DRAW);
                     GL11.glBindTexture(GL11.GL_TEXTURE_2D, q.texture());
                     float a = q.alpha();
                     GL20.glUniform4f(tintUniform, a, a, a, a);
                     GL20.glUniform1f(dimUniform, q.dim());
-                    GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 6);
+                    GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 6 * columns);
                 }
             } catch (RuntimeException error) {
                 close();
@@ -148,6 +161,13 @@ final class OrbitWorldRenderer implements AutoCloseable {
                 capability(GL11.GL_STENCIL_TEST, stencil);
             }
         }
+    }
+
+    private static Vector3d edge(Vector3d a, Vector3d b, float u, Quad q) {
+        Vector3d p = new Vector3d(a).lerp(b, u);
+        if (q.bend() <= 0 || q.bendDir() == null) return p;
+        double k = u * 2 - 1;
+        return p.fma(q.bend() * k * k, q.bendDir());
     }
 
     private static void put(FloatBuffer data, Vector3d p, net.minecraft.world.phys.Vec3 eye, float u, float v) {

@@ -8,6 +8,8 @@ final class OrbitLayout {
     static final float PANEL_H = 560f;
     static final float MODULE_W = 620f;
     static final float MODULE_H = 640f;
+    // edge depth of a panel's curve as a share of its width
+    static final double BEND = 0.07;
 
     // every input one frame needs; open is the open/close progress 0..1 already eased. anchor and yaw place the
     // ring, eye and eyeLook are where the player looks from in the world, which the opening flies away from
@@ -33,8 +35,9 @@ final class OrbitLayout {
     record Camera(Vector3d pos, Vector3d look, Vector3d forward, Vector3d right, Vector3d up, float fov) {
     }
 
+    // bend is how far the left and right edges curve toward the viewer, so panels wrap around the player
     record Placement(int index, Vector3d center, Vector3d right, Vector3d up, double width, double height,
-                     float designW, float designH, float alpha, float dim, boolean active) {
+                     float designW, float designH, float alpha, float dim, boolean active, double bend) {
         Vector3d corner(double sx, double sy) {
             return new Vector3d(center).fma(sx * width / 2, right).fma(sy * height / 2, up);
         }
@@ -133,7 +136,7 @@ final class OrbitLayout {
             float dh = moduleView ? MODULE_H : PANEL_H;
             float dim = (float) OrbitRig.lerp(OrbitRig.clamp((float) (ao * 0.62), 0f, 0.74f), active ? 0 : 0.2, z);
             float alpha = OrbitRig.clamp(u * 1.3f, 0f, 1f);
-            out[i] = new Placement(i, center, right, up, dw * s, dh * s, dw, dh, alpha, dim, active);
+            out[i] = new Placement(i, center, right, up, dw * s, dh * s, dw, dh, alpha, dim, active, dw * s * BEND);
         }
         return out;
     }
@@ -178,10 +181,19 @@ final class OrbitLayout {
         Vector3d normal = p.normal();
         double denom = dir.dot(normal);
         if (Math.abs(denom) < 1e-6) return null;
-        double t = new Vector3d(p.center()).sub(cam.pos()).dot(normal) / denom;
+        double base = new Vector3d(p.center()).sub(cam.pos()).dot(normal);
+        double t = base / denom;
         if (t <= 0) return null;
         Vector3d at = new Vector3d(cam.pos()).fma(t, dir).sub(p.center());
         double u = at.dot(p.right()) / p.width() + 0.5;
+        // the panel curves toward the viewer at its edges; a few steps settle the ray onto the curve
+        for (int i = 0; i < 3 && p.bend() > 0; i++) {
+            double k = Math.max(-1, Math.min(1, u * 2 - 1));
+            t = (base + p.bend() * k * k) / denom;
+            if (t <= 0) return null;
+            at = new Vector3d(cam.pos()).fma(t, dir).sub(p.center());
+            u = at.dot(p.right()) / p.width() + 0.5;
+        }
         double v = 0.5 - at.dot(p.up()) / p.height();
         if (!allowOutside && (u < 0 || u > 1 || v < 0 || v > 1)) return null;
         return new float[]{(float) (u * p.designW()), (float) (v * p.designH())};
