@@ -63,6 +63,12 @@ class OrbitPreviewTest {
     private static int white;
 
     private long now = 1_000_000_000L;
+    private final FailsafeRing ring = new FailsafeRing();
+
+    private static int activeOf(OrbitLayout.Result layout) {
+        for (OrbitLayout.Placement p : layout.placements()) if (p.active()) return p.index();
+        return 0;
+    }
 
     @BeforeAll
     static void createContext() {
@@ -245,6 +251,11 @@ class OrbitPreviewTest {
             }
         }
         OrbitLayout.Camera cam = layout.camera();
+        List<OrbitWorldRenderer.Quad> extra = new ArrayList<>();
+        if (zoom < 0.5f && "safety".equals(ids.get(activeOf(layout)))) {
+            for (int i = 0; i < 40; i++) ring.step(1f / 60f, true);
+            ring.appendQuads(extra, view.orbitFailsafes(), "Rotation", new Vector3d(), cam, 1f);
+        }
         Matrix4f vp = new Matrix4f().perspective((float) Math.toRadians(cam.fov()), (float) W / H, 0.05f, 600f)
                 .lookAt((float) cam.pos().x, (float) cam.pos().y, (float) cam.pos().z,
                         (float) cam.look().x, (float) cam.look().y, (float) cam.look().z, 0f, 1f, 0f);
@@ -268,6 +279,9 @@ class OrbitPreviewTest {
         GL11.glEnable(GL11.GL_BLEND);
         GL14.glBlendFuncSeparate(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
         GL11.glDepthMask(false);
+        for (OrbitWorldRenderer.Quad q : extra) {
+            quad(q.topLeft(), q.topRight(), q.bottomRight(), q.bottomLeft(), q.texture(), q.alpha(), q.dim(), 1f, 1f, 1f);
+        }
         List<OrbitLayout.Placement> order = new ArrayList<>(List.of(layout.placements()));
         order.sort(Comparator.comparingDouble(p -> -p.center().distanceSquared(cam.pos())));
         for (OrbitLayout.Placement p : order) {
