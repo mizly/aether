@@ -174,7 +174,61 @@ class OrbitPreviewTest {
             written.add(out.toString());
             if (scenario.page() != null) view.orbitBack();
         }
+        if (only.isEmpty() || "plots".contains(only)) written.add(renderPlots(view, ids, surfaces));
         System.out.println("orbit previews: " + written);
+    }
+
+    // the plot screen fully open over the pests panel, with a garden like the user's real menu
+    private String renderPlots(PanelView view, List<String> ids, PanelSurface[] surfaces) throws Exception {
+        java.util.Map<Integer, dev.aether.ui.gui.plot.PlotMenuSnapshot.Slot> slots = new java.util.HashMap<>();
+        String[] items = {"minecraft:dark_oak_planks", "minecraft:white_stained_glass", "minecraft:nether_wart",
+                "minecraft:nether_wart", "minecraft:wheat", "minecraft:lime_stained_glass_pane",
+                "minecraft:lime_stained_glass_pane", "minecraft:lime_stained_glass_pane", "minecraft:nether_wart",
+                "minecraft:white_stained_glass", "minecraft:orange_stained_glass_pane", "minecraft:cocoa_beans",
+                "minecraft:cocoa_beans", "minecraft:lime_stained_glass_pane", "minecraft:orange_stained_glass_pane",
+                "minecraft:lime_stained_glass_pane", "minecraft:lime_stained_glass_pane", "minecraft:lime_stained_glass_pane",
+                "minecraft:lime_stained_glass_pane", "minecraft:lime_stained_glass_pane", "minecraft:lime_stained_glass_pane",
+                "minecraft:cocoa_beans", "minecraft:orange_stained_glass_pane", "minecraft:cocoa_beans",
+                "minecraft:cocoa_beans"};
+        for (int plot = 0; plot <= 24; plot++) {
+            slots.put(plot, new dev.aether.ui.gui.plot.PlotMenuSnapshot.Slot(items[plot],
+                    plot == 0 ? "The Barn" : "Plot - " + plot, List.of()));
+        }
+        var snapshot = new dev.aether.ui.gui.plot.PlotMenuSnapshot(slots, 0L);
+        dev.aether.ui.gui.plot.GardenPlotData.install(new dev.aether.ui.gui.plot.GardenPlotData() {
+            @Override public int currentPlot() { return 5; }
+            @Override public java.util.Set<Integer> infestedPlots() { return java.util.Set.of(12, 21); }
+            @Override public int pestCount() { return 3; }
+            @Override public dev.aether.ui.gui.plot.PlotMenuSnapshot snapshot() { return snapshot; }
+        });
+        List<String> values = new ArrayList<>(List.of("3", "5", "12"));
+        var setting = new dev.aether.ui.settings.PlotSetting("Leave One Pest Plots",
+                dev.aether.ui.settings.PlotSetting.Mode.MULTI, () -> values, v -> { values.clear(); values.addAll(v); });
+        int active = ids.indexOf("pests");
+        view.orbitFocus("pests");
+        double[][] lean = OrbitRig.lean("pests");
+        float[] unfold = new float[ids.size()];
+        java.util.Arrays.fill(unfold, 1f);
+        OrbitLayout.Result layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(), 0f, 0f, 1.62, 70f,
+                ids.size(), active, 0f, 0f, 1f, true, 0f, unfold, active, lean[0], lean[1], H));
+        OrbitPlotScreen screen = new OrbitPlotScreen(setting, new float[]{W * 0.6f, H * 0.4f, 60f, 60f}, 30f);
+        BufferedImage image = null;
+        for (int frame = 0; frame < 70; frame++) {
+            now += 16_666_667L;
+            render(view, ids, surfaces, layout, 0f, false);
+            float gw = W / 2f, gh = H / 2f;
+            NanoVGManager.beginFrame(gw, gh, 2f);
+            try {
+                screen.render(NanoVGManager.getRenderer(), gw, gh, gw * 0.62f, gh * 0.42f, 1f / 60f, frame / 60f);
+            } finally {
+                NanoVGManager.endFrame();
+            }
+            if (frame == 69) image = read();
+        }
+        dev.aether.ui.gui.plot.GardenPlotData.install(null);
+        Path out = Path.of("build/reports/gui-preview/orbit/plots.png");
+        ImageIO.write(image, "png", out.toFile());
+        return out.toString();
     }
 
     private BufferedImage render(PanelView view, List<String> ids, PanelSurface[] surfaces, OrbitLayout.Result layout,
