@@ -925,7 +925,7 @@
   "text.aether.wheat_carrot_potato": "Wheat · Carrot · Potato",
   "text.aether.your_own_lane_keys": "Your own lane keys",
   "text.aether.armed": "armed",
-  "text.aether.changes_apply_when_enabled": "changes apply when enabled",
+  "text.aether.this_module_is_off_your_settings_will_apply_once_you_enable_it": "This module is off. Your settings will apply once you enable it.",
   "text.aether.more": "more",
   "text.aether.of": "of",
   "text.aether.unknown": "unknown",

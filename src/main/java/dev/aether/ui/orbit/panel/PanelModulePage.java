@@ -173,7 +173,7 @@ final class PanelModulePage {
         c.roundedRect(r, 12f, Argb.withAlpha(p.warning(), p.light() ? 0.16f : 0.12f));
         c.strokeRect(r, 12f, 1f, Argb.withAlpha(p.warning(), 0.35f));
         c.circle(r.x() + 20f, r.centerY(), 4f, p.warning());
-        String text = AetherLang.localize("Off") + " — " + AetherLang.localize("changes apply when enabled");
+        String text = AetherLang.localize("This module is off. Your settings will apply once you enable it.");
         PanelPaint.fitText(c, MEDIUM, 12.5f, text, r.x() + 34f, r.centerY(), r.w() - 160f, p.text());
         String label = AetherLang.localize("Enable");
         float bw = c.textWidth(SEMIBOLD, 12.5f, label) + 30f;
