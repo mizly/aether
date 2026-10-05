@@ -2,11 +2,16 @@ package dev.aether.ui.orbit;
 
 import net.minecraft.client.color.block.BlockTintSource;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.GrassColor;
+import net.minecraft.world.level.block.AttachedStemBlock;
+import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CropBlock;
 import net.minecraft.world.level.block.FarmlandBlock;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.StemBlock;
 import net.minecraft.world.level.block.state.BlockState;
 
 // the menu's own little garden, built from real blocks around the player: a path at your feet, crop fields split by
@@ -18,6 +23,7 @@ final class PresetGarden implements SceneClone.Source {
 
     private final int ox, oy, oz;
     private final int cos, sin;
+    private final Rotation rotation;
     private final int size = RADIUS * 2 + 1;
     private final BlockState[][] columns = new BlockState[size * size][];
     private final int[] tops = new int[size * size];
@@ -30,6 +36,9 @@ final class PresetGarden implements SceneClone.Source {
         int quarter = Math.floorMod(Math.round(yaw / 90f), 4);
         this.cos = new int[]{1, 0, -1, 0}[quarter];
         this.sin = new int[]{0, 1, 0, -1}[quarter];
+        // the layout is drawn facing south; facing blocks turn with it
+        this.rotation = new Rotation[]{Rotation.NONE, Rotation.CLOCKWISE_90, Rotation.CLOCKWISE_180,
+                Rotation.COUNTERCLOCKWISE_90}[quarter];
         for (int i = 0; i < columns.length; i++) columns[i] = new BlockState[HIGH - LOW + 1];
         build();
         for (int i = 0; i < columns.length; i++) {
@@ -81,7 +90,9 @@ final class PresetGarden implements SceneClone.Source {
         hay(-17, 21);
         hay(-17, 23);
         hay(-16, 22);
+        lawn(-18, 31);
         set(-18, 0, 31, Blocks.COMPOSTER.defaultBlockState());
+        moisten();
     }
 
     private static BlockState crop(Block block) {
@@ -105,9 +116,10 @@ final class PresetGarden implements SceneClone.Source {
         }
     }
 
+    // cane only grows on sand beside water, so every other pair of rows has a lane between them
     private void canes(int x0, int x1, int z0, int z1) {
         for (int x = x0; x <= x1; x++) {
-            boolean lane = Math.floorMod(Math.abs(x) - 3, 9) == 4;
+            boolean lane = Math.floorMod(x, 3) == 0;
             for (int z = z0; z <= z1; z++) {
                 clear(x, z);
                 if (lane) {
@@ -121,18 +133,35 @@ final class PresetGarden implements SceneClone.Source {
         }
     }
 
+    // rows of pumpkins and melons, each with a stem either side attached to it, the way they grow
     private void patch(int x0, int x1, int z0, int z1) {
         BlockState soil = farmland();
         for (int x = x0; x <= x1; x++) {
             for (int z = z0; z <= z1; z++) {
                 clear(x, z);
                 set(x, -1, z, soil);
-                if (Math.floorMod(z, 3) != 1) continue;
-                float h = hash(x * 3, z);
-                if (h < 0.45f) set(x, 0, z, Blocks.PUMPKIN.defaultBlockState());
-                else if (h < 0.85f) set(x, 0, z, Blocks.MELON.defaultBlockState());
             }
         }
+        for (int x = x0; x <= x1; x++) {
+            for (int z = z0; z <= z1; z++) {
+                if (Math.floorMod(z, 3) != 1) continue;
+                float h = hash(x * 3, z);
+                Block fruit = h < 0.45f ? Blocks.PUMPKIN : h < 0.85f ? Blocks.MELON : null;
+                if (fruit != null) set(x, 0, z, fruit.defaultBlockState());
+                stem(x, z - 1, fruit, Direction.SOUTH, h);
+                stem(x, z + 1, fruit, Direction.NORTH, h);
+            }
+        }
+    }
+
+    private void stem(int x, int z, Block fruit, Direction toward, float h) {
+        if (fruit == null) {
+            Block stem = h < 0.92f ? Blocks.PUMPKIN_STEM : Blocks.MELON_STEM;
+            set(x, 0, z, stem.defaultBlockState().setValue(StemBlock.AGE, Math.floorMod(x + z, 8)));
+            return;
+        }
+        Block attached = fruit == Blocks.PUMPKIN ? Blocks.ATTACHED_PUMPKIN_STEM : Blocks.ATTACHED_MELON_STEM;
+        set(x, 0, z, attached.defaultBlockState().setValue(AttachedStemBlock.FACING, toward));
     }
 
     // a dirt path you stand on, running ahead to the fields and across between them
@@ -181,7 +210,7 @@ final class PresetGarden implements SceneClone.Source {
         }
         int inner = openLow ? x1 - 1 : x0 + 1;
         if (inner == canal) inner += openLow ? -1 : 1;
-        set(inner, 0, z1 - 1, Blocks.BARREL.defaultBlockState());
+        set(inner, 0, z1 - 1, Blocks.BARREL.defaultBlockState().setValue(BarrelBlock.FACING, Direction.UP));
         set(inner, 0, z0 + 1, Blocks.COMPOSTER.defaultBlockState());
     }
 
@@ -228,7 +257,37 @@ final class PresetGarden implements SceneClone.Source {
     }
 
     private void hay(int x, int z) {
+        lawn(x, z);
         set(x, 0, z, Blocks.HAY_BLOCK.defaultBlockState());
+    }
+
+    // a patch of plain grass for something to stand on, in place of whatever field was there
+    private void lawn(int x, int z) {
+        clear(x, z);
+        set(x, -1, z, Blocks.GRASS_BLOCK.defaultBlockState());
+    }
+
+    // farmland is wet only within four blocks of water, as in game, and dry everywhere else
+    private void moisten() {
+        for (int x = -RADIUS; x <= RADIUS; x++) {
+            for (int z = -RADIUS; z <= RADIUS; z++) {
+                BlockState s = columns[(z + RADIUS) * size + x + RADIUS][-1 - LOW];
+                if (s == null || !s.is(Blocks.FARMLAND)) continue;
+                set(x, -1, z, s.setValue(FarmlandBlock.MOISTURE, nearWater(x, z) ? 7 : 0));
+            }
+        }
+    }
+
+    private boolean nearWater(int x, int z) {
+        for (int dx = -4; dx <= 4; dx++) {
+            for (int dz = -4; dz <= 4; dz++) {
+                int nx = x + dx, nz = z + dz;
+                if (Math.abs(nx) > RADIUS || Math.abs(nz) > RADIUS) continue;
+                BlockState s = columns[(nz + RADIUS) * size + nx + RADIUS][-1 - LOW];
+                if (s != null && s.is(Blocks.WATER)) return true;
+            }
+        }
+        return false;
     }
 
     private static BlockState farmland() {
@@ -277,7 +336,7 @@ final class PresetGarden implements SceneClone.Source {
         if (Math.abs(dx) > RADIUS || Math.abs(dz) > RADIUS || ly < LOW) return Blocks.DIRT.defaultBlockState();
         if (ly > HIGH) return Blocks.AIR.defaultBlockState();
         BlockState s = columns[(dz + RADIUS) * size + dx + RADIUS][ly - LOW];
-        return s == null ? Blocks.AIR.defaultBlockState() : s;
+        return s == null ? Blocks.AIR.defaultBlockState() : s.rotate(rotation);
     }
 
     @Override
