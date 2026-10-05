@@ -294,13 +294,12 @@ public final class OrbitScreen extends Screen {
         int ox = (int) Math.floor(anchor.x), oy = (int) Math.floor(anchor.y + 1e-3), oz = (int) Math.floor(anchor.z);
         Vector3d lens = rigToWorld(anchor, OrbitRig.TP_POS.x, 0, OrbitRig.TP_POS.z);
         double cx = lens.x - ox, cz = lens.z - oz;
-        PresetGarden source = new PresetGarden(ox, oy, oz, sceneYaw(), BarnCopy.current(client));
+        PresetGarden source = new PresetGarden(ox, oy, oz, sceneYaw());
         stage.set(ox + 0.5, oy, oz + 0.5);
         try {
-            return SceneClone.build(source, ox, oy, oz, PresetGarden.RADIUS, (dx, dz) -> {
+            return SceneClone.build(source, ox, oy, oz, 40, (dx, dz) -> {
                 double toLens = (dx + 0.5 - cx) * (dx + 0.5 - cx) + (dz + 0.5 - cz) * (dz + 0.5 - cz);
                 if (toLens < 16) return 0;
-                if (source.uncapped(ox + dx, oz + dz)) return 64;
                 return dx * dx + dz * dz <= 22 * 22 ? 1 : 64;
             });
         } catch (RuntimeException | LinkageError e) {
