@@ -265,7 +265,7 @@ final class HomeKeeper {
         PathfindingManager.startConfiguredWalk(mc, home,
                 () -> returnFinished = true,
                 () -> returnFinished = true,
-                true, 0.35, true, false);
+                true, 0.35, true, true);
     }
 
     void tickLiquidEscape(Minecraft mc, long now, RandomGenerator random) {
