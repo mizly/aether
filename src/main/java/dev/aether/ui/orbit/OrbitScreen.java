@@ -39,6 +39,7 @@ public final class OrbitScreen extends Screen {
     private final OrbitSpring[] unfold;
     private final OrbitWorldRenderer renderer = new OrbitWorldRenderer();
     private final FailsafeRing failsafeRing = new FailsafeRing();
+    private final SettingPreview settingPreview = new SettingPreview();
     private float lastDt;
     private final OrbitOverlay overlay;
 
@@ -301,6 +302,13 @@ public final class OrbitScreen extends Screen {
             Vec3 feet = player.getPosition(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true));
             failsafeRing.appendQuads(quads, view.orbitFailsafes(), view.orbitHoveredFailsafe(),
                     new Vector3d(feet.x, feet.y, feet.z), layout.camera(), clock);
+            settingPreview.step(lastDt, view.orbitHover(), z < 0.5f && state != State.CLOSING && plotScreen == null);
+            if (settingPreview.showing()) {
+                var world = new SettingPreview.World(new Vector3d(feet.x, feet.y, feet.z), player.getEyeHeight(), yaw0,
+                        pitch0, dev.aether.ui.gui.plot.GardenFacts.read(dev.aether.ui.gui.plot.GardenPlotData.active()),
+                        SettingPreview.liveRewarps());
+                settingPreview.appendQuads(quads, world, layout.camera(), clock);
+            }
         }
         Vec3 eye = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         quads.sort(Comparator.comparingDouble((OrbitWorldRenderer.Quad q) -> -distanceSq(q, eye)));
@@ -631,6 +639,7 @@ public final class OrbitScreen extends Screen {
         view.close();
         for (PanelSurface surface : surfaces) surface.close();
         failsafeRing.close();
+        settingPreview.close();
         renderer.close();
         super.removed();
     }

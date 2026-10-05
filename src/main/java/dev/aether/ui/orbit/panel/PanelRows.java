@@ -325,6 +325,9 @@ final class PanelRows {
             drawSection(c, p, (SectionSetting) setting, row, innerX, innerW);
             return;
         }
+        if (!f.frozen() && c.toRoot(row).contains(f.mouseX(), f.mouseY()) && c.rootClip().contains(f.mouseX(), f.mouseY())) {
+            style.hover = new PanelView.Hover(setting, key.page(), key.group());
+        }
         boolean rowHover = f.hits().hovered(key);
         PanelItems.Kind items = PanelItems.kind(setting);
         boolean wholeRow = items == null && switch (setting.getType()) {

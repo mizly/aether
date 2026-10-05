@@ -15,6 +15,10 @@ import dev.aether.ui.gui.Rect;
 
 // drives aurora frame by frame and routes input to it, until the shared gui view takes over this job
 public final class PanelView {
+    // the setting row under the cursor on the front panel, with the page and group it sits in
+    public record Hover(dev.aether.ui.settings.Setting setting, String pageId, String group) {
+    }
+
     private final PanelHost host;
     private final GuiClock clock;
     private final GuiCanvas canvas = new GuiCanvas();
@@ -85,6 +89,7 @@ public final class PanelView {
         anim.begin(now, animTimeMs, minAnimTimeMs);
         Rect area = new Rect(0f, 0f, width, height);
         PanelFrame frame = new PanelFrame(canvas, hits, focus, anim, palette, area, mouseX, mouseY, now, host, false);
+        style.hover = null;
         try {
             style.orbit.draw(frame, area, categoryId, true, 0f);
             style.overlays.render(frame);
@@ -171,6 +176,10 @@ public final class PanelView {
             }
         }
         return out;
+    }
+
+    public Hover orbitHover() {
+        return style.overlays.isOpen() ? null : style.hover;
     }
 
     public boolean orbitModuleOpen() {

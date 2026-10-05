@@ -46,6 +46,7 @@ public final class PanelStyle {
     final PanelOverlays overlays = new PanelOverlays(this);
     final PanelOrbit orbit = new PanelOrbit(this);
     PlotHooks plotHooks = PlotHooks.NONE;
+    PanelView.Hover hover;
 
     private static Location remembered = Location.HOME;
 
