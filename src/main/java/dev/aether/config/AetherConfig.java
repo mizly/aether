@@ -1159,8 +1159,6 @@ public final class AetherConfig {
         // blank walks to the sawyer spot (-694 120 78) on galatea and fishes there
         public static final StringEntry STRIDER_FISHING_RESTART_ROUTE = Config.string("striderFishingRestartRoute",
                         "");
-        public static final BooleanEntry STRIDER_FISHING_RANDOM_LOOK = Config.bool("striderFishingRandomLook", true);
-        public static final BooleanEntry STRIDER_FISHING_BLOCK_SHUFFLE = Config.bool("striderFishingBlockShuffle", true);
         // soul whip fishing leaves each catch stuck in a small pool and only clears the pool once it holds this many
         public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP_FISHING = Config
                         .bool("striderFishingSoulWhipFishing", false);

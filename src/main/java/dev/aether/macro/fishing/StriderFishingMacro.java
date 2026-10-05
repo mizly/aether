@@ -17,17 +17,14 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.IntPredicate;
-import java.util.random.RandomGenerator;
 
 // lava fishing for stridersurfers: cast, wait for the marker to flip from ? to !!, reel, kill, walk home
 // every delay here is wall-clock and every decision runs on the client tick, so the macro behaves the same at 10 or 240 fps
@@ -77,7 +74,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private static final float WHIP_AIM_TOLERANCE_DEGREES = 6.0f;
     // the whip's swing lands above the crosshair, so aiming at the legs puts it through the body
     private static final double WHIP_AIM_HEIGHT = 0.15;
-    private static final int GLANCE_AT_POOL_ONE_IN = 3;
 
     private State state = State.AIM_LAVA;
     private long stateEnteredAt;
@@ -116,9 +112,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     // everything loaded when the line was reeled, so a catch is told apart from whatever was already swimming
     private final Set<Integer> preReelEntityIds = new HashSet<>();
 
-    private final IdleMotion idle = new IdleMotion(() -> AetherConfig.STRIDER_FISHING_RANDOM_LOOK.get(),
-            () -> AetherConfig.STRIDER_FISHING_BLOCK_SHUFFLE.get(), this::poolGlance);
-
     @Override
     public void onEnable(Minecraft mc) {
         if (mc.player == null) {
@@ -135,7 +128,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         pooledCatchIds.clear();
         clearWhip();
         clearKillPlan();
-        idle.clear();
         changeState(State.AIM_LAVA);
         BlockPos origin = homeKeeper.origin();
         ClientUtils.sendDebugMessage("[StriderFishing] started at "
@@ -209,7 +201,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         pooledCatchIds.clear();
         clearWhip();
         clearKillPlan();
-        idle.clear();
     }
 
     @Override
@@ -224,7 +215,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         }
 
         // only the lava turn has to land before its state can carry on; waiting for a bite still has to
-        // poll the marker every tick, or an idle drift would hide the short !! window
+        // poll the marker every tick, or the short !! window could slip by
         if (state == State.AIM_LAVA && RotationManager.isRotating()) {
             holdStill(mc);
         } else {
@@ -330,15 +321,14 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         castAimBlock = aimTargetBlock;
         aimTargetBlock = null;
         emptyCatch = false;
-        idle.anchor(now, ThreadLocalRandom.current());
         changeState(State.WAIT_BITE);
     }
 
     private void tickWaitBite(Minecraft mc) {
+        holdStill(mc);
         long now = System.currentTimeMillis();
 
         if (!CatchWatch.hasLiveHook(mc)) {
-            holdStill(mc);
             // the cast never left the rod, or the line came back on its own
             if (now - stateEnteredAt > BOBBER_SETTLE_MS) {
                 recast(now);
@@ -351,14 +341,12 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         Entity hookedIn = mc.player.fishing.getHookedIn();
         if (soulWhipFishing() && hookedIn != null && pooledCatchIds.contains(hookedIn.getId())) {
             ClientUtils.sendDebugMessage("[StriderFishing] float hooked a strider, recasting");
-            idle.clear();
             ClientUtils.performUseClick();
             changeState(State.AIM_LAVA);
             return;
         }
 
         if (CatchWatch.hasCatchMarker(mc.level, mc.player.fishing)) {
-            idle.clear();
             clearAimSearch();
             CatchWatch.snapshot(mc.level, preReelEntityIds);
             changeState(State.REEL);
@@ -370,7 +358,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             if (!CatchWatch.floatInLiquid(mc.level, mc.player.fishing, CastSim::isLava)) {
                 ClientUtils.sendDebugMessage("[StriderFishing] float landed out of the lava, recasting");
                 rejectCast();
-                idle.clear();
                 ClientUtils.performUseClick();
                 changeState(State.AIM_LAVA);
                 return;
@@ -383,13 +370,9 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
         if (now - stateEnteredAt > BITE_TIMEOUT_MS) {
             ClientUtils.sendDebugMessage("[StriderFishing] no bite in time, recasting");
-            idle.clear();
             recast(now);
             return;
         }
-
-        idle.tick(mc, now, shouldSneak(mc), sneakAllowedHere(mc), homeKeeper.isOnOrigin(mc),
-                ThreadLocalRandom.current());
     }
 
     private void tickReel(Minecraft mc) {
@@ -667,25 +650,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         return best;
     }
 
-    // with a pool filling up, the odd glance goes to one of the striders already stuck in it
-    private Vec3 poolGlance(Minecraft mc, RandomGenerator random) {
-        Entity glance = soulWhipFishing() && random.nextInt(GLANCE_AT_POOL_ONE_IN) == 0
-                ? randomPooledCatch(mc, random)
-                : null;
-        return glance == null ? null : aimPoint(glance);
-    }
-
-    private Entity randomPooledCatch(Minecraft mc, RandomGenerator random) {
-        List<Entity> alive = new ArrayList<>();
-        for (int id : pooledCatchIds) {
-            Entity entity = mc.level.getEntity(id);
-            if (CatchWatch.isAlive(entity)) {
-                alive.add(entity);
-            }
-        }
-        return alive.isEmpty() ? null : alive.get(random.nextInt(alive.size()));
-    }
-
     private static boolean isAimedAt(Minecraft mc, Vec3 point) {
         Vec3 eye = mc.player.getEyePosition();
         double dx = point.x - eye.x;
@@ -740,7 +704,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         target = null;
         followMove = 0;
         homeKeeper.beginTrip(mc);
-        idle.clear();
         releaseAll(mc);
         changeState(State.RETURN);
     }
@@ -792,7 +755,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         if (mc == null || mc.options == null) {
             return;
         }
-        idle.dropTap();
         MacroInput.setAttack(mc.options.keyAttack, false);
         MacroInput.releaseMovement(mc);
     }

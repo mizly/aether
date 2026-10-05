@@ -100,19 +100,7 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
                             AetherConfig.STRIDER_FISHING_CAST_DELAY_MAX.set(Math.round(v));
                             AetherConfig.save();
                         })
-                        .withDecimals(0).withSuffix("ms"))
-                .add(new ToggleSetting("Random Look Around",
-                        () -> AetherConfig.STRIDER_FISHING_RANDOM_LOOK.get(),
-                        v -> {
-                            AetherConfig.STRIDER_FISHING_RANDOM_LOOK.set(v);
-                            AetherConfig.save();
-                        }))
-                .add(new ToggleSetting("Move Around On Block",
-                        () -> AetherConfig.STRIDER_FISHING_BLOCK_SHUFFLE.get(),
-                        v -> {
-                            AetherConfig.STRIDER_FISHING_BLOCK_SHUFFLE.set(v);
-                            AetherConfig.save();
-                        })));
+                        .withDecimals(0).withSuffix("ms")));
 
         groups.add(SettingGroup.of(
                         "Soul Whip Fishing",
