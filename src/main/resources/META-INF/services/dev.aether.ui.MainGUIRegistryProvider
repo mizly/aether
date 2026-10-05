@@ -27,6 +27,7 @@ dev.aether.ui.providers.visuals.UngrabMouseVisualsRegistryProvider
 dev.aether.ui.providers.visuals.ProfitCalculatorRegistryProvider
 dev.aether.ui.providers.visuals.FunVisualsRegistryProvider
 dev.aether.ui.providers.visuals.SkyboxVisualsRegistryProvider
+dev.aether.ui.providers.visuals.MenuSceneVisualsRegistryProvider
 dev.aether.ui.providers.failsafes.GeneralFailsafesRegistryProvider
 dev.aether.ui.providers.failsafes.InventoryFailsafeRegistryProvider
 dev.aether.ui.providers.failsafes.GuiOpenedFailsafeRegistryProvider

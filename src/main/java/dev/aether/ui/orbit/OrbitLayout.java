@@ -9,10 +9,25 @@ final class OrbitLayout {
     static final float MODULE_W = 620f;
     static final float MODULE_H = 640f;
 
-    // every input one frame needs; open is the open/close progress 0..1 already eased
+    // every input one frame needs; open is the open/close progress 0..1 already eased. anchor and yaw place the
+    // ring, eye and eyeLook are where the player looks from in the world, which the opening flies away from
     record Input(Vector3d anchor, float yaw, float pitch, double eyeHeight, float baseFov, int count, float ring,
                  float zoom, float expand, float open, boolean settled, float clock, float[] unfold, int active,
-                 double[] leanPos, double[] leanLook, double windowHeight) {
+                 double[] leanPos, double[] leanLook, double windowHeight, Vector3d eye, Vector3d eyeLook) {
+        // the ring around the player: their eye sits above the anchor, looking along yaw and pitch
+        Input(Vector3d anchor, float yaw, float pitch, double eyeHeight, float baseFov, int count, float ring,
+              float zoom, float expand, float open, boolean settled, float clock, float[] unfold, int active,
+              double[] leanPos, double[] leanLook, double windowHeight) {
+            this(anchor, yaw, pitch, eyeHeight, baseFov, count, ring, zoom, expand, open, settled, clock, unfold, active,
+                    leanPos, leanLook, windowHeight, new Vector3d(anchor).add(0, eyeHeight, 0),
+                    lookPoint(new Vector3d(anchor).add(0, eyeHeight, 0), yaw, pitch));
+        }
+    }
+
+    // a point ten blocks along a minecraft yaw and pitch from eye
+    static Vector3d lookPoint(Vector3d eye, float yaw, float pitch) {
+        double y = Math.toRadians(yaw), p = Math.toRadians(pitch);
+        return new Vector3d(eye).add(-Math.sin(y) * Math.cos(p) * 10, -Math.sin(p) * 10, Math.cos(y) * Math.cos(p) * 10);
     }
 
     record Camera(Vector3d pos, Vector3d look, Vector3d forward, Vector3d right, Vector3d up, float fov) {
@@ -55,12 +70,14 @@ final class OrbitLayout {
         double ex = in.expand();
         Vector3d tpPos = new Vector3d(OrbitRig.TP_POS).add(in.leanPos()[0] - ex * 1.3, in.leanPos()[1], in.leanPos()[2] - ex * 0.5);
         Vector3d tpLook = new Vector3d(OrbitRig.TP_LOOK).add(in.leanLook()[0], in.leanLook()[1], in.leanLook()[2]);
-        Vector3d fpPos = new Vector3d(0, in.eyeHeight(), 0);
-        Vector3d fpLook = new Vector3d(0, in.eyeHeight() - Math.tan(Math.toRadians(in.pitch())) * 10, 10);
+        Vector3d fpPos = toRig(in, in.eye(), new Vector3d());
+        Vector3d fpLook = toRig(in, in.eyeLook(), new Vector3d());
         double eb = 1 - Math.pow(1 - e, 2.2);
+        // a longer trip to a saved spot arcs higher, like a quick flight over the garden
+        double arc = 1.5 + 0.12 * Math.max(0, fpPos.distance(tpPos) - 10);
         Vector3d pos = new Vector3d(
                 OrbitRig.lerp(fpPos.x, tpPos.x, e),
-                OrbitRig.lerp(fpPos.y, tpPos.y, e) + Math.sin(Math.min(1, eb * 1.15) * Math.PI) * 1.5,
+                OrbitRig.lerp(fpPos.y, tpPos.y, e) + Math.sin(Math.min(1, eb * 1.15) * Math.PI) * arc,
                 OrbitRig.lerp(fpPos.z, tpPos.z, eb));
         Vector3d look = new Vector3d(fpLook).lerp(tpLook, e);
         float zz = OrbitRig.smooth(OrbitRig.clamp(in.zoom(), 0f, 1f)) * e;
@@ -128,6 +145,16 @@ final class OrbitLayout {
         double lx = Math.cos(yaw), lz = Math.sin(yaw);
         Vector3d a = in.anchor();
         return out.set(a.x + lx * rig.x + fx * rig.z, a.y + rig.y, a.z + lz * rig.x + fz * rig.z);
+    }
+
+    // world to rig space, the inverse of toWorld
+    static Vector3d toRig(Input in, Vector3d world, Vector3d out) {
+        double yaw = Math.toRadians(in.yaw());
+        double fx = -Math.sin(yaw), fz = Math.cos(yaw);
+        double lx = Math.cos(yaw), lz = Math.sin(yaw);
+        Vector3d a = in.anchor();
+        double dx = world.x - a.x, dz = world.z - a.z;
+        return out.set(dx * lx + dz * lz, world.y - a.y, dx * fx + dz * fz);
     }
 
     static Vector3d dirToWorld(Input in, Vector3d rig, Vector3d out) {

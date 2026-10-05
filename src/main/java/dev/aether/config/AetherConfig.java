@@ -1051,6 +1051,17 @@ public final class AetherConfig {
         public static final IntEntry SKYBOX_PRESET = Config.integer("skyboxPreset", 0).range(0, 4);
         public static final FloatEntry SKYBOX_SPEED = Config.floatVal("skyboxSpeed", 1f).range(0f, 2f);
         public static final FloatEntry SKYBOX_BRIGHTNESS = Config.floatVal("skyboxBrightness", 1f).range(0.5f, 1.5f);
+
+        // -- MENU SCENE ----------------------------------------------------------------
+
+        // 0 builds the orbit menu around you, 1 at the saved garden spot
+        public static final IntEntry ORBIT_SCENE = Config.integer("orbitScene", 0).range(0, 1);
+        public static final BooleanEntry ORBIT_SPOT_SET = Config.bool("orbitSpotSet", false);
+        public static final DoubleEntry ORBIT_SPOT_X = Config.doubleVal("orbitSpotX", 0.0);
+        public static final DoubleEntry ORBIT_SPOT_Y = Config.doubleVal("orbitSpotY", 0.0);
+        public static final DoubleEntry ORBIT_SPOT_Z = Config.doubleVal("orbitSpotZ", 0.0);
+        public static final FloatEntry ORBIT_SPOT_YAW = Config.floatVal("orbitSpotYaw", 0f);
+        public static final FloatEntry ORBIT_SPOT_LIFT = Config.floatVal("orbitSpotLift", 0f).range(0f, 20f);
         public static final BooleanEntry HAT_ENABLED = Config.bool("hatEnabled", true);
         public static final BooleanEntry HAT_FILLED = Config.bool("hatFilled", true);
         public static final BooleanEntry HAT_RENDER_FIRST_PERSON = Config.bool("hatRenderFirstPerson", false);

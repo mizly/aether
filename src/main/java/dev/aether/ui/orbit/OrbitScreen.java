@@ -71,6 +71,9 @@ public final class OrbitScreen extends Screen {
     private double mouseX = -1;
     private double mouseY = -1;
     private TravelCinematic cinematic;
+    private OrbitScene scene;
+    private float openSeconds = 1.55f;
+    private float closeSeconds = 0.8f;
     private final OrbitSearchBar searchBar;
     private String focused;
 
@@ -99,6 +102,13 @@ public final class OrbitScreen extends Screen {
             pitch0 = player.getXRot();
         }
         OrbitIsland island = OrbitIsland.current();
+        scene = OrbitScene.spot(island);
+        if (scene != null && player != null) {
+            // a far spot gets a little longer to fly to and back
+            double far = scene.anchor().distance(player.getX(), player.getY(), player.getZ());
+            openSeconds += (float) Math.min(1.2, far / 90.0);
+            closeSeconds += (float) Math.min(0.7, far / 150.0);
+        }
         OrbitIsland from = OrbitIsland.arrive(island);
         if (from != null) cinematic = new TravelCinematic(from, island, dev.aether.renderer.SkinFaceProvider::render);
         String first = OrbitIsland.initialCategory(MacroCatalog.lastStarted().map(MacroCatalog.Entry::id).orElse(null), island);
@@ -163,7 +173,7 @@ public final class OrbitScreen extends Screen {
 
         if (state == State.OPENING) {
             if (hold > 0) hold -= dt;
-            else openT += dt / 1.55f;
+            else openT += dt / openSeconds;
             for (int i = 0; i < count; i++) {
                 double ao = Math.abs(wrap(i - ring.t));
                 if (openT > 0.32f + ao * 0.1f) unfold[i].t = 1f;
@@ -173,7 +183,7 @@ public final class OrbitScreen extends Screen {
                 state = State.OPEN;
             }
         } else if (state == State.CLOSING) {
-            closeT += dt / 0.8f;
+            closeT += dt / closeSeconds;
             for (OrbitSpring u : unfold) u.t = 0f;
             if (closeT >= 1f) {
                 finishClose();
@@ -240,11 +250,22 @@ public final class OrbitScreen extends Screen {
         for (int i = 0; i < count; i++) unfoldNow[i] = unfold[i].x;
         double[] lp = {leanPos[0].x, leanPos[1].x, leanPos[2].x};
         double[] ll = {leanLook[0].x, leanLook[1].x, leanLook[2].x};
-        layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(feet.x, feet.y, feet.z), yaw0, pitch0,
+        Vector3d eye = new Vector3d(feet.x, feet.y + player.getEyeHeight(), feet.z);
+        layout = OrbitLayout.compute(new OrbitLayout.Input(sceneAnchor(feet), sceneYaw(), pitch0,
                 player.getEyeHeight(), client.options.fov().get(), count, ring.x, zoom.x, expand.x, e,
-                state == State.OPEN, clock, unfoldNow, activeIndex(), lp, ll, client.getWindow().getHeight()));
+                state == State.OPEN, clock, unfoldNow, activeIndex(), lp, ll, client.getWindow().getHeight(),
+                eye, OrbitLayout.lookPoint(eye, yaw0, pitch0)));
         OrbitLayout.Camera cam = layout.camera();
         OrbitCamera.set(cam.pos().x, cam.pos().y, cam.pos().z, cam.look().x, cam.look().y, cam.look().z, cam.fov());
+    }
+
+    // the ring's centre on the ground: the saved spot, or the player's feet
+    private Vector3d sceneAnchor(Vec3 feet) {
+        return scene != null ? new Vector3d(scene.anchor()) : new Vector3d(feet.x, feet.y, feet.z);
+    }
+
+    private float sceneYaw() {
+        return scene != null ? scene.yaw() : yaw0;
     }
 
     private static float seconds() {
@@ -351,10 +372,10 @@ public final class OrbitScreen extends Screen {
         if (player != null) {
             Vec3 feet = player.getPosition(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true));
             failsafeRing.appendQuads(quads, view.orbitFailsafes(), view.orbitHoveredFailsafe(),
-                    new Vector3d(feet.x, feet.y, feet.z), layout.camera(), clock);
+                    sceneAnchor(feet), layout.camera(), clock);
             settingPreview.step(lastDt, view.orbitHover(), z < 0.5f && state != State.CLOSING && plotScreen == null);
             if (settingPreview.showing()) {
-                var world = new SettingPreview.World(new Vector3d(feet.x, feet.y, feet.z), player.getEyeHeight(), yaw0,
+                var world = new SettingPreview.World(sceneAnchor(feet), player.getEyeHeight(), sceneYaw(),
                         pitch0, dev.aether.ui.gui.plot.GardenFacts.read(dev.aether.ui.gui.plot.GardenPlotData.active()),
                         SettingPreview.liveRewarps());
                 settingPreview.appendQuads(quads, world, layout.camera(), clock);
