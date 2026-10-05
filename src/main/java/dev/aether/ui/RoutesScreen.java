@@ -180,7 +180,7 @@ public final class RoutesScreen extends CanvasPanelScreen {
         } else {
             nvg.text(Fonts.BOLD, fit(nvg, route.name(), Fonts.BOLD, 13f, textMaxW), x + 16f, y + 15f, 13f,
                     Theme.TEXT_PRIMARY);
-            // the bundled route keeps its name, it is found by that name when the folder is restored
+            // a bundled route keeps its name, it is found by that name when the folder is restored
             if (!folder.isDefault(route.name())) {
                 addHit(x + 10f, y + 8f, textMaxW + 6f, 26f, () -> beginRename(route));
             }
@@ -202,16 +202,16 @@ public final class RoutesScreen extends CanvasPanelScreen {
                 AetherButton.Kind.NORMAL, mx, my, () -> RouteEditor.begin(Minecraft.getInstance(), folder, route));
         if (folder.isDefault(route.name())) {
             renderRowButton(nvg, AetherLang.localize("Reset"), deleteX, buttonY, AetherButton.ROW_W,
-                    AetherButton.Kind.NORMAL, mx, my, this::resetDefaultRoute);
+                    AetherButton.Kind.NORMAL, mx, my, () -> resetDefaultRoute(route));
         } else {
             renderRowButton(nvg, AetherLang.localize("Delete"), deleteX, buttonY, AetherButton.ROW_W,
                     AetherButton.Kind.DANGER, mx, my, () -> deleteRoute(route));
         }
     }
 
-    private void resetDefaultRoute() {
-        if (store.resetDefault(folder)) {
-            NotificationManager.success(AetherLang.localize("Route Reset"), "\"" + folder.defaultRoute() + "\" restored");
+    private void resetDefaultRoute(Route route) {
+        if (store.resetDefault(folder, route.name())) {
+            NotificationManager.success(AetherLang.localize("Route Reset"), "\"" + route.name() + "\" restored");
         }
         reload();
     }

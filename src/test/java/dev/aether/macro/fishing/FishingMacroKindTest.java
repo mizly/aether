@@ -21,6 +21,6 @@ class FishingMacroKindTest {
         for (FishingMacroKind kind : FishingMacroKind.values()) {
             assertEquals(Optional.of(kind), FishingMacroKind.forFolder(kind.folder()));
         }
-        assertEquals(Optional.empty(), FishingMacroKind.forFolder(new RouteStore.Folder("other", "Other", null)));
+        assertEquals(Optional.empty(), FishingMacroKind.forFolder(new RouteStore.Folder("other", "Other", java.util.List.of())));
     }
 }

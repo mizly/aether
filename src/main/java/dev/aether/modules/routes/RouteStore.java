@@ -21,15 +21,20 @@ import java.util.stream.Stream;
 
 // one json file per route, grouped in a folder per macro under config/aether/routes
 public final class RouteStore {
-    // defaultRoute ships inside the mod and is put back whenever the folder is missing it
-    public record Folder(String id, String displayName, String defaultRoute) {
+    // bundled routes ship inside the mod and are put back whenever the folder is missing one
+    public record Folder(String id, String displayName, List<String> bundledRoutes) {
+        public Folder {
+            bundledRoutes = List.copyOf(bundledRoutes);
+        }
+
         public boolean isDefault(String name) {
-            return defaultRoute != null && defaultRoute.equalsIgnoreCase(name);
+            return bundledRoutes.stream().anyMatch(bundled -> bundled.equalsIgnoreCase(name));
         }
     }
 
-    public static final Folder STRIDER_FISHING = new Folder("strider_fishing", "Strider Fishing", "default_strider");
-    public static final Folder FISHING = new Folder("fishing_macro", "Fishing Macro", null);
+    public static final Folder STRIDER_FISHING = new Folder("strider_fishing", "Strider Fishing",
+            List.of("default_strider", "sawyer_spot"));
+    public static final Folder FISHING = new Folder("fishing_macro", "Fishing Macro", List.of());
     public static final List<Folder> FOLDERS = List.of(STRIDER_FISHING, FISHING);
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -73,7 +78,7 @@ public final class RouteStore {
             return null;
         }
         if (folder.isDefault(safe)) {
-            ensureDefault(folder);
+            ensureDefault(folder, safe);
         }
         Path file = folderPath(folder).resolve(safe + EXTENSION);
         if (!Files.isRegularFile(file)) {
@@ -104,33 +109,42 @@ public final class RouteStore {
     }
 
     public void ensureDefault(Folder folder) {
-        if (folder.defaultRoute() == null || Files.isRegularFile(defaultPath(folder))) {
-            return;
+        for (String bundled : folder.bundledRoutes()) {
+            ensureDefault(folder, bundled);
         }
-        resetDefault(folder);
     }
 
-    public boolean resetDefault(Folder folder) {
-        if (folder.defaultRoute() == null) {
+    private void ensureDefault(Folder folder, String bundled) {
+        if (!Files.isRegularFile(bundledPath(folder, bundled))) {
+            resetDefault(folder, bundled);
+        }
+    }
+
+    public boolean resetDefault(Folder folder, String name) {
+        String bundled = folder.bundledRoutes().stream()
+                .filter(candidate -> candidate.equalsIgnoreCase(name))
+                .findFirst()
+                .orElse(null);
+        if (bundled == null) {
             return false;
         }
-        String resource = "/assets/aether/routes/" + folder.id() + "/" + folder.defaultRoute() + EXTENSION;
+        String resource = "/assets/aether/routes/" + folder.id() + "/" + bundled + EXTENSION;
         try (InputStream in = RouteStore.class.getResourceAsStream(resource)) {
             if (in == null) {
                 Aether.LOGGER.warn("Bundled route {} is missing from the jar", resource);
                 return false;
             }
             Files.createDirectories(folderPath(folder));
-            Files.write(defaultPath(folder), in.readAllBytes());
+            Files.write(bundledPath(folder, bundled), in.readAllBytes());
             return true;
         } catch (IOException e) {
-            Aether.LOGGER.warn("Could not restore the default route {}: {}", folder.defaultRoute(), e.getMessage());
+            Aether.LOGGER.warn("Could not restore the bundled route {}: {}", bundled, e.getMessage());
             return false;
         }
     }
 
-    private Path defaultPath(Folder folder) {
-        return folderPath(folder).resolve(folder.defaultRoute() + EXTENSION);
+    private Path bundledPath(Folder folder, String bundled) {
+        return folderPath(folder).resolve(bundled + EXTENSION);
     }
 
     public boolean delete(Folder folder, String name) {
