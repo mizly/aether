@@ -67,7 +67,7 @@ final class SceneActors implements AutoCloseable {
         int place;
         Step step = Step.LOOKING;
         float age, stepAge, poof = -1f, trade, stride, landed = 9f;
-        float x, z, yaw = (float) Math.PI;
+        float x, z, q, yaw = (float) Math.PI;
         // the drawn head, body and limb angles ease toward each frame's targets so steps blend into each other
         final float[] eased = new float[8];
         boolean primed;
@@ -162,7 +162,10 @@ final class SceneActors implements AutoCloseable {
 
         updateVillagers(dt, visitors ? clamp(in.visitors(), 0, 5) : 0, figure);
         bars = visitors && in.money() > 0.05 ? clamp((int) Math.ceil(in.money() / 2.0), 1, 10) : 0;
-        if (visitors) gold(dt, pose);
+        if (visitors) {
+            pose.facing = (float) Math.toDegrees(Math.atan2(FRONT_X, FRONT_Z));
+            gold(dt, pose);
+        }
 
         float shownFor = DROP + LAND;
         table = crafting ? (table < 0f ? 0f : table + dt) : (table < 0f ? -1f : Math.min(table, shownFor) - dt * 3f);
@@ -243,13 +246,22 @@ final class SceneActors implements AutoCloseable {
         particles.terrain(path ? PATH : GRASS, x, 0.05f, z, vx, vy, vz, path ? 0xFFFFFF : GRASS_TINT);
     }
 
-    // visitors pop in down the path, look about and queue up toward you. the one at the front grumbles over your
-    // offer, pays an emerald, cheers and wanders off into the field while the rest shuffle up and a new one arrives
-    private static final float SPAWN = 10.5f;
+    // visitors pop in by the lawn's hedge, look about and queue up across the lawn toward you. the one at the front
+    // grumbles over your offer, pays an emerald, cheers and wanders off while the rest shuffle up and a new one arrives
+    // the line runs across the shot on your left, since the path ahead is hidden behind the front panel
+    private static final float FRONT_X = 2.0f, FRONT_Z = 0.6f;
+    private static final float SPAWN = 5.3f;
     private static final float TRADE = 2.9f;
+    private static final float LINE_YAW = (float) (-Math.PI / 2);
+    private static final float LEAVE_X = 0.7071f, LEAVE_Z = 0.7071f;
 
     private static float queueSpot(int place) {
-        return 2.1f + 1.35f * place;
+        return 1.25f * place;
+    }
+
+    private static void along(Villager v) {
+        v.x = FRONT_X + v.q;
+        v.z = FRONT_Z;
     }
 
     private void updateVillagers(float dt, int count, PlayerFigure figure) {
@@ -258,8 +270,9 @@ final class SceneActors implements AutoCloseable {
         if (staying < count && spawnCooldown <= 0f) {
             Villager v = new Villager();
             v.place = (int) staying;
-            v.x = 0f;
-            v.z = SPAWN;
+            v.q = SPAWN;
+            v.yaw = LINE_YAW;
+            along(v);
             villagers.add(v);
             particles.poof(v.x, 0.9f, v.z, 14, 0.4f);
             spawnCooldown = 0.55f;
@@ -287,12 +300,13 @@ final class SceneActors implements AutoCloseable {
                 }
                 case WALKING -> {
                     float to = queueSpot(v.place);
-                    float move = Math.min(Math.abs(v.z - to), 2.4f * dt);
-                    v.z -= Math.signum(v.z - to) * move;
+                    float move = Math.min(Math.abs(v.q - to), 2.4f * dt);
+                    v.q -= Math.signum(v.q - to) * move;
+                    along(v);
                     float before = v.stride;
                     v.stride += move;
                     if ((int) (before * 1.1f) != (int) (v.stride * 1.1f)) ground(v.x, v.z, 0f, 0.1f, 0f);
-                    if (Math.abs(v.z - to) < 1e-3f) {
+                    if (Math.abs(v.q - to) < 1e-3f) {
                         next(v, Step.WAITING);
                         v.landed = 0f;
                         if (v.place == 0) {
@@ -302,7 +316,7 @@ final class SceneActors implements AutoCloseable {
                     }
                 }
                 case WAITING -> {
-                    if (Math.abs(v.z - queueSpot(v.place)) > 1e-3f) next(v, Step.WALKING);
+                    if (Math.abs(v.q - queueSpot(v.place)) > 1e-3f) next(v, Step.WALKING);
                     else if (v.place == 0) {
                         float before = v.trade;
                         v.trade += dt;
@@ -318,14 +332,15 @@ final class SceneActors implements AutoCloseable {
                     }
                 }
                 case LEAVING -> {
-                    // off the path into the field, skipping, then gone in a puff
+                    // off across the lawn, skipping, then gone in a puff
                     float k = Math.min(1f, v.stepAge / 0.3f);
-                    v.yaw = (float) Math.PI + (float) (-Math.PI / 2) * smooth(k);
+                    v.yaw = LINE_YAW + (float) (Math.atan2(LEAVE_X, LEAVE_Z) - LINE_YAW) * smooth(k);
                     if (v.stepAge > 0.3f) {
-                        v.x += 2.2f * dt;
+                        v.x += LEAVE_X * 2.2f * dt;
+                        v.z += LEAVE_Z * 2.2f * dt;
                         v.stride += 2.2f * dt;
                     }
-                    if (v.x > 3.6f) {
+                    if (v.stepAge > 1.6f) {
                         v.poof = 0f;
                         particles.poof(v.x, 0.9f, v.z, 12, 0.4f);
                     }
