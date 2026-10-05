@@ -118,8 +118,11 @@ final class SceneClone {
                     if (n != Integer.MIN_VALUE) low = Math.min(low, n + 1);
                 }
                 low = Math.max(low, top - 8);
-                // water and lava need the bed under them, or the lane would show straight through to the sky
-                if (!columns.state(ox + dx, top, oz + dz).getFluidState().isEmpty()) low = Math.min(low, top - 1);
+                // crops, cane, flowers and water stand on something: go down to the first full block under them, or
+                // the soil, sand and lake bed would be missing and the gap would show straight through
+                int floor = top;
+                while (floor > top - 8 && !columns.state(ox + dx, floor, oz + dz).isSolidRender()) floor--;
+                low = Math.min(low, floor);
                 for (int y = top; y >= low; y--) {
                     BlockState state = columns.state(ox + dx, y, oz + dz);
                     if (WorldColumns.seeThrough(state)) continue;
