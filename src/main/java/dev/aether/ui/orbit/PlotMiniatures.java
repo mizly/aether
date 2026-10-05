@@ -231,6 +231,10 @@ final class PlotMiniatures {
         return base;
     }
 
+    static int spriteColor(Minecraft client, Identifier sprite) {
+        return textureColor(client, sprite);
+    }
+
     // the average of a block texture's opaque pixels, read once from the resource packs; 0 when it cannot be read
     private static int textureColor(Minecraft client, Identifier sprite) {
         Integer cached = textureColors.get(sprite);
@@ -260,7 +264,7 @@ final class PlotMiniatures {
         return color;
     }
 
-    private static int multiply(int a, int b) {
+    static int multiply(int a, int b) {
         int r = ((a >> 16) & 255) * ((b >> 16) & 255) / 255;
         int g = ((a >> 8) & 255) * ((b >> 8) & 255) / 255;
         int bl = (a & 255) * (b & 255) / 255;

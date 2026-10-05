@@ -225,6 +225,7 @@ class OrbitPreviewTest {
         OrbitLayout.Result layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(), 0f, 0f, 1.62, 70f,
                 ids.size(), active, 0f, 0f, 1f, true, 0f, unfold, active, H));
         OrbitPlotScreen screen = new OrbitPlotScreen(setting, new float[]{W * 0.6f, H * 0.4f, 60f, 60f}, 30f);
+        BarnVoxels.preview(sampleBarn());
         BufferedImage image = null;
         for (int frame = 0; frame < 70; frame++) {
             now += 16_666_667L;
@@ -544,6 +545,33 @@ class OrbitPreviewTest {
     }
 
     // a flat sketch of the preset farm around the player: the path and its cross path, wheat and potato fields and
+    // a plank barn with a stepped roof on a grass floor, standing in for a copied Barn
+    private static BarnVoxels.Model sampleBarn() {
+        int w = 26, d = 20, h = 12;
+        int[][][] c = new int[w][h][d];
+        for (int x = 0; x < w; x++) for (int z = 0; z < d; z++) c[x][0][z] = (x + z) % 7 == 0 ? 0xFF8A6A45 : 0xFF6FA845;
+        for (int x = 5; x < 21; x++) {
+            for (int z = 4; z < 16; z++) {
+                boolean wall = x == 5 || x == 20 || z == 4 || z == 15;
+                for (int y = 1; y <= 5; y++) if (wall) c[x][y][z] = (x == 5 || x == 20) && (z == 4 || z == 15) ? 0xFF3C2A1A : 0xFF5A3D24;
+                for (int k = 0; k < 6; k++) {
+                    if (Math.abs(z - 9.5) <= 6 - k) c[x][6 + k][z] = 0xFF9C4A30;
+                }
+            }
+        }
+        java.util.List<BarnVoxels.Face> faces = new java.util.ArrayList<>();
+        int[][] steps = {{0, 1, 0}, {0, 0, -1}, {0, 0, 1}, {-1, 0, 0}, {1, 0, 0}};
+        for (int x = 0; x < w; x++) for (int y = 0; y < h; y++) for (int z = 0; z < d; z++) {
+            if (c[x][y][z] == 0) continue;
+            for (int dir = 0; dir < 5; dir++) {
+                int nx = x + steps[dir][0], ny = y + steps[dir][1], nz = z + steps[dir][2];
+                boolean open = nx < 0 || nz < 0 || nx >= w || ny >= h || nz >= d || c[nx][ny][nz] == 0;
+                if (open && !(y == 0 && dir > 0)) faces.add(new BarnVoxels.Face(x, y, z, dir, c[x][y][z]));
+            }
+        }
+        return new BarnVoxels.Model(w, h, d, faces);
+    }
+
     // the hedged yard beside the path, laid out like PresetGarden with the player in the middle of block 0
     private void stageGround() {
         flat(-40, 40, -40, 40, 0f, 0.38f, 0.58f, 0.25f);
