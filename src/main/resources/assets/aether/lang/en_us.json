@@ -932,5 +932,10 @@
   "text.aether.of": "of",
   "text.aether.unknown": "unknown",
   "text.aether._pick_enter_go_there_esc_close": "↑↓ pick · Enter go there · Esc close",
-  "text.aether.scene": "Scene"
+  "text.aether.scene": "Scene",
+  "text.aether._d_of_d_plots_photographed": "%d of %d plots photographed",
+  "text.aether._d_seen": "%d%% seen",
+  "text.aether.updated_just_now": "Updated just now",
+  "text.aether.updated_s_ago": "Updated %s ago",
+  "text.aether.never_in_range_yet": "Never in range yet"
 }

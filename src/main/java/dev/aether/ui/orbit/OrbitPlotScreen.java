@@ -26,6 +26,8 @@ final class OrbitPlotScreen {
     private final OrbitSpring yaw;
     private final OrbitSpring pitch = new OrbitSpring(THUMB_PITCH, 40f, 12f);
     private final OrbitSpring[] lift = new OrbitSpring[PlotToken.MAX_PLOT + 1];
+    private final OrbitSpring inspect = new OrbitSpring(0f, 90f, 14f);
+    private int inspected = -1;
     private boolean closing;
     private boolean dragging;
     private boolean dragged;
@@ -78,8 +80,9 @@ final class OrbitPlotScreen {
         yaw.step(dt);
         pitch.step(dt);
         GardenFacts facts = GardenFacts.read(GardenPlotData.active());
+        // the plot under the cursor pops up a little, on top of the selection rise
         for (int i = 0; i < lift.length; i++) {
-            lift[i].t = model.look(i, facts).marked() ? 1f : 0f;
+            lift[i].t = (model.look(i, facts).marked() ? 1f : 0f) + (i == hover ? 0.45f : 0f);
             lift[i].step(dt);
         }
         float t = OrbitRig.clamp(open.x, 0f, 1.2f);
@@ -99,10 +102,67 @@ final class OrbitPlotScreen {
         picks = PlotDiorama.draw(nvg, view, plot -> model.look(plot, facts), lifts, hover, time, t > 0.55f,
                 p.accent(), 1f);
 
+        inspect.t = hover >= 0 ? 1f : 0f;
+        inspect.step(dt);
+        if (hover >= 0) inspected = hover;
         if (k < 0.6f) return;
         float a = (k - 0.6f) / 0.4f;
         drawCard(nvg, p, w, h, a, facts, mx, my);
-        if (hover >= 0) drawTooltip(nvg, p, mx, my, model.tooltip(hover, facts), a);
+        float ia = OrbitRig.clamp(inspect.x, 0f, 1f) * a;
+        if (inspected >= 0 && ia > 0.01f) drawInspector(nvg, p, w, h, ia, facts);
+    }
+
+    // the hovered plot up close on the right: its picture big and flat, what grows there, and how fresh it is
+    private void drawInspector(NVGRenderer nvg, Palette p, float w, float h, float a, GardenFacts facts) {
+        List<String> lines = model.tooltip(inspected, facts);
+        PlotPickerModel.PlotLook look = model.look(inspected, facts);
+        float iw = 176f, pad = 12f, img = iw - pad * 2;
+        float lh = 11f;
+        float ih = pad + 14f + img + 10f + Math.max(0, lines.size() - 1) * lh + 30f + pad;
+        float x = w - iw - 22f + (1f - a) * 24f;
+        float y = Math.max(20f, (h - ih) / 2f - 20f);
+        nvg.roundedRect(x, y, iw, ih, 12f, Argb.multiplyAlpha(Argb.withAlpha(p.panel(), 0.95f), a));
+        nvg.rectOutline(x, y, iw, ih, 12f, 1f, Argb.multiplyAlpha(Argb.withAlpha(p.border(), 0.5f), a));
+        String title = lines.isEmpty() ? "" : strip(lines.get(0));
+        nvg.text(Fonts.UI_SEMIBOLD, title, x + pad, y + pad, 10f, Argb.multiplyAlpha(p.text(), a));
+        float iy = y + pad + 16f;
+        int mini = PlotMiniatures.image(nvg, inspected, look == null ? null : look.itemId());
+        if (mini > 0) {
+            nvg.image(mini, x + pad, iy, img, img, 8f, a);
+        } else {
+            nvg.roundedRect(x + pad, iy, img, img, 8f, Argb.multiplyAlpha(0xFF2A2F36, a));
+        }
+        if (look != null && look.marked()) {
+            nvg.rectOutline(x + pad, iy, img, img, 8f, 2f, Argb.multiplyAlpha(p.accent(), a));
+        }
+        float ly = iy + img + 10f;
+        for (int i = 1; i < lines.size(); i++) {
+            nvg.text(Fonts.UI_REGULAR, strip(lines.get(i)), x + pad, ly, 8f, Argb.multiplyAlpha(p.textMuted(), a));
+            ly += lh;
+        }
+        // how much of the plot has been photographed, and when
+        float seen = PlotMiniatures.coverage(inspected);
+        String fresh;
+        if (seen <= 0f) {
+            fresh = AetherLang.localize("Never in range yet");
+        } else {
+            long age = PlotMiniatures.age(inspected);
+            String when = age < 60_000L ? AetherLang.localize("Updated just now")
+                    : String.format(AetherLang.localize("Updated %s ago"), ago(age));
+            fresh = String.format(AetherLang.localize("%d%% seen"), Math.round(seen * 100)) + " · " + when;
+        }
+        nvg.text(Fonts.UI_REGULAR, fresh, x + pad, ly + 2f, 8f, Argb.multiplyAlpha(Argb.withAlpha(p.text(), 0.75f), a));
+        float by = ly + 16f;
+        nvg.roundedRect(x + pad, by, img, 3f, 1.5f, Argb.multiplyAlpha(Argb.withAlpha(p.text(), 0.1f), a));
+        if (seen > 0f) nvg.roundedRect(x + pad, by, img * seen, 3f, 1.5f, Argb.multiplyAlpha(p.accent(), a));
+    }
+
+    private static String ago(long ms) {
+        long minutes = ms / 60_000L;
+        if (minutes < 60) return minutes + "m";
+        long hours = minutes / 60;
+        if (hours < 48) return hours + "h";
+        return hours / 24 + "d";
     }
 
     private void drawCard(NVGRenderer nvg, Palette p, float w, float h, float a, GardenFacts facts, float mx, float my) {
@@ -119,6 +179,23 @@ final class OrbitPlotScreen {
                 ? AetherLang.localize("Click a plot to pick it · drag to turn the garden")
                 : AetherLang.localize("Click plots to toggle them · drag to turn the garden");
         nvg.text(Fonts.UI_REGULAR, hint, x + 14f, y + 40f, 7f, Argb.multiplyAlpha(Argb.withAlpha(p.text(), 0.5f), a));
+        // how much of the garden has been photographed so far, as a hairline along the card's foot
+        int mapped = 0;
+        float total = 0f;
+        for (int plot = 1; plot <= PlotToken.MAX_PLOT; plot++) {
+            float seen = PlotMiniatures.coverage(plot);
+            total += seen;
+            if (seen > 0.5f) mapped++;
+        }
+        float share = total / PlotToken.MAX_PLOT;
+        String photographed = String.format(AetherLang.localize("%d of %d plots photographed"), mapped, PlotToken.MAX_PLOT);
+        float pw = nvg.textWidth(Fonts.UI_REGULAR, photographed, 7f);
+        nvg.text(Fonts.UI_REGULAR, photographed, x + cw - 14f - pw, y + 11f, 7f,
+                Argb.multiplyAlpha(Argb.withAlpha(p.text(), 0.5f), a));
+        nvg.roundedRect(x + 10f, y + ch - 4f, cw - 20f, 2f, 1f, Argb.multiplyAlpha(Argb.withAlpha(p.text(), 0.08f), a));
+        if (share > 0f) {
+            nvg.roundedRect(x + 10f, y + ch - 4f, (cw - 20f) * share, 2f, 1f, Argb.multiplyAlpha(p.accent(), a));
+        }
 
         float bw = 52f;
         float bh = 22f;
@@ -132,26 +209,6 @@ final class OrbitPlotScreen {
         nvg.roundedRect(done[0], done[1], bw, bh, 7f,
                 Argb.multiplyAlpha(doneHover ? Argb.mix(p.accent(), 0xFFFFFFFF, 0.12f) : p.accent(), a));
         centered(nvg, Fonts.UI_SEMIBOLD, AetherLang.localize("Done"), done, 8.5f, Argb.multiplyAlpha(p.onAccent(), a));
-    }
-
-    private static void drawTooltip(NVGRenderer nvg, Palette p, float mx, float my, List<String> lines, float a) {
-        if (lines == null || lines.isEmpty()) return;
-        float fs = 8f;
-        float tw = 0f;
-        for (String line : lines) tw = Math.max(tw, nvg.textWidth(Fonts.UI_REGULAR, strip(line), fs));
-        float th = lines.size() * 11f + 8f;
-        float x = mx + 12f;
-        float y = my + 10f;
-        nvg.roundedRect(x, y, tw + 14f, th, 6f, Argb.multiplyAlpha(0xF0100010, a));
-        nvg.rectOutline(x, y, tw + 14f, th, 6f, 1f, Argb.multiplyAlpha(0xFF3A1A6E, a));
-        float ly = y + 5f;
-        boolean first = true;
-        for (String line : lines) {
-            nvg.text(first ? Fonts.UI_SEMIBOLD : Fonts.UI_REGULAR, strip(line), x + 7f, ly, fs,
-                    Argb.multiplyAlpha(first ? 0xFF55FF55 : 0xFFAAAAAA, a));
-            ly += 11f;
-            first = false;
-        }
     }
 
     private static String strip(String formatted) {
