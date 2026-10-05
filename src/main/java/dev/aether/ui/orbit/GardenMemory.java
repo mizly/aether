@@ -5,7 +5,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.nio.file.Path;
 import java.util.UUID;
 
-// where what the menu remembers of a player's garden lives on disk: plot pictures and the saved spot's blocks
+// where what the menu remembers of a player's garden lives on disk: the plot pictures
 final class GardenMemory {
     private GardenMemory() {
     }

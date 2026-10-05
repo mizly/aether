@@ -70,8 +70,7 @@ public final class PlacementTable {
                         .subTab("Fun", "minecraft:firework_rocket")
                         .page("ungrab-mouse", "Ungrab Mouse", page -> page.icon("minecraft:lead")
                                 .from("Ungrab Mouse").runtimeToggle())
-                        .subTab("Skybox", "minecraft:sunflower")
-                        .subTab("Menu Scene", "minecraft:spyglass"))
+                        .subTab("Skybox", "minecraft:sunflower"))
                 .pages(Categories.CLIENT, pages -> pages
                         .page("miscellaneous", "Miscellaneous", page -> page.icon("minecraft:redstone")
                                 .from("Miscellaneous").aliases("General"))

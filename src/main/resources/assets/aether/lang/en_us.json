@@ -932,15 +932,5 @@
   "text.aether.of": "of",
   "text.aether.unknown": "unknown",
   "text.aether._pick_enter_go_there_esc_close": "↑↓ pick · Enter go there · Esc close",
-  "text.aether.menu_scene": "Menu Scene",
-  "text.aether.where_the_menu_opens": "Where the menu opens",
-  "text.aether.scene": "Scene",
-  "text.aether.pick_an_open_spot_so_blocks_never_cover_the_menu": "Pick an open spot so blocks never cover the menu",
-  "text.aether.around_you": "Around you",
-  "text.aether.garden_spot": "Garden spot",
-  "text.aether.use_where_i_m_standing": "Use Where I'm Standing",
-  "text.aether.saves_your_position_and_facing_as_the_garden_spot": "Saves your position and facing as the garden spot",
-  "text.aether.saved_spot": "Saved Spot",
-  "text.aether.no_spot_saved_yet": "No spot saved yet",
-  "text.aether.in_the_garden_the_menu_opens_on_a_copy_of_your_spot_instead_of_where_you_stand": "In the Garden the menu opens on a copy of your spot instead of where you stand"
+  "text.aether.scene": "Scene"
 }

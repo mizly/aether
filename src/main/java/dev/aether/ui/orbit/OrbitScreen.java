@@ -71,9 +71,8 @@ public final class OrbitScreen extends Screen {
     private double mouseX = -1;
     private double mouseY = -1;
     private TravelCinematic cinematic;
-    private OrbitScene scene;
-    private float openSeconds = 1.55f;
-    private float closeSeconds = 0.8f;
+    private final float openSeconds = 1.55f;
+    private final float closeSeconds = 0.8f;
     private OrbitIsland island;
     private SceneClone.Mesh clone;
     private final SceneRenderer sceneRenderer = new SceneRenderer();
@@ -107,12 +106,6 @@ public final class OrbitScreen extends Screen {
             pitch0 = player.getXRot();
         }
         island = OrbitIsland.current();
-        scene = OrbitScene.spot(island);
-        if (scene != null) {
-            // the camera drops in on the spot from above, which wants a beat longer than leaving your own eyes
-            openSeconds = 1.9f;
-            closeSeconds = 0.9f;
-        }
         clone = buildClone();
         OrbitIsland from = OrbitIsland.arrive(island);
         if (from != null) cinematic = new TravelCinematic(from, island, dev.aether.renderer.SkinFaceProvider::render);
@@ -258,10 +251,6 @@ public final class OrbitScreen extends Screen {
         Vector3d anchor = sceneAnchor(feet);
         Vector3d eye = new Vector3d(feet.x, feet.y + player.getEyeHeight(), feet.z);
         Vector3d eyeLook = OrbitLayout.lookPoint(eye, yaw0, pitch0);
-        if (scene != null) {
-            eye = rigToWorld(anchor, 0, 18, -22);
-            eyeLook = new Vector3d(anchor).add(0, 1, 0);
-        }
         layout = OrbitLayout.compute(new OrbitLayout.Input(anchor, sceneYaw(), pitch0,
                 player.getEyeHeight(), client.options.fov().get(), count, ring.x, zoom.x, expand.x, e,
                 state == State.OPEN, clock, unfoldNow, activeIndex(), lp, ll, client.getWindow().getHeight(),
@@ -276,7 +265,7 @@ public final class OrbitScreen extends Screen {
                 anchor.z + Math.sin(yaw) * rx + Math.cos(yaw) * rz);
     }
 
-    // the blocks around the scene, copied once; null keeps the real world behind the menu
+    // the preset garden around the player, meshed once; null keeps the real world behind the menu
     private SceneClone.Mesh buildClone() {
         Minecraft client = Minecraft.getInstance();
         var player = client.player;
@@ -285,12 +274,7 @@ public final class OrbitScreen extends Screen {
         int ox = (int) Math.floor(anchor.x), oy = (int) Math.floor(anchor.y + 1e-3), oz = (int) Math.floor(anchor.z);
         Vector3d lens = rigToWorld(anchor, OrbitRig.TP_POS.x, 0, OrbitRig.TP_POS.z);
         double cx = lens.x - ox, cz = lens.z - oz;
-        SceneClone.Source source = SceneClone.live(client.level);
-        // a far spot comes from its saved copy, since only what is near you is loaded in full
-        if (scene != null && !client.level.hasChunksAt(ox - 40, oz - 40, ox + 40, oz + 40)) {
-            SpotSnapshot saved = GardenRecorder.spot();
-            if (saved != null) source = saved;
-        }
+        SceneClone.Source source = new PresetGarden(ox, oy, oz);
         try {
             return SceneClone.build(source, ox, oy, oz, 40, (dx, dz) -> {
                 double toLens = (dx + 0.5 - cx) * (dx + 0.5 - cx) + (dz + 0.5 - cz) * (dz + 0.5 - cz);
@@ -298,7 +282,7 @@ public final class OrbitScreen extends Screen {
                 return dx * dx + dz * dz <= 22 * 22 ? 1 : 64;
             });
         } catch (RuntimeException | LinkageError e) {
-            Aether.LOGGER.error("Orbit menu could not copy the scene", e);
+            Aether.LOGGER.error("Orbit menu could not build its garden", e);
             return null;
         }
     }
@@ -329,13 +313,13 @@ public final class OrbitScreen extends Screen {
         renderWorld();
     }
 
-    // the ring's centre on the ground: the saved spot, or the player's feet
+    // the ring's centre on the ground, at the player's feet
     private Vector3d sceneAnchor(Vec3 feet) {
-        return scene != null ? new Vector3d(scene.anchor()) : new Vector3d(feet.x, feet.y, feet.z);
+        return new Vector3d(feet.x, feet.y, feet.z);
     }
 
     private float sceneYaw() {
-        return scene != null ? scene.yaw() : yaw0;
+        return yaw0;
     }
 
     private static float seconds() {

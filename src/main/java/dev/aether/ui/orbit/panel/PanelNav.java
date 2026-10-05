@@ -115,7 +115,7 @@ final class PanelNav {
             Map.entry("Nick Hider", "name_tag"), Map.entry("Freecam", "spyglass"),
             Map.entry("Freelook", "ender_eye"), Map.entry("PiP", "painting"),
             Map.entry("Fun", "firework_rocket"), Map.entry("Ungrab Mouse", "lead"),
-            Map.entry("Skybox", "daylight_detector"), Map.entry("Menu Scene", "spyglass"), Map.entry("HUD Colors", "lime_dye"),
+            Map.entry("Skybox", "daylight_detector"), Map.entry("HUD Colors", "lime_dye"),
             Map.entry("Menu Colors", "orange_dye"), Map.entry("Aether", "tripwire_hook"),
             Map.entry("Theme Options", "glow_item_frame"), Map.entry("Language", "writable_book"),
             Map.entry("Account", "player_head"), Map.entry("Bootstrap", "comparator"));
