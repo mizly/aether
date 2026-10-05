@@ -744,6 +744,17 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         if (carried && !inLava && now - hookSeenAt >= CARRIER_GRACE_MS) {
             ClientUtils.sendDebugMessage("[StriderFishing] float caught on something away from the lava, recasting");
             ClientUtils.performUseClick();
+            if (castFailed()) {
+                return;
+            }
+            // the same throw would only land on it again, so it moves off the obstruction
+            if (lastCast != null && lastCast.mode() == CastMode.CLASSIC) {
+                if (lastCast.landing() != null) {
+                    rejectedLava.add(lastCast.landing());
+                }
+            } else {
+                moveThrowOffSnag();
+            }
             changeState(State.AIM_LAVA);
             return;
         }
@@ -815,6 +826,11 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             startClear(mc);
             return;
         }
+        moveThrowOffSnag();
+        changeState(State.AIM_LAVA);
+    }
+
+    private void moveThrowOffSnag() {
         if (lastCast != null && lastCast.mode() == CastMode.LOOK_UP && castSolve != null) {
             int moved = farthestInRun(usableYaws(castSolve),
                     nearestSample(lastCast.yaw(), YAW_SAMPLES, YAW_STEP), YAW_MARGIN_SAMPLES);
@@ -822,7 +838,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
                 snagYaw = sampleYaw(moved, YAW_STEP);
             }
         }
-        changeState(State.AIM_LAVA);
     }
 
     private boolean isUnpooledCatch(Minecraft mc, Entity entity) {
