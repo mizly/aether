@@ -259,7 +259,7 @@ class OrbitPreviewTest {
         Vector3f game = new Vector3f((float) OrbitRig.TP_POS.x, (float) OrbitRig.TP_POS.y + 1.62f, (float) OrbitRig.TP_POS.z);
         Vector3f gameAt = new Vector3f((float) OrbitRig.TP_LOOK.x, (float) OrbitRig.TP_LOOK.y, (float) OrbitRig.TP_LOOK.z);
         float[] pestTimes = {0.6f, 1.0f, 1.4f, 2.2f, 3.2f, 4.6f, 5.6f, 6.6f, 8.6f};
-        List<Stage> stages = List.of(
+        List<Stage> stages = new ArrayList<>(List.of(
                 new Stage("stage-pests", new SceneActors.Inputs("Pest Manager", true, 0, 5, 0), pestTimes,
                         new Vector3f(-4.5f, 3.6f, -5.5f), new Vector3f(1.4f, 0.9f, 0.6f)),
                 new Stage("stage-pests-game", new SceneActors.Inputs("Pest Manager", true, 0, 5, 0), pestTimes, game, gameAt),
@@ -315,12 +315,26 @@ class OrbitPreviewTest {
                 new Stage("stage-human", new SceneActors.Inputs("Humanization", true, 0, 0, 0),
                         new float[]{0.6f, 1.4f, 2.5f, 3.6f, 4.0f, 5.2f, 6.6f, 7.2f, 8.2f}, new Vector3f(1.5f, 2.4f, 5f),
                         new Vector3f(0f, 1f, 0f)),
-                new Stage("stage-showcase", new SceneActors.Inputs("Discord", true, 0, 0, 0, "minecraft:textures/item/bell.png"),
-                        new float[]{0.4f, 1.0f, 1.5f, 1.8f, 2.1f, 2.5f, 3.0f, 4.0f, 4.7f}, new Vector3f(1.5f, 2.4f, 5f),
-                        new Vector3f(0f, 1.2f, 0f)),
                 new Stage("stage-spray", new SceneActors.Inputs("Auto Sprayonator", true, 0, 0, 0),
                         new float[]{0.4f, 1.0f, 1.6f, 2.2f, 2.8f, 3.6f, 4.4f, 5.2f, 6.0f}, new Vector3f(0.5f, 2.7f, 6.5f),
-                        new Vector3f(0f, 0.7f, 0.8f)));
+                        new Vector3f(0f, 0.7f, 0.8f))));
+        // one filmstrip per module skit, nine frames across its loop
+        String[][] modules = {{"Auto Pest Exchange", "5.5"}, {"Auto Greenhouse", "8"}, {"Farming QOL", "6"},
+                {"Failsafe Settings", "4.5"}, {"GUI Opened", "4.5"}, {"Rotation", "4.5"}, {"World Change", "4.5"},
+                {"Inventory Slot Changed", "4.5"}, {"BPS", "5.5"}, {"Dirt Check", "5.5"}, {"Ghost Block", "5.5"},
+                {"Player Nearby", "9"}, {"TP Check", "4.5"}, {"HUD", "5.5"}, {"Profit Tracker", "6"}, {"Nick Hider", "4.5"},
+                {"Freecam", "5.5"}, {"Freelook", "4.5"}, {"PiP", "4.5"}, {"Fun", "5.5"}, {"Ungrab Mouse", "5.5"},
+                {"Skybox", "9"}, {"HUD Colors", "4.5"}, {"Menu Colors", "4.5"}, {"Miscellaneous", "6"}, {"Discord", "4.5"}};
+        for (String[] module : modules) {
+            float length = Float.parseFloat(module[1]);
+            float[] times = new float[9];
+            for (int i = 0; i < 9; i++) times[i] = 0.25f + i * (length - 0.3f) / 8f;
+            boolean sky = module[0].equals("Skybox") || module[0].equals("Fun");
+            Vector3f eye = sky ? new Vector3f(0f, 1.6f, -5f) : new Vector3f(2.8f, 2.8f, 6.5f);
+            Vector3f at = sky ? new Vector3f(0f, 4f, 6f) : new Vector3f(0.4f, 1.1f, 0.9f);
+            stages.add(new Stage("stage-m-" + module[0].toLowerCase().replaceAll("[^a-z]+", "-"),
+                    new SceneActors.Inputs(module[0], true, 0, 0, 0), times, eye, at));
+        }
         int scene = link("orbit_scene.vsh", "orbit_scene.fsh");
         int stageVao = GL30.glGenVertexArrays();
         int stageVbo = GL15.glGenBuffers();
