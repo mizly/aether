@@ -1191,4 +1191,27 @@ public final class AetherConfig {
                         .range(0, 250);
         public static final IntEntry STRIDER_FISHING_WHIP_SWAP_MAX = Config.integer("striderFishingWhipSwapMax", 130)
                         .range(0, 250);
+
+        // -- FISHING MACRO ---------------------------------------------------------
+        public static final IntEntry FISHING_MACRO_ROD_SLOT = Config.integer("fishingMacroRodSlot", 1).range(1, 9);
+        public static final IntEntry FISHING_MACRO_WEAPON_SLOT = Config.integer("fishingMacroWeaponSlot", 2)
+                        .range(1, 9);
+        // an aim mode name (lava, water or hotspot); anything else reads as water
+        public static final StringEntry FISHING_MACRO_AIM_AT = Config.string("fishingMacroAimAt", "WATER");
+        public static final BooleanEntry FISHING_MACRO_RANDOM_LOOK = Config.bool("fishingMacroRandomLook", true);
+        public static final BooleanEntry FISHING_MACRO_BLOCK_SHUFFLE = Config.bool("fishingMacroBlockShuffle", true);
+        public static final IntEntry FISHING_MACRO_CAST_DELAY_MIN = Config.integer("fishingMacroCastDelayMin", 400)
+                        .range(0, 3000);
+        public static final IntEntry FISHING_MACRO_CAST_DELAY_MAX = Config.integer("fishingMacroCastDelayMax", 900)
+                        .range(0, 3000);
+        public static final ListEntry<String> FISHING_MACRO_MOB_WHITELIST = Config.list("fishingMacroMobWhitelist",
+                        Collections.emptyList(), String.class);
+        public static final ListEntry<String> FISHING_MACRO_MOB_BLACKLIST = Config.list("fishingMacroMobBlacklist",
+                        Collections.emptyList(), String.class);
+        public static final BooleanEntry FISHING_MACRO_USE_HYPERION = Config.bool("fishingMacroUseHyperion", false);
+        public static final BooleanEntry FISHING_MACRO_USE_WAND = Config.bool("fishingMacroUseWand", false);
+        public static final IntEntry FISHING_MACRO_HEAL_BELOW_PERCENT = Config
+                        .integer("fishingMacroHealBelowPercent", 50).range(10, 90);
+        // blank fishes wherever the macro was started
+        public static final StringEntry FISHING_MACRO_ROUTE = Config.string("fishingMacroRoute", "");
 }

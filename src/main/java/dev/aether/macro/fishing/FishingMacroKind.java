@@ -9,7 +9,8 @@ import java.util.Optional;
 
 // the display name doubles as the settings page, the routes tab and the macro menu entry
 public enum FishingMacroKind {
-    STRIDER("Strider Fishing", RouteStore.STRIDER_FISHING, Route.DEFAULT_WARP);
+    STRIDER("Strider Fishing", RouteStore.STRIDER_FISHING, Route.DEFAULT_WARP),
+    GENERAL("Fishing Macro", RouteStore.FISHING, "");
 
     private final String displayName;
     private final RouteStore.Folder folder;
@@ -37,12 +38,14 @@ public enum FishingMacroKind {
     public StringEntry routeSelection() {
         return switch (this) {
             case STRIDER -> AetherConfig.STRIDER_FISHING_RESTART_ROUTE;
+            case GENERAL -> AetherConfig.FISHING_MACRO_ROUTE;
         };
     }
 
     AbstractFishingMacro create() {
         return switch (this) {
             case STRIDER -> new StriderFishingMacro();
+            case GENERAL -> new FishingMacro();
         };
     }
 

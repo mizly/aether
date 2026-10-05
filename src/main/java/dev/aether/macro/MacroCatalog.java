@@ -1,6 +1,7 @@
 package dev.aether.macro;
 
 import dev.aether.bootstrap.AetherKeybindHandler;
+import dev.aether.macro.fishing.FishingMacroKind;
 import dev.aether.modules.failsafe.FailsafeColourFlashManager;
 import net.minecraft.client.Minecraft;
 
@@ -18,7 +19,11 @@ public final class MacroCatalog {
                     () -> AetherKeybindHandler.startFarmingMacro(Minecraft.getInstance())),
             new Entry("strider_fishing", "Strider Fishing",
                     "Fishes Stridersurfers out of lava and kills them", "Fishing", "Strider Fishing",
-                    () -> AetherKeybindHandler.startStriderFishingMacro(Minecraft.getInstance())));
+                    () -> AetherKeybindHandler.startStriderFishingMacro(Minecraft.getInstance())),
+            new Entry("fishing_macro", "Fishing Macro",
+                    "Fishes lava or water next to you and fights what it catches", "Fishing", "Fishing Macro",
+                    () -> AetherKeybindHandler.startFishingMacro(Minecraft.getInstance(), FishingMacroKind.GENERAL,
+                            true)));
 
     private MacroCatalog() {
     }

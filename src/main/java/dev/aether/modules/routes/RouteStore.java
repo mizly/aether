@@ -29,7 +29,8 @@ public final class RouteStore {
     }
 
     public static final Folder STRIDER_FISHING = new Folder("strider_fishing", "Strider Fishing", "default_strider");
-    public static final List<Folder> FOLDERS = List.of(STRIDER_FISHING);
+    public static final Folder FISHING = new Folder("fishing_macro", "Fishing Macro", null);
+    public static final List<Folder> FOLDERS = List.of(STRIDER_FISHING, FISHING);
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final String EXTENSION = ".json";

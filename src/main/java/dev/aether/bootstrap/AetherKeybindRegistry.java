@@ -22,6 +22,7 @@ public final class AetherKeybindRegistry {
     private static KeyMapping ungrabMouseKey;
     private static KeyMapping manualPestEarlyFinishKey;
     private static KeyMapping striderFishingKey;
+    private static KeyMapping fishingMacroKey;
     private static KeyMapping macroMenuKey;
     private static boolean registered;
 
@@ -56,6 +57,8 @@ public final class AetherKeybindRegistry {
                     .registerKeyMapping(new KeyMapping("Manual Pest Early Finish", GLFW.GLFW_KEY_UNKNOWN, category));
             striderFishingKey = KeyMappingHelper
                     .registerKeyMapping(new KeyMapping("Strider Fishing Macro", GLFW.GLFW_KEY_UNKNOWN, category));
+            fishingMacroKey = KeyMappingHelper
+                    .registerKeyMapping(new KeyMapping("Fishing Macro", GLFW.GLFW_KEY_UNKNOWN, category));
             macroMenuKey = KeyMappingHelper
                     .registerKeyMapping(new KeyMapping("Open Macro Menu", GLFW.GLFW_KEY_N, category));
         } catch (IllegalStateException ex) {
@@ -70,6 +73,7 @@ public final class AetherKeybindRegistry {
             ungrabMouseKey = resolveExistingOrDetached("key.aether.ungrab_mouse", GLFW.GLFW_KEY_U, category);
             manualPestEarlyFinishKey = resolveExistingOrDetached("Manual Pest Early Finish", GLFW.GLFW_KEY_UNKNOWN, category);
             striderFishingKey = resolveExistingOrDetached("Strider Fishing Macro", GLFW.GLFW_KEY_UNKNOWN, category);
+            fishingMacroKey = resolveExistingOrDetached("Fishing Macro", GLFW.GLFW_KEY_UNKNOWN, category);
             macroMenuKey = resolveExistingOrDetached("Open Macro Menu", GLFW.GLFW_KEY_N, category);
         }
         registered = true;
@@ -185,6 +189,11 @@ public final class AetherKeybindRegistry {
         return striderFishingKey;
     }
 
+    public static KeyMapping getFishingMacroKey() {
+        register();
+        return fishingMacroKey;
+    }
+
     public static KeyMapping getMacroMenuKey() {
         register();
         return macroMenuKey;
@@ -203,6 +212,7 @@ public final class AetherKeybindRegistry {
                 new RegisteredKeybind("Toggle Ungrab Mouse", "Releases or restores the mouse cursor", getUngrabMouseKey()),
                 new RegisteredKeybind("Manual Pest Early Finish", "While manual pest cleaning is waiting, skip straight to pest post-actions and resume farming", getManualPestEarlyFinishKey()),
                 new RegisteredKeybind("Strider Fishing Macro", "Starts or stops the strider fishing macro", getStriderFishingKey()),
+                new RegisteredKeybind("Fishing Macro", "Starts or stops the fishing macro", getFishingMacroKey()),
                 new RegisteredKeybind("Open Macro Menu", "Opens the macro start menu", getMacroMenuKey())
         );
     }

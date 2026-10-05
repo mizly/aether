@@ -164,15 +164,23 @@ public final class FishingMacroManager {
         if (route != null && route.end() != null) {
             return route;
         }
-        if (kind == FishingMacroKind.STRIDER && !name.equals(reportedRoute)) {
+        if (!name.equals(reportedRoute)) {
             reportedRoute = name;
             ClientUtils.sendMessage("§e" + kind.displayName() + " cannot use route \"" + name
-                    + "\" (missing or no waypoints), fishing at the Sawyer spot (-694 120 78) instead.", false);
+                    + "\" (missing or no waypoints), " + fallbackSpot(kind) + " instead.", false);
         }
         return null;
     }
 
-    // with routes off, or a selection that cannot be walked, the strider fishes at the sawyer spot
+    private static String fallbackSpot(FishingMacroKind kind) {
+        return switch (kind) {
+            case STRIDER -> "fishing at the Sawyer spot (-694 120 78)";
+            case GENERAL -> "fishing where it was started";
+        };
+    }
+
+    // with routes off, or a selection that cannot be walked, the strider fishes at the sawyer spot;
+    // the fishing macro then fishes where it was started
     static boolean usesFixedSpot(FishingMacroKind kind, Route selected) {
         return (selected == null || selected.end() == null) && kind == FishingMacroKind.STRIDER;
     }

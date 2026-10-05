@@ -78,6 +78,10 @@ public final class AetherKeybindHandler {
             while (AetherKeybindRegistry.getStriderFishingKey().consumeClick()) {
                 handleFishingToggle(client, FishingMacroKind.STRIDER);
             }
+
+            while (AetherKeybindRegistry.getFishingMacroKey().consumeClick()) {
+                handleFishingToggle(client, FishingMacroKind.GENERAL);
+            }
         });
     }
 

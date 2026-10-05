@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -66,6 +67,30 @@ class FishingMacroManagerTest {
         assertNotNull(FishingMacroManager.blockedReason(noWarp));
         assertNull(FishingMacroManager.blockedReason(
                 FishingMacroManager.chooseRoute(FishingMacroKind.STRIDER, null, true, true, 0.0)));
+    }
+
+    @Test
+    void theFishingMacroFishesWhereItStartsWithoutAWalkableSelection() {
+        Route warpOnly = new Route("a", "crimson");
+
+        assertFalse(FishingMacroManager.usesFixedSpot(FishingMacroKind.GENERAL, null));
+        assertNull(FishingMacroManager.chooseRoute(FishingMacroKind.GENERAL, null, false, true, 0.0));
+        assertNull(FishingMacroManager.chooseRoute(FishingMacroKind.GENERAL, warpOnly, true, false, 0.0));
+        assertNotNull(FishingMacroManager.blockedReason(
+                FishingMacroManager.chooseRoute(FishingMacroKind.GENERAL, null, true, true, 0.0)));
+    }
+
+    @Test
+    void theFishingMacroWalksItsSelectionAndRestartsOnlyWithAWarp() {
+        Route selected = new Route("a", "crimson");
+        selected.add(new Route.Waypoint(1, 2, 3, Route.LegType.WALK));
+        Route noWarp = new Route("b", "");
+        noWarp.add(new Route.Waypoint(1, 2, 3, Route.LegType.WALK));
+
+        assertSame(selected, FishingMacroManager.chooseRoute(FishingMacroKind.GENERAL, selected, true, true, 0.0));
+        assertNull(FishingMacroManager.blockedReason(selected));
+        assertSame(noWarp, FishingMacroManager.chooseRoute(FishingMacroKind.GENERAL, noWarp, false, false, 0.0));
+        assertNotNull(FishingMacroManager.blockedReason(noWarp));
     }
 
     private static final class ChatRecorder extends AbstractFishingMacro {
