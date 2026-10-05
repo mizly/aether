@@ -14,6 +14,9 @@ final class PanelPaint {
     static final String SEMIBOLD = Fonts.UI_SEMIBOLD;
     static final String BOLD = Fonts.UI_BOLD;
     static final String MONO = Fonts.UI_MONO;
+    static final Icon SEARCH = Icon.svg("/assets/aether/icons/search.svg");
+    static final Icon PLAY = Icon.svg("/assets/aether/icons/play.svg");
+    static final Icon HUD = Icon.svg("/assets/aether/icons/hud.svg");
 
     // inter's caps sit a little below the middle of its line box when drawn from the top
     private static final float CENTER_FACTOR = 0.60f;
@@ -27,10 +30,6 @@ final class PanelPaint {
 
     static int windowFill(Palette p) {
         return Argb.withAlpha(p.panel(), 0.90f);
-    }
-
-    static int sidebarFill(Palette p) {
-        return Argb.withAlpha(Argb.mix(p.sidebar(), p.panel(), 0.25f), 0.62f);
     }
 
     static int cardFill(Palette p) {
@@ -187,16 +186,6 @@ final class PanelPaint {
         c.restore();
     }
 
-    // primary button with its label on the left and a play triangle on the right
-    static void resumeButton(GuiCanvas c, Palette p, Rect r, String label, float hover) {
-        button(c, p, r, "", null, ButtonKind.PRIMARY, hover, false, true);
-        float size = r.h() >= 34f ? 13f : 12.5f;
-        float w = c.textWidth(SEMIBOLD, size, label);
-        float start = r.centerX() - (w + 16f) / 2f;
-        c.text(SEMIBOLD, size, label, start, top(r.centerY(), size), p.onAccent());
-        play(c, start + w + 11f, r.centerY(), 9f, p.onAccent());
-    }
-
     static float pill(GuiCanvas c, float x, float centerY, String text, String font, float size, int fg, int bg,
                       float padX, float h) {
         float w = c.textWidth(font, size, text) + padX * 2f;
@@ -217,10 +206,6 @@ final class PanelPaint {
         c.strokeRect(r, 5f, 1f, Argb.withAlpha(p.border(), 0.40f));
         c.text(MEDIUM, size, text, x + 6f, top(centerY, size), p.textMuted());
         return w;
-    }
-
-    static void focusRing(GuiCanvas c, Palette p, Rect r, float radius) {
-        c.strokeRect(r.inset(-2f), radius + 2f, 2f, Argb.withAlpha(p.accent(), 0.65f));
     }
 
     // -- path glyphs ------------------------------------------------------------
@@ -306,27 +291,6 @@ final class PanelPaint {
         c.lineTo(cx + h * 0.72f, cy + h * 0.9f);
         c.lineTo(cx + h * 0.72f, cy - h * 0.28f);
         c.strokePath(width, argb);
-    }
-
-    static void dots(GuiCanvas c, float cx, float cy, float gap, float r, int argb) {
-        c.circle(cx - gap, cy, r, argb);
-        c.circle(cx, cy, r, argb);
-        c.circle(cx + gap, cy, r, argb);
-    }
-
-    static void statusDot(GuiCanvas c, Palette p, float cx, float cy, boolean on) {
-        if (on) {
-            c.circle(cx, cy, 5.5f, Argb.withAlpha(p.success(), 0.22f));
-            c.circle(cx, cy, 3.2f, p.success());
-        } else {
-            c.strokeCircle(cx, cy, 3f, 1.4f, Argb.withAlpha(p.textMuted(), 0.85f));
-        }
-    }
-
-    static void sidebarGlyph(GuiCanvas c, float cx, float cy, float s, float width, int argb) {
-        Rect r = new Rect(cx - s / 2f, cy - s * 0.42f, s, s * 0.84f);
-        c.strokeRect(r, 2.5f, width, argb);
-        c.line(r.x() + s * 0.36f, r.y() + 0.5f, r.x() + s * 0.36f, r.bottom() - 0.5f, width, argb);
     }
 
     // a small magnifier when no svg icon is wanted, e.g. inside thumbnails

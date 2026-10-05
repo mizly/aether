@@ -101,12 +101,6 @@ final class PanelOverlays {
         }, false, AetherLang.localize("No options")));
     }
 
-    void openList(Object key, Rect anchor, List<String> options, int selected, String empty, IntConsumer pick,
-                  boolean closeOnPick) {
-        open(new Menu(key, anchor, options, i -> i == selected, i -> null, pick, closeOnPick, empty));
-        highlighted = selected;
-    }
-
     void openColor(Object key, ColorSetting setting, Rect anchor) {
         close();
         color = new ColorEdit(key, fieldAnchor(anchor), setting);
@@ -181,7 +175,7 @@ final class PanelOverlays {
         if (filtering) {
             Rect field = new Rect(panel.x() + 6f, panel.y() + 6f, panel.w() - 12f, 32f);
             c.roundedRect(field, 8f, Argb.withAlpha(p.text(), 0.06f));
-            PanelPaint.icon(c, PanelSidebar.SEARCH, field.x() + 15f, field.centerY(), 13f, p.textMuted());
+            PanelPaint.icon(c, PanelPaint.SEARCH, field.x() + 15f, field.centerY(), 13f, p.textMuted());
             String shown = filter.isEmpty() ? AetherLang.localize("Type to filter") : filter;
             PanelPaint.fitText(c, REGULAR, 12.5f, shown, field.x() + 30f, field.centerY(), field.w() - 40f,
                     filter.isEmpty() ? p.textMuted() : p.text());

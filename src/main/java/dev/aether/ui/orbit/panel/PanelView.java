@@ -45,44 +45,6 @@ public final class PanelView {
         this.clock = clock;
     }
 
-    public PanelStyle style() {
-        return style;
-    }
-
-    HitRegions hits() {
-        return hits;
-    }
-
-    public void animation(float timeMs, float minTimeMs) {
-        animTimeMs = timeMs;
-        minAnimTimeMs = minTimeMs;
-    }
-
-    public void open(String pageId) {
-        style.open(pageId);
-    }
-
-    public void render(NVGRenderer nvg, float width, float height, float mouseX, float mouseY) {
-        long now = clock.nanos();
-        palette = Palette.fromTheme();
-        canvas.begin(nvg, width, height);
-        hits.begin(mouseX, mouseY);
-        focus.begin();
-        anim.begin(now, animTimeMs, minAnimTimeMs);
-        PanelFrame frame = new PanelFrame(canvas, hits, focus, anim, palette, new Rect(0f, 0f, width, height),
-                mouseX, mouseY, now, host, false);
-        try {
-            style.render(frame);
-        } finally {
-            while (canvas.depth() > 0) {
-                canvas.restore();
-            }
-            hits.end();
-            focus.end();
-            canvas.end();
-        }
-    }
-
     // the front orbit panel: live, with input recorded in panel-local units
     public void renderOrbitActive(NVGRenderer nvg, float width, float height, float mouseX, float mouseY,
                                   String categoryId) {
@@ -95,6 +57,7 @@ public final class PanelView {
         Rect area = new Rect(0f, 0f, width, height);
         PanelFrame frame = new PanelFrame(canvas, hits, focus, anim, palette, area, mouseX, mouseY, now, host, false);
         style.hover = null;
+        style.frame(frame);
         try {
             style.orbit.draw(frame, area, categoryId, true, 0f);
             style.overlays.render(frame);
@@ -158,7 +121,7 @@ public final class PanelView {
 
     public java.util.List<SearchHit> orbitSearch(String query) {
         java.util.List<SearchHit> out = new java.util.ArrayList<>();
-        for (PanelSearch.Result r : style.search.search(host, query, true)) {
+        for (PanelSearch.Result r : style.search.search(host, query)) {
             String kind = switch (r.kind()) {
                 case ACTION -> "Action";
                 case PAGE -> "Page";
@@ -239,13 +202,6 @@ public final class PanelView {
         return style.overlays.isOpen();
     }
 
-    // a fixed-scale thumbnail of the style for pickers, drawn without input or animation
-    public void renderPreview(NVGRenderer nvg, Rect area) {
-        PanelFrame frame = new PanelFrame(canvas, hits, focus, anim, palette == null ? Palette.fromTheme() : palette,
-                area, -1f, -1f, clock.nanos(), host, false).inert();
-        PanelPreview.draw(frame, area);
-    }
-
     public boolean pointerPressed(PointerInput in) {
         focus.pointerUsed();
         if (style.pointerOutsideEditor(in.x(), in.y())) {
@@ -288,16 +244,8 @@ public final class PanelView {
         batch.end();
     }
 
-    public boolean pointerCaptured() {
-        return hits.captured();
-    }
-
     public Cursor cursor() {
         return hits.cursor();
     }
 
-    public int scrimArgb() {
-        Palette p = palette == null ? Palette.fromTheme() : palette;
-        return p.light() ? p.scrim() : 0x66000000;
-    }
 }
