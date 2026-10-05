@@ -216,6 +216,42 @@ class StriderFishingMacroTest {
     }
 
     @Test
+    void aSnagMovesTheThrowToTheFarEndOfItsYawRun() {
+        boolean[] lands = new boolean[180];
+        for (int i = 10; i <= 20; i++) {
+            lands[i] = true;
+        }
+        assertEquals(19, StriderFishingMacro.farthestInRun(lands, 12, 1));
+        assertEquals(11, StriderFishingMacro.farthestInRun(lands, 18, 1));
+        assertEquals(20, StriderFishingMacro.farthestInRun(lands, 12, 0));
+    }
+
+    @Test
+    void aSnagFollowsItsYawRunAcrossTheBackOfTheCircle() {
+        boolean[] lands = new boolean[180];
+        for (int i = 175; i < 180; i++) {
+            lands[i] = true;
+        }
+        for (int i = 0; i < 5; i++) {
+            lands[i] = true;
+        }
+        assertEquals(176, StriderFishingMacro.farthestInRun(lands, 1, 1));
+        assertEquals(3, StriderFishingMacro.farthestInRun(lands, 176, 1));
+    }
+
+    @Test
+    void aSnagWithNowhereElseInItsRunStaysPut() {
+        boolean[] lands = new boolean[180];
+        lands[50] = true;
+        lands[51] = true;
+        lands[52] = true;
+        assertEquals(-1, StriderFishingMacro.farthestInRun(lands, 51, 1));
+        assertEquals(-1, StriderFishingMacro.farthestInRun(lands, 90, 1));
+        java.util.Arrays.fill(lands, true);
+        assertEquals(100, StriderFishingMacro.farthestInRun(lands, 10, 1));
+    }
+
+    @Test
     void theLandingTickIsTheFirstOneThatReachesTheLanding() {
         net.minecraft.world.phys.Vec3 eye = net.minecraft.world.phys.Vec3.ZERO;
         net.minecraft.world.phys.Vec3[] path = {

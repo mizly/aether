@@ -12,14 +12,19 @@ import dev.aether.modules.rotation.HumanFlick;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.AetherLang;
 import dev.aether.util.ClientUtils;
+import dev.aether.util.EntityUtils;
 import dev.aether.util.SkyblockItems;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
+import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 import java.lang.ref.WeakReference;
@@ -44,7 +49,8 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     enum CastMode { LOOK_UP, CLASSIC }
 
     // what a throw was meant to do, so a float that comes down off the lava can rule it out
-    record CastRecord(CastMode mode, float yaw, float pitch, BlockPos aimBlock, BlockPos landing, int predictedTicks) {
+    record CastRecord(CastMode mode, float yaw, float pitch, BlockPos aimBlock, BlockPos landing,
+                      int predictedTicks) {
     }
 
     record SolveKey(BlockPos origin, boolean crouched) {
@@ -77,8 +83,12 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private static final long EMPTY_CATCH_DELAY_MIN_MS = 150L;
     private static final long EMPTY_CATCH_DELAY_MAX_MS = 400L;
     private static final long BOBBER_SETTLE_MS = 1_500L;
-    // the float needs time to finish its arc before where it landed means anything
-    private static final long BOBBER_LANDED_MS = 1_200L;
+    // four throws in a row that never reach the lava means the spot itself is wrong, not the aim
+    private static final int MAX_FAILED_CASTS = 4;
+    // a second snag in a row means the pool is in the way, and the whip is what clears it
+    private static final int SNAG_CLEAR_STREAK = 2;
+    private static final long CARRIER_GRACE_MS = 3_000L;
+    private static final int CARRIER_LAVA_DEPTH = 2;
     private static final long REEL_SETTLE_MS = 350L;
 
     private static final float AIM_SMOOTHING_MS = 110.0f;
@@ -143,6 +153,10 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private float wantedYaw;
     private int predictedTicks;
     private boolean lookUpIssued;
+    private float snagYaw = Float.NaN;
+    private int failedCasts;
+    private int snagStreak;
+    private int markerId = -1;
     // the classic search is the sawyer spot's fallback; once it runs dry the look-up throw goes out anyway
     private boolean classicExhausted;
     private CastAimSearch aimSearch;
@@ -193,6 +207,9 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         lastCast = null;
         castSolve = null;
         castMode = CastMode.CLASSIC;
+        snagYaw = Float.NaN;
+        failedCasts = 0;
+        snagStreak = 0;
         nextAttackAt = 0L;
         returnAt = 0L;
         emptyCatch = false;
@@ -399,7 +416,11 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         float current = Mth.wrapDegrees(mc.player.getYRot());
         float yaw;
         int landTicks;
-        if (!Float.isNaN(solve.confirmedYaw) && !isRejected(solve, solve.confirmedYaw)) {
+        if (!Float.isNaN(snagYaw)) {
+            yaw = snagYaw;
+            snagYaw = Float.NaN;
+            landTicks = ticksNear(solve, yaw);
+        } else if (!Float.isNaN(solve.confirmedYaw) && !isRejected(solve, solve.confirmedYaw)) {
             yaw = solve.confirmedYaw;
             landTicks = ticksNear(solve, yaw);
         } else {
@@ -665,6 +686,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         }
         castJudged = false;
         hookSeenAt = 0L;
+        markerId = -1;
     }
 
     private void tickWaitBite(Minecraft mc) {
@@ -673,53 +695,165 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
         if (!CatchWatch.hasLiveHook(mc)) {
             // the cast never left the rod, or the line came back on its own
-            if (now - stateEnteredAt > BOBBER_SETTLE_MS) {
-                recast(now);
+            if (hookSeenAt != 0L || now - stateEnteredAt > BOBBER_SETTLE_MS) {
+                ClientUtils.sendDebugMessage("[StriderFishing] no float out, recasting");
+                if (!castFailed()) {
+                    recast(now);
+                }
             }
             return;
         }
 
+        FishingHook hook = mc.player.fishing;
+        if (hookSeenAt == 0L) {
+            hookSeenAt = now;
+        }
         // a pool packed with striders can snag the float on one of them, which will never bite
-        // hypixel parks the lava float on its own entity, so only one of our pooled catches counts as a snag
-        Entity hookedIn = mc.player.fishing.getHookedIn();
-        if (pooling() && hookedIn != null && pooledCatchIds.contains(hookedIn.getId())) {
-            ClientUtils.sendDebugMessage("[StriderFishing] float hooked a strider, recasting");
+        Entity hooked = hook.getHookedIn();
+        if (hooked != null && pooledCatchIds.contains(hooked.getId())) {
+            snag(mc);
+            return;
+        }
+        if (hooked != null && pooling() && isUnpooledCatch(mc, hooked)) {
+            strayIds.remove(hooked.getId());
+            pooledCatchIds.add(hooked.getId());
+            snag(mc);
+            return;
+        }
+        // hypixel parks the lava float on its own carrier, which has to sit right over the lava
+        boolean carried = hooked != null;
+        boolean inLava = carried ? overLava(mc.level, hooked.position())
+                : CatchWatch.floatsOn(mc.level, hook, CastSim::isLava);
+        if (carried && !inLava && now - hookSeenAt >= CARRIER_GRACE_MS) {
+            ClientUtils.sendDebugMessage("[StriderFishing] float caught on something away from the lava, recasting");
             ClientUtils.performUseClick();
             changeState(State.AIM_LAVA);
             return;
         }
 
-        if (CatchWatch.hasCatchMarker(mc.level, mc.player.fishing)) {
-            clearAimSearch();
+        long deadline = CatchWatch.settleDeadlineMs(lastCast == null ? 0 : lastCast.predictedTicks());
+        if (!CatchWatch.settled(carried, hook.onGround(), inLava, now, hookSeenAt, deadline)) {
+            return;
+        }
+
+        // only read once the float is down, so a neighbour's marker cannot pass for ours while it flies
+        Entity marker = markerId < 0 ? null : mc.level.getEntity(markerId);
+        if (marker == null || marker.isRemoved()) {
+            markerId = CatchWatch.lockMarker(mc.level, hook);
+        }
+        if (CatchWatch.isBite(mc.level, markerId)) {
+            castLanded();
             CatchWatch.snapshot(mc.level, preReelEntityIds);
             changeState(State.REEL);
             return;
         }
 
-        // a look-up lob is in the air for seconds, so it is only judged once its predicted flight is over
-        long landedAfter = lastCast != null && lastCast.mode() == CastMode.LOOK_UP
-                ? CatchWatch.settleDeadlineMs(lastCast.predictedTicks()) : BOBBER_LANDED_MS;
-        if (now - stateEnteredAt > landedAfter) {
+        if (!carried && !inLava) {
             // a float sitting on stone will never get a bite, so reel it in and aim somewhere else
-            if (!CatchWatch.floatInLiquid(mc.level, mc.player.fishing, CastSim::isLava)) {
-                ClientUtils.sendDebugMessage("[StriderFishing] float landed out of the lava, recasting");
-                rejectCast();
-                ClientUtils.performUseClick();
+            ClientUtils.sendDebugMessage("[StriderFishing] float landed out of the lava, recasting");
+            rejectCast();
+            ClientUtils.performUseClick();
+            if (!castFailed()) {
                 changeState(State.AIM_LAVA);
-                return;
             }
-            // a float down in the lava proves the spot, so the misses before it are forgiven
-            if (!castJudged) {
-                castJudged = true;
-                clearAimSearch();
-            }
+            return;
+        }
+        if (inLava && !castJudged) {
+            castLanded();
         }
 
         if (now - stateEnteredAt > BITE_TIMEOUT_MS) {
             ClientUtils.sendDebugMessage("[StriderFishing] no bite in time, recasting");
             recast(now);
+        }
+    }
+
+    // a float down in the lava proves the throw, so the misses before it are forgiven
+    private void castLanded() {
+        castJudged = true;
+        failedCasts = 0;
+        snagStreak = 0;
+        if (lastCast != null && lastCast.mode() == CastMode.LOOK_UP && castSolve != null) {
+            castSolve.confirmedYaw = lastCast.yaw();
+        }
+        clearAimSearch();
+    }
+
+    // true when the macro was stopped
+    private boolean castFailed() {
+        if (++failedCasts < MAX_FAILED_CASTS) {
+            return false;
+        }
+        fail("Strider fishing stopped: the float keeps missing the lava from this spot.");
+        return true;
+    }
+
+    // reeling a snag pulls the strider toward us, and the same throw would only hook it again
+    private void snag(Minecraft mc) {
+        ClientUtils.sendDebugMessage("[StriderFishing] float hooked a strider, recasting");
+        ClientUtils.performUseClick();
+        snagStreak++;
+        if (snagStreak >= SNAG_CLEAR_STREAK && !pooledCatchIds.isEmpty()) {
+            ClientUtils.sendDebugMessage("[StriderFishing] the pool keeps snagging the float, clearing it");
+            startClear(mc);
             return;
         }
+        if (lastCast != null && lastCast.mode() == CastMode.LOOK_UP && castSolve != null) {
+            int moved = farthestInRun(usableYaws(castSolve),
+                    nearestSample(lastCast.yaw(), YAW_SAMPLES, YAW_STEP), YAW_MARGIN_SAMPLES);
+            if (moved >= 0) {
+                snagYaw = sampleYaw(moved, YAW_STEP);
+            }
+        }
+        changeState(State.AIM_LAVA);
+    }
+
+    private boolean isUnpooledCatch(Minecraft mc, Entity entity) {
+        if (!(entity instanceof LivingEntity) || entity instanceof ArmorStand || !CatchWatch.isAlive(entity)
+                || EntityUtils.isRealPlayer(mc, entity)) {
+            return false;
+        }
+        // with no name to go on, hypixel's own float carrier could pass for a catch
+        String needle = catchNeedle();
+        return !needle.isEmpty() && CatchWatch.matchesName(mc.level, entity, needle);
+    }
+
+    private static boolean overLava(Level level, Vec3 pos) {
+        BlockPos at = BlockPos.containing(pos);
+        for (int down = 0; down <= CARRIER_LAVA_DEPTH; down++) {
+            BlockPos cell = at.below(down);
+            BlockState blockState = level.getBlockState(cell);
+            if (CastSim.isLava(blockState)) {
+                return pos.y - (cell.getY() + blockState.getFluidState().getHeight(level, cell)) <= CARRIER_LAVA_DEPTH;
+            }
+        }
+        return false;
+    }
+
+    // the far end of the yaw run the snag sat in, keeping the margin; -1 when the run has nowhere else to go
+    static int farthestInRun(boolean[] lands, int from, int marginSamples) {
+        int n = lands.length;
+        if (from < 0 || from >= n || !lands[from]) {
+            return -1;
+        }
+        int left = 0;
+        while (left < n - 1 && lands[Math.floorMod(from - left - 1, n)]) {
+            left++;
+        }
+        if (left == n - 1) {
+            return (from + n / 2) % n;
+        }
+        int right = 0;
+        while (lands[(from + right + 1) % n]) {
+            right++;
+        }
+        int margin = Math.max(0, marginSamples);
+        int leftReach = Math.max(0, left - margin);
+        int rightReach = Math.max(0, right - margin);
+        if (leftReach == 0 && rightReach == 0) {
+            return -1;
+        }
+        return leftReach >= rightReach ? Math.floorMod(from - leftReach, n) : (from + rightReach) % n;
     }
 
     private void tickReel(Minecraft mc) {
@@ -863,6 +997,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
     private void startClear(Minecraft mc) {
         capReached = false;
+        snagStreak = 0;
         hotbarCheckPending = true;
         clearWhip();
         centreThen(mc, State.CLEAR);
