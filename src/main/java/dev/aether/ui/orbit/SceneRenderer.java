@@ -39,8 +39,9 @@ final class SceneRenderer implements AutoCloseable {
     private int solidUniform;
     private int fbo, colorBuffer, depthBuffer, width, height;
     private boolean drawn;
-    private final int[] vao = new int[4];
-    private final int[] vbo = new int[4];
+    // solid, water, streamed actors, glass, and the figure kept apart so it can be drawn twice
+    private final int[] vao = new int[5];
+    private final int[] vbo = new int[5];
     private int atlasSampler;
     private int skinSampler;
     private int white;
@@ -130,12 +131,14 @@ final class SceneRenderer implements AutoCloseable {
                     drawArrays(1, mesh.waterCount());
                 }
 
-                // the panels hang clear of the farm: only the figure, in a fresh depth buffer, may stand in front of them
+                // the figure and the skits' props hide one another as they stand, in a depth buffer of their own
                 GL11.glDepthMask(true);
                 GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
+                boolean figure = false;
                 if (frame.figure() != null && frame.figure().count > 0) {
                     int skin = texture(client, frame.skin());
                     if (skin != 0) {
+                        figure = true;
                         GL20.glUniformMatrix4fv(matrixUniform, false, projection.get(stack.mallocFloat(16)));
                         GL11.glEnable(GL11.GL_DEPTH_TEST);
                         GL11.glDisable(GL11.GL_BLEND);
@@ -146,8 +149,8 @@ final class SceneRenderer implements AutoCloseable {
                         GL20.glUniform1f(alphaUniform, 0.1f);
                         GL20.glUniform1f(solidUniform, 1f);
                         ByteBuffer data = frame.figure().finish();
-                        GL30.glBindVertexArray(vao[2]);
-                        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo[2]);
+                        GL30.glBindVertexArray(vao[4]);
+                        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo[4]);
                         GL15.glBufferData(GL15.GL_ARRAY_BUFFER, data, GL15.GL_STREAM_DRAW);
                         GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, frame.figure().count);
                     }
@@ -173,6 +176,17 @@ final class SceneRenderer implements AutoCloseable {
                     GL11.glBindTexture(GL11.GL_TEXTURE_2D, atlas);
                     GL33C.glBindSampler(0, atlasSampler);
                     stream(frame.blocks());
+                }
+                // the panels go on next: props never cover them, so the depth is redone with the figure alone
+                GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
+                if (figure) {
+                    int skin = texture(client, frame.skin());
+                    GL11.glBindTexture(GL11.GL_TEXTURE_2D, skin);
+                    GL33C.glBindSampler(0, skinSampler);
+                    GL11.glColorMask(false, false, false, false);
+                    GL30.glBindVertexArray(vao[4]);
+                    GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, frame.figure().count);
+                    GL11.glColorMask(true, true, true, true);
                 }
             }
             drawn = true;
@@ -343,7 +357,7 @@ final class SceneRenderer implements AutoCloseable {
         alphaUniform = GL20.glGetUniformLocation(program, "AlphaCut");
         samplerUniform = GL20.glGetUniformLocation(program, "Sampler");
         solidUniform = GL20.glGetUniformLocation(program, "Solid");
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {
             vao[i] = GL30.glGenVertexArrays();
             vbo[i] = GL15.glGenBuffers();
             GL30.glBindVertexArray(vao[i]);
@@ -407,7 +421,7 @@ final class SceneRenderer implements AutoCloseable {
     @Override
     public void close() {
         if (program != 0) GL20.glDeleteProgram(program);
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 5; i++) {
             if (vao[i] != 0) GL30.glDeleteVertexArrays(vao[i]);
             if (vbo[i] != 0) GL15.glDeleteBuffers(vbo[i]);
             vao[i] = vbo[i] = 0;
