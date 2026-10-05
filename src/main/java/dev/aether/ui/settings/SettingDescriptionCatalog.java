@@ -44,6 +44,7 @@ final class SettingDescriptionCatalog {
             Map.entry("Aim At", "What the fishing macro casts into: lava, water, or a nearby fishing hotspot. With no hotspot around it fishes whichever liquid is closest."),
             Map.entry("Mob Whitelist", "Only catches whose name contains one of these entries are fought. Leave it empty to fight everything that is not blacklisted."),
             Map.entry("Mob Blacklist", "Catches whose name contains one of these entries are left alone and named in chat. Checked before the whitelist."),
+            Map.entry("Heal Below", "Uses the healing wand once health falls below this share of max health, read from the action bar."),
             Map.entry("Time Nearby", "How long a player has to stay within the distance before the failsafe triggers."),
             Map.entry("Teleport Distance", "How far a single jump in position has to be to count as a teleport."),
             Map.entry("Pest Aim Drift", "How much of the pest's body the aim wanders over instead of sitting on its centre. 1 roams most of it, 0 keeps the aim on the centre."),

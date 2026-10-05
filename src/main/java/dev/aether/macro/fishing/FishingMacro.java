@@ -39,7 +39,7 @@ import java.util.random.RandomGenerator;
 // every delay here is wall-clock and every decision runs on the client tick, so the macro behaves the same at any fps
 public final class FishingMacro extends AbstractFishingMacro {
 
-    public enum State { MOVE, AIM, CAST, WAIT_BITE, REEL, FIGHT }
+    public enum State { MOVE, AIM, HEAL, CAST, WAIT_BITE, REEL, FIGHT }
 
     public enum AimAt {
         LAVA, WATER, HOTSPOT;
@@ -73,6 +73,8 @@ public final class FishingMacro extends AbstractFishingMacro {
     private static final String TOO_MANY_LEFT_STOP =
             "Fishing Macro stopped: too many catches were left alive. Kill them or change the mob lists.";
     private static final long BOBBER_SETTLE_MS = 1_500L;
+    // the server drops the float a moment after the reel, and the wand must not go out while it is still there
+    private static final long HEAL_REEL_WAIT_MS = 2_000L;
     private static final long REEL_SETTLE_MS = 350L;
     private static final long EMPTY_CATCH_DELAY_MIN_MS = 150L;
     private static final long EMPTY_CATCH_DELAY_MAX_MS = 400L;
@@ -138,6 +140,11 @@ public final class FishingMacro extends AbstractFishingMacro {
     private int hyperionGiveUps;
     private boolean hyperionMissingWarned;
 
+    private final WandHealer healer = new WandHealer();
+    private State healResume = State.AIM;
+    private long healReelAt;
+    private int ticks;
+
     @Override
     public void onEnable(Minecraft mc) {
         if (mc.player == null) {
@@ -150,6 +157,7 @@ public final class FishingMacro extends AbstractFishingMacro {
         clearFight();
         unfoughtIds.clear();
         capFullSeen = false;
+        healReelAt = 0L;
         idle.clear();
         changeState(State.AIM);
         BlockPos origin = homeKeeper.origin();
@@ -159,6 +167,7 @@ public final class FishingMacro extends AbstractFishingMacro {
 
     @Override
     public void onDisable(Minecraft mc) {
+        healer.abort(mc);
         homeKeeper.cancel(mc);
         RotationManager.cancelRotation();
         releaseAll(mc);
@@ -179,6 +188,8 @@ public final class FishingMacro extends AbstractFishingMacro {
         if (guardCap(mc)) {
             return;
         }
+        ticks++;
+        healer.confirm(mc, System.currentTimeMillis());
 
         // a turn has to land before the look it was for can be checked; the bite still has to be polled every tick
         if ((state == State.AIM || state == State.CAST) && RotationManager.isRotating()) {
@@ -187,6 +198,7 @@ public final class FishingMacro extends AbstractFishingMacro {
             switch (state) {
                 case MOVE -> tickMove(mc);
                 case AIM -> tickAim(mc);
+                case HEAL -> tickHeal(mc);
                 case CAST -> tickCast(mc);
                 case WAIT_BITE -> tickWaitBite(mc);
                 case REEL -> tickReel(mc);
@@ -207,6 +219,18 @@ public final class FishingMacro extends AbstractFishingMacro {
         }
 
         long now = System.currentTimeMillis();
+        if (healReelAt != 0L) {
+            if (mc.player.fishing != null && now - healReelAt < HEAL_REEL_WAIT_MS) {
+                return;
+            }
+            healReelAt = 0L;
+        }
+        // before the rod comes back out, since the wand is only clicked with the line in
+        if (healer.wants(mc, now, mc.player.fishing != null, hyperion.lastClickAt())) {
+            enterHeal(State.AIM);
+            return;
+        }
+
         // a crouch still lifting moves the eye, and with it where the throw lands
         if (now < aimRetryAt || mc.player.isCrouching() || mc.player.getPose() != Pose.STANDING) {
             return;
@@ -366,6 +390,14 @@ public final class FishingMacro extends AbstractFishingMacro {
                 changeState(State.REEL);
                 return;
             }
+        }
+
+        // the wand needs the line in, so low health gives up this cast
+        if (healer.wants(mc, now, false, hyperion.lastClickAt())) {
+            ClientUtils.sendDebugMessage("[FishingMacro] health is low, reeling in to heal");
+            healReelAt = now;
+            reelBack();
+            return;
         }
 
         if (now - stateEnteredAt > BITE_TIMEOUT_MS) {
@@ -600,6 +632,10 @@ public final class FishingMacro extends AbstractFishingMacro {
     }
 
     private void melee(Minecraft mc, long now) {
+        if (now >= nextAttackAt && healer.wants(mc, now, mc.player.fishing != null, hyperion.lastClickAt())) {
+            enterHeal(State.FIGHT);
+            return;
+        }
         FailsafeManager.selectHotbarSlot(mc, weaponSlot());
         if (target == null) {
             target = nearestFightCatch(mc);
@@ -681,6 +717,22 @@ public final class FishingMacro extends AbstractFishingMacro {
         hyperionThisFight = false;
     }
 
+    private void enterHeal(State resume) {
+        healResume = resume;
+        changeState(State.HEAL);
+    }
+
+    private void tickHeal(Minecraft mc) {
+        if (healResume == State.FIGHT) {
+            holdFightKeys(mc);
+        } else {
+            holdStill(mc);
+        }
+        if (healer.tick(mc, System.currentTimeMillis(), ticks, ThreadLocalRandom.current())) {
+            changeState(healResume);
+        }
+    }
+
     private void tickMove(Minecraft mc) {
         if (homeKeeper.origin() == null) {
             changeState(State.AIM);
@@ -707,7 +759,8 @@ public final class FishingMacro extends AbstractFishingMacro {
     }
 
     private void changeState(State next) {
-        if (state == State.FIGHT && next != State.FIGHT) {
+        // a heal between swings goes back to the same fight, so the weapon and the camera stay as they are
+        if (state == State.FIGHT && next != State.FIGHT && next != State.HEAL) {
             RotationManager.cancelRotation();
             Minecraft mc = Minecraft.getInstance();
             if (mc.player != null) {

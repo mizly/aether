@@ -43,4 +43,10 @@ class FishingMacroConfigTest {
     void theHyperionStaysInTheHotbarUntilTurnedOn() {
         assertFalse(AetherConfig.FISHING_MACRO_USE_HYPERION.getDefault());
     }
+
+    @Test
+    void theWandStaysOffAndHealsBelowHalfHealthByDefault() {
+        assertFalse(AetherConfig.FISHING_MACRO_USE_WAND.getDefault());
+        assertEquals(50, AetherConfig.FISHING_MACRO_HEAL_BELOW_PERCENT.getDefault());
+    }
 }

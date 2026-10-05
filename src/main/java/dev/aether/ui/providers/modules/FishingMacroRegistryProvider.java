@@ -122,6 +122,23 @@ public final class FishingMacroRegistryProvider extends AbstractFishingRegistryP
                     AetherConfig.save();
                 }));
 
+        groups.add(SettingGroup.of(
+                        "Use Wand of Healing",
+                        "Heals with a Wand of Healing, Mending, Restoration or Atonement between casts, "
+                                + "only with the line in, once health drops below the set level.",
+                        () -> AetherConfig.FISHING_MACRO_USE_WAND.get(),
+                        v -> {
+                            AetherConfig.FISHING_MACRO_USE_WAND.set(v);
+                            AetherConfig.save();
+                        })
+                .add(new SliderSetting("Heal Below", 10, 90,
+                        () -> (float) AetherConfig.FISHING_MACRO_HEAL_BELOW_PERCENT.get(),
+                        v -> {
+                            AetherConfig.FISHING_MACRO_HEAL_BELOW_PERCENT.set(Math.round(v));
+                            AetherConfig.save();
+                        })
+                        .withDecimals(0).withSuffix("%")));
+
         groups.add(SettingGroup.alwaysOn(
                         "Restart",
                         "Where the macro warps and walks before it starts fishing")
