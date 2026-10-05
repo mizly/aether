@@ -26,8 +26,6 @@ final class OrbitPlotScreen {
     private final OrbitSpring yaw;
     private final OrbitSpring pitch = new OrbitSpring(THUMB_PITCH, 40f, 12f);
     private final OrbitSpring[] lift = new OrbitSpring[PlotToken.MAX_PLOT + 1];
-    private final OrbitSpring inspect = new OrbitSpring(0f, 90f, 14f);
-    private int inspected = -1;
     private boolean closing;
     private boolean dragging;
     private boolean dragged;
@@ -102,38 +100,9 @@ final class OrbitPlotScreen {
         picks = PlotDiorama.draw(nvg, view, plot -> model.look(plot, facts), lifts, hover, time, t > 0.55f,
                 p.accent(), 1f);
 
-        inspect.t = hover >= 0 ? 1f : 0f;
-        inspect.step(dt);
-        if (hover >= 0) inspected = hover;
         if (k < 0.6f) return;
         float a = (k - 0.6f) / 0.4f;
         drawCard(nvg, p, w, h, a, facts, mx, my);
-        float ia = OrbitRig.clamp(inspect.x, 0f, 1f) * a;
-        if (inspected >= 0 && ia > 0.01f) drawInspector(nvg, p, w, h, ia, facts);
-    }
-
-    // the hovered plot up close on the right: its name over its picture, big and flat
-    private void drawInspector(NVGRenderer nvg, Palette p, float w, float h, float a, GardenFacts facts) {
-        List<String> lines = model.tooltip(inspected, facts);
-        PlotPickerModel.PlotLook look = model.look(inspected, facts);
-        float iw = 176f, pad = 12f, img = iw - pad * 2;
-        float ih = pad + 16f + img + pad;
-        float x = w - iw - 22f + (1f - a) * 24f;
-        float y = Math.max(20f, (h - ih) / 2f - 20f);
-        nvg.roundedRect(x, y, iw, ih, 12f, Argb.multiplyAlpha(Argb.withAlpha(p.panel(), 0.95f), a));
-        nvg.rectOutline(x, y, iw, ih, 12f, 1f, Argb.multiplyAlpha(Argb.withAlpha(p.border(), 0.5f), a));
-        String title = lines.isEmpty() ? "" : strip(lines.get(0));
-        nvg.text(Fonts.UI_SEMIBOLD, title, x + pad, y + pad, 10f, Argb.multiplyAlpha(p.text(), a));
-        float iy = y + pad + 16f;
-        int mini = PlotMiniatures.image(nvg, inspected, look == null ? null : look.itemId());
-        if (mini > 0) {
-            nvg.image(mini, x + pad, iy, img, img, 8f, a);
-        } else {
-            nvg.roundedRect(x + pad, iy, img, img, 8f, Argb.multiplyAlpha(0xFF2A2F36, a));
-        }
-        if (look != null && look.marked()) {
-            nvg.rectOutline(x + pad, iy, img, img, 8f, 2f, Argb.multiplyAlpha(p.accent(), a));
-        }
     }
 
     private void drawCard(NVGRenderer nvg, Palette p, float w, float h, float a, GardenFacts facts, float mx, float my) {
@@ -176,10 +145,6 @@ final class OrbitPlotScreen {
         boolean clearHover = inside(clear, mx, my);
         mcButton(nvg, clear, AetherLang.localize("Clear"), clearHover, 0xFFFFFFFF, a);
         mcButton(nvg, done, AetherLang.localize("Done"), doneHover, Argb.mix(0xFFFFFFFF, p.accent(), 0.45f), a);
-    }
-
-    private static String strip(String formatted) {
-        return formatted == null ? "" : formatted.replaceAll("§.", "");
     }
 
     boolean click(double x, double y, int button) {
