@@ -28,6 +28,7 @@ final class PanelModulePage {
     private String anchorsPage;
     private String pendingAnchor;
     private float pillScroll;
+    private int pillActive = -1;
     private float pillContentW;
 
     PanelModulePage(PanelStyle style) {
@@ -80,6 +81,10 @@ final class PanelModulePage {
             PanelPaint.textCentered(c, REGULAR, 13f, AetherLang.localize("This page has no settings yet"),
                     body.centerX(), y + 40f, p.textMuted());
             bottom = y + 80f;
+        }
+        if (!page.id().equals(anchorsPage)) {
+            pillScroll = 0f;
+            pillActive = -1;
         }
         anchors = found;
         anchorsPage = page.id();
@@ -217,10 +222,14 @@ final class PanelModulePage {
         float maxScroll = Math.max(0f, pillContentW - lane.w());
         float activeLeft = lefts[active];
         float activeRight = activeLeft + widths[active];
-        if (activeLeft - pillScroll < 0f) {
-            pillScroll = activeLeft;
-        } else if (activeRight - pillScroll > lane.w()) {
-            pillScroll = activeRight - lane.w();
+        // follow the scroll-spy only when it moves, so paging through the pills by hand sticks
+        if (active != pillActive) {
+            pillActive = active;
+            if (activeLeft - pillScroll < 0f) {
+                pillScroll = activeLeft;
+            } else if (activeRight - pillScroll > lane.w()) {
+                pillScroll = activeRight - lane.w();
+            }
         }
         pillScroll = Math.max(0f, Math.min(maxScroll, pillScroll));
         float shift = f.anim().spring("aurora.pills.scroll", pillScroll);
@@ -259,15 +268,35 @@ final class PanelModulePage {
         }
         c.restore();
         if (maxScroll > 0f) {
-            int fadeColor = Argb.withAlpha(p.panel(), 0.95f);
+            int bg = stuck ? Argb.withAlpha(p.panel(), 0.96f) : PanelPaint.windowFill(p);
+            float page = lane.w() * 0.6f;
             if (shift > 1f) {
-                c.horizontalGradient(new Rect(lane.x(), bar.y(), 24f, bar.h()), 0f, fadeColor, Argb.withAlpha(p.panel(), 0f));
+                c.horizontalGradient(new Rect(lane.x() - 4f, bar.y(), 46f, bar.h()), 0f, bg, Argb.withAlpha(bg, 0f));
+                pillArrow(f, "aurora.pills.left", lane.x() + 12f, bar.centerY(), false,
+                        () -> pillScroll = Math.max(0f, pillScroll - page));
             }
             if (shift < maxScroll - 1f) {
-                c.horizontalGradient(new Rect(lane.right() - 24f, bar.y(), 24f, bar.h()), 0f,
-                        Argb.withAlpha(p.panel(), 0f), fadeColor);
+                c.horizontalGradient(new Rect(lane.right() - 42f, bar.y(), 46f, bar.h()), 0f, Argb.withAlpha(bg, 0f), bg);
+                pillArrow(f, "aurora.pills.right", lane.right() - 12f, bar.centerY(), true,
+                        () -> pillScroll = Math.min(maxScroll, pillScroll + page));
             }
         }
+    }
+
+    // a round button at an end of the pill lane that pages the hidden pills into view
+    private static void pillArrow(PanelFrame f, String id, float cx, float cy, boolean right, Runnable action) {
+        GuiCanvas c = f.canvas();
+        Palette p = f.palette();
+        float hover = f.anim().hover(id, f.hits().hovered(id));
+        Rect r = new Rect(cx - 12f, cy - 12f, 24f, 24f);
+        c.roundedRect(r, 12f, Argb.mix(PanelPaint.fieldFill(p), p.text(), 0.06f + 0.08f * hover));
+        c.strokeRect(r, 12f, 1f, Argb.withAlpha(p.border(), 0.45f + 0.3f * hover));
+        if (right) {
+            PanelPaint.chevronRight(c, cx + 1f, cy, 8f, 1.6f, p.text());
+        } else {
+            PanelPaint.chevronLeft(c, cx - 1f, cy, 8f, 1.6f, p.text());
+        }
+        f.hits().add(id, r, HitHandler.click(action), Cursor.HAND);
     }
 
     static void drawScrollbar(GuiCanvas c, Palette p, ScrollState scroll, Rect body) {
