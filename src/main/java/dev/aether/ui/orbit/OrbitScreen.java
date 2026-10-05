@@ -38,6 +38,8 @@ public final class OrbitScreen extends Screen {
     private final PanelSurface[] surfaces;
     private final OrbitSpring[] unfold;
     private final OrbitWorldRenderer renderer = new OrbitWorldRenderer();
+    private final FailsafeRing failsafeRing = new FailsafeRing();
+    private float lastDt;
     private final OrbitOverlay overlay;
 
     private final OrbitSpring ring = new OrbitSpring(0f, 130f, 15.5f);
@@ -116,6 +118,7 @@ public final class OrbitScreen extends Screen {
         float dt = lastNanos == 0 ? 0f : Math.min(0.05f, (now - lastNanos) / 1_000_000_000f);
         lastNanos = now;
         clock += dt;
+        lastDt = dt;
         wheelLock = Math.max(0f, wheelLock - dt);
 
         if (draggingRing) {
@@ -279,6 +282,14 @@ public final class OrbitScreen extends Screen {
             }
             quads.add(new OrbitWorldRenderer.Quad(p.corner(-1, 1), p.corner(1, 1), p.corner(1, -1), p.corner(-1, -1),
                     surfaces[p.index()].texture(), p.alpha(), p.dim()));
+        }
+        boolean safetyFront = "safety".equals(activeCategory()) && z < 0.5f && state != State.CLOSING;
+        failsafeRing.step(lastDt, safetyFront);
+        var player = Minecraft.getInstance().player;
+        if (player != null) {
+            Vec3 feet = player.getPosition(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true));
+            failsafeRing.appendQuads(quads, view.orbitFailsafes(), view.orbitHoveredFailsafe(),
+                    new Vector3d(feet.x, feet.y, feet.z), layout.camera(), clock);
         }
         Vec3 eye = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         quads.sort(Comparator.comparingDouble((OrbitWorldRenderer.Quad q) -> -distanceSq(q, eye)));
@@ -595,6 +606,7 @@ public final class OrbitScreen extends Screen {
         OrbitCamera.clear();
         view.close();
         for (PanelSurface surface : surfaces) surface.close();
+        failsafeRing.close();
         renderer.close();
         super.removed();
     }
