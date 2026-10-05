@@ -6,6 +6,7 @@ import dev.aether.macro.MacroInput;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.profit.helpers.ActivityRateTracker;
+import dev.aether.modules.routes.BlockCentering;
 import dev.aether.modules.routes.Route;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.AetherLang;
@@ -33,7 +34,7 @@ import java.util.function.IntPredicate;
 // every delay here is wall-clock and every decision runs on the client tick, so the macro behaves the same at 10 or 240 fps
 public final class StriderFishingMacro extends AbstractFishingMacro {
 
-    public enum State { AIM_LAVA, CAST, WAIT_BITE, REEL, FIGHT, CLEAR, RETURN }
+    public enum State { CENTER, AIM_LAVA, CAST, WAIT_BITE, REEL, FIGHT, CLEAR, RETURN }
 
     // with no route the macro fishes the lava pit beside sawyer on galatea, where a caught strider cannot walk out
     static final BlockPos FIXED_SPOT = new BlockPos(-694, 120, 78);
@@ -82,8 +83,13 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     // a double hook brings its second catch up a moment after the first
     private static final long DOUBLE_HOOK_WINDOW_MS = 400L;
     private static final String CAP_LINE = "there is not enough space for another sea creature!";
+    // centring only counts its own timeout on the ground, so a player still bobbing is cut off here
+    private static final long CENTER_LIMIT_MS = 3_000L;
 
     private State state = State.AIM_LAVA;
+    private State pendingState = State.AIM_LAVA;
+    private State afterReturn = State.AIM_LAVA;
+    private BlockCentering centering;
     private long stateEnteredAt;
     private long nextActionAt;
     private long nextAttackAt;
@@ -150,11 +156,16 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         whipSlot = -1;
         clearWhip();
         clearKillPlan();
+        centering = null;
+        afterReturn = State.AIM_LAVA;
         changeState(State.AIM_LAVA);
         BlockPos origin = homeKeeper.origin();
         ClientUtils.sendDebugMessage("[StriderFishing] started at "
                 + origin.getX() + ", " + origin.getY() + ", " + origin.getZ());
         resumeRememberedPool(mc);
+        if (state == State.AIM_LAVA) {
+            centreThen(mc, State.AIM_LAVA);
+        }
     }
 
     // the same striders still stuck at the full count go straight to the kill; fewer means fishing tops it up
@@ -180,7 +191,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         int goal = poolGoal();
         ClientUtils.sendDebugMessage("[StriderFishing] pool still holds " + pooledCatchIds.size() + "/" + goal);
         if (soulWhipGoalReached(pooledCatchIds.size(), goal)) {
-            startClear();
+            startClear(mc);
         }
     }
 
@@ -269,6 +280,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             holdStill(mc);
         } else {
             switch (state) {
+                case CENTER -> tickCenter(mc);
                 case AIM_LAVA -> tickAimLava(mc);
                 case CAST -> tickCast(mc);
                 case WAIT_BITE -> tickWaitBite(mc);
@@ -284,7 +296,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             capReached = false;
             if (pooling() && !pooledCatchIds.isEmpty()) {
                 ClientUtils.sendDebugMessage("[StriderFishing] sea creature cap reached, clearing the pool");
-                startClear();
+                startClear(mc);
             }
         }
 
@@ -561,7 +573,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         int goal = poolGoal();
         ClientUtils.sendDebugMessage("[StriderFishing] pool holds " + pooledCatchIds.size() + "/" + goal);
         if (soulWhipGoalReached(pooledCatchIds.size(), goal)) {
-            startClear();
+            startClear(mc);
             return;
         }
         emptyCatch = false;
@@ -572,11 +584,41 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         beginReturn(mc);
     }
 
-    private void startClear() {
+    private void startClear(Minecraft mc) {
         capReached = false;
         hotbarCheckPending = true;
         clearWhip();
-        changeState(State.CLEAR);
+        centreThen(mc, State.CLEAR);
+    }
+
+    // at the sawyer spot the throw and the whip both move with the feet, so the player is centred first;
+    // anywhere else the aim is worked out from wherever the player stands
+    private void centreThen(Minecraft mc, State next) {
+        if (!sawyer() || BlockCentering.isCentred(mc.player.position(), homeKeeper.origin())) {
+            changeState(next);
+            return;
+        }
+        if (!homeKeeper.isOnOrigin(mc)) {
+            beginReturn(mc, next);
+            return;
+        }
+        pendingState = next;
+        centering = new BlockCentering(System.currentTimeMillis(), homeKeeper.origin().below());
+        changeState(State.CENTER);
+    }
+
+    private void tickCenter(Minecraft mc) {
+        long now = System.currentTimeMillis();
+        if (centering != null && !centering.tick(mc, now) && now - stateEnteredAt <= CENTER_LIMIT_MS) {
+            return;
+        }
+        centering = null;
+        MacroInput.set(mc.options.keyShift, false);
+        changeState(pendingState);
+    }
+
+    private boolean sawyer() {
+        return FIXED_SPOT.equals(homeKeeper.origin());
     }
 
     private void tickClear(Minecraft mc) {
@@ -853,6 +895,11 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     }
 
     private void beginReturn(Minecraft mc) {
+        beginReturn(mc, State.AIM_LAVA);
+    }
+
+    private void beginReturn(Minecraft mc, State then) {
+        afterReturn = then;
         target = null;
         followMove = 0;
         homeKeeper.beginTrip(mc);
@@ -865,7 +912,9 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         clearAimSearch();
         // the route leaves the camera wherever it was steering, so the lava aim starts from a clean slate
         RotationManager.cancelRotation();
-        changeState(State.AIM_LAVA);
+        State next = afterReturn;
+        afterReturn = State.AIM_LAVA;
+        centreThen(mc, next);
     }
 
     private void fail(String message) {
