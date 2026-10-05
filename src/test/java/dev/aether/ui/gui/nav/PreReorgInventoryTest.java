@@ -65,6 +65,10 @@ class PreReorgInventoryTest {
         }
     }
 
+    // free-text plot fields became plot pickers; same settings, new type
+    private static final Set<String> PLOT_PICKERS = Set.of("AOTV Roof Plots", "Ballsack Shredder Plots",
+            "Drop at Plot TP", "Leave One Pest Plots", "Pest Traps Plot", "Plot Number", "Plots");
+
     private static Map<String, Integer> inventory() {
         MainGUIRegistry.invalidate();
         MainGUIRegistry.refresh();
@@ -111,6 +115,9 @@ class PreReorgInventoryTest {
             String key = entry.getKey();
             String type = key.substring(key.lastIndexOf('\t'));
             String current = RENAMED.containsKey(key) ? RENAMED.get(key) + type : key;
+            if (PLOT_PICKERS.contains(key.substring(0, key.lastIndexOf('\t')))) {
+                current = key.substring(0, key.lastIndexOf('\t')) + "\tPLOT";
+            }
             int expected = entry.getValue() - REMOVED.getOrDefault(key, 0);
             int found = now.getOrDefault(current, 0);
             if (found < expected) {
