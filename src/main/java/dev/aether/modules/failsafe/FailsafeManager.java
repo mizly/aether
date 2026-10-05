@@ -146,6 +146,10 @@ public final class FailsafeManager {
         RotationFailsafe.addGracePeriod(durationMs);
     }
 
+    public static void expectOwnTeleport(long windowMs) {
+        TeleportFailsafe.expectOwnTeleport(windowMs);
+    }
+
     public static int getExpectedSelectedSlot() {
         return InventorySlotFailsafe.getExpectedSelectedSlot();
     }
@@ -405,9 +409,10 @@ public final class FailsafeManager {
         }
 
         if (action == FailsafeAction.RESTART) {
-            if (!FishingMacroManager.canRestartInNewLobby()) {
+            String blockedReason = FishingMacroManager.restartBlockedReason();
+            if (blockedReason != null) {
                 ClientUtils.sendMessage("\u00A7cFailsafe triggered: " + details + " "
-                        + AetherLang.localize("No restart route selected, macro stopped."), false);
+                        + AetherLang.localize(blockedReason), false);
                 MacroStateManager.stopMacro(client, debugReason + " (no restart route)", false);
                 return;
             }

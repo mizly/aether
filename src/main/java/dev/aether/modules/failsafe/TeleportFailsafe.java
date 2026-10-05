@@ -17,6 +17,7 @@ final class TeleportFailsafe {
     private static Vec3 lastPosition;
     private static Level lastLevel;
     private static long ownMovementAt = 0L;
+    private static long ownTeleportUntil = 0L;
     private static volatile long pendingTriggerAt = 0L;
     private static volatile double pendingDistance = 0.0;
     private static volatile boolean triggered = false;
@@ -28,6 +29,7 @@ final class TeleportFailsafe {
         lastPosition = null;
         lastLevel = null;
         ownMovementAt = 0L;
+        ownTeleportUntil = 0L;
         pendingTriggerAt = 0L;
         pendingDistance = 0.0;
         triggered = false;
@@ -56,7 +58,8 @@ final class TeleportFailsafe {
         }
 
         // our own etherwarps are teleports too, and a changed world belongs to the world change failsafe
-        if (PathfindingManager.isNavigating() || FishingMacroManager.isRestarting()) {
+        if (isOwnMovement(PathfindingManager.isNavigating(), FishingMacroManager.isRestarting(), now,
+                ownTeleportUntil)) {
             ownMovementAt = now;
             return;
         }
@@ -70,6 +73,14 @@ final class TeleportFailsafe {
         }
         pendingDistance = distance;
         pendingTriggerAt = now + FailsafeManager.sampleAdditionalTriggerDelayMs();
+    }
+
+    static void expectOwnTeleport(long windowMs) {
+        ownTeleportUntil = Math.max(ownTeleportUntil, System.currentTimeMillis() + windowMs);
+    }
+
+    static boolean isOwnMovement(boolean navigating, boolean restarting, long now, long teleportUntil) {
+        return navigating || restarting || now < teleportUntil;
     }
 
     // walking, sprinting and even terminal velocity falls stay under four blocks a tick

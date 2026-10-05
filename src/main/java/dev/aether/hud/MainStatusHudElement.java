@@ -3,6 +3,8 @@ package dev.aether.hud;
 import dev.aether.config.AetherConfig;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
+import dev.aether.macro.fishing.FishingMacroKind;
+import dev.aether.macro.fishing.FishingMacroManager;
 import dev.aether.modules.metaldetector.MetalDetectorSolver;
 import dev.aether.modules.farming.FastLaneSwitchManager;
 import dev.aether.modules.misc.AutoCarnivalManager;
@@ -129,7 +131,9 @@ public class MainStatusHudElement extends HudElement {
                         ? "Metal Detector"
                         : autoCarnival
                                 ? "Auto Carnival"
-                                : "Farming Macro";
+                                : st == MacroState.State.FISHING
+                                        ? fishingTitle()
+                                        : "Farming Macro";
         int    titleColor = Theme.HUD_TITLE;
         HudStyle.text(nvg, Fonts.BOLD, titleStr, textX, stateY, W - textX - PAD_H - 18f, STATE_SZ, titleColor);
 
@@ -246,6 +250,12 @@ public class MainStatusHudElement extends HudElement {
     }
 
     // ---- Helpers ---------------------------------------------------------------
+
+    // the kind is only set once the manager enables it, a tick after the state turns to fishing
+    private static String fishingTitle() {
+        FishingMacroKind kind = FishingMacroManager.activeKind();
+        return kind == null ? "Fishing" : kind.displayName();
+    }
 
     private static String stateLabel(MacroState.State st) {
         return switch (st) {
