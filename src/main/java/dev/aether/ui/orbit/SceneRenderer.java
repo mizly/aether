@@ -34,6 +34,8 @@ final class SceneRenderer implements AutoCloseable {
 
     private final Matrix4f projection = new Matrix4f();
     private int program;
+    // clip depth the finished picture is sealed at: right up against the eye, ahead of anything drawn after it
+    private static final float SEAL_DEPTH = 0.001f;
     // clip depth of the sky sheet: in front of the far plane, behind anything the scene draws
     private static final float SKY_DEPTH = 0.999f;
 
@@ -94,7 +96,7 @@ final class SceneRenderer implements AutoCloseable {
                 drawArrays(0, mesh.solidCount());
 
                 // the sky fills only what the farm left empty, and sits a hair in front of the far plane
-                sky(stack, frame, true);
+                sky(stack, frame, true, SKY_DEPTH, false);
 
                 if (mesh.waterCount() > 0) {
                     world(stack, frame, mesh, ox, oy, oz);
@@ -174,15 +176,16 @@ final class SceneRenderer implements AutoCloseable {
         GL20.glUniform2f(fogRangeUniform, mesh.radius() - 14f, mesh.radius() - 1f);
     }
 
-    // a vertical gradient over the whole screen at SKY_DEPTH, drawn only where nothing nearer is
-    private void sky(MemoryStack stack, Frame frame, boolean colour) {
+    // a vertical gradient over the whole screen, drawn only where nothing nearer is
+    // depth is the clip depth to lay it at; seal draws it over everything, without testing
+    private void sky(MemoryStack stack, Frame frame, boolean colour, float depth, boolean seal) {
         GL20.glUniformMatrix4fv(matrixUniform, false, new Matrix4f().get(stack.mallocFloat(16)));
         GL20.glUniform3f(offsetUniform, 0f, 0f, 0f);
         GL20.glUniform2f(fogRangeUniform, 1e8f, 2e8f);
         GL20.glUniform1f(alphaUniform, 0f);
         GL20.glUniform1f(solidUniform, 1f);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthFunc(GL11.GL_LEQUAL);
+        GL11.glDepthFunc(seal ? GL11.GL_ALWAYS : GL11.GL_LEQUAL);
         GL11.glDepthMask(true);
         GL11.glDisable(GL11.GL_BLEND);
         GL11.glColorMask(colour, colour, colour, colour);
@@ -190,12 +193,12 @@ final class SceneRenderer implements AutoCloseable {
         GL33C.glBindSampler(0, skinSampler);
         SceneClone.Buffer sky = new SceneClone.Buffer(6);
         int top = SceneClone.rgba(frame.zenith(), 1f, 255), bottom = SceneClone.rgba(frame.horizon(), 1f, 255);
-        sky.vertex(-1, 1, SKY_DEPTH, 0, 0, top);
-        sky.vertex(1, 1, SKY_DEPTH, 1, 0, top);
-        sky.vertex(1, -1, SKY_DEPTH, 1, 1, bottom);
-        sky.vertex(-1, 1, SKY_DEPTH, 0, 0, top);
-        sky.vertex(1, -1, SKY_DEPTH, 1, 1, bottom);
-        sky.vertex(-1, -1, SKY_DEPTH, 0, 1, bottom);
+        sky.vertex(-1, 1, depth, 0, 0, top);
+        sky.vertex(1, 1, depth, 1, 0, top);
+        sky.vertex(1, -1, depth, 1, 1, bottom);
+        sky.vertex(-1, 1, depth, 0, 0, top);
+        sky.vertex(1, -1, depth, 1, 1, bottom);
+        sky.vertex(-1, -1, depth, 0, 1, bottom);
         ByteBuffer data = sky.finish();
         try {
             GL30.glBindVertexArray(vao[2]);
@@ -208,8 +211,8 @@ final class SceneRenderer implements AutoCloseable {
         }
     }
 
-    // after the panels: lifts every pixel still on the far plane just off it, so the passes the game runs after this
-    // (clouds, and whatever paints the far plane black) stay behind the menu's picture
+    // after the panels: pulls every pixel up to just in front of the eye, so nothing the game draws after this (clouds,
+    // weather, the dark void disc below the horizon that blacked out the overview) can land on the menu's picture
     void sealDepth(Frame frame) {
         if (failed || program == 0 || lastFramebuffer == 0) return;
         GlSnapshot saved = GlSnapshot.capture();
@@ -222,7 +225,7 @@ final class SceneRenderer implements AutoCloseable {
             GL20.glUseProgram(program);
             GL20.glUniform1i(samplerUniform, 0);
             GL13.glActiveTexture(GL13.GL_TEXTURE0);
-            sky(stack, frame, false);
+            sky(stack, frame, false, SEAL_DEPTH, true);
         } catch (RuntimeException error) {
             System.err.println("[Aether] Orbit scene depth seal failed: " + error.getMessage());
         } finally {
