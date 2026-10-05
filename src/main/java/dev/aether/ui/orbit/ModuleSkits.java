@@ -919,7 +919,7 @@ final class ModuleSkits {
                 }
             }
             case "Failsafe Settings" -> {
-                if (c < 1.2f) FarmSkits.held(buffer.apply(TOTEM), arm, 0.9f);
+                if (c < 1.2f) FarmSkits.item(buffer.apply(TOTEM), arm, 1f);
                 else if (c < 2.6f) {
                     // the totem rises and swells as it pops, the way it fills the screen in game
                     float k = (c - 1.2f) / 1.4f;
@@ -962,7 +962,8 @@ final class ModuleSkits {
                 float sx = -hw + hw * 2f * (s * 20f + 11f) / 182f;
                 Vector3f sel = new Vector3f(center).fma(sx, right).add(new Vector3f(right).cross(up).mul(0.02f));
                 panel(buffer.apply(HOTBAR_SELECTION), sel, hw * 24f / 182f, hh * 24f / 22f, right, up, 0f, 0f, 1f, 23f / 24f);
-                FarmSkits.held(buffer.apply(HOTBAR_ITEMS[s]), arm, 1f);
+                if (s == 0) FarmSkits.held(buffer.apply(HOTBAR_ITEMS[s]), arm, 1f);
+                else FarmSkits.item(buffer.apply(HOTBAR_ITEMS[s]), arm, 1f);
             }
             case "BPS" -> {
                 FarmSkits.held(buffer.apply(HOE), arm, 1f);
@@ -1023,12 +1024,12 @@ final class ModuleSkits {
                 text(buffer, local, profitText(c), 1.1f, 1.2f + Math.min(c, 4.5f) * 0.05f, 1.1f, 0.13f, 0xFFD700, right, up);
             }
             case "Nick Hider" -> {
-                if (c < 1.15f) FarmSkits.held(buffer.apply(NAME_TAG), arm, 0.8f);
+                if (c < 1.15f) FarmSkits.item(buffer.apply(NAME_TAG), arm, 1f);
                 text(buffer, local, nickText(c), figure.pose.x, 2.3f, figure.pose.z, 0.18f,
                         c < 1.15f ? 0xFFFFFF : c < 2.6f ? 0xAAAAAA : 0x55FFFF, right, up);
             }
             case "Freecam" -> {
-                FarmSkits.held(buffer.apply(SPYGLASS), arm, 0.7f);
+                FarmSkits.item(buffer.apply(SPYGLASS), arm, 1f);
                 Vector3f eye = camAt(c);
                 FarmSkits.billboard(buffer.apply(ENDER_EYE), local, eye.x, eye.y, eye.z, 0.22f, right, up);
             }
@@ -1073,7 +1074,7 @@ final class ModuleSkits {
                             0.375f, 0.375f, 0.625f, 0.625f);
                 }
             }
-            case "HUD Colors", "Menu Colors" -> FarmSkits.held(buffer.apply(dye(c, "Menu Colors".equals(focus))), arm, 0.8f);
+            case "HUD Colors", "Menu Colors" -> FarmSkits.item(buffer.apply(dye(c, "Menu Colors".equals(focus))), arm, 1f);
             case "Miscellaneous" -> circuit(buffer, local, c);
             case "Discord" -> {
                 Matrix4f base = new Matrix4f(local).translate(BELL_AT.x, 0f, BELL_AT.z);

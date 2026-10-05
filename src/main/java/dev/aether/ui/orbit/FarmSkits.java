@@ -405,10 +405,10 @@ final class FarmSkits {
         Matrix4f arm = figure.rightArmFrame();
         switch (focus) {
             case "Farming Macro", "Rewarp" -> held(buffer.apply(HOE), arm, 1f);
-            case "Auto Sprayonator" -> held(buffer.apply(SPRAYER), arm, 0.7f);
+            case "Auto Sprayonator" -> item(buffer.apply(SPRAYER), arm, 1f);
             case "Strider Fishing" -> {
                 held(buffer.apply(bobberOut ? ROD_CAST : ROD), arm, 1.1f);
-                toFarm.transformPosition(arm.transformPosition(0f, -2f, 10.5f, rodTip));
+                toFarm.transformPosition(arm.transformPosition(toolTip(1.1f), rodTip));
                 if (bobberOut) {
                     line(buffer.apply(LINE), local, rodTip, bobber, right, up);
                     billboard(buffer.apply(BOBBER), local, bobber.x, bobber.y + 0.08f, bobber.z, 0.12f, right, up);
@@ -467,10 +467,32 @@ final class FarmSkits {
         SceneActors.face(out, m, 1, 0.06f, 0, 1, 0.06f, 1, 1, 0, 1, 1, 0, 0, 1f, 0.06f, 0.6f);
     }
 
-    // an item sprite in the right hand the way third person holds tools: handle in the fist, head up and forward
+    // a tool in the right hand the way third person holds one: the handle in the fist and the shaft straight out
+    // from it, so the tool points ahead with the arm down and up as the arm comes forward, its blade hooked under.
+    // built in the arm's frame (y along the arm toward the shoulder, z ahead), the sprite's diagonal along z
     static void held(SceneClone.Buffer out, Matrix4f arm, float scale) {
-        Matrix4f m = new Matrix4f(arm).translate(0f, -11f, -1.5f).scale(scale).translate(0f, 11f, 1.5f);
-        SceneActors.face(out, m, 0f, -1f, -1.5f, 0f, -1f, 9.5f, 0f, -12f, 9.5f, 0f, -12f, -1.5f, 1f, 1f, 1f);
+        float l = 11f * scale, h = l * 0.7071f;
+        // handle corner at the fist; right runs out and up the arm, up runs out and down it
+        float y = -11f, z = -1f;
+        SceneActors.face(out, arm, 0f, y - h, z + h, 0f, y, z + 2f * h, 0f, y + h, z + h, 0f, y, z, 1f, 1f, 1f);
+    }
+
+    // where a held tool's tip is, in the arm's frame
+    static Vector3f toolTip(float scale) {
+        return new Vector3f(0f, -11f, -1f + 2f * 11f * scale * 0.7071f);
+    }
+
+    // a bow gripped at its middle: it stands across the arm, upright when the arm points ahead, string toward you
+    static void bow(SceneClone.Buffer out, Matrix4f arm, float scale) {
+        float l = 14f * scale, h = l * 0.7071f;
+        float y = -11f, z = 1f - h;
+        SceneActors.face(out, arm, 0f, y - h, z + h, 0f, y, z + 2f * h, 0f, y + h, z + h, 0f, y, z, 1f, 1f, 1f);
+    }
+
+    // any other item in the hand, the way third person shows one: upright out of the fist, pointing ahead
+    static void item(SceneClone.Buffer out, Matrix4f arm, float scale) {
+        float hw = 4.5f * scale, y = -11f, z = 1.5f;
+        SceneActors.face(out, arm, 0f, y - hw, z + 2f * hw, 0f, y + hw, z + 2f * hw, 0f, y + hw, z, 0f, y - hw, z, 1f, 1f, 1f);
     }
 
     // the fishing line, sagging from the rod tip to the bobber as a thin strip facing the camera

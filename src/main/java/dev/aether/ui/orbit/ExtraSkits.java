@@ -241,7 +241,7 @@ final class ExtraSkits {
         switch (focus) {
             case "Metal Detector" -> {
                 float c = scene % 6.4f;
-                if (c < 3f || c >= 5.3f) FarmSkits.held(buffer.apply(DETECTOR), arm, 0.9f);
+                if (c < 3f || c >= 5.3f) FarmSkits.item(buffer.apply(DETECTOR), arm, 1f);
                 if (c >= 4.4f && c < 5.3f) {
                     float k = clamp01((c - 4.4f) / 0.6f);
                     Vector3f at = new Vector3f(0f, 0.2f + 2.2f * (float) Math.sin(Math.PI * 0.5 * k), 1.05f * (1f - k * 0.7f));
@@ -254,8 +254,8 @@ final class ExtraSkits {
             case "Auto Carnival (Shootout)" -> {
                 float c = scene % 2.4f;
                 int stage = c < 0.35f || c >= 1.2f ? 0 : 1 + Math.min(2, (int) ((c - 0.35f) / 0.3f));
-                FarmSkits.held(buffer.apply(BOW[stage]), arm, 1f);
-                toFarm.transformPosition(arm.transformPosition(0f, -11f, 4f, bowAt));
+                FarmSkits.bow(buffer.apply(BOW[stage]), arm, 1f);
+                toFarm.transformPosition(arm.transformPosition(0f, -11f, 1f, bowAt));
                 for (int i = 0; i < TARGET_X.length; i++) {
                     if (i != target) continue;
                     float pop = Math.min(1f, (scene % 2.4f) / 0.3f);

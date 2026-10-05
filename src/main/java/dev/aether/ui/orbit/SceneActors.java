@@ -1038,7 +1038,7 @@ final class SceneActors implements AutoCloseable {
                 at.y += (float) Math.sin(Math.PI * k) * 0.5f;
                 FarmSkits.billboard(buffer(record), local, at.x, at.y, at.z, 0.2f, right, up);
             }
-            if (spraying) FarmSkits.held(buffer(SPRAYER), figure.rightArmFrame(), 0.7f);
+            if (spraying) FarmSkits.item(buffer(SPRAYER), figure.rightArmFrame(), 1f);
         }
         // the temples in farm blocks, where sweat beads cling
         Matrix4f toFarm = new Matrix4f(local).invert();
