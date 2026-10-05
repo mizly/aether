@@ -470,7 +470,7 @@ Sky Shader	GROUP	1
 SkyBlock Level Override	TEXT	1
 Skybox	SUBTAB	1
 Smart AOTV Routing	TOGGLE	1
-Soul Whip Fishing	GROUP	1
+Soul Whip	GROUP	1
 Soul Whip Slot	SLIDER	1
 Source Mode	DROPDOWN	1
 Spoof Values	GROUP	1

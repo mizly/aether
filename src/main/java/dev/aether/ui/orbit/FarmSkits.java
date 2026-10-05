@@ -81,7 +81,7 @@ final class FarmSkits {
 
     static boolean handles(String focus) {
         return switch (focus == null ? "" : focus) {
-            case "Farming Macro", "Rewarp", "Strider Fishing", "Auto Composter", "Auto Sprayonator" -> true;
+            case "Farming Macro", "Rewarp", "Strider Fishing", "Fishing Macro", "Auto Composter", "Auto Sprayonator" -> true;
             default -> false;
         };
     }
@@ -123,7 +123,7 @@ final class FarmSkits {
         switch (focus) {
             case "Farming Macro" -> farm(dt, pose);
             case "Rewarp" -> rewarp(dt, pose);
-            case "Strider Fishing" -> fishing(dt, pose);
+            case "Strider Fishing", "Fishing Macro" -> fishing(dt, pose);
             case "Auto Composter" -> compost(dt, pose);
             case "Auto Sprayonator" -> spray(dt, pose);
             default -> {
@@ -432,7 +432,7 @@ final class FarmSkits {
         switch (focus) {
             case "Farming Macro", "Rewarp" -> held(buffer.apply(HOE), arm, 1f);
             case "Auto Sprayonator" -> item(buffer.apply(SPRAYER), arm, 1f);
-            case "Strider Fishing" -> {
+            case "Strider Fishing", "Fishing Macro" -> {
                 held(buffer.apply(bobberOut ? ROD_CAST : ROD), arm, 1.1f);
                 toFarm.transformPosition(arm.transformPosition(toolTip(1.1f), rodTip));
                 if (bobberOut) {

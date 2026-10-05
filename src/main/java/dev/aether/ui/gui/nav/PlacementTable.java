@@ -39,7 +39,8 @@ public final class PlacementTable {
                         .page("farming-qol", "Farming QOL", page -> page.icon("minecraft:chest")
                                 .from("Farming QOL").aliases("Inventory & Selling", "Auto Sell")))
                 .pages(Categories.MACROS, pages -> pages
-                        .subTab("Strider Fishing", "minecraft:fishing_rod")
+                        .subTab("Fishing Macro", "minecraft:fishing_rod")
+                        .subTab("Strider Fishing", "minecraft:strider_spawn_egg")
                         .subTab("Metal Detector", "minecraft:iron_pickaxe")
                         .subTab("Auto Carnival (Shootout)", "minecraft:bow"))
                 .pages(Categories.SAFETY, pages -> pages
