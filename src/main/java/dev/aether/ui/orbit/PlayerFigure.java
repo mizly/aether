@@ -18,10 +18,12 @@ final class PlayerFigure {
         float right, rightWeight, left, leftWeight;
         float headYaw, headPitch, tilt, look = 1f;
         float lie;
+        // squash is a crouch (positive) or stretch (negative) of the whole body; squint shuts the eyes
+        float squash, squint;
 
         void reset() {
             x = y = z = facing = bob = lean = roll = turn = legs = legsWeight = 0f;
-            right = rightWeight = left = leftWeight = headYaw = headPitch = tilt = lie = 0f;
+            right = rightWeight = left = leftWeight = headYaw = headPitch = tilt = lie = squash = squint = 0f;
             look = 1f;
         }
     }
@@ -39,6 +41,46 @@ final class PlayerFigure {
     private final Matrix4f hips = new Matrix4f();
     private final Matrix4f rightLeg = new Matrix4f();
     private final Matrix4f leftLeg = new Matrix4f();
+
+    // every channel the skits drive goes through a spring, so a change of pose blends with a little overshoot
+    // and follow-through instead of snapping; arms and head are looser than the body
+    private static final class Channel {
+        final float k, c;
+        float x, v;
+
+        Channel(float k, float zeta) {
+            this.k = k;
+            this.c = 2f * zeta * (float) Math.sqrt(k);
+        }
+
+        float to(float target, float dt) {
+            // small steps keep the stiff springs stable at low frame rates
+            int n = Math.max(1, (int) Math.ceil(dt / (1f / 240f)));
+            float h = dt / n;
+            for (int i = 0; i < n; i++) {
+                v += (-k * (x - target) - c * v) * h;
+                x += v * h;
+            }
+            return x;
+        }
+    }
+
+    private final Channel facingS = new Channel(300f, 0.85f);
+    private final Channel leanS = new Channel(260f, 0.62f);
+    private final Channel rollS = new Channel(260f, 0.62f);
+    private final Channel turnS = new Channel(220f, 0.65f);
+    private final Channel tiltS = new Channel(200f, 0.55f);
+    private final Channel bobS = new Channel(500f, 0.6f);
+    private final Channel legsS = new Channel(900f, 0.75f);
+    private final Channel rightS = new Channel(650f, 0.5f);
+    private final Channel leftS = new Channel(600f, 0.5f);
+    private final Channel headYawS = new Channel(240f, 0.55f);
+    private final Channel headPitchS = new Channel(260f, 0.55f);
+    private final Channel lieS = new Channel(110f, 0.8f);
+    private final Channel squashS = new Channel(420f, 0.35f);
+    private boolean primed;
+    private float lastTime, lastY, lastVy, lastFacing;
+    private float blinkAt = 2f;
 
     // a wave toward a point in farm blocks; the head turns to it for as long as the wave lasts
     void wave(float lx, float lz) {
@@ -105,13 +147,20 @@ final class PlayerFigure {
 
     // appends the figure's triangles; toWorld maps farm blocks to the buffer's space
     void build(SceneClone.Buffer out, Matrix4f toWorld, boolean slim, float time) {
+        float dt = primed ? OrbitRig.clamp(time - lastTime, 0f, 0.1f) : 0f;
         this.time = time;
+        lastTime = time;
         Pose p = pose;
-        float sleep = OrbitRig.clamp(p.lie, 0f, 1f);
-        float awake = 1f - sleep;
+        if (!primed) {
+            primed = true;
+            lastY = p.y;
+            lastFacing = facingS.x = p.facing;
+        }
+        float sleep = OrbitRig.clamp(lieS.to(p.lie, dt), 0f, 1.05f);
+        float awake = 1f - OrbitRig.clamp(sleep, 0f, 1f);
         float waving = time - waveStart;
         float waveK = waving < 1.8f ? (float) Math.sin(Math.min(1f, waving / 1.8f) * Math.PI) : 0f;
-        float breathe = (float) Math.sin(time * 1.9) * 0.15f + sleep * (float) Math.sin(time * 1.2) * 0.45f;
+        float breathe = (float) Math.sin(time * 1.9) * 0.15f + (1f - awake) * (float) Math.sin(time * 1.2) * 0.45f;
 
         // idle weight shift and a wave that turns the whole body toward whoever is greeted
         float bob = p.bob, lean = p.lean, roll = p.roll + (float) Math.sin(time * 0.9) * 2.5f * awake, turn = p.turn;
@@ -127,17 +176,40 @@ final class PlayerFigure {
         float left = lerp(-sway, p.left, OrbitRig.clamp(p.leftWeight, 0f, 1f));
         if (waveK > 0f) right = lerp(right, -165f + (float) Math.sin(waving * 14) * 22f, waveK);
         left = lerp(left, 18f, waveK * 0.5f);
-        right = lerp(right, 0f, sleep);
-        left = lerp(left, 0f, sleep);
+        float flat = OrbitRig.clamp(sleep, 0f, 1f);
+        right = lerp(right, 0f, flat);
+        left = lerp(left, 0f, flat);
 
-        float headYawNow = headYaw.x * 0.85f + p.headYaw;
-        float headPitchNow = headPitch.x + p.headPitch;
-        float tilt = p.tilt + (float) Math.sin(waving * 5) * 12f * waveK + (float) Math.sin(time * 1.3) * 3f * awake;
+        float facing = facingS.to(p.facing, dt);
+        // the head lags a quick turn of the body and catches up, the way a real one does
+        float spin = dt > 0f ? (facing - lastFacing) / dt : 0f;
+        lastFacing = facing;
+        float drag = OrbitRig.clamp(-spin * 0.09f, -40f, 40f);
+        lean = leanS.to(lean, dt);
+        roll = rollS.to(roll, dt);
+        turn = turnS.to(turn, dt);
+        bob = bobS.to(bob, dt);
+        legs = legsS.to(legs, dt);
+        right = rightS.to(right, dt);
+        left = leftS.to(left, dt);
+        float headYawNow = headYawS.to(headYaw.x * 0.85f + p.headYaw + drag, dt);
+        float headPitchNow = headPitchS.to(headPitch.x + p.headPitch, dt);
+        float tilt = tiltS.to(p.tilt + (float) Math.sin(waving * 5) * 12f * waveK, dt) + (float) Math.sin(time * 1.3) * 3f * awake;
+
+        // squash and stretch: stretched while flying up or down, squashed by the landing, plus any crouch asked for
+        float vy = dt > 0f ? (p.y - lastY) / dt : 0f;
+        if (lastVy < -1.2f && vy > lastVy * 0.3f) squashS.v += Math.min(-lastVy, 7f) * 0.55f;
+        lastVy = vy;
+        lastY = p.y;
+        float squash = squashS.to(p.squash, dt);
+        float stretch = OrbitRig.clamp(Math.abs(vy) * 0.03f, 0f, 0.1f) * awake;
+        float sy = 1f - squash + stretch, sxz = 1f + squash * 0.5f - stretch * 0.4f;
+
         int arm = slim ? 3 : 4;
         // lying down tips the figure onto its back, head toward -z, half a block up on the bed
-        hips.set(toWorld).translate(p.x, p.y, p.z).rotateY((float) Math.toRadians(p.facing))
+        hips.set(toWorld).translate(p.x, p.y, p.z).rotateY((float) Math.toRadians(facing))
                 .translate(0f, sleep * 0.68f, 0f).rotateX((float) Math.toRadians(-90f * sleep))
-                .scale(PIXEL).translate(0f, bob, 0f)
+                .scale(PIXEL * sxz, PIXEL * sy, PIXEL * sxz).translate(0f, bob, 0f)
                 .rotateY((float) Math.toRadians(turn + headYaw.x * 0.15f)).rotateZ((float) Math.toRadians(roll));
         // legs hang from the hips at y 12 and stay planted; the upper body bends forward and back at the waist
         rightLeg.set(hips).translate(-2f, 12f, 0f).rotateX((float) Math.toRadians(legs));
@@ -158,6 +230,14 @@ final class PlayerFigure {
                 .rotateY((float) Math.toRadians(headYawNow)).rotateX((float) Math.toRadians(headPitchNow));
         part(out, head, 0, 0, 0, 0, 0, -4, 0, -4, 8, 8, 8, 0, 0, 0f);
         part(out, head, 0, 0, 0, 0, 0, -4, 0, -4, 8, 8, 8, 32, 0, 0.5f);
+        // blinks every few seconds, squints when asked and sleeps with them shut: the brow row of the skin is drawn
+        // down over the eye row
+        if (time > blinkAt + 0.13f) {
+            double r = Math.sin(time * 12.9898) * 43758.5453;
+            blinkAt = time + 2.2f + (float) (r - Math.floor(r)) * 3f;
+        }
+        boolean shut = (time >= blinkAt && time < blinkAt + 0.13f) || sleep > 0.5f || p.squint > 0.5f;
+        if (shut) face(out, head, -4f, 4f, 4.02f, 4f, 4.02f, 4f, 4f, 3f, 4.02f, -4f, 3f, 4.02f, 8, 11, 8, 1);
     }
 
     // a limb box with its outer layer a quarter pixel proud
