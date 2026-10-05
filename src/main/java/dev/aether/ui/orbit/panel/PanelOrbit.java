@@ -189,10 +189,7 @@ final class PanelOrbit {
             Rect sw = new Rect(right - 20f, card.y() + 18f, 20f, 20f);
             float onT = f.anim().spring(toggleId, page.enabled() ? 1f : 0f);
             drawCheckbox(c, p, sw, onT, f.hits().hovered(toggleId) ? 1f : 0f);
-            f.hits().add(toggleId, sw.inset(-6f), HitHandler.click(() -> {
-                page.tab().toggle();
-                if (page.enabled()) style.juice.burst(p.accent());
-            }), Cursor.HAND);
+            f.hits().add(toggleId, sw.inset(-6f), HitHandler.click(page.tab()::toggle), Cursor.HAND);
             right = sw.x() - 12f;
         }
         PanelPaint.fitText(c, SEMIBOLD, 14f, page.name(), tx, card.y() + 21f, right - tx, on ? p.text() : p.textSecondary());

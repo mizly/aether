@@ -135,7 +135,6 @@ final class PanelRows {
                 group.toggle();
                 if (group.isEnabled()) {
                     peeked.remove(groupKey);
-                    style.juice.burst(f.palette().accent());
                 }
             }), Cursor.HAND);
             right -= 52f;
@@ -479,10 +478,7 @@ final class PanelRows {
     private HitHandler rowHandler(PanelFrame f, Setting setting, Key key, Rect row) {
         return HitHandler.click(() -> {
             switch (setting) {
-                case ToggleSetting toggle -> {
-                    toggle.toggle();
-                    if (toggle.getValue()) style.juice.burst(f.palette().accent());
-                }
+                case ToggleSetting toggle -> toggle.toggle();
                 case ActionSetting action -> action.execute();
                 case DropdownSetting dropdown -> style.openDropdown(key, dropdown, f.canvas().toRoot(row));
                 case ColorSetting color -> style.openColor(key, color, f.canvas().toRoot(row));
