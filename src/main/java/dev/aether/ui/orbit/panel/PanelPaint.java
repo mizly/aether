@@ -28,8 +28,9 @@ final class PanelPaint {
 
     // -- palette-derived tones --------------------------------------------------
 
+    // solid, so the sky and ground behind a panel never shade it lighter above the horizon and darker below
     static int windowFill(Palette p) {
-        return Argb.withAlpha(p.panel(), 0.90f);
+        return Argb.withAlpha(p.panel(), 1f);
     }
 
     static int cardFill(Palette p) {
