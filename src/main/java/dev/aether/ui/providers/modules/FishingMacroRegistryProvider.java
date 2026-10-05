@@ -112,6 +112,16 @@ public final class FishingMacroRegistryProvider extends AbstractFishingRegistryP
                             AetherConfig.save();
                         })));
 
+        groups.add(SettingGroup.of(
+                "Use Hyperion",
+                "Swaps to a Hyperion-family blade, looks down and right-clicks until nearby catches die. "
+                        + "Wither Impact also hits ignored mobs within 6 blocks.",
+                () -> AetherConfig.FISHING_MACRO_USE_HYPERION.get(),
+                v -> {
+                    AetherConfig.FISHING_MACRO_USE_HYPERION.set(v);
+                    AetherConfig.save();
+                }));
+
         groups.add(SettingGroup.alwaysOn(
                         "Restart",
                         "Where the macro warps and walks before it starts fishing")

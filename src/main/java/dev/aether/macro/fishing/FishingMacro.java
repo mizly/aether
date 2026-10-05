@@ -9,6 +9,7 @@ import dev.aether.modules.profit.helpers.ActivityRateTracker;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.AetherLang;
 import dev.aether.util.ClientUtils;
+import dev.aether.util.SkyblockItems;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
@@ -85,6 +86,8 @@ public final class FishingMacro extends AbstractFishingMacro {
     // well inside the two degrees of margin every picked throw has either side
     private static final float REUSE_YAW_DRIFT = 0.75f;
     private static final float REUSE_PITCH_DRIFT = 0.5f;
+    // two blade fights in a row without a kill means it cannot hurt what this spot catches
+    private static final int HYPERION_GIVE_UP_STREAK = 2;
     private static final float AIM_SMOOTHING_MS = 110.0f;
     private static final float AIM_MAX_TURN_SPEED = 520.0f;
     private static final double AIM_HEIGHT = 0.6;
@@ -127,6 +130,13 @@ public final class FishingMacro extends AbstractFishingMacro {
     private boolean caughtAny;
     private Entity target;
     private long targetReachedAt;
+    private long fightStartedAt;
+
+    private final HyperionClearer hyperion = new HyperionClearer();
+    private boolean hyperionThisFight;
+    private boolean hyperionOff;
+    private int hyperionGiveUps;
+    private boolean hyperionMissingWarned;
 
     @Override
     public void onEnable(Minecraft mc) {
@@ -392,18 +402,35 @@ public final class FishingMacro extends AbstractFishingMacro {
         ClientUtils.performUseClick();
         target = null;
         fightIds.clear();
+        long now = System.currentTimeMillis();
+        hyperionThisFight = AetherConfig.FISHING_MACRO_USE_HYPERION.get() && !hyperionOff && readyHyperion(mc, now);
         changeState(State.FIGHT);
-        nextActionAt = System.currentTimeMillis() + REEL_SETTLE_MS;
+        fightStartedAt = now;
+        nextActionAt = now + REEL_SETTLE_MS;
+    }
+
+    private boolean readyHyperion(Minecraft mc, long now) {
+        int slot = SkyblockItems.findHotbarSlot(mc, SkyblockItems::isHyperion);
+        if (slot < 0) {
+            if (!hyperionMissingWarned) {
+                hyperionMissingWarned = true;
+                ClientUtils.sendMessage("§e" + AetherLang.localize(
+                        "Fishing Macro: no Hyperion in the hotbar, fighting with the weapon instead."), false);
+            }
+            return false;
+        }
+        hyperion.begin(slot, now);
+        return true;
     }
 
     private void tickFight(Minecraft mc) {
         long now = System.currentTimeMillis();
-        boolean acquiring = now - stateEnteredAt <= ACQUIRE_WINDOW_MS;
+        boolean acquiring = now - fightStartedAt <= ACQUIRE_WINDOW_MS;
         if (acquiring && hookAtReel != null) {
             acquire(mc, now);
         }
         sortCatches(mc, now);
-        pruneFight(mc);
+        pruneFight(mc, now);
 
         if (fightIds.isEmpty()) {
             holdStill(mc);
@@ -414,7 +441,7 @@ public final class FishingMacro extends AbstractFishingMacro {
             return;
         }
 
-        if (now - stateEnteredAt > FIGHT_TIMEOUT_MS) {
+        if (now - fightStartedAt > FIGHT_TIMEOUT_MS) {
             ClientUtils.sendDebugMessage("[FishingMacro] fight timed out, leaving the rest");
             unfoughtIds.addAll(fightIds);
             unfoughtIds.addAll(unsortedIds.keySet());
@@ -424,7 +451,35 @@ public final class FishingMacro extends AbstractFishingMacro {
             return;
         }
 
+        if (hyperionThisFight) {
+            if (!hyperion.givenUp(now)) {
+                fightWithHyperion(mc, now);
+                return;
+            }
+            giveUpHyperion();
+        }
         melee(mc, now);
+    }
+
+    private void fightWithHyperion(Minecraft mc, long now) {
+        holdFightKeys(mc);
+        for (int id : hyperion.tick(mc, now, fightIds, ThreadLocalRandom.current())) {
+            ClientUtils.sendDebugMessage("[FishingMacro] a catch stayed out of the blade's reach, leaving it");
+            fightIds.remove(id);
+            unfoughtIds.add(id);
+        }
+    }
+
+    private void giveUpHyperion() {
+        hyperionThisFight = false;
+        if (++hyperionGiveUps >= HYPERION_GIVE_UP_STREAK) {
+            hyperionOff = true;
+            ClientUtils.sendMessage("§e" + AetherLang.localize(
+                    "Fishing Macro: the Hyperion is not killing anything here, using the weapon for the rest of the session."),
+                    false);
+        } else {
+            ClientUtils.sendDebugMessage("[FishingMacro] the hyperion is not killing it, finishing the fight by hand");
+        }
     }
 
     // every new mob at the float counts, since a double hook brings up two
@@ -520,17 +575,28 @@ public final class FishingMacro extends AbstractFishingMacro {
         return plain != null && plain.toLowerCase(Locale.ROOT).contains(CAP_FULL_LINE);
     }
 
-    private void pruneFight(Minecraft mc) {
+    private void pruneFight(Minecraft mc, long now) {
         fightIds.removeIf(id -> {
             if (CatchWatch.isAlive(mc.level.getEntity(id))) {
                 return false;
             }
             ActivityRateTracker.onMobKilled();
+            onKill(now);
             return true;
         });
         if (target != null && !fightIds.contains(target.getId())) {
             target = null;
         }
+    }
+
+    private void onKill(long now) {
+        if (!hyperionThisFight) {
+            return;
+        }
+        if (hyperion.clickedSinceKill()) {
+            hyperionGiveUps = 0;
+        }
+        hyperion.onKill(now);
     }
 
     private void melee(Minecraft mc, long now) {
@@ -542,16 +608,7 @@ public final class FishingMacro extends AbstractFishingMacro {
 
         RotationManager.trackRotation(mc, target.position().add(0.0, target.getBbHeight() * AIM_HEIGHT, 0.0),
                 AIM_SMOOTHING_MS, AIM_MAX_TURN_SPEED);
-
-        var options = mc.options;
-        MacroInput.set(options.keyUp, false);
-        MacroInput.set(options.keyDown, false);
-        MacroInput.set(options.keyLeft, false);
-        MacroInput.set(options.keyRight, false);
-        MacroInput.set(options.keySprint, false);
-        MacroInput.set(options.keyJump, false);
-        // crouching through the kill is what keeps the player off the edge it was pulled toward
-        MacroInput.set(options.keyShift, true);
+        holdFightKeys(mc);
 
         // vanilla only picks an entity inside the interaction range, so a hit under the crosshair is a hit in reach
         Entity under = mc.hitResult instanceof EntityHitResult hit ? hit.getEntity() : null;
@@ -570,6 +627,18 @@ public final class FishingMacro extends AbstractFishingMacro {
             unfoughtIds.add(target.getId());
             target = null;
         }
+    }
+
+    private static void holdFightKeys(Minecraft mc) {
+        var options = mc.options;
+        MacroInput.set(options.keyUp, false);
+        MacroInput.set(options.keyDown, false);
+        MacroInput.set(options.keyLeft, false);
+        MacroInput.set(options.keyRight, false);
+        MacroInput.set(options.keySprint, false);
+        MacroInput.set(options.keyJump, false);
+        // crouching through the kill is what keeps the player off the edge it was pulled toward
+        MacroInput.set(options.keyShift, true);
     }
 
     static boolean unreachedTooLong(long reachedAt, long now) {
@@ -609,6 +678,7 @@ public final class FishingMacro extends AbstractFishingMacro {
         caughtAny = false;
         target = null;
         targetReachedAt = 0L;
+        hyperionThisFight = false;
     }
 
     private void tickMove(Minecraft mc) {
