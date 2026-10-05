@@ -29,7 +29,14 @@ final class PanelOrbit {
     private static final float PAD = 14f;
     private static final int ESSENTIALS = 4;
 
+    // each failsafe stands for something you would notice in game
+    static final java.util.Map<String, String> FAILSAFE_ITEMS = java.util.Map.of(
+            "GUI Opened", "minecraft:chest", "Rotation", "minecraft:compass", "World Change", "minecraft:ender_pearl",
+            "Inventory Slot Changed", "minecraft:bundle", "BPS", "minecraft:golden_hoe", "Dirt Check", "minecraft:dirt",
+            "Ghost Block", "minecraft:glass", "Player Nearby", "minecraft:player_head", "TP Check", "minecraft:chorus_fruit");
+
     private final PanelStyle style;
+    private String hoveredFailsafe;
 
     PanelOrbit(PanelStyle style) {
         this.style = style;
@@ -117,7 +124,13 @@ final class PanelOrbit {
         float y = origin + 12f;
         c.save();
         c.clip(body);
+        List<PanelNav.Page> failsafes = category.pages().stream().filter(PanelOrbit::isFailsafe).toList();
+        if (active) hoveredFailsafe = null;
+        if (!failsafes.isEmpty()) {
+            y += drawPerimeter(f, failsafes, new Rect(x, y, w, 0f), active) + 10f;
+        }
         for (PanelNav.Page page : category.pages()) {
+            if (isFailsafe(page)) continue;
             y += drawModuleCard(f, page, new Rect(x, y, w, 0f)) + 10f;
         }
         c.restore();
@@ -181,6 +194,101 @@ final class PanelOrbit {
             f.hits().add(moreId, moreRect, HitHandler.click(() -> style.openPage(page.id())), Cursor.HAND);
         }
         return h;
+    }
+
+    static boolean isFailsafe(PanelNav.Page page) {
+        return FAILSAFE_ITEMS.containsKey(page.tab().rawName());
+    }
+
+    String hoveredFailsafe() {
+        return hoveredFailsafe;
+    }
+
+    // the failsafes as one security perimeter: a tile per failsafe with its item, armed lamp, action and delay
+    private float drawPerimeter(PanelFrame f, List<PanelNav.Page> failsafes, Rect top, boolean active) {
+        GuiCanvas c = f.canvas();
+        Palette p = f.palette();
+        int armed = 0;
+        for (PanelNav.Page page : failsafes) if (page.enabled()) armed++;
+        int columns = 3;
+        float gap = 8f;
+        float headH = 50f;
+        float tileW = (top.w() - 24f - gap * (columns - 1)) / columns;
+        float tileH = 62f;
+        int rows = (failsafes.size() + columns - 1) / columns;
+        float h = headH + rows * tileH + (rows - 1) * gap + 14f;
+        Rect card = new Rect(top.x(), top.y(), top.w(), h);
+        if (!c.isVisible(card)) return h;
+        c.roundedRect(card, 12f, PanelPaint.cardFill(p));
+        c.strokeRect(card, 12f, 1f, Argb.mix(PanelPaint.cardBorder(p), p.success(), armed == failsafes.size() ? 0.35f : 0f));
+        PanelPaint.iconTile(c, p, new Rect(card.x() + 12f, card.y() + 8f, 34f, 34f), dev.aether.ui.gui.Icon.item("totem_of_undying"), 22f, 9f);
+        PanelPaint.text(c, SEMIBOLD, 14f, AetherLang.localize("Failsafes"), card.x() + 56f, card.y() + 19f, p.text());
+        String status = armed + " " + AetherLang.localize("of") + " " + failsafes.size() + " " + AetherLang.localize("armed");
+        PanelPaint.text(c, REGULAR, 11.5f, status, card.x() + 56f, card.y() + 35f, p.textMuted());
+        float tx0 = card.x() + 12f;
+        float ty = card.y() + headH;
+        for (int i = 0; i < failsafes.size(); i++) {
+            PanelNav.Page page = failsafes.get(i);
+            float tx = tx0 + (i % columns) * (tileW + gap);
+            float tyy = ty + (i / columns) * (tileH + gap);
+            Rect tile = new Rect(tx, tyy, tileW, tileH);
+            drawFailsafeTile(f, page, tile, active);
+        }
+        return h;
+    }
+
+    private void drawFailsafeTile(PanelFrame f, PanelNav.Page page, Rect tile, boolean active) {
+        GuiCanvas c = f.canvas();
+        Palette p = f.palette();
+        boolean on = page.enabled();
+        String id = "orbit.failsafe." + page.id();
+        String lampId = id + ".lamp";
+        boolean hover = f.hits().hovered(id) || f.hits().hovered(lampId);
+        if (hover && active) hoveredFailsafe = page.tab().rawName();
+        float h = f.anim().hover(id, hover);
+        c.roundedRect(tile, 10f, Argb.mix(PanelPaint.windowFill(p), p.text(), 0.03f + 0.04f * h));
+        c.strokeRect(tile, 10f, 1f, Argb.mix(PanelPaint.hairline(p), on ? p.success() : p.border(), on ? 0.45f : 0.2f));
+        String item = FAILSAFE_ITEMS.get(page.tab().rawName());
+        c.save();
+        if (!on) c.alpha(0.5f);
+        PanelPaint.icon(c, dev.aether.ui.gui.Icon.item(item), tile.x() + 20f, tile.y() + 19f, 30f, 0xFFFFFFFF);
+        c.restore();
+        float textX = tile.x() + 40f;
+        float lampX = tile.right() - 13f;
+        PanelPaint.fitText(c, SEMIBOLD, 11.5f, page.name(), textX, tile.y() + 16f, lampX - textX - 10f, on ? p.text() : p.textSecondary());
+        PanelPaint.fitText(c, REGULAR, 10f, failsafeSummary(page), tile.x() + 10f, tile.y() + 44f, tile.w() - 20f, p.textMuted());
+        float glow = f.anim().spring(lampId, on ? 1f : 0f);
+        if (glow > 0.01f) c.circle(lampX, tile.y() + 16f, 7f, Argb.withAlpha(p.success(), 0.22f * glow));
+        c.circle(lampX, tile.y() + 16f, 4f, Argb.mix(Argb.mix(p.border(), p.text(), 0.15f), p.success(), glow));
+        if (active) {
+            f.hits().add(lampId, new Rect(lampX - 11f, tile.y() + 5f, 22f, 22f), HitHandler.click(page.tab()::toggle), Cursor.HAND);
+            f.hits().add(id, tile, HitHandler.click(() -> style.openPage(page.id())), Cursor.HAND);
+        }
+    }
+
+    // "Stop · 1.5s" from the failsafe's own Action and Trigger Delay settings
+    private static String failsafeSummary(PanelNav.Page page) {
+        String action = null;
+        String delay = null;
+        for (SettingGroup group : page.tab().groups()) {
+            for (Setting setting : group.getSettings()) {
+                if (action == null && setting instanceof dev.aether.ui.settings.DropdownSetting dropdown
+                        && setting.getRawName().equalsIgnoreCase("Action")) {
+                    action = dropdown.getSelectedOption();
+                }
+                if (delay == null && setting.getRawName().toLowerCase(java.util.Locale.ROOT).contains("delay")) {
+                    if (setting instanceof dev.aether.ui.settings.SliderSetting slider) {
+                        delay = PanelRows.formatValue(slider.getValue(), slider.getDecimals(), slider.getSuffix());
+                    } else if (setting instanceof dev.aether.ui.settings.RangeSliderSetting range) {
+                        delay = PanelRows.formatValue(range.getLowerValue(), range.getDecimals(), "") + "–"
+                                + PanelRows.formatValue(range.getUpperValue(), range.getDecimals(), range.getSuffix());
+                    }
+                }
+            }
+        }
+        if (action == null && delay == null) return page.description();
+        if (action == null) return delay;
+        return delay == null ? action : action + " · " + delay;
     }
 
     // the first few quick settings of a page, in order; returns how many visible settings it has in total

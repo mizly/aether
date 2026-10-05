@@ -149,6 +149,25 @@ public final class PanelView {
         style.openPage(pageId);
     }
 
+    // the failsafe tile under the cursor on the front panel, for the ring around the player
+    public String orbitHoveredFailsafe() {
+        return style.orbit.hoveredFailsafe();
+    }
+
+    // every failsafe as raw name, item and armed state, in panel order
+    public java.util.List<String[]> orbitFailsafes() {
+        java.util.List<String[]> out = new java.util.ArrayList<>();
+        for (PanelNav.Category category : style.nav.categories()) {
+            for (PanelNav.Page page : category.pages()) {
+                if (PanelOrbit.isFailsafe(page)) {
+                    out.add(new String[]{page.tab().rawName(), PanelOrbit.FAILSAFE_ITEMS.get(page.tab().rawName()),
+                            page.enabled() ? "1" : "0", page.name()});
+                }
+            }
+        }
+        return out;
+    }
+
     public boolean orbitModuleOpen() {
         return style.location().pageId() != null;
     }
