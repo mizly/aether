@@ -184,6 +184,16 @@ public final class PanelView {
         return out;
     }
 
+    // the module the front panel is about: its open page, else the card under the cursor; raw name and on state
+    public record Focus(String name, boolean enabled) {
+    }
+
+    public Focus orbitFocusModule() {
+        PanelNav.Page page = style.nav.page(style.location().pageId());
+        if (page == null) page = style.orbit.hoveredCard();
+        return page == null ? null : new Focus(page.tab().rawName(), !page.hasToggle() || page.enabled());
+    }
+
     public Hover orbitHover() {
         return style.overlays.isOpen() ? null : style.hover;
     }

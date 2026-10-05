@@ -22,13 +22,14 @@ import org.lwjgl.system.MemoryStack;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 // draws the menu's own little world into the main target in place of the level: a sky, the cloned blocks from the
 // game's block atlas, the player figure in their skin, then water. raw gl, every touched state put back after
 final class SceneRenderer implements AutoCloseable {
     // what one frame needs beyond the mesh: where the figure stands and how the sky looks
     record Frame(double anchorX, double anchorY, double anchorZ, float yaw, SceneClone.Buffer figure,
-                 Identifier skin, int zenith, int horizon) {
+                 Identifier skin, int zenith, int horizon, List<SceneActors.Draw> actors, SceneClone.Buffer blocks) {
     }
 
     private final Matrix4f projection = new Matrix4f();
@@ -130,6 +131,28 @@ final class SceneRenderer implements AutoCloseable {
                         GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, frame.figure().count);
                     }
                 }
+                // the farm's actors, each model with its own entity texture, then their blocks from the atlas
+                GL20.glUniformMatrix4fv(matrixUniform, false, projection.get(stack.mallocFloat(16)));
+                GL20.glUniform3f(offsetUniform, 0f, 0f, 0f);
+                GL20.glUniform2f(fogRangeUniform, 1e8f, 2e8f);
+                GL20.glUniform1f(alphaUniform, 0.1f);
+                GL20.glUniform1f(solidUniform, 1f);
+                GL11.glEnable(GL11.GL_DEPTH_TEST);
+                GL11.glDisable(GL11.GL_BLEND);
+                if (frame.actors() != null) {
+                    for (SceneActors.Draw draw : frame.actors()) {
+                        int tex = texture(client, draw.texture());
+                        if (tex == 0) continue;
+                        GL11.glBindTexture(GL11.GL_TEXTURE_2D, tex);
+                        GL33C.glBindSampler(0, skinSampler);
+                        stream(draw.buffer());
+                    }
+                }
+                if (frame.blocks() != null && frame.blocks().count > 0) {
+                    GL11.glBindTexture(GL11.GL_TEXTURE_2D, atlas);
+                    GL33C.glBindSampler(0, atlasSampler);
+                    stream(frame.blocks());
+                }
             }
             lastFramebuffer = framebuffer;
             lastWidth = target.width;
@@ -206,6 +229,15 @@ final class SceneRenderer implements AutoCloseable {
             saved.restore();
             lastFramebuffer = 0;
         }
+    }
+
+    private void stream(SceneClone.Buffer buffer) {
+        int count = buffer.count;
+        ByteBuffer data = buffer.finish();
+        GL30.glBindVertexArray(vao[2]);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo[2]);
+        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, data, GL15.GL_STREAM_DRAW);
+        GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, count);
     }
 
     private void drawArrays(int index, int count) {

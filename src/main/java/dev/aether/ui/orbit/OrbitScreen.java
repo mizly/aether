@@ -82,6 +82,7 @@ public final class OrbitScreen extends Screen {
     private SceneClone.Mesh clone;
     private final SceneRenderer sceneRenderer = new SceneRenderer();
     private final PlayerFigure figure = new PlayerFigure();
+    private final SceneActors actors = new SceneActors();
     private SceneClone.Buffer figureBuffer;
     private final OrbitSearchBar searchBar;
     private String focused;
@@ -320,6 +321,8 @@ public final class OrbitScreen extends Screen {
         Vector3d target = new Vector3d(cam.pos()).fma(14, dir).sub(anchor);
         float lx = (float) (target.x * Math.cos(yaw) + target.z * Math.sin(yaw));
         float lz = (float) (-target.x * Math.sin(yaw) + target.z * Math.cos(yaw));
+        var focus = overview() || state != State.OPEN ? null : view.orbitFocusModule();
+        actors.update(lastDt, clock, focus == null ? null : focus.name(), focus != null && focus.enabled(), figure);
         figure.lookAt(lx, (float) target.y, lz, lastDt);
         if (figureBuffer == null) figureBuffer = new SceneClone.Buffer(512);
         figureBuffer.reset();
@@ -330,8 +333,13 @@ public final class OrbitScreen extends Screen {
         var skin = player.getSkin();
         figure.build(figureBuffer, toWorld, skin.model() == net.minecraft.world.entity.player.PlayerModelType.SLIM, clock);
         boolean crimson = island == OrbitIsland.CRIMSON_ISLE;
+        Vector3d lens = new Vector3d(cam.pos()).sub(anchor);
+        Vector3d camLocal = new Vector3d(lens.x * Math.cos(yaw) + lens.z * Math.sin(yaw), lens.y,
+                -lens.x * Math.sin(yaw) + lens.z * Math.cos(yaw));
+        var draws = actors.build(toWorld, camLocal);
         var frame = new SceneRenderer.Frame(anchor.x, anchor.y, anchor.z, sceneYaw(), figureBuffer,
-                skin.body().texturePath(), crimson ? 0xFF2A0A10 : 0xFF6FA2E8, crimson ? 0xFF7A2E1C : 0xFFC7DDF5);
+                skin.body().texturePath(), crimson ? 0xFF2A0A10 : 0xFF6FA2E8, crimson ? 0xFF7A2E1C : 0xFFC7DDF5,
+                draws, actors.blocks());
         sceneRenderer.draw(clone, frame);
         renderWorld();
         sceneRenderer.sealDepth(frame);
@@ -467,6 +475,11 @@ public final class OrbitScreen extends Screen {
                         SettingPreview.liveRewarps());
                 settingPreview.appendQuads(quads, world, layout.camera(), clock);
             }
+        }
+        if (clone != null && player != null) {
+            Vector3d anchorNow = sceneAnchor(player.getPosition(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true)));
+            boolean slim = player.getSkin().model() == net.minecraft.world.entity.player.PlayerModelType.SLIM;
+            actors.appendQuads(quads, local -> rigToWorld(anchorNow, local.x, local.y, local.z), layout.camera(), figure, slim);
         }
         Vec3 eye = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         quads.sort(Comparator.comparingDouble((OrbitWorldRenderer.Quad q) -> -distanceSq(q, eye)));
@@ -836,6 +849,7 @@ public final class OrbitScreen extends Screen {
         view.close();
         for (PanelSurface surface : surfaces) surface.close();
         failsafeRing.close();
+        actors.close();
         shadowSurface.close();
         settingPreview.close();
         sceneRenderer.close();

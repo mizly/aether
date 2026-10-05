@@ -37,6 +37,7 @@ final class PanelOrbit {
 
     private final PanelStyle style;
     private String hoveredFailsafe;
+    private PanelNav.Page hoveredCard;
 
     PanelOrbit(PanelStyle style) {
         this.style = style;
@@ -125,7 +126,10 @@ final class PanelOrbit {
         c.save();
         c.clip(body);
         List<PanelNav.Page> failsafes = category.pages().stream().filter(PanelOrbit::isFailsafe).toList();
-        if (active) hoveredFailsafe = null;
+        if (active) {
+            hoveredFailsafe = null;
+            hoveredCard = null;
+        }
         if (!failsafes.isEmpty()) {
             y += drawPerimeter(f, failsafes, new Rect(x, y, w, 0f), active) + 10f;
         }
@@ -155,7 +159,9 @@ final class PanelOrbit {
         Rect card = new Rect(top.x(), top.y(), top.w(), h);
         if (!c.isVisible(card)) return h;
         // the card rises a little under the cursor, its shadow spreading as it lifts
-        float lift = f.anim().hover("orbit.card." + page.id(), under(f, card));
+        boolean over = under(f, card);
+        if (over) hoveredCard = page;
+        float lift = f.anim().hover("orbit.card." + page.id(), over);
         c.save();
         if (lift > 0.01f) c.shadow(card.offset(0f, 4f), 12f, 14f, PanelPaint.shadow(p, 0.5f * lift));
         c.translate(0f, -3f * lift);
@@ -221,6 +227,10 @@ final class PanelOrbit {
 
     String hoveredFailsafe() {
         return hoveredFailsafe;
+    }
+
+    PanelNav.Page hoveredCard() {
+        return hoveredCard;
     }
 
     // the failsafes as one security perimeter: a tile per failsafe with its item, armed lamp, action and delay
