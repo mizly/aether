@@ -731,13 +731,14 @@ public final class OrbitScreen extends Screen {
             searchBar.scroll(scrollY);
             return true;
         }
-        if (hasControlDown()) {
+        OrbitLayout.Placement hit = pick(x, y);
+        boolean overFront = hit != null && hit.active() && !overview();
+        // the panel under the cursor always gets the wheel, so a modifier stuck down can't hijack scrolling
+        if (hasControlDown() && !overFront) {
             setOverview(scrollY < 0);
             return true;
         }
-        OrbitLayout.Placement hit = pick(x, y);
-        if (!overview() && !hasShiftDown()) {
-            boolean overFront = hit != null && hit.active();
+        if (!overview() && (overFront || !hasShiftDown())) {
             if (overFront) {
                 float[] local = intersect(hit, rayDirection(x, y));
                 if (local != null && view.scrolled(local[0], local[1], scrollX, scrollY)) return true;
@@ -881,9 +882,12 @@ public final class OrbitScreen extends Screen {
                 || com.mojang.blaze3d.platform.InputConstants.isKeyDown(window, b);
     }
 
+    // command stands in for control on macs only, like vanilla; elsewhere super belongs to the desktop and its
+    // release can go to the compositor, leaving glfw thinking it is held and every wheel turn a zoom out
     private static boolean hasControlDown() {
-        return down(GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL)
-                || down(GLFW.GLFW_KEY_LEFT_SUPER, GLFW.GLFW_KEY_RIGHT_SUPER);
+        boolean mac = net.minecraft.util.Util.getPlatform() == net.minecraft.util.Util.OS.OSX;
+        return mac ? down(GLFW.GLFW_KEY_LEFT_SUPER, GLFW.GLFW_KEY_RIGHT_SUPER)
+                : down(GLFW.GLFW_KEY_LEFT_CONTROL, GLFW.GLFW_KEY_RIGHT_CONTROL);
     }
 
     private static boolean hasShiftDown() {
