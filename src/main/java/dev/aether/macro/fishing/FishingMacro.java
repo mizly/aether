@@ -141,6 +141,7 @@ public final class FishingMacro extends AbstractFishingMacro {
     private boolean hyperionMissingWarned;
 
     private final WandHealer healer = new WandHealer();
+    private final HotspotDetector hotspots = new HotspotDetector();
     private State healResume = State.AIM;
     private long healReelAt;
     private int ticks;
@@ -158,6 +159,7 @@ public final class FishingMacro extends AbstractFishingMacro {
         unfoughtIds.clear();
         capFullSeen = false;
         healReelAt = 0L;
+        hotspots.clear();
         idle.clear();
         changeState(State.AIM);
         BlockPos origin = homeKeeper.origin();
@@ -190,6 +192,9 @@ public final class FishingMacro extends AbstractFishingMacro {
         }
         ticks++;
         healer.confirm(mc, System.currentTimeMillis());
+        if (aimAt() == AimAt.HOTSPOT) {
+            hotspots.tick(mc);
+        }
 
         // a turn has to land before the look it was for can be checked; the bite still has to be polled every tick
         if ((state == State.AIM || state == State.CAST) && RotationManager.isRotating()) {
@@ -833,12 +838,20 @@ public final class FishingMacro extends AbstractFishingMacro {
         return pitch >= Math.min(min, max) - PITCH_SLACK && pitch <= Math.max(min, max) + PITCH_SLACK;
     }
 
-    private static Predicate<BlockState> pickLiquid(Minecraft mc) {
-        return switch (AimAt.fromConfig(AetherConfig.FISHING_MACRO_AIM_AT.get())) {
+    private Predicate<BlockState> pickLiquid(Minecraft mc) {
+        return switch (aimAt()) {
             case LAVA -> CastSim::isLava;
             case WATER -> CastSim::isWater;
-            case HOTSPOT -> nearestLiquid(mc);
+            case HOTSPOT -> {
+                HotspotDetector.Hotspot hotspot = HotspotDetector.nearest(hotspots.seen(), mc.player.position(),
+                        Set.of());
+                yield hotspot != null ? hotspot.liquid() : nearestLiquid(mc);
+            }
         };
+    }
+
+    private static AimAt aimAt() {
+        return AimAt.fromConfig(AetherConfig.FISHING_MACRO_AIM_AT.get());
     }
 
     private static Predicate<BlockState> nearestLiquid(Minecraft mc) {
