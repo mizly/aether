@@ -20,8 +20,13 @@ final class SceneActors implements AutoCloseable {
     }
 
     // what the skits read each frame: the focused module by raw page name, whether it is on, and its numbers
-    record Inputs(String focus, boolean enabled, int visitors, int pests, double money) {
+    // item is the module's icon, which a module without its own skit shows off
+    record Inputs(String focus, boolean enabled, int visitors, int pests, double money, String item) {
         static final Inputs NONE = new Inputs(null, false, 0, 0, 0);
+
+        Inputs(String focus, boolean enabled, int visitors, int pests, double money) {
+            this(focus, enabled, visitors, pests, money, null);
+        }
     }
 
     private static final Identifier VILLAGER = mc("textures/entity/villager/villager.png");
@@ -46,6 +51,9 @@ final class SceneActors implements AutoCloseable {
     private static final Identifier PATH = mc("textures/block/dirt_path_top.png");
     private static final Identifier GRASS = mc("textures/block/grass_block_top.png");
     private static final Identifier EMERALD = mc("textures/item/emerald.png");
+    private static final Identifier JUKE_TOP = mc("textures/block/jukebox_top.png");
+    private static final Identifier JUKE_SIDE = mc("textures/block/jukebox_side.png");
+    private static final Identifier SPRAYER = mc("textures/item/glass_bottle.png");
     private static final int GRASS_TINT = 0x91BD59;
     private static final String[] METALS = {"gold", "diamond", "netherite"};
 
@@ -72,6 +80,8 @@ final class SceneActors implements AutoCloseable {
 
     private static final class Pest {
         final int index;
+        // which skyblock pest's head it wears
+        int head;
         final Vector3f at = new Vector3f();
         final Vector3f last = new Vector3f();
         boolean shown;
@@ -79,6 +89,7 @@ final class SceneActors implements AutoCloseable {
 
         Pest(int index) {
             this.index = index;
+            this.head = index;
         }
     }
 
@@ -98,9 +109,11 @@ final class SceneActors implements AutoCloseable {
     private final Map<Identifier, SceneClone.Buffer> buffers = new LinkedHashMap<>();
     private final List<Villager> villagers = new ArrayList<>();
     private final List<Pest> pests = new ArrayList<>();
+    private final List<Pest> lured = new ArrayList<>();
     private final List<Crafted> crafted = new ArrayList<>();
     private final SceneParticles particles = new SceneParticles();
     private final FarmSkits farm = new FarmSkits(particles);
+    private final ExtraSkits extra = new ExtraSkits(particles);
 
     private String focus;
     private float scene;
@@ -167,6 +180,13 @@ final class SceneActors implements AutoCloseable {
 
         pests(dt, pestsOn ? clamp(in.pests(), 0, 8) : 0, pose);
         farm.update(dt, scene, time, focus, in.enabled(), pose);
+        boolean dynamic = "Dynamic Pests".equals(focus);
+        jukebox = dynamic ? (jukebox < 0f ? 0f : jukebox + dt) : (jukebox < 0f ? -1f : Math.min(jukebox, shownFor) - dt * 3f);
+        if (!dynamic && jukebox < 0f) jukebox = -1f;
+        if (dynamic && jukebox - dt < DROP && jukebox >= DROP) landed(JUKEBOX.x, JUKEBOX.z);
+        dynamicPests(dt, dynamic, pose);
+        boolean own = visitors || crafting || pestsOn || resting || loadout || dynamic || FarmSkits.handles(focus);
+        extra.update(dt, scene, time, focus, own, in.item() == null ? null : Identifier.tryParse(in.item()), pose);
         if (!pestsOn) vacuum = Math.max(0f, vacuum - dt * 4f);
 
         if (loadout) {
@@ -721,6 +741,138 @@ final class SceneActors implements AutoCloseable {
         }
     }
 
+    // dynamic pests: a jukebox lands, you put a vinyl on, spray all round you, and the pests that vinyl draws
+    // come flying in to circle you; when the record ends it pops back out and the next one goes on
+    private static final Vector3f JUKEBOX = new Vector3f(1.7f, 0f, 1.4f);
+    private static final String[] DISCS = {"13", "cat", "blocks", "chirp", "far", "mall"};
+    private static final int[] SPRAY_TINT = {0x7FE36A, 0xC26BFF, 0xFFD24A, 0x6BD8FF, 0xFF7A6B, 0xB8FF6B};
+    private static final float DYN_LOOP = 9f;
+
+    private float jukebox = -1f, jukeHit, noteTimer, discAt = -1f, discBack = -1f;
+    private boolean disc, spraying;
+    private int vinyl;
+
+    private void dynamicPests(float dt, boolean on, PlayerFigure.Pose pose) {
+        while (lured.size() < 4) lured.add(new Pest(lured.size()));
+        jukeHit = Math.max(0f, jukeHit - dt);
+        if (!on) {
+            for (Pest p : lured) {
+                if (p.shown) particles.poof(p.at.x, p.at.y, p.at.z, 5, 0.2f);
+                p.shown = false;
+            }
+            disc = spraying = false;
+            discAt = discBack = -1f;
+            return;
+        }
+        float c = scene % DYN_LOOP;
+        vinyl = (int) (scene / DYN_LOOP) % DISCS.length;
+        float face = (float) Math.toDegrees(Math.atan2(JUKEBOX.x, JUKEBOX.z));
+        pose.facing = face;
+        pose.look = 0.3f;
+        disc = c >= 0.7f && c < 1.5f;
+        spraying = c >= 2.4f && c < 4.6f;
+        if (c < 0.7f) {
+            pose.headYaw = 0f;
+        } else if (c < 1.5f) {
+            // the vinyl comes out and up for a look
+            float k = (c - 0.7f) / 0.8f;
+            pose.right = -150f * smooth(k / 0.5f);
+            pose.rightWeight = 1f;
+            pose.headPitch = -18f * smooth(k / 0.5f);
+        } else if (c < 1.9f) {
+            // in it goes
+            float k = (c - 1.5f) / 0.4f;
+            if (c - dt < 1.5f) discAt = 0f;
+            pose.right = -150f + 90f * smooth(k);
+            pose.rightWeight = 1f;
+            pose.lean = 10f * (float) Math.sin(Math.PI * k);
+        } else if (c < 2.4f) {
+            // a little nod to the music
+            pose.headPitch = (float) Math.sin(c * 14) * 10f;
+            pose.y = Math.abs((float) Math.sin(c * 7)) * 0.05f;
+        } else if (c < 4.6f) {
+            // spin round, misting the air with the vinyl's spray
+            float k = (c - 2.4f) / 2.2f;
+            pose.facing = face + 360f * smooth(k);
+            pose.right = -80f + (float) Math.sin(time * 20) * 3f;
+            pose.rightWeight = 1f;
+            pose.squint = 0f;
+            double f = Math.toRadians(pose.facing);
+            float fx = (float) Math.sin(f), fz = (float) Math.cos(f);
+            for (int i = 0; i < 2; i++) {
+                particles.spell(fx * 0.6f - fz * 0.3f, 1.05f, fz * 0.6f + fx * 0.3f, fx * 0.12f + (float) (Math.random() - 0.5) * 0.04f,
+                        0.01f + (float) Math.random() * 0.02f, fz * 0.12f + (float) (Math.random() - 0.5) * 0.04f,
+                        SPRAY_TINT[vinyl]);
+            }
+        } else if (c < 5.0f) {
+            // waiting, looking round for them
+            pose.facing = face + 360f;
+            pose.headYaw = (float) Math.sin((c - 4.6f) * 12) * 40f;
+        } else if (c < 7.6f) {
+            pose.facing = face + 360f;
+            float k = c - 5.0f;
+            if (k < 0.6f) {
+                // they're here: a jump for joy
+                float air = clamp01((k - 0.1f) / 0.5f);
+                pose.squash = k < 0.1f ? 0.25f : 0f;
+                pose.y = (float) Math.sin(Math.PI * air) * 0.35f;
+                pose.right = pose.left = -165f * (float) Math.sin(Math.PI * air);
+                pose.rightWeight = pose.leftWeight = 1f;
+            } else {
+                // following them round with fist pumps
+                pose.right = -120f - 40f * Math.abs((float) Math.sin(c * 6));
+                pose.rightWeight = 1f;
+                pose.headYaw = (float) Math.sin(c * 1.6f) * 50f;
+                pose.headPitch = -12f;
+            }
+        } else {
+            pose.facing = face + 360f;
+            if (c - dt < 7.6f) discBack = 0f;
+            pose.right = -60f * smooth(clamp01((c - 7.6f) / 0.3f));
+            pose.rightWeight = 1f;
+        }
+        if (discAt >= 0f) {
+            discAt += dt;
+            if (discAt >= 0.4f) {
+                discAt = -1f;
+                jukeHit = 0.15f;
+                for (int i = 0; i < 3; i++) particles.note(JUKEBOX.x, 1.2f, JUKEBOX.z);
+            }
+        }
+        if (discBack >= 0f) {
+            discBack += dt;
+            if (discBack >= 0.45f) discBack = -1f;
+        }
+        boolean playing = c >= 1.9f && c < 7.6f;
+        noteTimer -= dt;
+        if (playing && noteTimer <= 0f) {
+            noteTimer = 0.35f;
+            particles.note(JUKEBOX.x + (float) (Math.random() - 0.5) * 0.4f, 1.15f, JUKEBOX.z + (float) (Math.random() - 0.5) * 0.4f);
+        }
+        for (Pest p : lured) {
+            p.head = vinyl;
+            float due = 5.0f + p.index * 0.15f;
+            boolean want = c >= due && c < 7.6f;
+            double a = p.index * Math.PI / 2 + c * (1.3 + p.index * 0.15);
+            Vector3f target = new Vector3f((float) Math.cos(a) * (1.8f + 0.2f * p.index), 1.4f + (float) Math.sin(c * 3 + p.index) * 0.25f,
+                    (float) Math.sin(a) * (1.8f + 0.2f * p.index));
+            if (want && !p.shown) {
+                // in from out over the field
+                p.at.set(target).mul(2.2f, 1f, 2.2f).add(0f, 0.8f, 0f);
+                p.last.set(p.at);
+                p.shownFor = 0f;
+                p.scale = 1f;
+                particles.poof(p.at.x, p.at.y, p.at.z, 7, 0.25f);
+            }
+            if (!want && p.shown) particles.poof(p.at.x, p.at.y, p.at.z, 7, 0.25f);
+            p.shown = want;
+            if (!want) continue;
+            p.shownFor += dt;
+            p.last.set(p.at);
+            p.at.lerp(target, 1f - (float) Math.exp(-dt * 3.5f));
+        }
+    }
+
     // where the vacuum's mouth is, held out in front of you
     private static Vector3f nozzle(PlayerFigure.Pose pose) {
         double f = Math.toRadians(pose.facing);
@@ -813,9 +965,11 @@ final class SceneActors implements AutoCloseable {
     List<Draw> build(Matrix4f local, Vector3d camLocal, Vector3f right, Vector3f up, PlayerFigure figure) {
         for (SceneClone.Buffer b : buffers.values()) b.reset();
         for (Villager v : villagers) villagerFrame(v, local);
-        for (Pest p : pests) {
+        List<Pest> flying = new ArrayList<>(pests);
+        flying.addAll(lured);
+        for (Pest p : flying) {
             if (!p.shown) continue;
-            Identifier skin = heads.apply(p.index);
+            Identifier skin = heads.apply(p.head);
             if (skin == null) continue;
             float grow = backOut(Math.min(1f, p.shownFor / 0.35f)) * 0.8f * p.scale;
             float wobble = (float) (Math.sin(p.shownFor * 24) * Math.exp(-p.shownFor * 6) * 0.35);
@@ -871,11 +1025,30 @@ final class SceneActors implements AutoCloseable {
         if (bars > 0) goldBars(figure);
         if (cap > 0f) nightcap(figure.headFrame(), backOut(cap));
         if (vacuum > 0.01f) vacuum(figure.rightArmFrame(), backOut(vacuum));
+        if (jukebox >= 0f) {
+            float squash = jukeHit > 0f ? (float) Math.sin(Math.PI * jukeHit / 0.15f) * 0.15f : 0f;
+            Matrix4f m = drop(new Matrix4f(local).translate(JUKEBOX.x, 0f, JUKEBOX.z), jukebox, "Dynamic Pests".equals(focus))
+                    .scale(1f + squash * 0.5f, 1f - squash, 1f + squash * 0.5f).translate(-0.5f, 0f, -0.5f);
+            cube(m, 0, 0, 0, 1, 1, 1, JUKE_TOP, JUKE_SIDE, JUKE_SIDE, JUKE_SIDE, JUKE_SIDE, JUKE_SIDE);
+            Identifier record = mc("textures/item/music_disc_" + DISCS[vinyl] + ".png");
+            Matrix4f toFarm = new Matrix4f(local).invert();
+            Vector3f hand = toFarm.transformPosition(figure.rightArmFrame().transformPosition(0f, -11f, 0f, new Vector3f()));
+            Vector3f slot = new Vector3f(JUKEBOX.x, 1.05f, JUKEBOX.z);
+            if (disc) FarmSkits.billboard(buffer(record), local, hand.x, hand.y + 0.1f, hand.z, 0.2f, right, up);
+            if (discAt >= 0f || discBack >= 0f) {
+                float k = discAt >= 0f ? clamp01(discAt / 0.4f) : 1f - clamp01(discBack / 0.45f);
+                Vector3f at = new Vector3f(hand).lerp(slot, smooth(k));
+                at.y += (float) Math.sin(Math.PI * k) * 0.5f;
+                FarmSkits.billboard(buffer(record), local, at.x, at.y, at.z, 0.2f, right, up);
+            }
+            if (spraying) FarmSkits.held(buffer(SPRAYER), figure.rightArmFrame(), 0.7f);
+        }
         // the temples in farm blocks, where sweat beads cling
         Matrix4f toFarm = new Matrix4f(local).invert();
         toFarm.transformPosition(figure.headFrame().transformPosition(-4.4f, 5f, 1.5f, browRight));
         toFarm.transformPosition(figure.headFrame().transformPosition(4.4f, 5f, 1.5f, browLeft));
         farm.build(local, figure, this::buffer, right, up);
+        extra.build(local, figure, this::buffer, right, up);
         particles.build(this::buffer, local, right, up);
         List<Draw> out = new ArrayList<>();
         for (Map.Entry<Identifier, SceneClone.Buffer> e : buffers.entrySet()) {

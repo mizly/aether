@@ -468,7 +468,7 @@ final class FarmSkits {
     }
 
     // an item sprite in the right hand the way third person holds tools: handle in the fist, head up and forward
-    private static void held(SceneClone.Buffer out, Matrix4f arm, float scale) {
+    static void held(SceneClone.Buffer out, Matrix4f arm, float scale) {
         Matrix4f m = new Matrix4f(arm).translate(0f, -11f, -1.5f).scale(scale).translate(0f, 11f, 1.5f);
         SceneActors.face(out, m, 0f, -1f, -1.5f, 0f, -1f, 9.5f, 0f, -12f, 9.5f, 0f, -12f, -1.5f, 1f, 1f, 1f);
     }
@@ -507,7 +507,7 @@ final class FarmSkits {
     }
 
     // a camera-facing sprite at a farm point
-    private static void billboard(SceneClone.Buffer out, Matrix4f local, float x, float y, float z, float half,
+    static void billboard(SceneClone.Buffer out, Matrix4f local, float x, float y, float z, float half,
                                   Vector3f right, Vector3f up) {
         Vector3f c = local.transformPosition(x, y, z, new Vector3f());
         float rx = right.x * half, ry = right.y * half, rz = right.z * half, ux = up.x * half, uy = up.y * half, uz = up.z * half;
