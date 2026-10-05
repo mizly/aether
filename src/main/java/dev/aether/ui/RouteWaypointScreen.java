@@ -83,7 +83,9 @@ public final class RouteWaypointScreen extends CanvasPanelScreen {
         float y = py + HEADER_H + 1f + PAD;
         renderLabel(nvg, x, y, innerW, "Rewarp", "Used for every leg of this route");
         y += LABEL_H;
-        renderField(nvg, warp, x, y, innerW, "/warp ", Route.DEFAULT_WARP);
+        // an empty field means the route never warps, whatever the folder hands a new route
+        renderField(nvg, warp, x, y, innerW, warp.text.isEmpty() ? "" : "/warp ",
+                AetherLang.localize("No rewarp"));
         y += FIELD_H + PAD;
 
         if (editing()) {
