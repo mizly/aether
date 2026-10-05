@@ -192,7 +192,7 @@ class OrbitPreviewTest {
         if (only.isEmpty() || "travel".contains(only)) written.addAll(renderTravel(view, ids, surfaces));
         if (only.isEmpty() || "hover".contains(only)) written.addAll(renderHovers(view, ids, surfaces));
         if (only.isEmpty() || "search".contains(only)) written.add(renderSearch(view, ids, surfaces));
-        written.addAll(renderStages(only));
+        written.addAll(renderStages(only, view, ids, surfaces));
         System.out.println("orbit previews: " + written);
     }
 
@@ -250,10 +250,14 @@ class OrbitPreviewTest {
     }
 
     // each skit of the farm's actors played from the start, nine frames of it in a filmstrip
-    private record Stage(String name, SceneActors.Inputs inputs, float[] times, Vector3f eye, Vector3f at) {
+    // category, when set, shoots the stage through the real orbit camera for that category with its panels up
+    private record Stage(String name, SceneActors.Inputs inputs, float[] times, Vector3f eye, Vector3f at, String category) {
+        Stage(String name, SceneActors.Inputs inputs, float[] times, Vector3f eye, Vector3f at) {
+            this(name, inputs, times, eye, at, null);
+        }
     }
 
-    private List<String> renderStages(String only) throws Exception {
+    private List<String> renderStages(String only, PanelView view, List<String> ids, PanelSurface[] surfaces) throws Exception {
         Vector3f front = new Vector3f(3.2f, 2.4f, 6.5f), side = new Vector3f(9f, 3.4f, 4.5f);
         Vector3f centre = new Vector3f(0.4f, 0.9f, 0f);
         Vector3f game = new Vector3f((float) OrbitRig.TP_POS.x, (float) OrbitRig.TP_POS.y + 1.62f, (float) OrbitRig.TP_POS.z);
@@ -335,6 +339,16 @@ class OrbitPreviewTest {
             stages.add(new Stage("stage-m-" + module[0].toLowerCase().replaceAll("[^a-z]+", "-"),
                     new SceneActors.Inputs(module[0], true, 0, 0, 0), times, eye, at));
         }
+        // the same skits through the camera you actually get in game, panels and all
+        String[][] real = {{"Pest Manager", "pests"}, {"Dynamic Pests", "pests"}, {"Auto Visitor", "garden"},
+                {"Farming Macro", "farming"}, {"Dynamic Rest", "farming"}, {"Auto Loadout", "farming"},
+                {"Strider Fishing", "macros"}, {"Ghost Block", "safety"}, {"Discord", "client"}};
+        for (String[] r : real) {
+            float[] times = new float[9];
+            for (int i = 0; i < 9; i++) times[i] = 0.5f + i * 0.9f;
+            stages.add(new Stage("stage-real-" + r[0].toLowerCase().replaceAll("[^a-z]+", "-"),
+                    new SceneActors.Inputs(r[0], true, 4, 5, 20), times, null, null, r[1]));
+        }
         int scene = link("orbit_scene.vsh", "orbit_scene.fsh");
         int stageVao = GL30.glGenVertexArrays();
         int stageVbo = GL15.glGenBuffers();
@@ -371,15 +385,32 @@ class OrbitPreviewTest {
             SceneActors actors = new SceneActors(i -> heads.isEmpty() ? null
                     : net.minecraft.resources.Identifier.fromNamespaceAndPath("preview", Integer.toString(i % heads.size())));
             PlayerFigure figure = new PlayerFigure();
-            Vector3d eye = new Vector3d(stage.eye());
-            Vector3d look = new Vector3d(stage.at());
-            Vector3d forward = new Vector3d(look).sub(eye).normalize();
-            Vector3d right = new Vector3d(forward).cross(0, 1, 0).normalize();
-            Vector3d up = new Vector3d(right).cross(forward).normalize();
-            float fov = stage.name().endsWith("-game") ? OrbitRig.FOV : 40f;
-            OrbitLayout.Camera cam = new OrbitLayout.Camera(eye, look, forward, right, up, fov);
-            Matrix4f vp = new Matrix4f().perspective((float) Math.toRadians(fov), (float) W / H, 0.05f, 200f)
-                    .lookAt(stage.eye(), stage.at(), new Vector3f(0, 1, 0));
+            OrbitLayout.Result layout = null;
+            OrbitLayout.Camera cam;
+            if (stage.category() != null) {
+                String cat = ids.stream().filter(id -> id.contains(stage.category())).findFirst().orElse(ids.get(0));
+                view.orbitFocus(cat);
+                int active = ids.indexOf(cat);
+                double[][] lean = OrbitRig.lean(cat);
+                float[] unfold = new float[ids.size()];
+                java.util.Arrays.fill(unfold, 1f);
+                float expand = System.getenv("PREVIEW_EXPAND") != null ? 1f : 0f;
+                layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(), 0f, 0f, 1.62, 70f, ids.size(), active,
+                        0f, expand, 1f, true, 0f, unfold, active, lean[0], lean[1], H));
+                cam = layout.camera();
+            } else {
+                Vector3d e0 = new Vector3d(stage.eye()), l0 = new Vector3d(stage.at());
+                Vector3d f0 = new Vector3d(l0).sub(e0).normalize();
+                Vector3d r0 = new Vector3d(f0).cross(0, 1, 0).normalize();
+                cam = new OrbitLayout.Camera(e0, l0, f0, r0, new Vector3d(r0).cross(f0).normalize(),
+                        stage.name().endsWith("-game") ? OrbitRig.FOV : 40f);
+            }
+            Vector3d eye = new Vector3d(cam.pos());
+            float fov = cam.fov();
+            Matrix4f vp = new Matrix4f().perspective((float) Math.toRadians(fov), (float) W / H, 0.05f, 600f)
+                    .lookAt((float) cam.pos().x, (float) cam.pos().y, (float) cam.pos().z,
+                            (float) cam.look().x, (float) cam.look().y, (float) cam.look().z, 0f, 1f, 0f);
+            final OrbitLayout.Result shotLayout = layout;
             BufferedImage strip = new BufferedImage(W, H, BufferedImage.TYPE_INT_RGB);
             java.awt.Graphics2D g = strip.createGraphics();
             g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
@@ -455,6 +486,7 @@ class OrbitPreviewTest {
                     GL15.glBufferData(GL15.GL_ARRAY_BUFFER, d.buffer().finish(), GL15.GL_STREAM_DRAW);
                     GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, count);
                 }
+                if (shotLayout != null) stagePanels(view, ids, surfaces, shotLayout, vp);
                 int col = shot % 3, row = shot / 3;
                 g.drawImage(read(), col * W / 3, row * H / 3, W / 3, H / 3, null);
                 g.setColor(java.awt.Color.WHITE);
@@ -477,6 +509,44 @@ class OrbitPreviewTest {
         GL30.glBindVertexArray(vao);
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
         return out;
+    }
+
+    // the orbit panels over a stage shot, as the game hangs them; only the figure stands in front
+    private void stagePanels(PanelView view, List<String> ids, PanelSurface[] surfaces, OrbitLayout.Result layout,
+                             Matrix4f vp) {
+        float k = (float) OrbitLayout.pixelRatio(H);
+        for (OrbitLayout.Placement p : layout.placements()) {
+            String id = ids.get(p.index());
+            if (p.active()) {
+                surfaces[p.index()].render(p.designW(), p.designH(), k,
+                        nvg -> view.renderOrbitActive(nvg, p.designW(), p.designH(), -1f, -1f, id));
+            } else {
+                surfaces[p.index()].render(p.designW(), p.designH(), k * 0.6f,
+                        nvg -> view.renderOrbitPassive(nvg, p.designW(), p.designH(), id, 0f));
+            }
+        }
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        GL11.glViewport(0, 0, W, H);
+        GL20.glUseProgram(program);
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            GL20.glUniformMatrix4fv(GL20.glGetUniformLocation(program, "ViewProjection"), false, vp.get(stack.mallocFloat(16)));
+        }
+        GL20.glUniform1i(GL20.glGetUniformLocation(program, "Panel"), 0);
+        GL30.glBindVertexArray(vao);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+        GL11.glEnable(GL11.GL_BLEND);
+        GL14.glBlendFuncSeparate(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GL11.glDepthMask(false);
+        List<OrbitLayout.Placement> order = new ArrayList<>(List.of(layout.placements()));
+        order.sort(Comparator.comparingDouble(p -> -p.center().distanceSquared(layout.camera().pos())));
+        for (OrbitLayout.Placement p : order) {
+            PanelSurface surface = surfaces[p.index()];
+            float radius = PanelView.ORBIT_RADIUS;
+            quad(p.corner(-1, 1), p.corner(1, 1), p.corner(1, -1), p.corner(-1, -1), surface.texture(),
+                    p.alpha(), p.dim(), 1f, 1f, 1f, surface.uMax(), surface.vMax(), radius / p.designW(), radius / p.designH());
+        }
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL11.GL_BLEND);
     }
 
     // a flat sketch of the preset farm around the player: the path and its cross path, wheat and potato fields and
