@@ -21,26 +21,6 @@ final class PanelNav {
         String description() {
             return AetherLang.localize(rawDescription);
         }
-
-        int enabledCount() {
-            int count = 0;
-            for (Page page : pages) {
-                if (page.tab().hasToggle() && page.tab().isEnabled()) {
-                    count++;
-                }
-            }
-            return count;
-        }
-
-        int toggleableCount() {
-            int count = 0;
-            for (Page page : pages) {
-                if (page.tab().hasToggle()) {
-                    count++;
-                }
-            }
-            return count;
-        }
     }
 
     record Page(String id, String categoryId, ModulesTab.SubTab tab, Icon icon) {
