@@ -87,6 +87,24 @@ class StriderFishingMacroTest {
     }
 
     @Test
+    void stridersLeftAliveByAClearShrinkThePoolUnderTheCap() {
+        assertEquals(8, StriderFishingMacro.effectiveGoal(8, 0));
+        assertEquals(8, StriderFishingMacro.effectiveGoal(8, 2));
+        assertEquals(7, StriderFishingMacro.effectiveGoal(8, 3));
+        assertEquals(10, StriderFishingMacro.effectiveGoal(10, 0));
+        assertEquals(1, StriderFishingMacro.effectiveGoal(10, 9));
+        assertEquals(0, StriderFishingMacro.effectiveGoal(1, 10));
+    }
+
+    @Test
+    void theCapLineIsReadWhateverItsCase() {
+        assertTrue(StriderFishingMacro.isCapLine("There is not enough space for another Sea Creature!"));
+        assertTrue(StriderFishingMacro.isCapLine("  THERE IS NOT ENOUGH SPACE FOR ANOTHER SEA CREATURE! "));
+        assertFalse(StriderFishingMacro.isCapLine("There is not enough space in your inventory!"));
+        assertFalse(StriderFishingMacro.isCapLine(null));
+    }
+
+    @Test
     void theWhipOnlyFiresOnceTheCrosshairIsNearTheStrider() {
         assertTrue(StriderFishingMacro.aimWithin(10.0f, 20.0f, 14.0f, 24.0f, 6.0f));
         assertFalse(StriderFishingMacro.aimWithin(10.0f, 20.0f, 30.0f, 20.0f, 6.0f));

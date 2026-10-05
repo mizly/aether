@@ -110,7 +110,7 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
                             AetherConfig.STRIDER_FISHING_SOUL_WHIP_FISHING.set(v);
                             AetherConfig.save();
                         })
-                .add(new SliderSetting("Striders Before Kill", 5, 20,
+                .add(new SliderSetting("Striders Before Kill", 1, 10,
                         () -> (float) AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.get(),
                         v -> {
                             AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.set(Math.round(v));

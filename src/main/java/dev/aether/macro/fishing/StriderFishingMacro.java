@@ -74,6 +74,11 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private static final float WHIP_AIM_TOLERANCE_DEGREES = 6.0f;
     // the whip's swing lands above the crosshair, so aiming at the legs puts it through the body
     private static final double WHIP_AIM_HEIGHT = 0.15;
+    // hypixel refuses a new sea creature while a player already has this many alive
+    private static final int SEA_CREATURE_CAP = 10;
+    // a double hook brings its second catch up a moment after the first
+    private static final long DOUBLE_HOOK_WINDOW_MS = 400L;
+    private static final String CAP_LINE = "there is not enough space for another sea creature!";
 
     private State state = State.AIM_LAVA;
     private long stateEnteredAt;
@@ -98,6 +103,11 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     // outlives the macro instance, so a stop and start in the same lobby picks the pool back up
     private static final Set<Integer> rememberedCatchIds = new LinkedHashSet<>();
     private static WeakReference<Level> rememberedLevel = new WeakReference<>(null);
+    // catches a timed out clear left alive, which still count against the sea creature cap
+    private final Set<Integer> strayIds = new LinkedHashSet<>();
+    private static final Set<Integer> rememberedStrayIds = new LinkedHashSet<>();
+    private long firstCatchAt;
+    private boolean capReached;
     private final AbilitySwapClicker whipClicker = new AbilitySwapClicker(AbilitySwapClicker.SOUL_WHIP,
             slot -> FailsafeManager.selectHotbarSlot(Minecraft.getInstance(), slot),
             ClientUtils::performUseClickInstant);
@@ -126,6 +136,9 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         emptyCatch = false;
         preReelEntityIds.clear();
         pooledCatchIds.clear();
+        strayIds.clear();
+        firstCatchAt = 0L;
+        capReached = false;
         clearWhip();
         clearKillPlan();
         changeState(State.AIM_LAVA);
@@ -144,15 +157,21 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return CatchWatch.isAlive(entity)
                     && (needle.isEmpty() || CatchWatch.matchesName(mc.level, entity, needle));
         }));
+        strayIds.addAll(stillPooled(rememberedStrayIds, sameLevel,
+                id -> CatchWatch.isAlive(mc.level.getEntity(id))));
         forgetPool();
-        if (!soulWhipFishing() || pooledCatchIds.isEmpty()) {
+        if (!pooling()) {
             pooledCatchIds.clear();
+            strayIds.clear();
             return;
         }
-        int goal = AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.get();
+        if (pooledCatchIds.isEmpty()) {
+            return;
+        }
+        int goal = poolGoal();
         ClientUtils.sendDebugMessage("[StriderFishing] pool still holds " + pooledCatchIds.size() + "/" + goal);
         if (soulWhipGoalReached(pooledCatchIds.size(), goal)) {
-            changeState(State.CLEAR);
+            startClear();
         }
     }
 
@@ -182,6 +201,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
     private static void forgetPool() {
         rememberedCatchIds.clear();
+        rememberedStrayIds.clear();
         rememberedLevel = new WeakReference<>(null);
     }
 
@@ -194,11 +214,13 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         followMove = 0;
         preReelEntityIds.clear();
         forgetPool();
-        if (!pooledCatchIds.isEmpty()) {
+        if (!pooledCatchIds.isEmpty() || !strayIds.isEmpty()) {
             rememberedCatchIds.addAll(pooledCatchIds);
+            rememberedStrayIds.addAll(strayIds);
             rememberedLevel = new WeakReference<>(mc.level);
         }
         pooledCatchIds.clear();
+        strayIds.clear();
         clearWhip();
         clearKillPlan();
     }
@@ -214,6 +236,17 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return;
         }
 
+        if (pooling() && !strayIds.isEmpty()) {
+            for (int i = pruneDeadStrays(mc); i > 0; i--) {
+                ActivityRateTracker.onMobKilled();
+            }
+            if (poolGoal() < 1) {
+                fail("Strider fishing stopped: " + strayIds.size()
+                        + " striders escaped the pool, kill them by hand.");
+                return;
+            }
+        }
+
         // only the lava turn has to land before its state can carry on; waiting for a bite still has to
         // poll the marker every tick, or the short !! window could slip by
         if (state == State.AIM_LAVA && RotationManager.isRotating()) {
@@ -227,6 +260,15 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
                 case FIGHT -> tickFight(mc);
                 case CLEAR -> tickClear(mc);
                 case RETURN -> tickReturn(mc);
+            }
+        }
+
+        // the cap line answers a reel, so it is acted on once the macro is back between casts
+        if (capReached && (state == State.AIM_LAVA || state == State.CAST || state == State.FIGHT)) {
+            capReached = false;
+            if (pooling() && !pooledCatchIds.isEmpty()) {
+                ClientUtils.sendDebugMessage("[StriderFishing] sea creature cap reached, clearing the pool");
+                startClear();
             }
         }
 
@@ -339,7 +381,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         // a pool packed with striders can snag the float on one of them, which will never bite
         // hypixel parks the lava float on its own entity, so only one of our pooled catches counts as a snag
         Entity hookedIn = mc.player.fishing.getHookedIn();
-        if (soulWhipFishing() && hookedIn != null && pooledCatchIds.contains(hookedIn.getId())) {
+        if (pooling() && hookedIn != null && pooledCatchIds.contains(hookedIn.getId())) {
             ClientUtils.sendDebugMessage("[StriderFishing] float hooked a strider, recasting");
             ClientUtils.performUseClick();
             changeState(State.AIM_LAVA);
@@ -381,12 +423,17 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         target = null;
         followMove = 0;
         returnAt = 0L;
+        firstCatchAt = 0L;
         changeState(State.FIGHT);
         nextActionAt = System.currentTimeMillis() + REEL_SETTLE_MS;
     }
 
     private void tickFight(Minecraft mc) {
         long now = System.currentTimeMillis();
+        if (pooling()) {
+            tickPoolFight(mc, now);
+            return;
+        }
 
         if (target != null && !CatchWatch.isAlive(target)) {
             ActivityRateTracker.onMobKilled();
@@ -400,11 +447,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
                 returnAt = 0L;
                 emptyCatch = false;
             }
-        }
-
-        if (target != null && soulWhipFishing()) {
-            poolCatch(mc, now);
-            return;
         }
 
         if (target == null) {
@@ -468,25 +510,56 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         }
     }
 
-    // the catch stays stuck in the pool, so it is only counted and the line goes straight back out
-    private void poolCatch(Minecraft mc, long now) {
-        pooledCatchIds.add(target.getId());
+    // a double hook brings two catches up, so the pool takes every new match until the window closes
+    private void tickPoolFight(Minecraft mc, long now) {
+        holdStill(mc);
+        for (Entity caught = findTarget(mc); caught != null; caught = findTarget(mc)) {
+            pooledCatchIds.add(caught.getId());
+            preReelEntityIds.add(caught.getId());
+            if (firstCatchAt == 0L) {
+                firstCatchAt = now;
+            }
+        }
+        if (firstCatchAt != 0L) {
+            if (now - firstCatchAt >= DOUBLE_HOOK_WINDOW_MS) {
+                poolCatch(mc);
+            }
+            return;
+        }
+        // loot never spawns a mob, and the rod never left the start block, so just cast again
+        if (now - stateEnteredAt > ACQUIRE_TIMEOUT_MS) {
+            if (homeKeeper.isOnOrigin(mc)) {
+                recast(now);
+                return;
+            }
+            emptyCatch = true;
+            beginReturn(mc);
+        }
+    }
+
+    // the catch stays stuck in the pool, so it is only counted and the line goes back out
+    private void poolCatch(Minecraft mc) {
+        firstCatchAt = 0L;
         target = null;
         pruneDeadCatches(mc);
-        int goal = AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.get();
+        int goal = poolGoal();
         ClientUtils.sendDebugMessage("[StriderFishing] pool holds " + pooledCatchIds.size() + "/" + goal);
         if (soulWhipGoalReached(pooledCatchIds.size(), goal)) {
-            clearWhip();
-            changeState(State.CLEAR);
+            startClear();
             return;
         }
         emptyCatch = false;
         if (homeKeeper.isOnOrigin(mc)) {
-            changeState(State.CAST);
-            nextActionAt = now + castDelayMs();
+            changeState(State.AIM_LAVA);
             return;
         }
         beginReturn(mc);
+    }
+
+    private void startClear() {
+        capReached = false;
+        clearWhip();
+        changeState(State.CLEAR);
     }
 
     private void tickClear(Minecraft mc) {
@@ -497,7 +570,9 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
         if (pooledCatchIds.isEmpty() || now - stateEnteredAt > CLEAR_TIMEOUT_MS) {
             if (!pooledCatchIds.isEmpty()) {
-                ClientUtils.sendDebugMessage("[StriderFishing] pool clear timed out, fishing again");
+                ClientUtils.sendDebugMessage("[StriderFishing] pool clear timed out, "
+                        + pooledCatchIds.size() + " striders left as strays");
+                strayIds.addAll(pooledCatchIds);
             }
             finishClear(mc, now);
             return;
@@ -633,6 +708,12 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         return before - pooledCatchIds.size();
     }
 
+    private int pruneDeadStrays(Minecraft mc) {
+        int before = strayIds.size();
+        strayIds.removeIf(id -> !CatchWatch.isAlive(mc.level.getEntity(id)));
+        return before - strayIds.size();
+    }
+
     private Entity nearestPooledCatch(Minecraft mc, boolean manual) {
         Entity best = null;
         double bestDistance = Double.MAX_VALUE;
@@ -668,8 +749,28 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         return pooled >= goal;
     }
 
-    private static boolean soulWhipFishing() {
+    // every live stray takes a place under the cap, so a goal past what is left would never be reached
+    static int effectiveGoal(int goal, int liveStrays) {
+        return Math.min(goal, SEA_CREATURE_CAP - liveStrays);
+    }
+
+    static boolean isCapLine(String plain) {
+        return plain != null && plain.toLowerCase(Locale.ROOT).contains(CAP_LINE);
+    }
+
+    private boolean pooling() {
         return AetherConfig.STRIDER_FISHING_SOUL_WHIP_FISHING.get();
+    }
+
+    private int poolGoal() {
+        return effectiveGoal(AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.get(), strayIds.size());
+    }
+
+    @Override
+    void onChat(String plain) {
+        if (isCapLine(plain)) {
+            capReached = true;
+        }
     }
 
     private void tickReturn(Minecraft mc) {

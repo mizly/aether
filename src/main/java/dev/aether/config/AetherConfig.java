@@ -1181,8 +1181,8 @@ public final class AetherConfig {
         // soul whip fishing leaves each catch stuck in a small pool and only clears the pool once it holds this many
         public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP_FISHING = Config
                         .bool("striderFishingSoulWhipFishing", false);
-        public static final IntEntry STRIDER_FISHING_SOUL_WHIP_COUNT = Config.integer("striderFishingSoulWhipCount", 10)
-                        .range(5, 20);
+        public static final IntEntry STRIDER_FISHING_SOUL_WHIP_COUNT = Config.integer("striderFishingSoulWhipCount", 8)
+                        .range(1, 10);
         public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP = Config.bool("striderFishingSoulWhip", false);
         public static final IntEntry STRIDER_FISHING_SOUL_WHIP_SLOT = Config.integer("striderFishingSoulWhipSlot", 3)
                         .range(1, 9);
