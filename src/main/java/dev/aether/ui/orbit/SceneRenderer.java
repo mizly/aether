@@ -33,7 +33,12 @@ final class SceneRenderer implements AutoCloseable {
 
     private final Matrix4f projection = new Matrix4f();
     private int program;
+    // clip depth of the sky sheet: in front of the far plane, behind anything the scene draws
+    private static final float SKY_DEPTH = 0.999f;
+
     private int matrixUniform, offsetUniform, fogCenterUniform, fogRangeUniform, fogColorUniform, alphaUniform, samplerUniform;
+    private int solidUniform;
+    private int lastFramebuffer, lastWidth, lastHeight;
     private final int[] vao = new int[3];
     private final int[] vbo = new int[3];
     private int atlasSampler;
@@ -74,50 +79,61 @@ final class SceneRenderer implements AutoCloseable {
             GL20.glUseProgram(program);
             GL20.glUniform1i(samplerUniform, 0);
             GL13.glActiveTexture(GL13.GL_TEXTURE0);
-            try (MemoryStack stack = MemoryStack.stackPush()) {
-                sky(stack, frame);
-                GL20.glUniformMatrix4fv(matrixUniform, false, projection.get(stack.mallocFloat(16)));
-            }
             float ox = (float) (mesh.originX() - eye.x), oy = (float) (mesh.originY() - eye.y), oz = (float) (mesh.originZ() - eye.z);
-            GL20.glUniform3f(fogColorUniform, r(frame.horizon()), g(frame.horizon()), b(frame.horizon()));
-            GL20.glUniform2f(fogCenterUniform, (float) (frame.anchorX() - mesh.originX()), (float) (frame.anchorZ() - mesh.originZ()));
-            GL20.glUniform2f(fogRangeUniform, mesh.radius() - 14f, mesh.radius() - 1f);
-            GL11.glEnable(GL11.GL_DEPTH_TEST);
-            GL11.glDepthFunc(GL11.GL_LEQUAL);
-            GL11.glDisable(GL11.GL_BLEND);
-            GL20.glUniform1f(alphaUniform, 0.1f);
-            GL20.glUniform3f(offsetUniform, ox, oy, oz);
             int atlas = texture(client, TextureAtlas.LOCATION_BLOCKS);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, atlas);
-            GL33C.glBindSampler(0, atlasSampler);
-            drawArrays(0, mesh.solidCount());
-
-            if (frame.figure() != null && frame.figure().count > 0) {
-                int skin = texture(client, frame.skin());
-                if (skin != 0) {
-                    GL11.glBindTexture(GL11.GL_TEXTURE_2D, skin);
-                    GL33C.glBindSampler(0, skinSampler);
-                    GL20.glUniform3f(offsetUniform, 0f, 0f, 0f);
-                    GL20.glUniform2f(fogRangeUniform, 1e8f, 2e8f);
-                    ByteBuffer data = frame.figure().finish();
-                    GL30.glBindVertexArray(vao[2]);
-                    GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo[2]);
-                    GL15.glBufferData(GL15.GL_ARRAY_BUFFER, data, GL15.GL_STREAM_DRAW);
-                    GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, frame.figure().count);
-                }
-            }
-
-            if (mesh.waterCount() > 0) {
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                world(stack, frame, mesh, ox, oy, oz);
+                GL11.glEnable(GL11.GL_DEPTH_TEST);
+                GL11.glDepthFunc(GL11.GL_LEQUAL);
+                GL11.glDisable(GL11.GL_BLEND);
+                GL20.glUniform1f(alphaUniform, 0.1f);
+                GL20.glUniform1f(solidUniform, 1f);
                 GL11.glBindTexture(GL11.GL_TEXTURE_2D, atlas);
                 GL33C.glBindSampler(0, atlasSampler);
-                GL20.glUniform3f(offsetUniform, ox, oy, oz);
-                GL20.glUniform2f(fogRangeUniform, mesh.radius() - 14f, mesh.radius() - 1f);
-                GL20.glUniform1f(alphaUniform, 0.01f);
-                GL11.glEnable(GL11.GL_BLEND);
-                GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
-                GL11.glDepthMask(false);
-                drawArrays(1, mesh.waterCount());
+                drawArrays(0, mesh.solidCount());
+
+                // the sky fills only what the farm left empty, and sits a hair in front of the far plane
+                sky(stack, frame, true);
+
+                if (mesh.waterCount() > 0) {
+                    world(stack, frame, mesh, ox, oy, oz);
+                    GL11.glBindTexture(GL11.GL_TEXTURE_2D, atlas);
+                    GL33C.glBindSampler(0, atlasSampler);
+                    GL20.glUniform1f(alphaUniform, 0.01f);
+                    GL20.glUniform1f(solidUniform, 0f);
+                    GL11.glEnable(GL11.GL_DEPTH_TEST);
+                    GL11.glEnable(GL11.GL_BLEND);
+                    GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ZERO, GL11.GL_ONE);
+                    GL11.glDepthMask(false);
+                    drawArrays(1, mesh.waterCount());
+                }
+
+                // the panels hang clear of the farm: only the figure, in a fresh depth buffer, may stand in front of them
+                GL11.glDepthMask(true);
+                GL11.glClear(GL11.GL_DEPTH_BUFFER_BIT);
+                if (frame.figure() != null && frame.figure().count > 0) {
+                    int skin = texture(client, frame.skin());
+                    if (skin != 0) {
+                        GL20.glUniformMatrix4fv(matrixUniform, false, projection.get(stack.mallocFloat(16)));
+                        GL11.glEnable(GL11.GL_DEPTH_TEST);
+                        GL11.glDisable(GL11.GL_BLEND);
+                        GL11.glBindTexture(GL11.GL_TEXTURE_2D, skin);
+                        GL33C.glBindSampler(0, skinSampler);
+                        GL20.glUniform3f(offsetUniform, 0f, 0f, 0f);
+                        GL20.glUniform2f(fogRangeUniform, 1e8f, 2e8f);
+                        GL20.glUniform1f(alphaUniform, 0.1f);
+                        GL20.glUniform1f(solidUniform, 1f);
+                        ByteBuffer data = frame.figure().finish();
+                        GL30.glBindVertexArray(vao[2]);
+                        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo[2]);
+                        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, data, GL15.GL_STREAM_DRAW);
+                        GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, frame.figure().count);
+                    }
+                }
             }
+            lastFramebuffer = framebuffer;
+            lastWidth = target.width;
+            lastHeight = target.height;
         } catch (RuntimeException error) {
             close();
             failed = true;
@@ -127,24 +143,36 @@ final class SceneRenderer implements AutoCloseable {
         }
     }
 
-    // a vertical gradient over the whole screen, from the horizon colour at the bottom to the zenith at the top
-    private void sky(MemoryStack stack, Frame frame) {
+    private void world(MemoryStack stack, Frame frame, SceneClone.Mesh mesh, float ox, float oy, float oz) {
+        GL20.glUniformMatrix4fv(matrixUniform, false, projection.get(stack.mallocFloat(16)));
+        GL20.glUniform3f(offsetUniform, ox, oy, oz);
+        GL20.glUniform3f(fogColorUniform, r(frame.horizon()), g(frame.horizon()), b(frame.horizon()));
+        GL20.glUniform2f(fogCenterUniform, (float) (frame.anchorX() - mesh.originX()), (float) (frame.anchorZ() - mesh.originZ()));
+        GL20.glUniform2f(fogRangeUniform, mesh.radius() - 14f, mesh.radius() - 1f);
+    }
+
+    // a vertical gradient over the whole screen at SKY_DEPTH, drawn only where nothing nearer is
+    private void sky(MemoryStack stack, Frame frame, boolean colour) {
         GL20.glUniformMatrix4fv(matrixUniform, false, new Matrix4f().get(stack.mallocFloat(16)));
         GL20.glUniform3f(offsetUniform, 0f, 0f, 0f);
         GL20.glUniform2f(fogRangeUniform, 1e8f, 2e8f);
         GL20.glUniform1f(alphaUniform, 0f);
-        GL11.glDisable(GL11.GL_DEPTH_TEST);
+        GL20.glUniform1f(solidUniform, 1f);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GL11.glDepthFunc(GL11.GL_LEQUAL);
+        GL11.glDepthMask(true);
         GL11.glDisable(GL11.GL_BLEND);
+        GL11.glColorMask(colour, colour, colour, colour);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, white);
         GL33C.glBindSampler(0, skinSampler);
         SceneClone.Buffer sky = new SceneClone.Buffer(6);
         int top = SceneClone.rgba(frame.zenith(), 1f, 255), bottom = SceneClone.rgba(frame.horizon(), 1f, 255);
-        sky.vertex(-1, 1, 0.5f, 0, 0, top);
-        sky.vertex(1, 1, 0.5f, 1, 0, top);
-        sky.vertex(1, -1, 0.5f, 1, 1, bottom);
-        sky.vertex(-1, 1, 0.5f, 0, 0, top);
-        sky.vertex(1, -1, 0.5f, 1, 1, bottom);
-        sky.vertex(-1, -1, 0.5f, 0, 1, bottom);
+        sky.vertex(-1, 1, SKY_DEPTH, 0, 0, top);
+        sky.vertex(1, 1, SKY_DEPTH, 1, 0, top);
+        sky.vertex(1, -1, SKY_DEPTH, 1, 1, bottom);
+        sky.vertex(-1, 1, SKY_DEPTH, 0, 0, top);
+        sky.vertex(1, -1, SKY_DEPTH, 1, 1, bottom);
+        sky.vertex(-1, -1, SKY_DEPTH, 0, 1, bottom);
         ByteBuffer data = sky.finish();
         try {
             GL30.glBindVertexArray(vao[2]);
@@ -153,6 +181,30 @@ final class SceneRenderer implements AutoCloseable {
             GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 6);
         } finally {
             org.lwjgl.system.MemoryUtil.memFree(data);
+            GL11.glColorMask(true, true, true, true);
+        }
+    }
+
+    // after the panels: lifts every pixel still on the far plane just off it, so the passes the game runs after this
+    // (clouds, and whatever paints the far plane black) stay behind the menu's picture
+    void sealDepth(Frame frame) {
+        if (failed || program == 0 || lastFramebuffer == 0) return;
+        GlSnapshot saved = GlSnapshot.capture();
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, lastFramebuffer);
+            GL11.glViewport(0, 0, lastWidth, lastHeight);
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            GL11.glDisable(GL11.GL_STENCIL_TEST);
+            GL11.glDisable(GL11.GL_CULL_FACE);
+            GL20.glUseProgram(program);
+            GL20.glUniform1i(samplerUniform, 0);
+            GL13.glActiveTexture(GL13.GL_TEXTURE0);
+            sky(stack, frame, false);
+        } catch (RuntimeException error) {
+            System.err.println("[Aether] Orbit scene depth seal failed: " + error.getMessage());
+        } finally {
+            saved.restore();
+            lastFramebuffer = 0;
         }
     }
 
@@ -203,6 +255,7 @@ final class SceneRenderer implements AutoCloseable {
         fogColorUniform = GL20.glGetUniformLocation(program, "FogColor");
         alphaUniform = GL20.glGetUniformLocation(program, "AlphaCut");
         samplerUniform = GL20.glGetUniformLocation(program, "Sampler");
+        solidUniform = GL20.glGetUniformLocation(program, "Solid");
         for (int i = 0; i < 3; i++) {
             vao[i] = GL30.glGenVertexArrays();
             vbo[i] = GL15.glGenBuffers();
