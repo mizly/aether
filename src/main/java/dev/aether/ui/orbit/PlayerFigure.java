@@ -22,10 +22,13 @@ final class PlayerFigure {
         float squash, squint;
         // vanish shrinks and spins the figure away to nothing, for a warp
         float vanish;
+        // snap jumps straight to x / y / z this frame instead of gliding there, for a teleport
+        boolean snap;
 
         void reset() {
             x = y = z = facing = bob = lean = roll = turn = legs = legsWeight = 0f;
             right = rightWeight = left = leftWeight = headYaw = headPitch = tilt = lie = squash = squint = vanish = 0f;
+            snap = false;
             look = 1f;
         }
     }
@@ -80,6 +83,10 @@ final class PlayerFigure {
     private final Channel headPitchS = new Channel(260f, 0.55f);
     private final Channel lieS = new Channel(110f, 0.8f);
     private final Channel squashS = new Channel(420f, 0.35f);
+    // position glides too, so a skit starting or stopping never teleports the figure
+    private final Channel xS = new Channel(240f, 0.9f);
+    private final Channel yS = new Channel(900f, 0.85f);
+    private final Channel zS = new Channel(240f, 0.9f);
     private boolean primed;
     private float lastTime, lastY, lastVy, lastFacing;
     private float blinkAt = 2f;
@@ -153,11 +160,18 @@ final class PlayerFigure {
         this.time = time;
         lastTime = time;
         Pose p = pose;
+        if (!primed || p.snap) {
+            xS.x = p.x;
+            yS.x = p.y;
+            zS.x = p.z;
+            xS.v = yS.v = zS.v = 0f;
+        }
         if (!primed) {
             primed = true;
             lastY = p.y;
             lastFacing = facingS.x = p.facing;
         }
+        float px = xS.to(p.x, dt), py = yS.to(p.y, dt), pz = zS.to(p.z, dt);
         float sleep = OrbitRig.clamp(lieS.to(p.lie, dt), 0f, 1.05f);
         float awake = 1f - OrbitRig.clamp(sleep, 0f, 1f);
         float waving = time - waveStart;
@@ -212,7 +226,7 @@ final class PlayerFigure {
         float gone = OrbitRig.clamp(p.vanish, 0f, 1f);
         sxz *= 1f - gone;
         sy *= 1f - gone * gone;
-        hips.set(toWorld).translate(p.x, p.y, p.z).rotateY((float) Math.toRadians(facing + gone * gone * 720f))
+        hips.set(toWorld).translate(px, py, pz).rotateY((float) Math.toRadians(facing + gone * gone * 720f))
                 .translate(0f, sleep * 0.68f, 0f).rotateX((float) Math.toRadians(-90f * sleep))
                 .scale(PIXEL * sxz, PIXEL * sy, PIXEL * sxz).translate(0f, bob, 0f)
                 .rotateY((float) Math.toRadians(turn + headYaw.x * 0.15f)).rotateZ((float) Math.toRadians(roll));
