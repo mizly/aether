@@ -181,6 +181,7 @@ class OrbitPreviewTest {
             if (scenario.page() != null) view.orbitBack();
         }
         if (only.isEmpty() || "plots".contains(only)) written.add(renderPlots(view, ids, surfaces));
+        if (only.isEmpty() || "travel".contains(only)) written.addAll(renderTravel(view, ids, surfaces));
         System.out.println("orbit previews: " + written);
     }
 
@@ -235,6 +236,41 @@ class OrbitPreviewTest {
         Path out = Path.of("build/reports/gui-preview/orbit/plots.png");
         ImageIO.write(image, "png", out.toFile());
         return out.toString();
+    }
+
+    // frames of the island travel film both ways, over the overview it opens into
+    private List<String> renderTravel(PanelView view, List<String> ids, PanelSurface[] surfaces) throws Exception {
+        int active = ids.indexOf("farming");
+        float[] unfold = new float[ids.size()];
+        java.util.Arrays.fill(unfold, 1f);
+        OrbitLayout.Result layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(), 0f, 0f, 1.62, 70f,
+                ids.size(), active, 1f, 0f, 1f, true, 0f, unfold, active, new double[3], new double[3], H));
+        TravelCinematic.FacePainter face = (nvg, x, y, size, alpha) -> {
+            nvg.rect(x, y, size, size, 0xFF6B4F3A);
+            nvg.rect(x, y, size, size * 0.25f, 0xFF3A2A1E);
+            nvg.rect(x + size * 0.125f, y + size * 0.5f, size * 0.25f, size * 0.125f, 0xFFFFFFFF);
+            nvg.rect(x + size * 0.625f, y + size * 0.5f, size * 0.25f, size * 0.125f, 0xFFFFFFFF);
+        };
+        List<String> out = new ArrayList<>();
+        float[] times = {0.7f, 1.22f, 1.3f, 1.9f, 2.45f};
+        OrbitIsland[][] trips = {{OrbitIsland.GARDEN, OrbitIsland.CRIMSON_ISLE}, {OrbitIsland.CRIMSON_ISLE, OrbitIsland.GARDEN}};
+        for (OrbitIsland[] trip : trips) {
+            TravelCinematic film = new TravelCinematic(trip[0], trip[1], face);
+            for (int i = 0; i < times.length; i++) {
+                render(view, ids, surfaces, layout, 1f, false);
+                float gw = W / 2f, gh = H / 2f;
+                NanoVGManager.beginFrame(gw, gh, 2f);
+                try {
+                    film.render(NanoVGManager.getRenderer(), gw, gh, times[i]);
+                } finally {
+                    NanoVGManager.endFrame();
+                }
+                Path file = Path.of("build/reports/gui-preview/orbit/travel-" + trip[1].name().toLowerCase() + "-" + i + ".png");
+                ImageIO.write(read(), "png", file.toFile());
+                out.add(file.toString());
+            }
+        }
+        return out;
     }
 
     private BufferedImage render(PanelView view, List<String> ids, PanelSurface[] surfaces, OrbitLayout.Result layout,
