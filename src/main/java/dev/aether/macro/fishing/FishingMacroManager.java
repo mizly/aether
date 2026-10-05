@@ -43,7 +43,7 @@ public final class FishingMacroManager {
 
         Route selected = selectedRoute(kind);
         boolean fixedSpot = usesFixedSpot(kind, selected);
-        Route route = fixedSpot ? fixedSpotRoute(mc, false) : selected;
+        Route route = routeFor(mc, kind, selected, false);
         activeMacro.setHome(homeOf(route));
         if (route != null && mc.player != null && !alreadyThere(mc, route, fixedSpot)) {
             ClientUtils.sendDebugMessage("[" + kind.displayName() + "] walking route " + route.name());
@@ -89,7 +89,10 @@ public final class FishingMacroManager {
 
     // null when a restart can run; it starts from the hub or a fresh lobby, so only the route's warp gets back
     public static String restartBlockedReason() {
-        Route route = activeMacro == null ? null : restartRoute(activeKind);
+        return blockedReason(activeMacro == null ? null : restartRoute(activeKind));
+    }
+
+    static String blockedReason(Route route) {
         if (route == null) {
             return "No restart route selected, macro stopped.";
         }
@@ -115,7 +118,7 @@ public final class FishingMacroManager {
         }
         Route selected = selectedRoute(activeKind);
         boolean fixedSpot = usesFixedSpot(activeKind, selected);
-        Route route = fixedSpot ? fixedSpotRoute(mc, true) : selected;
+        Route route = routeFor(mc, activeKind, selected, true);
         if (route == null) {
             return;
         }
@@ -148,8 +151,7 @@ public final class FishingMacroManager {
     }
 
     static Route restartRoute(FishingMacroKind kind) {
-        Route selected = selectedRoute(kind);
-        return usesFixedSpot(kind, selected) ? fixedSpotRoute(Minecraft.getInstance(), true) : selected;
+        return routeFor(Minecraft.getInstance(), kind, selectedRoute(kind), true);
     }
 
     // only a route that ends somewhere can be walked, and one that cannot is pointed out once per start
@@ -171,17 +173,25 @@ public final class FishingMacroManager {
     }
 
     // with routes off, or a selection that cannot be walked, the strider fishes at the sawyer spot
-    private static boolean usesFixedSpot(FishingMacroKind kind, Route selected) {
-        return selected == null && kind == FishingMacroKind.STRIDER;
+    static boolean usesFixedSpot(FishingMacroKind kind, Route selected) {
+        return (selected == null || selected.end() == null) && kind == FishingMacroKind.STRIDER;
     }
 
-    private static Route fixedSpotRoute(Minecraft mc, boolean restart) {
+    static Route chooseRoute(FishingMacroKind kind, Route selected, boolean restart, boolean onGalatea,
+                             double horizontal) {
+        if (!usesFixedSpot(kind, selected)) {
+            return selected == null || selected.end() == null ? null : selected;
+        }
+        return StriderFishingMacro.fixedSpotRoute(StriderFishingMacro.fixedSpotWarp(restart, onGalatea, horizontal));
+    }
+
+    private static Route routeFor(Minecraft mc, FishingMacroKind kind, Route selected, boolean restart) {
         BlockPos spot = StriderFishingMacro.FIXED_SPOT;
         boolean onGalatea = mc.player != null && SkyblockLocation.isOnGalatea(mc);
         double horizontal = mc.player == null
                 ? Double.POSITIVE_INFINITY
                 : Math.hypot(mc.player.getX() - (spot.getX() + 0.5), mc.player.getZ() - (spot.getZ() + 0.5));
-        return StriderFishingMacro.fixedSpotRoute(StriderFishingMacro.fixedSpotWarp(restart, onGalatea, horizontal));
+        return chooseRoute(kind, selected, restart, onGalatea, horizontal);
     }
 
     // home is the route's last block, even when a start right beside it skipped the walk
