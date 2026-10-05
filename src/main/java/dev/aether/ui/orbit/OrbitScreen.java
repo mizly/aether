@@ -346,9 +346,14 @@ public final class OrbitScreen extends Screen {
         var frame = new SceneRenderer.Frame(anchor.x, anchor.y, anchor.z, sceneYaw(), figureBuffer,
                 skin.body().texturePath(), crimson ? 0xFF2A0A10 : 0xFF6FA2E8, crimson ? 0xFF7A2E1C : 0xFFC7DDF5,
                 draws, null);
-        sceneRenderer.draw(clone, frame);
-        renderWorld();
-        sceneRenderer.sealDepth(frame);
+        if (!sceneRenderer.draw(clone, frame)) {
+            renderWorld(0, 0, 0);
+            return;
+        }
+        renderWorld(sceneRenderer.framebuffer(), sceneRenderer.width(), sceneRenderer.height());
+        AetherRenderQueue.enqueueBeforeGui(() -> {
+            if (Minecraft.getInstance().screen == this) sceneRenderer.present();
+        });
     }
 
     // the ring's centre on the ground, at the player's feet
@@ -435,14 +440,14 @@ public final class OrbitScreen extends Screen {
         if (Minecraft.getInstance().screen instanceof OrbitScreen screen) {
             try {
                 if (screen.clone != null && !screen.sceneRenderer.failed()) screen.renderScene();
-                else screen.renderWorld();
+                else screen.renderWorld(0, 0, 0);
             } catch (RuntimeException | LinkageError e) {
                 Aether.LOGGER.error("Orbit menu world pass failed", e);
             }
         }
     }
 
-    private void renderWorld() {
+    private void renderWorld(int into, int intoWidth, int intoHeight) {
         if (layout == null) return;
         float k = (float) OrbitLayout.pixelRatio(Minecraft.getInstance().getWindow().getHeight());
         float z = zoom.x;
@@ -484,7 +489,7 @@ public final class OrbitScreen extends Screen {
         }
         Vec3 eye = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         quads.sort(Comparator.comparingDouble((OrbitWorldRenderer.Quad q) -> -distanceSq(q, eye)));
-        renderer.draw(quads);
+        renderer.draw(quads, into, intoWidth, intoHeight);
     }
 
     // a soft dark pool behind each panel, a little larger and lower, so the panels float above the farm

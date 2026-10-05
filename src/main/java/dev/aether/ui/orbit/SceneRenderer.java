@@ -24,8 +24,8 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-// draws the menu's own little world into the main target in place of the level: a sky, the cloned blocks from the
-// game's block atlas, the player figure in their skin, then water. raw gl, every touched state put back after
+// draws the menu's own little world into a framebuffer of its own, copied over the level just before the gui, so
+// nothing the game or a renderer mod draws later can black it out. raw gl, every touched state put back after
 final class SceneRenderer implements AutoCloseable {
     // what one frame needs beyond the mesh: where the figure stands and how the sky looks
     record Frame(double anchorX, double anchorY, double anchorZ, float yaw, SceneClone.Buffer figure,
@@ -34,14 +34,11 @@ final class SceneRenderer implements AutoCloseable {
 
     private final Matrix4f projection = new Matrix4f();
     private int program;
-    // clip depth the finished picture is sealed at: right up against the eye, ahead of anything drawn after it
-    private static final float SEAL_DEPTH = 0.001f;
-    // clip depth of the sky sheet: in front of the far plane, behind anything the scene draws
-    private static final float SKY_DEPTH = 0.999f;
 
     private int matrixUniform, offsetUniform, fogCenterUniform, fogRangeUniform, fogColorUniform, alphaUniform, samplerUniform;
     private int solidUniform;
-    private int lastFramebuffer, lastWidth, lastHeight;
+    private int fbo, colorBuffer, depthBuffer, width, height;
+    private boolean drawn;
     private final int[] vao = new int[3];
     private final int[] vbo = new int[3];
     private int atlasSampler;
@@ -54,23 +51,34 @@ final class SceneRenderer implements AutoCloseable {
         return failed;
     }
 
-    void draw(SceneClone.Mesh mesh, Frame frame) {
-        if (failed || mesh == null) return;
+    int framebuffer() {
+        return fbo;
+    }
+
+    int width() {
+        return width;
+    }
+
+    int height() {
+        return height;
+    }
+
+    // false when nothing was drawn, so the caller falls back to the panels over the live level
+    boolean draw(SceneClone.Mesh mesh, Frame frame) {
+        drawn = false;
+        if (failed || mesh == null) return false;
         Minecraft client = Minecraft.getInstance();
         var target = client.getMainRenderTarget();
-        if (!(target.getColorTexture() instanceof GlTexture color) || !(target.getDepthTexture() instanceof GlTexture)) return;
         var camera = client.gameRenderer.getMainCamera();
         var eye = camera.position();
         camera.getViewRotationProjectionMatrix(projection);
-        var access = ((AccessorGlDevice) ((AccessorGpuDevice) RenderSystem.getDevice()).aether$getBackend())
-                .aether$directStateAccess();
-        int framebuffer = color.getFbo(access, target.getDepthTexture());
         GlSnapshot saved = GlSnapshot.capture();
         try {
             if (program == 0) initialize();
             if (uploaded != mesh) upload(mesh);
-            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, framebuffer);
-            GL11.glViewport(0, 0, target.width, target.height);
+            resize(target.width, target.height);
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, fbo);
+            GL11.glViewport(0, 0, width, height);
             GL11.glDisable(GL11.GL_SCISSOR_TEST);
             GL11.glDisable(GL11.GL_STENCIL_TEST);
             GL11.glDisable(GL11.GL_CULL_FACE);
@@ -85,8 +93,7 @@ final class SceneRenderer implements AutoCloseable {
             float ox = (float) (mesh.originX() - eye.x), oy = (float) (mesh.originY() - eye.y), oz = (float) (mesh.originZ() - eye.z);
             int atlas = texture(client, TextureAtlas.LOCATION_BLOCKS);
             try (MemoryStack stack = MemoryStack.stackPush()) {
-                // the sky goes down first as a backdrop, untested and leaving no depth, so the farm always lands on it
-                sky(stack, frame, true, SKY_DEPTH, false);
+                sky(stack, frame);
                 world(stack, frame, mesh, ox, oy, oz);
                 GL11.glEnable(GL11.GL_DEPTH_TEST);
                 GL11.glDepthFunc(GL11.GL_LEQUAL);
@@ -156,9 +163,7 @@ final class SceneRenderer implements AutoCloseable {
                     stream(frame.blocks());
                 }
             }
-            lastFramebuffer = framebuffer;
-            lastWidth = target.width;
-            lastHeight = target.height;
+            drawn = true;
         } catch (RuntimeException error) {
             close();
             failed = true;
@@ -166,6 +171,63 @@ final class SceneRenderer implements AutoCloseable {
         } finally {
             saved.restore();
         }
+        return drawn;
+    }
+
+    // copies this frame's picture over the main target, right before the gui draws on top
+    void present() {
+        if (!drawn || failed || fbo == 0) return;
+        drawn = false;
+        var target = Minecraft.getInstance().getMainRenderTarget();
+        if (!(target.getColorTexture() instanceof GlTexture color) || !(target.getDepthTexture() instanceof GlTexture)) return;
+        var access = ((AccessorGlDevice) ((AccessorGpuDevice) RenderSystem.getDevice()).aether$getBackend())
+                .aether$directStateAccess();
+        int main = color.getFbo(access, target.getDepthTexture());
+        int read = GL11.glGetInteger(GL30.GL_READ_FRAMEBUFFER_BINDING);
+        int drawFbo = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
+        boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
+        try {
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, fbo);
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, main);
+            GL30.glBlitFramebuffer(0, 0, width, height, 0, 0, target.width, target.height,
+                    GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
+        } finally {
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, read);
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, drawFbo);
+            if (scissor) GL11.glEnable(GL11.GL_SCISSOR_TEST);
+        }
+    }
+
+    private void resize(int w, int h) {
+        if (fbo != 0 && w == width && h == height) return;
+        freeTarget();
+        int previous = GL11.glGetInteger(GL30.GL_RENDERBUFFER_BINDING);
+        try {
+            colorBuffer = GL30.glGenRenderbuffers();
+            GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, colorBuffer);
+            GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL11.GL_RGBA8, w, h);
+            depthBuffer = GL30.glGenRenderbuffers();
+            GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, depthBuffer);
+            GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL14.GL_DEPTH_COMPONENT24, w, h);
+        } finally {
+            GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, previous);
+        }
+        fbo = GL30.glGenFramebuffers();
+        GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, fbo);
+        GL30.glFramebufferRenderbuffer(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL30.GL_RENDERBUFFER, colorBuffer);
+        GL30.glFramebufferRenderbuffer(GL30.GL_DRAW_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, depthBuffer);
+        int status = GL30.glCheckFramebufferStatus(GL30.GL_DRAW_FRAMEBUFFER);
+        width = w;
+        height = h;
+        if (status != GL30.GL_FRAMEBUFFER_COMPLETE) throw new IllegalStateException("scene framebuffer incomplete: " + status);
+    }
+
+    private void freeTarget() {
+        if (fbo != 0) GL30.glDeleteFramebuffers(fbo);
+        if (colorBuffer != 0) GL30.glDeleteRenderbuffers(colorBuffer);
+        if (depthBuffer != 0) GL30.glDeleteRenderbuffers(depthBuffer);
+        fbo = colorBuffer = depthBuffer = width = height = 0;
     }
 
     private void world(MemoryStack stack, Frame frame, SceneClone.Mesh mesh, float ox, float oy, float oz) {
@@ -176,9 +238,8 @@ final class SceneRenderer implements AutoCloseable {
         GL20.glUniform2f(fogRangeUniform, mesh.radius() - 14f, mesh.radius() - 1f);
     }
 
-    // a vertical gradient over the whole screen, drawn only where nothing nearer is
-    // depth is the clip depth to lay it at; seal writes it over everything without colour
-    private void sky(MemoryStack stack, Frame frame, boolean colour, float depth, boolean seal) {
+    // a vertical gradient over the whole screen as the backdrop, leaving the depth buffer clear for the farm
+    private void sky(MemoryStack stack, Frame frame) {
         GL20.glUniformMatrix4fv(matrixUniform, false, new Matrix4f().get(stack.mallocFloat(16)));
         GL20.glUniform3f(offsetUniform, 0f, 0f, 0f);
         GL20.glUniform2f(fogRangeUniform, 1e8f, 2e8f);
@@ -186,20 +247,18 @@ final class SceneRenderer implements AutoCloseable {
         GL20.glUniform1f(solidUniform, 1f);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
         GL11.glDepthFunc(GL11.GL_ALWAYS);
-        // the backdrop leaves the depth buffer clear; the seal writes its depth everywhere
-        GL11.glDepthMask(seal);
+        GL11.glDepthMask(false);
         GL11.glDisable(GL11.GL_BLEND);
-        GL11.glColorMask(colour, colour, colour, colour);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, white);
         GL33C.glBindSampler(0, skinSampler);
         SceneClone.Buffer sky = new SceneClone.Buffer(6);
         int top = SceneClone.rgba(frame.zenith(), 1f, 255), bottom = SceneClone.rgba(frame.horizon(), 1f, 255);
-        sky.vertex(-1, 1, depth, 0, 0, top);
-        sky.vertex(1, 1, depth, 1, 0, top);
-        sky.vertex(1, -1, depth, 1, 1, bottom);
-        sky.vertex(-1, 1, depth, 0, 0, top);
-        sky.vertex(1, -1, depth, 1, 1, bottom);
-        sky.vertex(-1, -1, depth, 0, 1, bottom);
+        sky.vertex(-1, 1, 1f, 0, 0, top);
+        sky.vertex(1, 1, 1f, 1, 0, top);
+        sky.vertex(1, -1, 1f, 1, 1, bottom);
+        sky.vertex(-1, 1, 1f, 0, 0, top);
+        sky.vertex(1, -1, 1f, 1, 1, bottom);
+        sky.vertex(-1, -1, 1f, 0, 1, bottom);
         ByteBuffer data = sky.finish();
         try {
             GL30.glBindVertexArray(vao[2]);
@@ -208,30 +267,7 @@ final class SceneRenderer implements AutoCloseable {
             GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, 6);
         } finally {
             org.lwjgl.system.MemoryUtil.memFree(data);
-            GL11.glColorMask(true, true, true, true);
-        }
-    }
-
-    // after the panels: pulls every pixel up to just in front of the eye, so nothing the game draws after this (clouds,
-    // weather, the dark void disc below the horizon that blacked out the overview) can land on the menu's picture
-    void sealDepth(Frame frame) {
-        if (failed || program == 0 || lastFramebuffer == 0) return;
-        GlSnapshot saved = GlSnapshot.capture();
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, lastFramebuffer);
-            GL11.glViewport(0, 0, lastWidth, lastHeight);
-            GL11.glDisable(GL11.GL_SCISSOR_TEST);
-            GL11.glDisable(GL11.GL_STENCIL_TEST);
-            GL11.glDisable(GL11.GL_CULL_FACE);
-            GL20.glUseProgram(program);
-            GL20.glUniform1i(samplerUniform, 0);
-            GL13.glActiveTexture(GL13.GL_TEXTURE0);
-            sky(stack, frame, false, SEAL_DEPTH, true);
-        } catch (RuntimeException error) {
-            System.err.println("[Aether] Orbit scene depth seal failed: " + error.getMessage());
-        } finally {
-            saved.restore();
-            lastFramebuffer = 0;
+            GL11.glDepthMask(true);
         }
     }
 
@@ -366,5 +402,7 @@ final class SceneRenderer implements AutoCloseable {
         if (white != 0) GL11.glDeleteTextures(white);
         program = atlasSampler = skinSampler = white = 0;
         uploaded = null;
+        freeTarget();
+        drawn = false;
     }
 }

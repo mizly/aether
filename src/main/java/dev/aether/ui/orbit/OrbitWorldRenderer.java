@@ -50,6 +50,11 @@ final class OrbitWorldRenderer implements AutoCloseable {
     }
 
     void draw(List<Quad> quads) {
+        draw(quads, 0, 0, 0);
+    }
+
+    // framebuffer 0 means the game's main target, anything else is the menu scene's own picture
+    void draw(List<Quad> quads, int into, int intoWidth, int intoHeight) {
         if (failed || quads.isEmpty()) return;
         Minecraft client = Minecraft.getInstance();
         var target = client.getMainRenderTarget();
@@ -61,7 +66,8 @@ final class OrbitWorldRenderer implements AutoCloseable {
         camera.getViewRotationProjectionMatrix(projection);
         var access = ((AccessorGlDevice) ((AccessorGpuDevice) RenderSystem.getDevice()).aether$getBackend())
                 .aether$directStateAccess();
-        int framebuffer = color.getFbo(access, target.getDepthTexture());
+        int framebuffer = into != 0 ? into : color.getFbo(access, target.getDepthTexture());
+        int width = into != 0 ? intoWidth : target.width, height = into != 0 ? intoHeight : target.height;
 
         try (MemoryStack stack = MemoryStack.stackPush()) {
             var viewport = stack.mallocInt(4);
@@ -92,7 +98,7 @@ final class OrbitWorldRenderer implements AutoCloseable {
             try {
                 if (program == 0) initialize();
                 GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, framebuffer);
-                GL11.glViewport(0, 0, target.width, target.height);
+                GL11.glViewport(0, 0, width, height);
                 GL11.glDisable(GL11.GL_CULL_FACE);
                 GL11.glDisable(GL11.GL_SCISSOR_TEST);
                 GL11.glDisable(GL11.GL_STENCIL_TEST);
