@@ -18,4 +18,7 @@ abstract class AbstractFishingMacro extends AbstractMacro {
     }
 
     public abstract void releaseAll(Minecraft mc);
+
+    void onChat(String plain) {
+    }
 }

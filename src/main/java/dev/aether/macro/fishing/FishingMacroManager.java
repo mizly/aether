@@ -11,6 +11,7 @@ import dev.aether.modules.routes.RouteRunner;
 import dev.aether.modules.routes.RouteStore;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.SkyblockLocation;
+import dev.aether.util.TablistUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 
@@ -187,6 +188,20 @@ public final class FishingMacroManager {
     private static BlockPos homeOf(Route route) {
         Route.Waypoint end = route == null ? null : route.end();
         return end == null ? null : new BlockPos(end.x(), end.y(), end.z());
+    }
+
+    // main client thread only; a macro that is still waiting to start or walking a restart is not fishing yet
+    public static void onChat(String line) {
+        if (restartRunner != null || pendingEnableTicks > 0) {
+            return;
+        }
+        forwardChat(activeMacro, line);
+    }
+
+    static void forwardChat(AbstractFishingMacro macro, String line) {
+        if (macro != null && line != null) {
+            macro.onChat(TablistUtils.stripColors(line));
+        }
     }
 
     // releases the macro's keys without disabling it
