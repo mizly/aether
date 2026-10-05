@@ -85,6 +85,8 @@ final class SceneRenderer implements AutoCloseable {
             float ox = (float) (mesh.originX() - eye.x), oy = (float) (mesh.originY() - eye.y), oz = (float) (mesh.originZ() - eye.z);
             int atlas = texture(client, TextureAtlas.LOCATION_BLOCKS);
             try (MemoryStack stack = MemoryStack.stackPush()) {
+                // the sky goes down first as a backdrop, untested and leaving no depth, so the farm always lands on it
+                sky(stack, frame, true, SKY_DEPTH, false);
                 world(stack, frame, mesh, ox, oy, oz);
                 GL11.glEnable(GL11.GL_DEPTH_TEST);
                 GL11.glDepthFunc(GL11.GL_LEQUAL);
@@ -95,13 +97,11 @@ final class SceneRenderer implements AutoCloseable {
                 GL33C.glBindSampler(0, atlasSampler);
                 drawArrays(0, mesh.solidCount());
 
-                // the sky fills only what the farm left empty, and sits a hair in front of the far plane
-                sky(stack, frame, true, SKY_DEPTH, false);
-
                 if (mesh.waterCount() > 0) {
                     world(stack, frame, mesh, ox, oy, oz);
-                    GL11.glBindTexture(GL11.GL_TEXTURE_2D, atlas);
-                    GL33C.glBindSampler(0, atlasSampler);
+                    // water is a plain tinted sheet: its animated sprite sampled from far off can come out black
+                    GL11.glBindTexture(GL11.GL_TEXTURE_2D, white);
+                    GL33C.glBindSampler(0, skinSampler);
                     GL20.glUniform1f(alphaUniform, 0.01f);
                     GL20.glUniform1f(solidUniform, 0f);
                     GL11.glEnable(GL11.GL_DEPTH_TEST);
@@ -177,7 +177,7 @@ final class SceneRenderer implements AutoCloseable {
     }
 
     // a vertical gradient over the whole screen, drawn only where nothing nearer is
-    // depth is the clip depth to lay it at; seal draws it over everything, without testing
+    // depth is the clip depth to lay it at; seal writes it over everything without colour
     private void sky(MemoryStack stack, Frame frame, boolean colour, float depth, boolean seal) {
         GL20.glUniformMatrix4fv(matrixUniform, false, new Matrix4f().get(stack.mallocFloat(16)));
         GL20.glUniform3f(offsetUniform, 0f, 0f, 0f);
@@ -185,8 +185,9 @@ final class SceneRenderer implements AutoCloseable {
         GL20.glUniform1f(alphaUniform, 0f);
         GL20.glUniform1f(solidUniform, 1f);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthFunc(seal ? GL11.GL_ALWAYS : GL11.GL_LEQUAL);
-        GL11.glDepthMask(true);
+        GL11.glDepthFunc(GL11.GL_ALWAYS);
+        // the backdrop leaves the depth buffer clear; the seal writes its depth everywhere
+        GL11.glDepthMask(seal);
         GL11.glDisable(GL11.GL_BLEND);
         GL11.glColorMask(colour, colour, colour, colour);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, white);
