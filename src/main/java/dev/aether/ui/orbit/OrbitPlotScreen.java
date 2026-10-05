@@ -112,13 +112,12 @@ final class OrbitPlotScreen {
         if (inspected >= 0 && ia > 0.01f) drawInspector(nvg, p, w, h, ia, facts);
     }
 
-    // the hovered plot up close on the right: its picture big and flat, what grows there, and how fresh it is
+    // the hovered plot up close on the right: its name over its picture, big and flat
     private void drawInspector(NVGRenderer nvg, Palette p, float w, float h, float a, GardenFacts facts) {
         List<String> lines = model.tooltip(inspected, facts);
         PlotPickerModel.PlotLook look = model.look(inspected, facts);
         float iw = 176f, pad = 12f, img = iw - pad * 2;
-        float lh = 11f;
-        float ih = pad + 14f + img + 10f + Math.max(0, lines.size() - 1) * lh + 30f + pad;
+        float ih = pad + 16f + img + pad;
         float x = w - iw - 22f + (1f - a) * 24f;
         float y = Math.max(20f, (h - ih) / 2f - 20f);
         nvg.roundedRect(x, y, iw, ih, 12f, Argb.multiplyAlpha(Argb.withAlpha(p.panel(), 0.95f), a));
@@ -135,34 +134,6 @@ final class OrbitPlotScreen {
         if (look != null && look.marked()) {
             nvg.rectOutline(x + pad, iy, img, img, 8f, 2f, Argb.multiplyAlpha(p.accent(), a));
         }
-        float ly = iy + img + 10f;
-        for (int i = 1; i < lines.size(); i++) {
-            nvg.text(Fonts.UI_REGULAR, strip(lines.get(i)), x + pad, ly, 8f, Argb.multiplyAlpha(p.textMuted(), a));
-            ly += lh;
-        }
-        // how much of the plot has been photographed, and when
-        float seen = PlotMiniatures.coverage(inspected);
-        String fresh;
-        if (seen <= 0f) {
-            fresh = AetherLang.localize("Never in range yet");
-        } else {
-            long age = PlotMiniatures.age(inspected);
-            String when = age < 60_000L ? AetherLang.localize("Updated just now")
-                    : String.format(AetherLang.localize("Updated %s ago"), ago(age));
-            fresh = String.format(AetherLang.localize("%d%% seen"), Math.round(seen * 100)) + " · " + when;
-        }
-        nvg.text(Fonts.UI_REGULAR, fresh, x + pad, ly + 2f, 8f, Argb.multiplyAlpha(Argb.withAlpha(p.text(), 0.75f), a));
-        float by = ly + 16f;
-        nvg.roundedRect(x + pad, by, img, 3f, 1.5f, Argb.multiplyAlpha(Argb.withAlpha(p.text(), 0.1f), a));
-        if (seen > 0f) nvg.roundedRect(x + pad, by, img * seen, 3f, 1.5f, Argb.multiplyAlpha(p.accent(), a));
-    }
-
-    private static String ago(long ms) {
-        long minutes = ms / 60_000L;
-        if (minutes < 60) return minutes + "m";
-        long hours = minutes / 60;
-        if (hours < 48) return hours + "h";
-        return hours / 24 + "d";
     }
 
     private void drawCard(NVGRenderer nvg, Palette p, float w, float h, float a, GardenFacts facts, float mx, float my) {
