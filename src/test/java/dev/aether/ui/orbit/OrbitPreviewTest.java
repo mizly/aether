@@ -64,6 +64,7 @@ class OrbitPreviewTest {
 
     private long now = 1_000_000_000L;
     private final FailsafeRing ring = new FailsafeRing();
+    private final List<OrbitWorldRenderer.Quad> injected = new ArrayList<>();
 
     private static int activeOf(OrbitLayout.Result layout) {
         for (OrbitLayout.Placement p : layout.placements()) if (p.active()) return p.index();
@@ -188,6 +189,7 @@ class OrbitPreviewTest {
         }
         if (only.isEmpty() || "plots".contains(only)) written.add(renderPlots(view, ids, surfaces));
         if (only.isEmpty() || "travel".contains(only)) written.addAll(renderTravel(view, ids, surfaces));
+        if (only.isEmpty() || "hover".contains(only)) written.addAll(renderHovers(view, ids, surfaces));
         System.out.println("orbit previews: " + written);
     }
 
@@ -244,6 +246,56 @@ class OrbitPreviewTest {
         return out.toString();
     }
 
+    // each in-world setting preview, as if the cursor rested on its row
+    private List<String> renderHovers(PanelView view, List<String> ids, PanelSurface[] surfaces) throws Exception {
+        var radius = new dev.aether.ui.settings.SliderSetting("Etherwarp Minimum Distance (Blocks)", 10, 50, () -> 22f, v -> { });
+        var threshold = new dev.aether.ui.settings.SliderSetting("Pest Threshold", 1, 8, () -> 3f, v -> { });
+        var start = new dev.aether.ui.settings.PositionSetting("Rewarp Start", () -> 0.0, v -> { }, () -> 0.0, v -> { },
+                () -> 0.0, v -> { }, () -> false, v -> { }, () -> { });
+        var pitch = new dev.aether.ui.settings.SliderSetting("Pitch", -90, 90, () -> 3f, v -> { });
+        var pair = dev.aether.config.RewarpPointPair.defaultPair(0);
+        pair.name = "Wheat";
+        pair.startX = -12.5;
+        pair.startZ = 30.5;
+        pair.startSet = true;
+        pair.endX = 14.5;
+        pair.endZ = 44.5;
+        var garden = new dev.aether.ui.gui.plot.GardenFacts(5, java.util.Map.of(4, 3, 8, 1, 12, 2), null);
+        record Hover(String name, String category, PanelView.Hover hover) {
+        }
+        List<Hover> hovers = List.of(
+                new Hover("hover-radius", "farming", new PanelView.Hover(radius, "farming-macro", "Etherwarp")),
+                new Hover("hover-pests", "pests", new PanelView.Hover(threshold, "pest-manager", "Pest Destroyer")),
+                new Hover("hover-rewarp", "farming", new PanelView.Hover(start, "rewarp", "Rewarp 1")),
+                new Hover("hover-cone", "farming", new PanelView.Hover(pitch, "farming-macro", "Farm Macro Settings")));
+        List<String> out = new ArrayList<>();
+        for (Hover h : hovers) {
+            int active = ids.indexOf(h.category());
+            view.orbitFocus(h.category());
+            double[][] lean = OrbitRig.lean(h.category());
+            float[] unfold = new float[ids.size()];
+            java.util.Arrays.fill(unfold, 1f);
+            OrbitLayout.Result layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(), 0f, 0f, 1.62, 70f,
+                    ids.size(), active, 0f, 0f, 1f, true, 0f, unfold, active, lean[0], lean[1], H));
+            SettingPreview preview = new SettingPreview();
+            var world = new SettingPreview.World(new Vector3d(), 1.62, 0f, 3f, garden, List.of(pair));
+            BufferedImage image = null;
+            for (int frame = 0; frame < 40; frame++) {
+                now += 16_666_667L;
+                preview.step(1f / 60f, h.hover(), true);
+                injected.clear();
+                preview.appendQuads(injected, world, layout.camera(), frame / 60f);
+                image = render(view, ids, surfaces, layout, 0f, frame == 39);
+            }
+            injected.clear();
+            preview.close();
+            Path file = Path.of("build/reports/gui-preview/orbit/" + h.name() + ".png");
+            ImageIO.write(image, "png", file.toFile());
+            out.add(file.toString());
+        }
+        return out;
+    }
+
     // frames of the island travel film both ways, over the overview it opens into
     private List<String> renderTravel(PanelView view, List<String> ids, PanelSurface[] surfaces) throws Exception {
         int active = ids.indexOf("farming");
@@ -293,7 +345,7 @@ class OrbitPreviewTest {
             }
         }
         OrbitLayout.Camera cam = layout.camera();
-        List<OrbitWorldRenderer.Quad> extra = new ArrayList<>();
+        List<OrbitWorldRenderer.Quad> extra = new ArrayList<>(injected);
         if (zoom < 0.5f && "safety".equals(ids.get(activeOf(layout)))) {
             for (int i = 0; i < 40; i++) ring.step(1f / 60f, true);
             ring.appendQuads(extra, view.orbitFailsafes(), "Rotation", new Vector3d(), cam, 1f);
