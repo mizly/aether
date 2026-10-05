@@ -56,7 +56,8 @@ public final class AetherUiActions {
             MainGUIRegistry.refresh();
             client.execute(() -> {
                 try {
-                    client.setScreen(client.level == null ? new MainGUI() : new dev.aether.ui.orbit.OrbitScreen());
+                    client.setScreen(client.level == null || dev.aether.config.AetherConfig.TRADITIONAL_GUI.get()
+                            ? new MainGUI() : new dev.aether.ui.orbit.OrbitScreen());
                 } catch (RuntimeException | LinkageError e) {
                     Aether.LOGGER.error("Failed to open Aether GUI from queued client task", e);
                     ClientUtils.sendMessage("\u00A7cFailed to open the Aether GUI. Check the client log.", false);

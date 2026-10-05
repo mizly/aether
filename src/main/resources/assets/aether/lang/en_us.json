@@ -937,5 +937,12 @@
   "text.aether._d_seen": "%d%% seen",
   "text.aether.updated_just_now": "Updated just now",
   "text.aether.updated_s_ago": "Updated %s ago",
-  "text.aether.never_in_range_yet": "Never in range yet"
+  "text.aether.never_in_range_yet": "Never in range yet",
+  "text.aether.look": "Look",
+  "text.aether.colour_theme_and_which_menu_opens": "Colour theme and which menu opens",
+  "text.aether.theme": "Theme",
+  "text.aether.aether_is_the_original_red_on_black": "Aether is the original red on black",
+  "text.aether.traditional_gui": "Traditional GUI",
+  "text.aether.use_the_classic_flat_settings_window_instead_of_the_3d_farm_menu": "Use the classic flat settings window instead of the 3D farm menu",
+  "text.aether.aether": "Aether"
 }
