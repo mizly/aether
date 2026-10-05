@@ -616,14 +616,6 @@ public final class OrbitScreen extends Screen {
         return zoom.t > 0.5f;
     }
 
-    String breadcrumb() {
-        String cat = activeCategory();
-        if (cat == null) return "";
-        String name = view.orbitCategoryName(cat);
-        String page = view.orbitModuleOpen() ? view.orbitOpenPageName() : null;
-        return overview() ? "" : page == null ? name : name + "  ›  " + page;
-    }
-
     List<String> categoryIds() {
         return categories;
     }
@@ -778,10 +770,6 @@ public final class OrbitScreen extends Screen {
             }
             return searchBar.key(key, hasControlDown(), hasShiftDown());
         }
-        if (hasControlDown() && key == GLFW.GLFW_KEY_F && !view.orbitTyping()) {
-            searchBar.open("");
-            return true;
-        }
         if (key == GLFW.GLFW_KEY_ESCAPE) {
             if ((view.orbitOverlayOpen() || view.orbitTyping()) && view.keyPressed(input)) return true;
             if (view.orbitModuleOpen()) {
@@ -794,6 +782,10 @@ public final class OrbitScreen extends Screen {
             return true;
         }
         if (view.keyPressed(input)) return true;
+        if ((key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) && !hasControlDown()) {
+            searchBar.open("");
+            return true;
+        }
         if (key == GLFW.GLFW_KEY_TAB) {
             setOverview(!overview());
             return true;
@@ -826,10 +818,8 @@ public final class OrbitScreen extends Screen {
             searchBar.type(typed);
         } else if (view.orbitTyping()) {
             view.charTyped(typed);
-        } else if (typed.equals("/")) {
+        } else if (typed.equals("/") && plotScreen == null) {
             searchBar.open("");
-        } else if (Character.isLetter(event.codepoint()) && plotScreen == null) {
-            searchBar.type(typed);
         }
         return true;
     }

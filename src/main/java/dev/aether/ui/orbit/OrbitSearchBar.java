@@ -136,6 +136,11 @@ final class OrbitSearchBar {
     void render(NVGRenderer nvg, Palette p, float x, float y, float w, float screenW, float screenH, float mx, float my,
                 float a) {
         refresh();
+        // hidden until / or enter opens it
+        if (!open) {
+            chipW = listW = listH = 0f;
+            return;
+        }
         chipX = x;
         chipY = y;
         chipW = w;
@@ -154,7 +159,7 @@ final class OrbitSearchBar {
             float maxText = w - 21f - 22f;
             nvg.pushScissor(tx, y, maxText, chipH);
             if (query.isEmpty()) {
-                nvg.text(Fonts.UI_MEDIUM, open ? AetherLang.localize("Type to search") : AetherLang.localize("Search settings"),
+                nvg.text(Fonts.UI_MEDIUM, AetherLang.localize("Type to search"),
                         tx, y + 7f, 8f, Argb.multiplyAlpha(p.textMuted(), a));
             } else {
                 String q = query.toString();
@@ -166,7 +171,7 @@ final class OrbitSearchBar {
                 }
             }
             nvg.popScissor();
-            keycap(nvg, p, x + w - 17f, y + 5f, open ? "Esc" : "/", a);
+            keycap(nvg, p, x + w - 17f, y + 5f, "Esc", a);
         }
         if (!open) {
             listW = listH = 0f;

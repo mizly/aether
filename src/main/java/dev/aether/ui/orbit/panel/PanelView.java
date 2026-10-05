@@ -107,11 +107,6 @@ public final class PanelView {
         return category == null ? null : category.icon();
     }
 
-    public String orbitOpenPageName() {
-        PanelNav.Page page = style.nav.page(style.location().pageId());
-        return page == null ? null : page.name();
-    }
-
     // brings a category to the front; an open page of that same category stays open
     public void orbitFocus(String categoryId) {
         if (!categoryId.equals(style.location().categoryId())) style.openCategory(categoryId);

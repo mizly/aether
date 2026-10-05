@@ -12,7 +12,7 @@ import dev.aether.util.AetherLang;
 import java.util.ArrayList;
 import java.util.List;
 
-// the flat layer over the 3d scene: breadcrumb, the macro strip with resume, close, and the category tabs
+// the flat layer over the 3d scene: the macro strip with resume, close, search while it is open, and the category tabs
 final class OrbitOverlay {
     private record Button(float x, float y, float w, float h, Runnable action) {
         boolean contains(double px, double py) {
@@ -59,19 +59,8 @@ final class OrbitOverlay {
         int muted = Argb.multiplyAlpha(p.textMuted(), a);
         float pad = 10f;
 
-        // top left: brand and where you are
-        String crumb = screen.breadcrumb();
-        float brandW = 62f + (crumb.isEmpty() ? 0f : nvg.textWidth(Fonts.UI_MEDIUM, crumb, 8f) + 22f);
-        nvg.roundedRect(pad, pad, brandW, 22f, 7f, chip);
-        nvg.rectOutline(pad, pad, brandW, 22f, 7f, 1f, border);
-        nvg.text(Fonts.UI_BOLD, "Aether", pad + 10f, pad + 6.5f, 9f, text);
-        if (!crumb.isEmpty()) {
-            nvg.rect(pad + 52f, pad + 6f, 1f, 10f, border);
-            nvg.text(Fonts.UI_MEDIUM, crumb, pad + 60f, pad + 7f, 8f, muted);
-        }
-
         // top right: close, and the macro the menu stopped with a resume button
-        float leftEnd = pad + brandW + 8f;
+        float leftEnd = pad;
         float x = w - pad - 22f;
         float rightStart = x;
         Button close = new Button(x, pad, 22f, 22f, screen::beginClose);
@@ -109,7 +98,7 @@ final class OrbitOverlay {
         float searchW = room >= 90f ? Math.min(220f, room) : 22f;
         float searchX = Math.max(leftEnd, Math.min(rightStart - 8f - searchW, (w - searchW) / 2f));
 
-        // bottom: one tab per category, the active one underlined, plus the key hints above
+        // bottom: one tab per category, the active one underlined
         List<String> ids = screen.categoryIds();
         float tabH = 22f;
         float gap = 2f;
@@ -144,11 +133,6 @@ final class OrbitOverlay {
             buttons.add(tab);
             tx += tw + gap;
         }
-        String hint = overview
-                ? AetherLang.localize("Click a category to open it · Esc to close")
-                : AetherLang.localize("Scroll or drag to spin · Tab for overview · Type to search · Esc back");
-        float hw = nvg.textWidth(Fonts.UI_REGULAR, hint, 7f);
-        nvg.text(Fonts.UI_REGULAR, hint, (w - hw) / 2f, by - 12f, 7f, Argb.multiplyAlpha(Argb.withAlpha(p.text(), 0.55f), a));
         search.render(nvg, p, searchX, pad, searchW, w, h, mx, my, a);
     }
 
