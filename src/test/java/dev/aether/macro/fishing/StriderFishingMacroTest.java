@@ -63,24 +63,6 @@ class StriderFishingMacroTest {
     }
 
     @Test
-    void standingOnTheStartBlockNeedsNoRouteBackToIt() {
-        assertTrue(StriderFishingMacro.withinOriginBlock(0.0, 0.0, 0.0));
-        // the corners and lip of the block itself
-        assertTrue(StriderFishingMacro.withinOriginBlock(0.5, 0.0, 0.5));
-        assertTrue(StriderFishingMacro.withinOriginBlock(-0.5, 0.0, 0.5));
-        // a hair above it, mid hop out of the lava
-        assertTrue(StriderFishingMacro.withinOriginBlock(0.0, 0.9, 0.0));
-    }
-
-    @Test
-    void theNextBlockOverStillEarnsARouteHome() {
-        assertFalse(StriderFishingMacro.withinOriginBlock(0.8, 0.0, 0.0));
-        assertFalse(StriderFishingMacro.withinOriginBlock(0.0, 0.0, -0.8));
-        assertFalse(StriderFishingMacro.withinOriginBlock(0.0, 1.5, 0.0));
-        assertFalse(StriderFishingMacro.withinOriginBlock(0.0, -0.9, 0.0));
-    }
-
-    @Test
     void aMissedLavaAimBacksOffBeforeTryingSomewhereElse() {
         java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
         for (int i = 0; i < 500; i++) {
@@ -88,54 +70,6 @@ class StriderFishingMacroTest {
             assertTrue(StriderFishingMacro.aimRetryDelayInRange(delay));
             assertTrue(delay >= 400L && delay <= 900L);
         }
-    }
-
-    @Test
-    void aRefusedRouteBacksOffBeforeTryingAgain() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            long delay = StriderFishingMacro.nextReturnRetryDelayMs(random);
-            assertTrue(StriderFishingMacro.returnRetryDelayInRange(delay));
-            // long enough that the jump can lift us out of lava before the next plan
-            assertTrue(delay >= 500L && delay <= 900L);
-        }
-    }
-
-    @Test
-    void etherwarpOnlyEarnsItsKeepFromFourBlocksOut() {
-        assertFalse(StriderFishingMacro.shouldEtherwarp(3.9, false, true));
-        assertTrue(StriderFishingMacro.shouldEtherwarp(4.0, false, true));
-        assertFalse(StriderFishingMacro.shouldEtherwarp(40.0, false, false));
-    }
-
-    @Test
-    void lavaIsWarpedOutOfAsSoonAsThereIsAnywhereToGo() {
-        assertFalse(StriderFishingMacro.shouldEtherwarp(0.9, true, true));
-        assertTrue(StriderFishingMacro.shouldEtherwarp(1.0, true, true));
-        assertTrue(StriderFishingMacro.shouldEtherwarp(2.0, true, true));
-    }
-
-    @Test
-    void theSwimOutOfLavaWaitsABeatBeforeHoldingJump() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            long delay = StriderFishingMacro.nextLiquidJumpDelayMs(random);
-            assertTrue(StriderFishingMacro.liquidJumpDelayInRange(delay));
-            assertTrue(delay >= 100L && delay <= 300L);
-        }
-    }
-
-    @Test
-    void jumpIsHeldOnlyOnceTheSinkingBeatHasPassed() {
-        assertFalse(StriderFishingMacro.shouldHoldLiquidJump(true, 1_000L, 1_200L));
-        assertTrue(StriderFishingMacro.shouldHoldLiquidJump(true, 1_200L, 1_200L));
-        assertTrue(StriderFishingMacro.shouldHoldLiquidJump(true, 9_000L, 1_200L));
-    }
-
-    @Test
-    void dryLandNeverHoldsTheJumpKey() {
-        assertFalse(StriderFishingMacro.shouldHoldLiquidJump(false, 9_000L, 1_200L));
-        assertFalse(StriderFishingMacro.shouldHoldLiquidJump(true, 9_000L, 0L));
     }
 
     @Test

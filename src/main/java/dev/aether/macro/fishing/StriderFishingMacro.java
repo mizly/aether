@@ -5,9 +5,7 @@ import dev.aether.config.ConfigHelpers;
 import dev.aether.macro.MacroInput;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.modules.failsafe.FailsafeManager;
-import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.profit.helpers.ActivityRateTracker;
-import dev.aether.modules.routes.EtherwarpLeg;
 import dev.aether.modules.routes.Route;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
@@ -54,13 +52,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     // loot instead of a mob leaves nothing to fight, so the line goes straight back out
     private static final long EMPTY_CATCH_DELAY_MIN_MS = 150L;
     private static final long EMPTY_CATCH_DELAY_MAX_MS = 400L;
-    // the block being walked to sits just under eye level, so watching it reads as ahead and slightly down
-    private static final double LOOK_TARGET_HEIGHT = 1.2;
-    private static final long LIQUID_JUMP_MIN_DELAY_MS = 100L;
-    private static final long LIQUID_JUMP_MAX_DELAY_MS = 300L;
-    private static final double ETHERWARP_MIN_DISTANCE = 4.0;
-    // wading out of lava is slow and expensive, so the warp takes over as soon as there is anywhere to go
-    private static final double ETHERWARP_LIQUID_MIN_DISTANCE = 1.0;
     private static final long BOBBER_SETTLE_MS = 1_500L;
     // the float needs time to finish its arc before where it landed means anything
     private static final long BOBBER_LANDED_MS = 1_200L;
@@ -72,14 +63,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private static final double FOLLOW_BAND = 0.35;
     private static final long AIM_RETRY_MIN_MS = 400L;
     private static final long AIM_RETRY_MAX_MS = 900L;
-    private static final int MAX_RETURN_ATTEMPTS = 6;
-    // a failed plan usually means we are still sinking in lava, so the jump needs time before retrying
-    private static final long RETURN_RETRY_MIN_MS = 500L;
-    private static final long RETURN_RETRY_MAX_MS = 900L;
-    // the block footprint plus a sliver; an exact block match alone routes us to where we already stand
-    private static final double ORIGIN_RADIUS = 0.55;
-    private static final double ORIGIN_BELOW = 0.5;
-    private static final double ORIGIN_ABOVE = 1.0;
 
     // a pool that never empties means a catch slipped out of reach, so the rest is written off and fishing resumes
     private static final long CLEAR_TIMEOUT_MS = 90_000L;
@@ -97,12 +80,10 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private static final int GLANCE_AT_POOL_ONE_IN = 3;
 
     private State state = State.AIM_LAVA;
-    private BlockPos origin;
     private long stateEnteredAt;
     private long nextActionAt;
     private long nextAttackAt;
     private long returnAt;
-    private long jumpHoldAt;
     private int followMove;
     private boolean emptyCatch;
     private final Set<BlockPos> rejectedLava = new HashSet<>();
@@ -113,14 +94,9 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private CastAimSearch aimSearch;
     private long aimRetryAt;
     private int aimSweep;
-    private int returnAttempts;
     private Entity target;
-    private boolean returnPathStarted;
-    private boolean returnByWalk;
-    private boolean etherwarpUsed;
-    private EtherwarpLeg returnWarp;
-    private long returnRetryAt;
-    private volatile boolean returnFinished;
+    private final HomeKeeper homeKeeper = new HomeKeeper("[StriderFishing]",
+            () -> AetherConfig.STRIDER_FISHING_ETHERWARP_RETURN.get(), Entity::isInLiquid);
 
     private final Set<Integer> pooledCatchIds = new LinkedHashSet<>();
     // outlives the macro instance, so a stop and start in the same lobby picks the pool back up
@@ -148,16 +124,12 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         if (mc.player == null) {
             return;
         }
-        origin = home(mc);
+        homeKeeper.start(home(mc));
         target = null;
         followMove = 0;
         clearAimSearch();
-        returnAttempts = 0;
-        returnPathStarted = false;
-        returnFinished = false;
         nextAttackAt = 0L;
         returnAt = 0L;
-        jumpHoldAt = 0L;
         emptyCatch = false;
         preReelEntityIds.clear();
         pooledCatchIds.clear();
@@ -165,6 +137,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         clearKillPlan();
         idle.clear();
         changeState(State.AIM_LAVA);
+        BlockPos origin = homeKeeper.origin();
         ClientUtils.sendDebugMessage("[StriderFishing] started at "
                 + origin.getX() + ", " + origin.getY() + ", " + origin.getZ());
         resumeRememberedPool(mc);
@@ -222,14 +195,11 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
     @Override
     public void onDisable(Minecraft mc) {
-        PathfindingManager.stop(false);
-        dropReturnWarp(mc);
+        homeKeeper.cancel(mc);
         RotationManager.cancelRotation();
         releaseAll(mc);
         target = null;
         followMove = 0;
-        returnPathStarted = false;
-        returnFinished = false;
         preReelEntityIds.clear();
         forgetPool();
         if (!pooledCatchIds.isEmpty()) {
@@ -272,13 +242,13 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         watchCage(mc);
 
         // last word on the jump key, since every state above clears it
-        tickLiquidEscape(mc);
+        homeKeeper.tickLiquidEscape(mc, System.currentTimeMillis(), ThreadLocalRandom.current());
     }
 
     private void tickAimLava(Minecraft mc) {
         holdStill(mc);
 
-        if (!isOnOrigin(mc)) {
+        if (!homeKeeper.isOnOrigin(mc)) {
             beginReturn(mc);
             return;
         }
@@ -336,7 +306,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return;
         }
 
-        if (!isOnOrigin(mc)) {
+        if (!homeKeeper.isOnOrigin(mc)) {
             beginReturn(mc);
             return;
         }
@@ -418,7 +388,8 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return;
         }
 
-        idle.tick(mc, now, shouldSneak(mc), sneakAllowedHere(mc), isOnOrigin(mc), ThreadLocalRandom.current());
+        idle.tick(mc, now, shouldSneak(mc), sneakAllowedHere(mc), homeKeeper.isOnOrigin(mc),
+                ThreadLocalRandom.current());
     }
 
     private void tickReel(Minecraft mc) {
@@ -465,7 +436,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             }
             // loot never spawns a mob, and the rod never left the start block, so just cast again
             if (now - stateEnteredAt > ACQUIRE_TIMEOUT_MS) {
-                if (isOnOrigin(mc)) {
+                if (homeKeeper.isOnOrigin(mc)) {
                     recast(now);
                     return;
                 }
@@ -527,7 +498,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return;
         }
         emptyCatch = false;
-        if (isOnOrigin(mc)) {
+        if (homeKeeper.isOnOrigin(mc)) {
             changeState(State.CAST);
             nextActionAt = now + castDelayMs();
             return;
@@ -610,6 +581,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return;
         }
         catchLastSeen.keySet().retainAll(pooledCatchIds);
+        BlockPos origin = homeKeeper.origin();
         Vec3 home = origin == null ? mc.player.position() : Vec3.atBottomCenterOf(origin);
         for (int id : pooledCatchIds) {
             Entity entity = mc.level.getEntity(id);
@@ -652,7 +624,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         clearWhip();
         clearKillPlan();
         releaseAll(mc);
-        if (isOnOrigin(mc)) {
+        if (homeKeeper.isOnOrigin(mc)) {
             changeState(State.AIM_LAVA);
             return;
         }
@@ -737,101 +709,16 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     }
 
     private void tickReturn(Minecraft mc) {
-        if (origin == null) {
+        if (homeKeeper.origin() == null) {
             changeState(State.AIM_LAVA);
             return;
         }
-
-        if (isOnOrigin(mc)) {
-            PathfindingManager.stop(false);
-            dropReturnWarp(mc);
+        HomeKeeper.Result result = homeKeeper.tick(mc, System.currentTimeMillis(), ThreadLocalRandom.current());
+        if (result == HomeKeeper.Result.ARRIVED) {
             arriveHome(mc);
-            return;
+        } else if (result == HomeKeeper.Result.FAILED) {
+            fail("Strider fishing stopped: could not get back onto the start block.");
         }
-
-        // one crouched, lined up click; the old pathfinder warp re-clicked on a timer and could fire unsneaked,
-        // which is a plain aotv teleport straight off the block
-        if (returnWarp != null) {
-            EtherwarpLeg.Result result = returnWarp.tick(mc);
-            if (result == EtherwarpLeg.Result.RUNNING) {
-                return;
-            }
-            if (result == EtherwarpLeg.Result.FAILED) {
-                ClientUtils.sendDebugMessage("[StriderFishing] return warp failed: " + returnWarp.failure());
-            }
-            dropReturnWarp(mc);
-            returnFinished = true;
-            return;
-        }
-
-        long now = System.currentTimeMillis();
-        if (returnFinished) {
-            returnFinished = false;
-            returnPathStarted = false;
-            // a refused warp is a change of plan, not a failed attempt; only a dead walk route counts
-            if (returnByWalk && ++returnAttempts > MAX_RETURN_ATTEMPTS) {
-                fail("Strider fishing stopped: could not get back onto the start block.");
-                return;
-            }
-            returnByWalk = false;
-            returnRetryAt = now + nextReturnRetryDelayMs(ThreadLocalRandom.current());
-            return;
-        }
-
-        if (now < returnRetryAt) {
-            return;
-        }
-
-        Vec3 home = Vec3.atBottomCenterOf(origin);
-        if (!returnPathStarted) {
-            boolean inLiquid = mc.player.isInLiquid();
-            // one warp per trip, landed or missed; anything after it walks and looks at the block
-            if (!etherwarpUsed && shouldEtherwarp(mc.player.position().distanceTo(home), inLiquid,
-                    AetherConfig.STRIDER_FISHING_ETHERWARP_RETURN.get())) {
-                etherwarpUsed = true;
-                returnPathStarted = true;
-                returnByWalk = false;
-                PathfindingManager.stop(false);
-                returnWarp = new EtherwarpLeg(
-                        new Route.Waypoint(origin.getX(), origin.getY(), origin.getZ(), Route.LegType.ETHERWARP), null);
-                return;
-            }
-            // a walk route cannot be planned out of lava, so the jump has to lift us clear first
-            if (inLiquid) {
-                return;
-            }
-            returnPathStarted = true;
-            startWalkHome(mc, home);
-            return;
-        }
-
-        // the warp has to keep its own aim, so only the walk watches the block it is heading for
-        if (returnByWalk && PathfindingManager.isNavigating()) {
-            PathfindingManager.setWalkLookTarget(home.add(0.0, LOOK_TARGET_HEIGHT, 0.0));
-        }
-    }
-
-    private void dropReturnWarp(Minecraft mc) {
-        if (returnWarp != null) {
-            returnWarp = null;
-            EtherwarpLeg.release(mc);
-        }
-    }
-
-    private void startWalkHome(Minecraft mc, Vec3 home) {
-        returnByWalk = true;
-        PathfindingManager.startConfiguredWalk(mc, home,
-                () -> returnFinished = true,
-                () -> returnFinished = true,
-                true, 0.35, true, false);
-    }
-
-    static long nextReturnRetryDelayMs(ThreadLocalRandom random) {
-        return random.nextLong(RETURN_RETRY_MIN_MS, RETURN_RETRY_MAX_MS + 1);
-    }
-
-    static boolean returnRetryDelayInRange(long delay) {
-        return delay >= RETURN_RETRY_MIN_MS && delay <= RETURN_RETRY_MAX_MS;
     }
 
     private void changeState(State next) {
@@ -852,24 +739,13 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private void beginReturn(Minecraft mc) {
         target = null;
         followMove = 0;
-        returnPathStarted = false;
-        returnByWalk = false;
-        returnFinished = false;
-        etherwarpUsed = false;
-        returnRetryAt = 0L;
-        dropReturnWarp(mc);
+        homeKeeper.beginTrip(mc);
         idle.clear();
         releaseAll(mc);
         changeState(State.RETURN);
     }
 
     private void arriveHome(Minecraft mc) {
-        returnPathStarted = false;
-        returnByWalk = false;
-        returnFinished = false;
-        etherwarpUsed = false;
-        returnRetryAt = 0L;
-        returnAttempts = 0;
         releaseAll(mc);
         clearAimSearch();
         // the route leaves the camera wherever it was steering, so the lava aim starts from a clean slate
@@ -898,27 +774,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
     static boolean aimRetryDelayInRange(long delay) {
         return delay >= AIM_RETRY_MIN_MS && delay <= AIM_RETRY_MAX_MS;
-    }
-
-    private boolean isOnOrigin(Minecraft mc) {
-        if (origin == null) {
-            return false;
-        }
-        if (origin.equals(mc.player.blockPosition())) {
-            return true;
-        }
-        Vec3 home = Vec3.atBottomCenterOf(origin);
-        return withinOriginBlock(mc.player.getX() - home.x,
-                mc.player.getY() - home.y,
-                mc.player.getZ() - home.z);
-    }
-
-    // standing on the lip of the block, or a hair above it after the jump out, still counts as home
-    static boolean withinOriginBlock(double dx, double dy, double dz) {
-        return Math.abs(dx) <= ORIGIN_RADIUS
-                && Math.abs(dz) <= ORIGIN_RADIUS
-                && dy >= -ORIGIN_BELOW
-                && dy <= ORIGIN_ABOVE;
     }
 
     private void holdStill(Minecraft mc) {
@@ -976,14 +831,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         return delay >= RETURN_DELAY_MIN_MS && delay <= RETURN_DELAY_MAX_MS;
     }
 
-    // walking a few blocks beats lining up a warp, but lava is worth leaving at once
-    static boolean shouldEtherwarp(double distance, boolean inLiquid, boolean etherwarpEnabled) {
-        if (!etherwarpEnabled) {
-            return false;
-        }
-        return distance >= (inLiquid ? ETHERWARP_LIQUID_MIN_DISTANCE : ETHERWARP_MIN_DISTANCE);
-    }
-
     private static int rodSlot() {
         return Mth.clamp(AetherConfig.STRIDER_FISHING_ROD_SLOT.get() - 1, 0, 8);
     }
@@ -994,34 +841,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
     private static int soulWhipSlot() {
         return Mth.clamp(AetherConfig.STRIDER_FISHING_SOUL_WHIP_SLOT.get() - 1, 0, 8);
-    }
-
-    private void tickLiquidEscape(Minecraft mc) {
-        long now = System.currentTimeMillis();
-        // a jump mid aim moves the eye off the line the warp was lined up on
-        if (!mc.player.isInLiquid() || returnWarp != null) {
-            jumpHoldAt = 0L;
-            return;
-        }
-        if (jumpHoldAt == 0L) {
-            // a beat of sinking first, so surfacing is not a frame-perfect reaction to touching lava
-            jumpHoldAt = now + nextLiquidJumpDelayMs(ThreadLocalRandom.current());
-        }
-        if (shouldHoldLiquidJump(true, now, jumpHoldAt)) {
-            MacroInput.set(mc.options.keyJump, true);
-        }
-    }
-
-    static long nextLiquidJumpDelayMs(ThreadLocalRandom random) {
-        return random.nextLong(LIQUID_JUMP_MIN_DELAY_MS, LIQUID_JUMP_MAX_DELAY_MS + 1);
-    }
-
-    static boolean liquidJumpDelayInRange(long delay) {
-        return delay >= LIQUID_JUMP_MIN_DELAY_MS && delay <= LIQUID_JUMP_MAX_DELAY_MS;
-    }
-
-    static boolean shouldHoldLiquidJump(boolean inLiquid, long now, long holdFrom) {
-        return inLiquid && holdFrom != 0L && now >= holdFrom;
     }
 
     private long castDelayForCycle() {
