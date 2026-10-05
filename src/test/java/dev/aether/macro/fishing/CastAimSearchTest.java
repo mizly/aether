@@ -99,6 +99,39 @@ class CastAimSearchTest {
     }
 
     @Test
+    void noThrowIsPickedThatComesDownInACellAFloatAlreadyMissedIn() {
+        FakeCastLevel level = lake();
+        // every cell beside a candidate is one a float already missed in
+        Set<BlockPos> rejected = new HashSet<>();
+        for (BlockPos cell : CastAimSearch.surfaceCells(level, FEET, 6, CastSim::isWater)) {
+            if (((cell.getX() + cell.getZ()) & 1) != 0) {
+                rejected.add(cell);
+            }
+        }
+        int found = 0;
+        for (long seed = 0; seed < 4; seed++) {
+            CastAimSearch search = fishing(level, GENERAL, rejected, seed);
+            CastAimSearch.Step step;
+            int steps = 0;
+            while ((step = search.step()).status() != CastAimSearch.Status.EXHAUSTED && ++steps < 500) {
+                if (step.status() != CastAimSearch.Status.FOUND) {
+                    continue;
+                }
+                found++;
+                CastSim.CastAim aim = step.aim();
+                // the pick and the pitches either side that make up its margin
+                for (float off : new float[]{-2.0f, -1.0f, 0.0f, 1.0f, 2.0f}) {
+                    Vec3 landing = CastSim.predictCastLanding(level, EYE, aim.yaw(), aim.pitch() + off,
+                            CastSim::isWater, CastSim.DEFAULT_TICKS, 5.0);
+                    assertNotNull(landing);
+                    assertTrue(CastSim.acceptsLanding(BlockPos.containing(landing), rejected));
+                }
+            }
+        }
+        assertTrue(found >= 1);
+    }
+
+    @Test
     void aMissCarriesOnPastTheCellsAlreadyTriedUntilEveryCellIsSpent() {
         Set<BlockPos> rejected = new HashSet<>();
         CastAimSearch search = search(lavaPool(), rejected, 7L);
