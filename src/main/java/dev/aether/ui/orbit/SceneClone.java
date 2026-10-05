@@ -44,8 +44,38 @@ final class SceneClone {
         int maxY(int dx, int dz);
     }
 
-    private final ClientLevel level;
-    private final WorldColumns columns;
+    // where the blocks come from: the live world around you, or a saved copy of your spot
+    interface Source {
+        // y of the highest block worth drawing in the column, or Integer.MIN_VALUE when empty
+        int top(int x, int z);
+
+        BlockState state(int x, int y, int z);
+
+        int tint(BlockTintSource tint, BlockState state, BlockPos pos);
+    }
+
+    // the client's loaded world, read directly
+    static Source live(ClientLevel level) {
+        WorldColumns columns = new WorldColumns(level);
+        return new Source() {
+            @Override
+            public int top(int x, int z) {
+                return columns.top(x, z);
+            }
+
+            @Override
+            public BlockState state(int x, int y, int z) {
+                return columns.state(x, y, z);
+            }
+
+            @Override
+            public int tint(BlockTintSource tint, BlockState state, BlockPos pos) {
+                return tint.colorInWorld(state, level, pos);
+            }
+        };
+    }
+
+    private final Source columns;
     private final BlockStateModelSet models;
     private final BlockColors colors;
     private final List<BlockStateModelPart> parts = new ArrayList<>();
@@ -53,16 +83,15 @@ final class SceneClone {
     private Buffer solid = new Buffer(1 << 16);
     private Buffer water = new Buffer(1 << 12);
 
-    private SceneClone(ClientLevel level) {
-        this.level = level;
-        this.columns = new WorldColumns(level);
+    private SceneClone(Source source) {
+        this.columns = source;
         Minecraft client = Minecraft.getInstance();
         this.models = client.getModelManager().getBlockStateModelSet();
         this.colors = client.getBlockColors();
     }
 
-    static Mesh build(ClientLevel level, int ox, int oy, int oz, int radius, Cap cap) {
-        return new SceneClone(level).mesh(ox, oy, oz, radius, cap);
+    static Mesh build(Source source, int ox, int oy, int oz, int radius, Cap cap) {
+        return new SceneClone(source).mesh(ox, oy, oz, radius, cap);
     }
 
     private Mesh mesh(int ox, int oy, int oz, int radius, Cap cap) {
@@ -132,7 +161,7 @@ final class SceneClone {
             BlockTintSource tint = colors.getTintSource(state, info.tintIndex());
             if (tint != null) {
                 try {
-                    rgb = tint.colorInWorld(state, level, pos) & 0xFFFFFF;
+                    rgb = columns.tint(tint, state, pos) & 0xFFFFFF;
                 } catch (RuntimeException ignored) {
                 }
             }

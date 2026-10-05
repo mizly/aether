@@ -41,6 +41,7 @@ public final class MenuSceneVisualsRegistryProvider extends AbstractVisualsRegis
         AetherConfig.ORBIT_SPOT_SET.set(true);
         AetherConfig.ORBIT_SCENE.set(1);
         AetherConfig.save();
+        dev.aether.ui.orbit.GardenRecorder.recordSpotNow();
     }
 
     private static String spotText() {

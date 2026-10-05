@@ -1,9 +1,7 @@
 package dev.aether.ui.orbit;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import dev.aether.macro.MacroState;
 import dev.aether.renderer.NVGRenderer;
-import dev.aether.util.ClientUtils;
 import dev.aether.util.GardenPlots;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.color.block.BlockTintSource;
@@ -20,71 +18,106 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
-// a top-down picture of each garden plot as it stands in this client's loaded world: the top block of every
-// column in its texture's colour and biome tint, shaded by height the way maps are. reads blocks, sends nothing
+// a top-down picture of each garden plot: the top block of every column in its texture's colour and biome tint,
+// shaded by height the way maps are. recorded whenever a plot is loaded during play and kept on disk, so the picker
+// shows every plot, not only the ones near you. reads blocks, sends nothing
 final class PlotMiniatures {
     static final int SIZE = 48;
     private static final int STEP = GardenPlots.PLOT_SIZE / SIZE;
-    private static final long REFRESH_NANOS = 15_000_000_000L;
-    private static final long GAP_NANOS = 5_000_000L;
     private static final int PLOTS = 25;
 
+    private static final int[][] pixels = new int[PLOTS][];
+    private static final long[] recorded = new long[PLOTS];
+    private static final int[] versions = new int[PLOTS];
+    private static final int[] uploaded = new int[PLOTS];
     private static final int[] handles = new int[PLOTS];
-    private static final long[] sampled = new long[PLOTS];
     private static final Map<Identifier, Integer> textureColors = new HashMap<>();
-    private static ClientLevel level;
-    private static long lastSample;
-    private static long gardenChecked;
-    private static boolean garden;
+    private static java.util.UUID owner;
 
     private PlotMiniatures() {
     }
 
-    // the plot's picture as a nanovg image, or -1 while it is unknown; samples at most one plot every few ms
+    // the plot's picture as a nanovg image, or -1 when it was never seen
     static int image(NVGRenderer nvg, int plot) {
         if (plot < 0 || plot >= PLOTS) return -1;
         Minecraft client = Minecraft.getInstance();
-        if (client == null || client.level == null || !client.isSameThread()) return -1;
-        if (client.level != level) reset(nvg, client.level);
-        if (!inGarden()) return handles[plot] > 0 ? handles[plot] : -1;
-        long now = System.nanoTime();
-        boolean stale = handles[plot] <= 0 || now - sampled[plot] > REFRESH_NANOS;
-        if (stale && now - lastSample > GAP_NANOS) {
-            lastSample = now;
-            sampled[plot] = now;
-            ByteBuffer pixels = sample(client, plot);
-            if (pixels != null) {
-                try {
-                    if (handles[plot] > 0) nvg.deleteImage(handles[plot]);
-                    handles[plot] = nvg.createImageRGBA(SIZE, SIZE, NanoVG.NVG_IMAGE_NEAREST, pixels);
-                } finally {
-                    MemoryUtil.memFree(pixels);
+        if (client == null || !client.isSameThread()) return -1;
+        loadFor(client, nvg);
+        int[] argb = pixels[plot];
+        if (argb == null) return -1;
+        if (handles[plot] <= 0 || uploaded[plot] != versions[plot]) {
+            ByteBuffer rgba = MemoryUtil.memAlloc(SIZE * SIZE * 4);
+            try {
+                for (int i = 0; i < SIZE * SIZE; i++) {
+                    int c = argb[i];
+                    rgba.put(i * 4, (byte) (c >> 16)).put(i * 4 + 1, (byte) (c >> 8)).put(i * 4 + 2, (byte) c)
+                            .put(i * 4 + 3, (byte) (c >>> 24));
                 }
+                if (handles[plot] > 0) nvg.deleteImage(handles[plot]);
+                handles[plot] = nvg.createImageRGBA(SIZE, SIZE, NanoVG.NVG_IMAGE_NEAREST, rgba);
+                uploaded[plot] = versions[plot];
+            } finally {
+                MemoryUtil.memFree(rgba);
             }
         }
         return handles[plot] > 0 ? handles[plot] : -1;
     }
 
-    private static void reset(NVGRenderer nvg, ClientLevel next) {
+    // milliseconds since the plot was last recorded, or Long.MAX_VALUE when never
+    static long age(int plot) {
+        return recorded[plot] == 0L ? Long.MAX_VALUE : System.currentTimeMillis() - recorded[plot];
+    }
+
+    // samples a loaded plot from the world and keeps it, in memory and on disk; false when it isn't loaded
+    static boolean record(Minecraft client, int plot) {
+        if (client.level == null || client.player == null) return false;
+        loadFor(client, null);
+        int[] argb = sample(client, plot);
+        if (argb == null) return false;
+        pixels[plot] = argb;
+        recorded[plot] = System.currentTimeMillis();
+        versions[plot]++;
+        save(client, plot, argb);
+        return true;
+    }
+
+    // pictures belong to whoever is playing, so switching accounts swaps the set
+    private static void loadFor(Minecraft client, NVGRenderer nvg) {
+        if (client.player == null) return;
+        java.util.UUID id = client.player.getUUID();
+        if (id.equals(owner)) return;
+        owner = id;
         for (int i = 0; i < PLOTS; i++) {
-            if (handles[i] > 0) nvg.deleteImage(handles[i]);
+            if (handles[i] > 0 && nvg != null) nvg.deleteImage(handles[i]);
             handles[i] = 0;
-            sampled[i] = 0L;
+            pixels[i] = null;
+            recorded[i] = 0L;
+            versions[i]++;
+            java.nio.file.Path file = GardenMemory.dir(id).resolve("plot_" + i + ".png");
+            if (!java.nio.file.Files.isRegularFile(file)) continue;
+            try (InputStream in = java.nio.file.Files.newInputStream(file); NativeImage image = NativeImage.read(in)) {
+                if (image.getWidth() != SIZE || image.getHeight() != SIZE) continue;
+                int[] argb = new int[SIZE * SIZE];
+                for (int y = 0; y < SIZE; y++) for (int x = 0; x < SIZE; x++) argb[y * SIZE + x] = image.getPixel(x, y);
+                pixels[i] = argb;
+                recorded[i] = java.nio.file.Files.getLastModifiedTime(file).toMillis();
+            } catch (Exception ignored) {
+            }
         }
-        level = next;
-        gardenChecked = 0L;
     }
 
-    private static boolean inGarden() {
-        long now = System.nanoTime();
-        if (now - gardenChecked > 2_000_000_000L) {
-            gardenChecked = now;
-            garden = ClientUtils.getCurrentLocation() == MacroState.Location.GARDEN;
+    private static void save(Minecraft client, int plot, int[] argb) {
+        try (NativeImage image = new NativeImage(SIZE, SIZE, false)) {
+            for (int y = 0; y < SIZE; y++) for (int x = 0; x < SIZE; x++) image.setPixel(x, y, argb[y * SIZE + x]);
+            java.nio.file.Path dir = GardenMemory.dir(client.player.getUUID());
+            java.nio.file.Files.createDirectories(dir);
+            image.writeToFile(dir.resolve("plot_" + plot + ".png"));
+        } catch (Exception e) {
+            System.err.println("[Aether] could not save the plot " + plot + " picture: " + e.getMessage());
         }
-        return garden;
     }
 
-    private static ByteBuffer sample(Minecraft client, int plot) {
+    private static int[] sample(Minecraft client, int plot) {
         ClientLevel world = client.level;
         GardenPlots.Bounds bounds = GardenPlots.boundsForPlot(plot);
         if (bounds == null || !world.hasChunksAt(bounds.minX(), bounds.minZ(), bounds.maxX() - 1, bounds.maxZ() - 1)) {
@@ -109,15 +142,15 @@ final class PlotMiniatures {
                 colors[row * SIZE + col] = color(client, world, state, pos.set(x, y, z));
             }
         }
-        ByteBuffer out = MemoryUtil.memAlloc(SIZE * SIZE * 4);
+        int[] out = new int[SIZE * SIZE];
         for (int i = 0; i < SIZE * SIZE; i++) {
             int north = i >= SIZE ? heights[i - SIZE] : heights[i];
             float shade = heights[i] > north ? 1.12f : heights[i] < north ? 0.8f : 1f;
             int c = colors[i];
-            out.put(i * 4, (byte) Math.min(255, Math.round(((c >> 16) & 255) * shade)));
-            out.put(i * 4 + 1, (byte) Math.min(255, Math.round(((c >> 8) & 255) * shade)));
-            out.put(i * 4 + 2, (byte) Math.min(255, Math.round((c & 255) * shade)));
-            out.put(i * 4 + 3, (byte) 255);
+            int r = Math.min(255, Math.round(((c >> 16) & 255) * shade));
+            int g = Math.min(255, Math.round(((c >> 8) & 255) * shade));
+            int b = Math.min(255, Math.round((c & 255) * shade));
+            out[i] = 0xFF000000 | r << 16 | g << 8 | b;
         }
         return out;
     }

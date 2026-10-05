@@ -285,8 +285,14 @@ public final class OrbitScreen extends Screen {
         int ox = (int) Math.floor(anchor.x), oy = (int) Math.floor(anchor.y + 1e-3), oz = (int) Math.floor(anchor.z);
         Vector3d lens = rigToWorld(anchor, OrbitRig.TP_POS.x, 0, OrbitRig.TP_POS.z);
         double cx = lens.x - ox, cz = lens.z - oz;
+        SceneClone.Source source = SceneClone.live(client.level);
+        // a far spot comes from its saved copy, since only what is near you is loaded in full
+        if (scene != null && !client.level.hasChunksAt(ox - 40, oz - 40, ox + 40, oz + 40)) {
+            SpotSnapshot saved = GardenRecorder.spot();
+            if (saved != null) source = saved;
+        }
         try {
-            return SceneClone.build(client.level, ox, oy, oz, 40, (dx, dz) -> {
+            return SceneClone.build(source, ox, oy, oz, 40, (dx, dz) -> {
                 double toLens = (dx + 0.5 - cx) * (dx + 0.5 - cx) + (dz + 0.5 - cz) * (dz + 0.5 - cz);
                 if (toLens < 16) return 0;
                 return dx * dx + dz * dz <= 22 * 22 ? 1 : 64;
