@@ -288,16 +288,27 @@ class OrbitPreviewTest {
         GL20.glUniform3f(GL20.glGetUniformLocation(scene, "Offset"), 0f, 0f, 0f);
         GL20.glUniform2f(GL20.glGetUniformLocation(scene, "FogRange"), 1e8f, 2e8f);
         GL20.glUniform1f(GL20.glGetUniformLocation(scene, "AlphaCut"), 0.1f);
-        // two figures: one facing the camera with its head turned to its left, one seen from behind
-        float[][] views = {{-1.1f, 0f, 30f}, {1.1f, 180f, -20f}};
-        for (float[] v : views) {
+        // six figures in a row: calm, panicking, crafting, waving, holding gold and asleep
+        String[] poses = {"calm", "panic", "craft", "wave", "hold", "sleep"};
+        for (int n = 0; n < poses.length; n++) {
+            String pose = poses[n];
             PlayerFigure fig = new PlayerFigure();
-            for (int i = 0; i < 120; i++) fig.lookAt(3f, 2.5f, 4f, 1f / 60f);
             SceneClone.Buffer buf = new SceneClone.Buffer(512);
-            Matrix4f toWorld = new Matrix4f().translate(v[0], 0f, 0f).rotateY((float) Math.toRadians(v[1]));
+            Matrix4f toWorld = new Matrix4f().translate(-4.2f + n * 1.7f, 0f, 0f).rotateY((float) Math.toRadians(25));
             fig.build(buf, toWorld, false, 0f);
+            buf.reset();
+            float t = 0f;
+            for (int i = 0; i < 90; i++) {
+                t += 1f / 60f;
+                fig.pose(pose.equals("panic") ? 1f : 0f, pose.equals("craft"), pose.equals("hold"), pose.equals("sleep"), 1f / 60f);
+                fig.lookAt(0f, 1.5f, 5f, 1f / 60f);
+                if (pose.equals("wave") && i == 40) fig.wave(3f, 3f);
+                fig.build(buf, toWorld, false, t);
+                buf.reset();
+            }
+            fig.build(buf, toWorld, false, t + 0.13f);
             Matrix4f vp = new Matrix4f().perspective((float) Math.toRadians(35), (float) W / H, 0.05f, 100f)
-                    .lookAt(0f, 1.1f, 6.5f, 0f, 0.95f, 0f, 0f, 1f, 0f);
+                    .lookAt(0f, 1.6f, 9f, 0f, 0.9f, 0f, 0f, 1f, 0f);
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 GL20.glUniformMatrix4fv(GL20.glGetUniformLocation(scene, "ViewProjection"), false, vp.get(stack.mallocFloat(16)));
             }

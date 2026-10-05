@@ -71,39 +71,76 @@ final class PlayerFigure {
         return new org.joml.Vector3f(sx, sy - (float) Math.cos(p) * 10f * PIXEL, -(float) Math.sin(p) * 10f * PIXEL);
     }
 
-    // appends the figure's triangles; toWorld maps local block coordinates to the buffer's space
+    // appends the figure's triangles; toWorld maps local block coordinates to the buffer's space. every pose is
+    // played big, the way minecraft live animates mobs: the whole body leans, bobs, turns and squashes with it
     void build(SceneClone.Buffer out, Matrix4f toWorld, boolean slim, float time) {
         this.time = time;
-        float sway = (float) Math.sin(time * 1.3) * 3f;
-        float breathe = (float) Math.sin(time * 1.9) * 0.15f;
         float scared = OrbitRig.clamp(panic.x, 0f, 1f);
         float sleep = lying();
-        // panic throws both arms up and flails them, harder the higher the level
+        float crafting = OrbitRig.clamp(craft.x, 0f, 1f);
+        float holding = OrbitRig.clamp(hold.x, 0f, 1f);
+        float waving = time - waveStart;
+        float waveK = waving < 1.8f ? (float) Math.sin(Math.min(1f, waving / 1.8f) * Math.PI) : 0f;
+        float breathe = (float) Math.sin(time * 1.9) * 0.15f + sleep * (float) Math.sin(time * 1.2) * 0.4f;
+
+        // the body: idle weight shift, panic running in place with hops, a dip into each crafting strike, a proud
+        // bounce while holding gold, and a turn and lean back toward whoever is being waved at
+        float bob = 0f, lean = 0f, roll = (float) Math.sin(time * 0.9) * 2.5f, turn = 0f;
+        float run = time * 15f;
+        bob += Math.abs((float) Math.sin(run)) * 1.8f * scared;
+        bob += (float) Math.pow(Math.max(0, Math.sin(time * 3.1)), 4) * 7f * scared * scared;
+        float legs = (float) Math.sin(run) * 45f * scared;
+        roll += (float) Math.sin(time * 23) * 6f * scared;
+        lean += 8f * scared;
+        bob -= (float) Math.max(0, Math.sin(time * 9)) * 0.9f * crafting;
+        lean += 12f * crafting;
+        bob += Math.abs((float) Math.sin(time * 3)) * 0.6f * holding;
+        float toward = OrbitRig.clamp((float) Math.toDegrees(Math.atan2(waveX, waveZ)), -70f, 70f);
+        turn += toward * 0.6f * waveK;
+        lean -= 7f * waveK;
+        bob += Math.abs((float) Math.sin(waving * 7)) * 1.2f * waveK;
+        roll += (float) Math.sin(waving * 7) * 4f * waveK;
+        float awake = 1f - sleep;
+        bob *= awake;
+        lean *= awake;
+        roll *= awake;
+        turn *= awake;
+        legs *= awake;
+
+        // the arms: flailing in a panic, held out with the gold, striking at the table, waving big
+        float sway = (float) Math.sin(time * 1.3) * 3f;
         float flailR = -150f + (float) Math.sin(time * 17) * 35f;
         float flailL = -150f + (float) Math.sin(time * 17 + 2.1) * 35f;
         float right = lerp(sway, flailR, scared);
         float left = lerp(-sway, flailL, scared);
-        right = lerp(right, -35f, OrbitRig.clamp(hold.x, 0f, 1f));
-        right = lerp(right, -70f + (float) Math.sin(time * 9) * 35f, OrbitRig.clamp(craft.x, 0f, 1f));
-        float waving = time - waveStart;
-        if (waving < 1.8f) {
-            float lift = (float) Math.sin(Math.min(1f, waving / 1.8f) * Math.PI);
-            right = lerp(right, -160f + (float) Math.sin(waving * 14) * 18f, lift);
-        }
+        right = lerp(right, -35f + (float) Math.sin(time * 3) * 4f, holding);
+        right = lerp(right, -70f + (float) Math.sin(time * 9) * 38f, crafting);
+        left = lerp(left, -20f, crafting * 0.6f);
+        if (waveK > 0f) right = lerp(right, -165f + (float) Math.sin(waving * 14) * 22f, waveK);
+        left = lerp(left, 18f, waveK * 0.5f);
         right = lerp(right, 0f, sleep);
         left = lerp(left, 0f, sleep);
         rightPitch = right;
-        float jitter = Math.abs((float) Math.sin(time * 11)) * 0.9f * scared;
-        float shake = (float) Math.sin(time * 15) * 35f * scared;
+
+        // the head: the look it was given, plus a whip between threats, a glance down at the work or the gold and a
+        // happy tilt while waving
+        int beat = (int) (time / 0.32f);
+        float whip = ((beat * 2654435761L >>> 16) & 0xFF) / 255f * 120f - 60f;
+        float headYawNow = headYaw.x * 0.85f + whip * scared * 0.7f + (float) Math.sin(time * 15) * 12f * scared
+                - 22f * holding;
+        float headPitchNow = headPitch.x + 28f * crafting + 20f * holding - 10f * scared;
+        float tilt = (float) Math.sin(waving * 5) * 12f * waveK + (float) Math.sin(time * 1.3) * 3f * awake;
         int arm = slim ? 3 : 4;
         // lying down tips the figure onto its back, head toward -z, on a bed half a block high
         Matrix4f body = new Matrix4f(toWorld).translate(0f, sleep * 0.68f, 0f).rotateX((float) Math.toRadians(-90f * sleep))
-                .scale(PIXEL).translate(0f, jitter, 0f).rotateY((float) Math.toRadians(headYaw.x * 0.15f));
+                .scale(PIXEL).translate(0f, bob, 0f)
+                .rotateY((float) Math.toRadians(turn + headYaw.x * 0.15f))
+                .rotateX((float) Math.toRadians(lean)).rotateZ((float) Math.toRadians(roll));
         // legs: hips at y 12
-        part(out, body, 0, 12, 0, 0, 0, -4, -12, -2, 4, 12, 4, 0, 16, 0f);
-        part(out, body, 0, 12, 0, 0, 0, -4, -12, -2, 4, 12, 4, 0, 32, 0.25f);
-        part(out, body, 0, 12, 0, 0, 0, 0, -12, -2, 4, 12, 4, 16, 48, 0f);
-        part(out, body, 0, 12, 0, 0, 0, 0, -12, -2, 4, 12, 4, 0, 48, 0.25f);
+        part(out, body, 0, 12, 0, legs, 0, -4, -12, -2, 4, 12, 4, 0, 16, 0f);
+        part(out, body, 0, 12, 0, legs, 0, -4, -12, -2, 4, 12, 4, 0, 32, 0.25f);
+        part(out, body, 0, 12, 0, -legs, 0, 0, -12, -2, 4, 12, 4, 16, 48, 0f);
+        part(out, body, 0, 12, 0, -legs, 0, 0, -12, -2, 4, 12, 4, 0, 48, 0.25f);
         // torso
         part(out, body, 0, 12 + breathe, 0, 0, 0, -4, 0, -2, 8, 12, 4, 16, 16, 0f);
         part(out, body, 0, 12 + breathe, 0, 0, 0, -4, 0, -2, 8, 12, 4, 16, 32, 0.25f);
@@ -113,9 +150,9 @@ final class PlayerFigure {
         part(out, body, 4 + arm / 2f, 22 + breathe, 0, left, 0, -arm / 2f, -10, -2, arm, 12, 4, 32, 48, 0f);
         part(out, body, 4 + arm / 2f, 22 + breathe, 0, left, 0, -arm / 2f, -10, -2, arm, 12, 4, 48, 48, 0.25f);
         // head turns about the neck
-        float yaw = headYaw.x * 0.85f + shake;
-        part(out, body, 0, 24 + breathe, 0, headPitch.x, yaw, -4, 0, -4, 8, 8, 8, 0, 0, 0f);
-        part(out, body, 0, 24 + breathe, 0, headPitch.x, yaw, -4, 0, -4, 8, 8, 8, 32, 0, 0.5f);
+        Matrix4f neck = new Matrix4f(body).translate(0, 24 + breathe, 0).rotateZ((float) Math.toRadians(tilt));
+        part(out, neck, 0, 0, 0, headPitchNow, headYawNow, -4, 0, -4, 8, 8, 8, 0, 0, 0f);
+        part(out, neck, 0, 0, 0, headPitchNow, headYawNow, -4, 0, -4, 8, 8, 8, 32, 0, 0.5f);
     }
 
     private static float lerp(float a, float b, float t) {
