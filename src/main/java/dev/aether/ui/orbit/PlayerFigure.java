@@ -20,10 +20,12 @@ final class PlayerFigure {
         float lie;
         // squash is a crouch (positive) or stretch (negative) of the whole body; squint shuts the eyes
         float squash, squint;
+        // vanish shrinks and spins the figure away to nothing, for a warp
+        float vanish;
 
         void reset() {
             x = y = z = facing = bob = lean = roll = turn = legs = legsWeight = 0f;
-            right = rightWeight = left = leftWeight = headYaw = headPitch = tilt = lie = squash = squint = 0f;
+            right = rightWeight = left = leftWeight = headYaw = headPitch = tilt = lie = squash = squint = vanish = 0f;
             look = 1f;
         }
     }
@@ -207,7 +209,10 @@ final class PlayerFigure {
 
         int arm = slim ? 3 : 4;
         // lying down tips the figure onto its back, head toward -z, half a block up on the bed
-        hips.set(toWorld).translate(p.x, p.y, p.z).rotateY((float) Math.toRadians(facing))
+        float gone = OrbitRig.clamp(p.vanish, 0f, 1f);
+        sxz *= 1f - gone;
+        sy *= 1f - gone * gone;
+        hips.set(toWorld).translate(p.x, p.y, p.z).rotateY((float) Math.toRadians(facing + gone * gone * 720f))
                 .translate(0f, sleep * 0.68f, 0f).rotateX((float) Math.toRadians(-90f * sleep))
                 .scale(PIXEL * sxz, PIXEL * sy, PIXEL * sxz).translate(0f, bob, 0f)
                 .rotateY((float) Math.toRadians(turn + headYaw.x * 0.15f)).rotateZ((float) Math.toRadians(roll));

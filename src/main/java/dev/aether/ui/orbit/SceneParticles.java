@@ -17,6 +17,9 @@ final class SceneParticles {
     private static final Identifier[] SPARK = frames("spark_", 7, 0);
     private static final Identifier[] BUBBLE_POP = frames("bubble_pop_", 0, 4);
     private static final Identifier[] SPLASH = frames("splash_", 0, 3);
+    private static final Identifier[] PORTAL = frames("generic_", 0, 7);
+    private static final Identifier[] END_ROD = frames("glitter_", 7, 0);
+    private static final Identifier[] SPELL = frames("spell_", 7, 0);
     private static final Identifier GLINT = particle("glint");
     private static final Identifier CRIT = particle("critical_hit");
     private static final Identifier MAGIC = particle("enchanted_hit");
@@ -39,6 +42,9 @@ final class SceneParticles {
         boolean popIn, ground, shrink;
         // a bubble bursts into the pop animation where it ends; a drop splashes where it lands
         boolean pops, splashes;
+        // a portal particle eases from where it spawned to a point, shrinking as it goes
+        boolean converge;
+        float sx, sy, sz, tx, ty, tz;
         // a bead stuck to a moving point (the side of a head) until it lets go and falls as a drip
         Vector3f anchor;
         float ox, oy, oz;
@@ -197,6 +203,65 @@ final class SceneParticles {
         p.popIn = true;
     }
 
+    // an enderman's purple portal speck drawn into (or, reversed, flung out of) a point over its life
+    void portal(float x, float y, float z, float cx, float cy, float cz, boolean reverse) {
+        Particle p = add(new Identifier[]{PORTAL[random.nextInt(PORTAL.length)]}, false, reverse ? cx : x, reverse ? cy : y,
+                reverse ? cz : z);
+        p.converge = true;
+        p.sx = p.x;
+        p.sy = p.y;
+        p.sz = p.z;
+        p.tx = reverse ? x : cx;
+        p.ty = reverse ? y : cy;
+        p.tz = reverse ? z : cz;
+        float br = random.nextFloat() * 0.6f + 0.4f;
+        p.r = br * 0.9f;
+        p.g = br * 0.3f;
+        p.b = br;
+        p.size = 0.1f * (random.nextFloat() * 0.2f + 0.5f) * 1.6f;
+        p.lifetime = 14 + random.nextInt(8);
+        p.shrink = !reverse;
+    }
+
+    // an end rod's white glitter, drifting up and twinkling down through its frames
+    void endRod(float x, float y, float z) {
+        Particle p = add(END_ROD, true, x, y, z);
+        p.vx = (float) random.nextGaussian() * 0.004f;
+        p.vy = 0.02f + random.nextFloat() * 0.02f;
+        p.vz = (float) random.nextGaussian() * 0.004f;
+        p.friction = 0.96f;
+        p.size = 0.1f * 0.75f;
+        p.lifetime = 40 + random.nextInt(12);
+    }
+
+    // a potion's swirl in one colour, carried along v
+    void spell(float x, float y, float z, float vx, float vy, float vz, int rgb) {
+        Particle p = add(SPELL, true, x, y, z);
+        p.vx = vx;
+        p.vy = vy;
+        p.vz = vz;
+        p.friction = 0.9f;
+        p.gravity = 0.1f;
+        p.r = (rgb >> 16 & 255) / 255f;
+        p.g = (rgb >> 8 & 255) / 255f;
+        p.b = (rgb & 255) / 255f;
+        p.size = 0.1f * (random.nextFloat() * 0.5f + 0.5f) * 2f * 0.75f;
+        p.lifetime = (int) (8.0 / (random.nextFloat() * 0.8 + 0.2));
+    }
+
+    // water thrown up where something hits it, the drops falling back through the splash frames
+    void splash(float x, float y, float z, int count, float spread) {
+        for (int i = 0; i < count; i++) {
+            Particle p = add(SPLASH, true, x + gauss() * spread, y, z + gauss() * spread);
+            p.vx = gauss() * 0.05f;
+            p.vy = 0.1f + random.nextFloat() * 0.1f;
+            p.vz = gauss() * 0.05f;
+            p.gravity = 1.5f;
+            p.size = 0.1f * (random.nextFloat() * 0.5f + 0.5f) * 1.6f;
+            p.lifetime = (int) (8.0 / (random.nextFloat() * 0.8 + 0.2));
+        }
+    }
+
     // a bubble rising slowly and bursting at the end
     void bubble(float x, float y, float z, float scale) {
         Particle p = add(new Identifier[]{BUBBLE}, false, x, y, z);
@@ -299,6 +364,14 @@ final class SceneParticles {
                     pop.lifetime = 4;
                     born.add(pop);
                 }
+                continue;
+            }
+            if (p.converge) {
+                float k = (float) p.age / Math.max(1, p.lifetime);
+                float e = 1f - (1f - k) * (1f - k);
+                p.x = p.sx + (p.tx - p.sx) * e;
+                p.y = p.sy + (p.ty - p.sy) * e;
+                p.z = p.sz + (p.tz - p.sz) * e;
                 continue;
             }
             if (p.anchor != null) {
