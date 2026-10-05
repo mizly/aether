@@ -9,11 +9,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.color.block.BlockTintSource;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.levelgen.Heightmap;
 import org.lwjgl.nanovg.NanoVG;
 import org.lwjgl.system.MemoryUtil;
 
@@ -94,20 +92,21 @@ final class PlotMiniatures {
         }
         int[] heights = new int[SIZE * SIZE];
         int[] colors = new int[SIZE * SIZE];
+        WorldColumns columns = new WorldColumns(world);
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int row = 0; row < SIZE; row++) {
             for (int col = 0; col < SIZE; col++) {
                 int x = bounds.minX() + col * STEP + STEP / 2;
                 int z = bounds.minZ() + row * STEP + STEP / 2;
-                int y = world.getHeight(Heightmap.Types.WORLD_SURFACE, x, z) - 1;
-                int floor = world.getMinY();
-                BlockState state = world.getBlockState(pos.set(x, y, z));
-                // see-through roofs and markers hide nothing in game, so look past them
-                for (int i = 0; i < 48 && y > floor && seeThrough(state); i++) {
-                    state = world.getBlockState(pos.set(x, --y, z));
+                int y = columns.top(x, z);
+                if (y == Integer.MIN_VALUE) {
+                    heights[row * SIZE + col] = world.getMinY();
+                    colors[row * SIZE + col] = 0xFF2A2F36;
+                    continue;
                 }
+                BlockState state = columns.state(x, y, z);
                 heights[row * SIZE + col] = y;
-                colors[row * SIZE + col] = color(client, world, state, pos);
+                colors[row * SIZE + col] = color(client, world, state, pos.set(x, y, z));
             }
         }
         ByteBuffer out = MemoryUtil.memAlloc(SIZE * SIZE * 4);
@@ -121,13 +120,6 @@ final class PlotMiniatures {
             out.put(i * 4 + 3, (byte) 255);
         }
         return out;
-    }
-
-    private static boolean seeThrough(BlockState state) {
-        if (state.isAir()) return true;
-        String path = BuiltInRegistries.BLOCK.getKey(state.getBlock()).getPath();
-        return path.endsWith("glass") || path.endsWith("glass_pane") || path.equals("barrier") || path.equals("light")
-                || path.equals("structure_void") || path.equals("tripwire") || path.equals("string");
     }
 
     // the block's own texture colour times its tint, the way it reads from above in game
