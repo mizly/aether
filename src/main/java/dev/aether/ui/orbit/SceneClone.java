@@ -28,13 +28,15 @@ import java.util.List;
 final class SceneClone {
     static final int STRIDE = 24;
 
-    // vertex data relative to origin (x, y, z float, u, v float, rgba bytes), opaque/cutout and translucent apart
+    // vertex data relative to origin (x, y, z float, u, v float, rgba bytes): opaque and cutout blocks, the fluid
+    // sheets, and translucent blocks like stained glass, which keep their atlas sprites
     record Mesh(int originX, int originY, int originZ, ByteBuffer solid, int solidCount, ByteBuffer water, int waterCount,
-                int radius) implements AutoCloseable {
+                ByteBuffer glass, int glassCount, int radius) implements AutoCloseable {
         @Override
         public void close() {
             if (solid != null) MemoryUtil.memFree(solid);
             if (water != null) MemoryUtil.memFree(water);
+            if (glass != null) MemoryUtil.memFree(glass);
         }
     }
 
@@ -82,6 +84,7 @@ final class SceneClone {
     private final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
     private Buffer solid = new Buffer(1 << 16);
     private Buffer water = new Buffer(1 << 12);
+    private Buffer glass = new Buffer(1 << 12);
     private int[] lows;
 
     private SceneClone(Source source) {
@@ -138,7 +141,8 @@ final class SceneClone {
                 }
             }
         }
-        return new Mesh(ox, oy, oz, solid.finish(), solid.count, water.finish(), water.count, radius);
+        return new Mesh(ox, oy, oz, solid.finish(), solid.count, water.finish(), water.count, glass.finish(), glass.count,
+                radius);
     }
 
     // a neighbour hides a face only when it is drawn too: inside its column's drawn span, in the round, and solid
@@ -181,7 +185,7 @@ final class SceneClone {
             }
         }
         float shade = info.shade() ? shade(quad.direction()) : 1f;
-        Buffer out = info.layer() == ChunkSectionLayer.TRANSLUCENT ? water : solid;
+        Buffer out = info.layer() == ChunkSectionLayer.TRANSLUCENT ? glass : solid;
         int color = rgba(rgb, shade, 255);
         int[] order = {0, 1, 2, 0, 2, 3};
         for (int i : order) {

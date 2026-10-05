@@ -39,8 +39,8 @@ final class SceneRenderer implements AutoCloseable {
     private int solidUniform;
     private int fbo, colorBuffer, depthBuffer, width, height;
     private boolean drawn;
-    private final int[] vao = new int[3];
-    private final int[] vbo = new int[3];
+    private final int[] vao = new int[4];
+    private final int[] vbo = new int[4];
     private int atlasSampler;
     private int skinSampler;
     private int white;
@@ -103,6 +103,18 @@ final class SceneRenderer implements AutoCloseable {
                 GL11.glBindTexture(GL11.GL_TEXTURE_2D, atlas);
                 GL33C.glBindSampler(0, atlasSampler);
                 drawArrays(0, mesh.solidCount());
+
+                if (mesh.glassCount() > 0) {
+                    world(stack, frame, mesh, ox, oy, oz);
+                    GL20.glUniform1f(alphaUniform, 0.01f);
+                    GL20.glUniform1f(solidUniform, 0f);
+                    GL11.glEnable(GL11.GL_BLEND);
+                    GL14.glBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ZERO, GL11.GL_ONE);
+                    GL11.glDepthMask(false);
+                    drawArrays(3, mesh.glassCount());
+                    GL11.glDepthMask(true);
+                    GL11.glDisable(GL11.GL_BLEND);
+                }
 
                 if (mesh.waterCount() > 0) {
                     world(stack, frame, mesh, ox, oy, oz);
@@ -293,6 +305,9 @@ final class SceneRenderer implements AutoCloseable {
         GL30.glBindVertexArray(vao[1]);
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo[1]);
         GL15.glBufferData(GL15.GL_ARRAY_BUFFER, mesh.water(), GL15.GL_STATIC_DRAW);
+        GL30.glBindVertexArray(vao[3]);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo[3]);
+        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, mesh.glass(), GL15.GL_STATIC_DRAW);
         uploaded = mesh;
     }
 
@@ -328,7 +343,7 @@ final class SceneRenderer implements AutoCloseable {
         alphaUniform = GL20.glGetUniformLocation(program, "AlphaCut");
         samplerUniform = GL20.glGetUniformLocation(program, "Sampler");
         solidUniform = GL20.glGetUniformLocation(program, "Solid");
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             vao[i] = GL30.glGenVertexArrays();
             vbo[i] = GL15.glGenBuffers();
             GL30.glBindVertexArray(vao[i]);
@@ -392,7 +407,7 @@ final class SceneRenderer implements AutoCloseable {
     @Override
     public void close() {
         if (program != 0) GL20.glDeleteProgram(program);
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             if (vao[i] != 0) GL30.glDeleteVertexArrays(vao[i]);
             if (vbo[i] != 0) GL15.glDeleteBuffers(vbo[i]);
             vao[i] = vbo[i] = 0;
