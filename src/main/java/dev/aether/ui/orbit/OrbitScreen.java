@@ -81,6 +81,8 @@ public final class OrbitScreen extends Screen {
     private final float closeSeconds = 0.8f;
     private OrbitIsland island;
     private SceneClone.Mesh clone;
+    // the middle of the block the farm was built around, on its grass: the skits play here so they sit on the grid
+    private final Vector3d stage = new Vector3d();
     private final SceneRenderer sceneRenderer = new SceneRenderer();
     private final PlayerFigure figure = new PlayerFigure();
     private final SceneActors actors = new SceneActors(dev.aether.renderer.PestHeads::texture);
@@ -299,6 +301,7 @@ public final class OrbitScreen extends Screen {
         Vector3d lens = rigToWorld(anchor, OrbitRig.TP_POS.x, 0, OrbitRig.TP_POS.z);
         double cx = lens.x - ox, cz = lens.z - oz;
         PresetGarden source = new PresetGarden(ox, oy, oz, sceneYaw());
+        stage.set(ox + 0.5, oy, oz + 0.5);
         try {
             return SceneClone.build(source, ox, oy, oz, 40, (dx, dz) -> {
                 double toLens = (dx + 0.5 - cx) * (dx + 0.5 - cx) + (dz + 0.5 - cz) * (dz + 0.5 - cz);
@@ -319,7 +322,7 @@ public final class OrbitScreen extends Screen {
         double yaw = Math.toRadians(sceneYaw());
         OrbitLayout.Camera cam = layout.camera();
         Vector3d dir = mouseX < 0 ? new Vector3d(cam.forward()) : rayDirection(mouseX, mouseY);
-        Vector3d target = new Vector3d(cam.pos()).fma(14, dir).sub(anchor);
+        Vector3d target = new Vector3d(cam.pos()).fma(14, dir).sub(stage);
         float lx = (float) (target.x * Math.cos(yaw) + target.z * Math.sin(yaw));
         float lz = (float) (-target.x * Math.sin(yaw) + target.z * Math.cos(yaw));
         var focus = overview() || state != State.OPEN ? null : view.orbitFocusModule();
@@ -331,12 +334,12 @@ public final class OrbitScreen extends Screen {
         figureBuffer.reset();
         var eye = client.gameRenderer.getMainCamera().position();
         org.joml.Matrix4f toWorld = new org.joml.Matrix4f()
-                .translate((float) (anchor.x - eye.x), (float) (anchor.y - eye.y), (float) (anchor.z - eye.z))
+                .translate((float) (stage.x - eye.x), (float) (stage.y - eye.y), (float) (stage.z - eye.z))
                 .rotateY((float) -yaw);
         var skin = player.getSkin();
         figure.build(figureBuffer, toWorld, skin.model() == net.minecraft.world.entity.player.PlayerModelType.SLIM, clock);
         boolean crimson = island == OrbitIsland.CRIMSON_ISLE;
-        Vector3d lens = new Vector3d(cam.pos()).sub(anchor);
+        Vector3d lens = new Vector3d(cam.pos()).sub(stage);
         Vector3d camLocal = new Vector3d(lens.x * Math.cos(yaw) + lens.z * Math.sin(yaw), lens.y,
                 -lens.x * Math.sin(yaw) + lens.z * Math.cos(yaw));
         var draws = actors.build(toWorld, camLocal, new org.joml.Vector3f(cam.right()), new org.joml.Vector3f(cam.up()), figure);

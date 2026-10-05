@@ -65,7 +65,8 @@ final class PresetGarden implements SceneClone.Source {
         canes(-34, -3, 15, 36);
         patch(-22, 22, -34, -14);
         path();
-        yard(2, 8, -5, 7);
+        yard(2, 8, -5, 7, true, Integer.MIN_VALUE);
+        yard(-8, -2, -5, 7, false, -7);
         barn(-29, 22);
         tree(30, -24);
         tree(-33, -12);
@@ -148,15 +149,21 @@ final class PresetGarden implements SceneClone.Source {
 
     // a lawn beside the path, hedged on three sides with lantern posts at the corners, where the menu's skits put
     // their beds, stands and chases instead of on the crops
-    private void yard(int x0, int x1, int z0, int z1) {
+    // open is the side toward the path; canal is a column left as water, for the fishing skit
+    private void yard(int x0, int x1, int z0, int z1, boolean openLow, int canal) {
+        int outer = openLow ? x1 : x0;
         BlockState hedge = Blocks.OAK_LEAVES.defaultBlockState();
         BlockState post = Blocks.OAK_LOG.defaultBlockState();
         BlockState lantern = Blocks.LANTERN.defaultBlockState();
         for (int x = x0; x <= x1; x++) {
             for (int z = z0; z <= z1; z++) {
                 clear(x, z);
+                if (x == canal) {
+                    set(x, -1, z, Blocks.WATER.defaultBlockState());
+                    continue;
+                }
                 set(x, -1, z, Blocks.GRASS_BLOCK.defaultBlockState());
-                boolean edge = x == x1 || z == z0 || z == z1;
+                boolean edge = x == outer || z == z0 || z == z1;
                 boolean corner = (x == x0 || x == x1) && (z == z0 || z == z1);
                 if (corner) {
                     set(x, 0, z, post);
@@ -167,8 +174,9 @@ final class PresetGarden implements SceneClone.Source {
                 }
             }
         }
-        set(x1 - 1, 0, z1 - 1, Blocks.BARREL.defaultBlockState());
-        set(x1 - 1, 0, z0 + 1, Blocks.COMPOSTER.defaultBlockState());
+        int inner = openLow ? x1 - 1 : x0 + 1;
+        set(inner, 0, z1 - 1, Blocks.BARREL.defaultBlockState());
+        set(inner, 0, z0 + 1, Blocks.COMPOSTER.defaultBlockState());
     }
 
     // a dark oak barn with a stepped spruce roof, its long side facing the player
