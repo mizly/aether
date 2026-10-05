@@ -78,6 +78,9 @@ public final class OrbitScreen extends Screen {
     private final SceneRenderer sceneRenderer = new SceneRenderer();
     private final PlayerFigure figure = new PlayerFigure();
     private SceneClone.Buffer figureBuffer;
+    private SceneHotspots hotspots;
+    private SceneHotspots.Hotspot pressedHotspot;
+    private double pressX, pressY;
     private final OrbitSearchBar searchBar;
     private String focused;
 
@@ -274,7 +277,8 @@ public final class OrbitScreen extends Screen {
         int ox = (int) Math.floor(anchor.x), oy = (int) Math.floor(anchor.y + 1e-3), oz = (int) Math.floor(anchor.z);
         Vector3d lens = rigToWorld(anchor, OrbitRig.TP_POS.x, 0, OrbitRig.TP_POS.z);
         double cx = lens.x - ox, cz = lens.z - oz;
-        SceneClone.Source source = new PresetGarden(ox, oy, oz);
+        PresetGarden source = new PresetGarden(ox, oy, oz, sceneYaw());
+        hotspots = new SceneHotspots(source, anchor);
         try {
             return SceneClone.build(source, ox, oy, oz, 40, (dx, dz) -> {
                 double toLens = (dx + 0.5 - cx) * (dx + 0.5 - cx) + (dz + 0.5 - cz) * (dz + 0.5 - cz);
@@ -308,9 +312,11 @@ public final class OrbitScreen extends Screen {
         var skin = player.getSkin();
         figure.build(figureBuffer, toWorld, skin.model() == net.minecraft.world.entity.player.PlayerModelType.SLIM, clock);
         boolean crimson = island == OrbitIsland.CRIMSON_ISLE;
-        sceneRenderer.draw(clone, new SceneRenderer.Frame(anchor.x, anchor.y, anchor.z, sceneYaw(), figureBuffer,
-                skin.body().texturePath(), crimson ? 0xFF2A0A10 : 0xFF6FA2E8, crimson ? 0xFF7A2E1C : 0xFFC7DDF5));
+        var frame = new SceneRenderer.Frame(anchor.x, anchor.y, anchor.z, sceneYaw(), figureBuffer,
+                skin.body().texturePath(), crimson ? 0xFF2A0A10 : 0xFF6FA2E8, crimson ? 0xFF7A2E1C : 0xFFC7DDF5);
+        sceneRenderer.draw(clone, frame);
         renderWorld();
+        sceneRenderer.sealDepth(frame);
     }
 
     // the ring's centre on the ground, at the player's feet
@@ -318,8 +324,9 @@ public final class OrbitScreen extends Screen {
         return new Vector3d(feet.x, feet.y, feet.z);
     }
 
+    // the facing on open snapped to a quarter turn, which the preset farm is laid out along
     private float sceneYaw() {
-        return yaw0;
+        return Math.round(yaw0 / 90f) * 90f;
     }
 
     private static float seconds() {
@@ -367,7 +374,7 @@ public final class OrbitScreen extends Screen {
         if (overlay.hovering(mouseX, mouseY)) return CursorTypes.POINTING_HAND;
         if (pressedPanel) return panelCursor();
         OrbitLayout.Placement hit = pick(mouseX, mouseY);
-        if (hit == null) return CursorTypes.ARROW;
+        if (hit == null) return hotspots != null && hotspots.hovered() != null ? CursorTypes.POINTING_HAND : CursorTypes.ARROW;
         if (overview() || !hit.active()) return CursorTypes.POINTING_HAND;
         return panelCursor();
     }
@@ -421,7 +428,7 @@ public final class OrbitScreen extends Screen {
                         nvg -> view.renderOrbitPassive(nvg, p.designW(), p.designH(), id, z));
             }
             quads.add(new OrbitWorldRenderer.Quad(p.corner(-1, 1), p.corner(1, 1), p.corner(1, -1), p.corner(-1, -1),
-                    surfaces[p.index()].texture(), p.alpha(), p.dim()));
+                    surfaces[p.index()].texture(), p.alpha(), p.dim(), p.normal(), p.bend()));
         }
         boolean safetyFront = "safety".equals(activeCategory()) && z < 0.5f && state != State.CLOSING;
         failsafeRing.step(lastDt, safetyFront);
@@ -437,6 +444,14 @@ public final class OrbitScreen extends Screen {
                         SettingPreview.liveRewarps());
                 settingPreview.appendQuads(quads, world, layout.camera(), clock);
             }
+        }
+        if (hotspots != null) {
+            boolean free = mouseX >= 0 && !draggingRing && !pressedPanel && plotScreen == null && state == State.OPEN
+                    && !overlay.hovering(mouseX, mouseY) && pick(mouseX, mouseY) == null;
+            if (free) hotspots.pick(layout.camera().pos(), rayDirection(mouseX, mouseY));
+            else hotspots.clear();
+            hotspots.step(lastDt);
+            hotspots.appendQuads(quads, layout.camera());
         }
         Vec3 eye = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         quads.sort(Comparator.comparingDouble((OrbitWorldRenderer.Quad q) -> -distanceSq(q, eye)));
@@ -523,6 +538,20 @@ public final class OrbitScreen extends Screen {
 
     // -- input -------------------------------------------------------------------------------------------------
 
+    private void activate(SceneHotspots.Hotspot spot) {
+        String target = spot.target();
+        if (target.equals("wave")) {
+            figure.wave();
+        } else if (target.startsWith("page:")) {
+            view.orbitOpenPage(target.substring(5));
+            setOverview(false);
+        } else if (target.startsWith("category:")) {
+            int index = categories.indexOf(target.substring(9));
+            if (index >= 0) spinTo(index);
+            setOverview(false);
+        }
+    }
+
     private boolean skipCinematic() {
         if (cinematic == null || cinematic.revealing()) return false;
         cinematic.skip();
@@ -595,6 +624,10 @@ public final class OrbitScreen extends Screen {
             return true;
         }
         if (click.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            // a press on the farm still starts a spin; it only counts as a click if the mouse stays put
+            pressedHotspot = hotspots == null ? null : hotspots.hovered();
+            pressX = click.x();
+            pressY = click.y();
             draggingRing = true;
             dragLastX = click.x();
             momentum = 0f;
@@ -641,6 +674,9 @@ public final class OrbitScreen extends Screen {
             draggingRing = false;
             ring.t = Math.round(ring.x + momentum * 0.35f);
             momentum = 0f;
+            SceneHotspots.Hotspot spot = pressedHotspot;
+            pressedHotspot = null;
+            if (spot != null && Math.hypot(click.x() - pressX, click.y() - pressY) < 4) activate(spot);
             return true;
         }
         if (pressedPanel) {
@@ -792,6 +828,7 @@ public final class OrbitScreen extends Screen {
         for (PanelSurface surface : surfaces) surface.close();
         failsafeRing.close();
         settingPreview.close();
+        if (hotspots != null) hotspots.close();
         sceneRenderer.close();
         if (clone != null) clone.close();
         clone = null;

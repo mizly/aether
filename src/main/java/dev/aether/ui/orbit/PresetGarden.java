@@ -16,14 +16,19 @@ final class PresetGarden implements SceneClone.Source {
     private static final int HIGH = 10;
 
     private final int ox, oy, oz;
+    private final int cos, sin;
     private final int size = RADIUS * 2 + 1;
     private final BlockState[][] columns = new BlockState[size * size][];
     private final int[] tops = new int[size * size];
 
-    PresetGarden(int ox, int oy, int oz) {
+    // yaw is snapped to quarter turns, so the farm's +z (ahead of the player) lines up with the ring's front
+    PresetGarden(int ox, int oy, int oz, float yaw) {
         this.ox = ox;
         this.oy = oy;
         this.oz = oz;
+        int quarter = Math.floorMod(Math.round(yaw / 90f), 4);
+        this.cos = new int[]{1, 0, -1, 0}[quarter];
+        this.sin = new int[]{0, 1, 0, -1}[quarter];
         for (int i = 0; i < columns.length; i++) columns[i] = new BlockState[HIGH - LOW + 1];
         build();
         for (int i = 0; i < columns.length; i++) {
@@ -195,6 +200,28 @@ final class PresetGarden implements SceneClone.Source {
         }
     }
 
+    // -- things to point at --------------------------------------------------------------------------------------
+
+    // a clickable part of the farm as a box in the farm's own blocks (max exclusive), what it says and what it opens:
+    // "page:<id>", "category:<id>" or "wave"
+    record Spot(String label, int x0, int y0, int z0, int x1, int y1, int z1, String target) {
+    }
+
+    static final java.util.List<Spot> SPOTS = java.util.List.of(
+            new Spot("Barn · Garden", -29, 0, 22, -18, 10, 31, "category:garden"),
+            new Spot("Composter · Auto Composter", -18, 0, 31, -17, 1, 32, "page:auto-composter"),
+            new Spot("Hay · Auto Visitor", -17, 0, 21, -15, 1, 24, "page:auto-visitor"),
+            new Spot("Wheat · Farming Macro", 3, -1, -8, 35, 1, 14, "page:farming-macro"),
+            new Spot("Carrots · Farming Macro", 3, -1, 15, 35, 1, 37, "page:farming-macro"),
+            new Spot("Potatoes · Farming Macro", -34, -1, -8, -2, 1, 14, "page:farming-macro"),
+            new Spot("Sugar Cane · Farming Macro", -34, -1, 15, -2, 2, 37, "page:farming-macro"),
+            new Spot("Pumpkins & Melons · Pest Manager", -22, -1, -34, 23, 1, -13, "page:pest-manager"));
+
+    // a point in the farm's blocks to the world
+    org.joml.Vector3d toWorld(double lx, double ly, double lz) {
+        return new org.joml.Vector3d(ox + lx * cos - lz * sin, oy + ly, oz + lx * sin + lz * cos);
+    }
+
     // -- storage ----------------------------------------------------------------------------------------------
 
     private void set(int x, int y, int z, BlockState state) {
@@ -219,14 +246,16 @@ final class PresetGarden implements SceneClone.Source {
 
     @Override
     public int top(int x, int z) {
-        int dx = x - ox, dz = z - oz;
+        int wx = x - ox, wz = z - oz;
+        int dx = wx * cos + wz * sin, dz = -wx * sin + wz * cos;
         if (Math.abs(dx) > RADIUS || Math.abs(dz) > RADIUS) return Integer.MIN_VALUE;
         return tops[(dz + RADIUS) * size + dx + RADIUS];
     }
 
     @Override
     public BlockState state(int x, int y, int z) {
-        int dx = x - ox, dz = z - oz, ly = y - oy;
+        int wx = x - ox, wz = z - oz, ly = y - oy;
+        int dx = wx * cos + wz * sin, dz = -wx * sin + wz * cos;
         if (Math.abs(dx) > RADIUS || Math.abs(dz) > RADIUS || ly < LOW) return Blocks.DIRT.defaultBlockState();
         if (ly > HIGH) return Blocks.AIR.defaultBlockState();
         BlockState s = columns[(dz + RADIUS) * size + dx + RADIUS][ly - LOW];

@@ -10,6 +10,12 @@ final class PlayerFigure {
 
     private final OrbitSpring headYaw = new OrbitSpring(0f, 40f, 11f);
     private final OrbitSpring headPitch = new OrbitSpring(0f, 40f, 11f);
+    private float waveStart = -10f;
+    private float lastTime;
+
+    void wave() {
+        waveStart = lastTime;
+    }
 
     // turns the head toward a point given in the figure's local space (blocks), limited like a real neck
     void lookAt(float lx, float ly, float lz, float dt) {
@@ -24,7 +30,12 @@ final class PlayerFigure {
 
     // appends the figure's triangles; toWorld maps local block coordinates to the buffer's space
     void build(SceneClone.Buffer out, Matrix4f toWorld, boolean slim, float time) {
+        lastTime = time;
         float sway = (float) Math.sin(time * 1.3) * 3f;
+        // a wave lifts the right arm and swings it for a moment, easing in and out
+        float waving = time - waveStart;
+        float lift = waving < 1.6f ? (float) Math.sin(Math.min(1f, waving / 1.6f) * Math.PI) : 0f;
+        float right = sway + lift * (-160f + (float) Math.sin(waving * 14) * 18f - sway);
         float breathe = (float) Math.sin(time * 1.9) * 0.15f;
         int arm = slim ? 3 : 4;
         Matrix4f body = new Matrix4f(toWorld).scale(PIXEL).rotateY((float) Math.toRadians(headYaw.x * 0.15f));
@@ -37,8 +48,8 @@ final class PlayerFigure {
         part(out, body, 0, 12 + breathe, 0, 0, 0, -4, 0, -2, 8, 12, 4, 16, 16, 0f);
         part(out, body, 0, 12 + breathe, 0, 0, 0, -4, 0, -2, 8, 12, 4, 16, 32, 0.25f);
         // arms hang from the shoulders and sway a little
-        part(out, body, -4 - arm / 2f, 22 + breathe, 0, sway, 0, -arm / 2f, -10, -2, arm, 12, 4, 40, 16, 0f);
-        part(out, body, -4 - arm / 2f, 22 + breathe, 0, sway, 0, -arm / 2f, -10, -2, arm, 12, 4, 40, 32, 0.25f);
+        part(out, body, -4 - arm / 2f, 22 + breathe, 0, right, 0, -arm / 2f, -10, -2, arm, 12, 4, 40, 16, 0f);
+        part(out, body, -4 - arm / 2f, 22 + breathe, 0, right, 0, -arm / 2f, -10, -2, arm, 12, 4, 40, 32, 0.25f);
         part(out, body, 4 + arm / 2f, 22 + breathe, 0, -sway, 0, -arm / 2f, -10, -2, arm, 12, 4, 32, 48, 0f);
         part(out, body, 4 + arm / 2f, 22 + breathe, 0, -sway, 0, -arm / 2f, -10, -2, arm, 12, 4, 48, 48, 0.25f);
         // head turns about the neck
