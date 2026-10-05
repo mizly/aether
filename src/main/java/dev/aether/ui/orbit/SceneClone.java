@@ -82,6 +82,7 @@ final class SceneClone {
     private final BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
     private Buffer solid = new Buffer(1 << 16);
     private Buffer water = new Buffer(1 << 12);
+    private int[] lows;
 
     private SceneClone(Source source) {
         this.columns = source;
@@ -104,10 +105,9 @@ final class SceneClone {
                 tops[(dz + radius) * size + dx + radius] = top == Integer.MIN_VALUE ? top : Math.min(top, limit);
             }
         }
+        int[] lows = new int[size * size];
         for (int dz = -radius; dz <= radius; dz++) {
             for (int dx = -radius; dx <= radius; dx++) {
-                int dist2 = dx * dx + dz * dz;
-                if (dist2 > radius * radius) continue;
                 int top = tops[(dz + radius) * size + dx + radius];
                 if (top == Integer.MIN_VALUE) continue;
                 int low = top;
@@ -122,8 +122,16 @@ final class SceneClone {
                 // the soil, sand and lake bed would be missing and the gap would show straight through
                 int floor = top;
                 while (floor > top - 8 && !columns.state(ox + dx, floor, oz + dz).isSolidRender()) floor--;
-                low = Math.min(low, floor);
-                for (int y = top; y >= low; y--) {
+                lows[(dz + radius) * size + dx + radius] = Math.min(low, floor);
+            }
+        }
+        this.lows = lows;
+        for (int dz = -radius; dz <= radius; dz++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                if (dx * dx + dz * dz > radius * radius) continue;
+                int top = tops[(dz + radius) * size + dx + radius];
+                if (top == Integer.MIN_VALUE) continue;
+                for (int y = top; y >= lows[(dz + radius) * size + dx + radius]; y--) {
                     BlockState state = columns.state(ox + dx, y, oz + dz);
                     if (WorldColumns.seeThrough(state)) continue;
                     block(state, ox + dx, y, oz + dz, ox, oy, oz, tops, size, radius);
@@ -133,12 +141,13 @@ final class SceneClone {
         return new Mesh(ox, oy, oz, solid.finish(), solid.count, water.finish(), water.count, radius);
     }
 
-    // a neighbour hides a face only when it is drawn too: under the column's clipped top and solid
+    // a neighbour hides a face only when it is drawn too: inside its column's drawn span, in the round, and solid
     private boolean hides(int x, int y, int z, int ox, int oz, int[] tops, int size, int radius) {
         int dx = x - ox, dz = z - oz;
         if (Math.abs(dx) > radius || Math.abs(dz) > radius) return true;
         int top = tops[(dz + radius) * size + dx + radius];
-        if (top == Integer.MIN_VALUE || y > top) return false;
+        if (top == Integer.MIN_VALUE || y > top || y < lows[(dz + radius) * size + dx + radius]) return false;
+        if (dx * dx + dz * dz > radius * radius) return false;
         BlockState state = columns.state(x, y, z);
         return state.isSolidRender() && !WorldColumns.seeThrough(state);
     }

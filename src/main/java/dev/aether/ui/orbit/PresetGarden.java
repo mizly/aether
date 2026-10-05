@@ -2,6 +2,7 @@ package dev.aether.ui.orbit;
 
 import net.minecraft.client.color.block.BlockTintSource;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.GrassColor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.CropBlock;
@@ -175,6 +176,7 @@ final class PresetGarden implements SceneClone.Source {
             }
         }
         int inner = openLow ? x1 - 1 : x0 + 1;
+        if (inner == canal) inner += openLow ? -1 : 1;
         set(inner, 0, z1 - 1, Blocks.BARREL.defaultBlockState());
         set(inner, 0, z0 + 1, Blocks.COMPOSTER.defaultBlockState());
     }
@@ -276,6 +278,8 @@ final class PresetGarden implements SceneClone.Source {
 
     @Override
     public int tint(BlockTintSource tint, BlockState state, BlockPos pos) {
+        // with no biome to ask, cane's tint comes back white, so it takes the grass green it gets in plains
+        if (state.is(Blocks.SUGAR_CANE)) return GrassColor.getDefaultColor();
         return tint.color(state);
     }
 }
