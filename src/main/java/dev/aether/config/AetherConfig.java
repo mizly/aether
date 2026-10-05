@@ -114,7 +114,9 @@ public final class AetherConfig {
                 boolean loaded = Config.loadFromJson(json);
                 if (loaded) {
                         try {
-                                migrateLegacyLoadoutKeys(JsonParser.parseString(json).getAsJsonObject());
+                                JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+                                migrateLegacyLoadoutKeys(root);
+                                migrateStriderRedesign(root);
                         } catch (Exception ignored) {
                         }
                         resetRuntimeOnlyEntries();
@@ -264,7 +266,9 @@ public final class AetherConfig {
 
                 try (Reader reader = Files.newBufferedReader(sourceFile.toPath())) {
                         JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
-                        if (migrateLegacyLoadoutKeys(root)) {
+                        boolean updated = migrateLegacyLoadoutKeys(root);
+                        updated |= migrateStriderRedesign(root);
+                        if (updated) {
                                 save();
                         }
                 } catch (Exception ignored) {
@@ -302,6 +306,21 @@ public final class AetherConfig {
                 }
 
                 return updated;
+        }
+
+        // every config saved before the redesign still holds the old route and pool defaults, so routes off and
+        // the lower pool cap would never reach anyone; the save drops the marker key so this runs once
+        static boolean migrateStriderRedesign(JsonObject root) {
+                if (root == null || !root.has("striderFishingRandomLook")) {
+                        return false;
+                }
+                if ("default_strider".equalsIgnoreCase(STRIDER_FISHING_RESTART_ROUTE.get())) {
+                        STRIDER_FISHING_RESTART_ROUTE.set("");
+                }
+                if (STRIDER_FISHING_SOUL_WHIP_COUNT.get() > 8) {
+                        STRIDER_FISHING_SOUL_WHIP_COUNT.set(8);
+                }
+                return true;
         }
 
         private static boolean migrateLegacyDelayRange(
