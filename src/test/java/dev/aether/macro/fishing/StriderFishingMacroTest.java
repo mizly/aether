@@ -151,6 +151,96 @@ class StriderFishingMacroTest {
     }
 
     @Test
+    void theYawRunCanWrapAroundTheBackOfTheCircle() {
+        boolean[] lands = new boolean[180];
+        for (int i = 175; i < 180; i++) {
+            lands[i] = true;
+        }
+        for (int i = 0; i < 5; i++) {
+            lands[i] = true;
+        }
+        lands[90] = true;
+        assertEquals(0, StriderFishingMacro.bestYawIndex(lands, 1));
+    }
+
+    @Test
+    void aYawRunNeedsALandingYawEitherSide() {
+        boolean[] lands = new boolean[180];
+        lands[40] = true;
+        lands[41] = true;
+        assertEquals(-1, StriderFishingMacro.bestYawIndex(lands, 1));
+        lands[42] = true;
+        assertEquals(41, StriderFishingMacro.bestYawIndex(lands, 1));
+        assertEquals(2, StriderFishingMacro.bestYawIndex(new boolean[] {false, true, true, false}, 0));
+    }
+
+    @Test
+    void theLongestYawRunWins() {
+        boolean[] lands = new boolean[180];
+        for (int i = 10; i < 15; i++) {
+            lands[i] = true;
+        }
+        for (int i = 100; i < 120; i++) {
+            lands[i] = true;
+        }
+        assertEquals(110, StriderFishingMacro.bestYawIndex(lands, 1));
+    }
+
+    @Test
+    void everyYawOrNoYawLandingIsToldApart() {
+        boolean[] all = new boolean[180];
+        java.util.Arrays.fill(all, true);
+        assertEquals(-2, StriderFishingMacro.bestYawIndex(all, 1));
+        assertEquals(-1, StriderFishingMacro.bestYawIndex(new boolean[180], 1));
+        assertEquals(-1, StriderFishingMacro.bestYawIndex(new boolean[0], 1));
+    }
+
+    @Test
+    void aMissRulesOutTheYawsAroundItAcrossTheBackOfTheCircle() {
+        boolean[] lands = new boolean[180];
+        java.util.Arrays.fill(lands, true);
+        StriderFishingMacro.rejectWindow(lands, 179.0f, 4.0f, 2.0f);
+        for (int i = 0; i < lands.length; i++) {
+            boolean ruledOut = i == 0 || i == 1 || i == 178 || i == 179;
+            assertEquals(!ruledOut, lands[i], "sample " + i);
+        }
+    }
+
+    @Test
+    void aYawIsFiledUnderTheNearestSample() {
+        assertEquals(0, StriderFishingMacro.nearestSample(179.5f, 180, 2.0f));
+        assertEquals(0, StriderFishingMacro.nearestSample(-179.2f, 180, 2.0f));
+        assertEquals(91, StriderFishingMacro.nearestSample(1.1f, 180, 2.0f));
+        assertEquals(91, StriderFishingMacro.nearestSample(361.1f, 180, 2.0f));
+        assertEquals(-178.0f, StriderFishingMacro.sampleYaw(1, 2.0f), 1e-6f);
+    }
+
+    @Test
+    void theLandingTickIsTheFirstOneThatReachesTheLanding() {
+        net.minecraft.world.phys.Vec3 eye = net.minecraft.world.phys.Vec3.ZERO;
+        net.minecraft.world.phys.Vec3[] path = {
+                new net.minecraft.world.phys.Vec3(0.0, 0.0, 0.3),
+                new net.minecraft.world.phys.Vec3(0.0, 1.0, 1.0),
+                new net.minecraft.world.phys.Vec3(0.0, 1.5, 1.6),
+                new net.minecraft.world.phys.Vec3(0.0, 1.2, 2.0)};
+        assertEquals(2, StriderFishingMacro.landingTick(path, eye, new net.minecraft.world.phys.Vec3(0.0, 1.4, 1.3)));
+        assertEquals(1, StriderFishingMacro.landingTick(path, eye, new net.minecraft.world.phys.Vec3(0.0, 0.5, 0.6)));
+        assertEquals(3, StriderFishingMacro.landingTick(path, eye, new net.minecraft.world.phys.Vec3(0.0, 0.0, 9.0)));
+    }
+
+    @Test
+    void theLookUpTurnStaysSteepAndCloseToTheSolvedYaw() {
+        java.util.Random random = new java.util.Random(7);
+        for (int i = 0; i < 500; i++) {
+            float pitch = StriderFishingMacro.lookUpPitch(random);
+            assertTrue(pitch >= -89.0f && pitch <= -84.0f);
+            float jitter = StriderFishingMacro.jitter(random, 1.5f);
+            assertTrue(Math.abs(jitter) <= 1.5f);
+        }
+        assertEquals(0.0f, StriderFishingMacro.jitter(random, 0.0f));
+    }
+
+    @Test
     void theSawyerSpotRouteIsOneWalkOntoTheSpot() {
         Route route = StriderFishingMacro.fixedSpotRoute("");
 
