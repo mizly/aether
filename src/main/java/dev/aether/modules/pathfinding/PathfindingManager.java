@@ -355,11 +355,17 @@ public final class PathfindingManager {
     // walks the whole way upright: no crouch on the approach and none while centring on the goal
     public static void startUprightWalk(Minecraft mc, Vec3 target, Runnable onFinished, Runnable onFailed,
                                         boolean centerOnGoal) {
+        startUprightWalk(mc, target, onFinished, onFailed, centerOnGoal, false);
+    }
+
+    public static void startUprightWalk(Minecraft mc, Vec3 target, Runnable onFinished, Runnable onFailed,
+                                        boolean centerOnGoal, boolean requireFullPath) {
         int x = Mth.floor(target.x);
         int y = Mth.floor(target.y);
         int z = Mth.floor(target.z);
         disableTransientDebugRendering();
         resetWalkExecutionOptions();
+        walkRequireFullPath = requireFullPath;
         walkGoalCenterX = target.x - x;
         walkGoalCenterZ = target.z - z;
         configureWalkExecution(null, onFinished, onFailed, true, centerOnGoal ? 0.35 : 0.5, centerOnGoal);
