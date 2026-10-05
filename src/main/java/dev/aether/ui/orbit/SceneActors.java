@@ -184,6 +184,9 @@ final class SceneActors implements AutoCloseable {
         dynamicPests(dt, dynamic, pose);
         extra.update(dt, scene, time, focus, pose);
         modules.update(dt, scene, time, focus, pose);
+        boolean busy = visitors || crafting || pestsOn || resting || loadout || dynamic || FarmSkits.handles(focus)
+                || ExtraSkits.handles(focus) || ModuleSkits.handles(focus);
+        if (!busy) idle(pose);
         if (!pestsOn) vacuum = Math.max(0f, vacuum - dt * 4f);
 
         if (loadout) {
@@ -201,6 +204,27 @@ final class SceneActors implements AutoCloseable {
 
         particles.step(dt);
         for (Crafted c : crafted) c.age += dt;
+    }
+
+    // standing about with nothing to act out: now and then a shift of weight, a glance down, a stretch
+    private void idle(PlayerFigure.Pose pose) {
+        float c = time % 11f;
+        if (c > 4f && c < 5.4f) {
+            float s = (float) Math.sin(Math.PI * (c - 4f) / 1.4f);
+            pose.roll += 4f * s;
+            pose.x += 0.05f * s;
+            pose.legs = 8f * s;
+            pose.legsWeight = s;
+        } else if (c > 7f && c < 7.8f) {
+            pose.headPitch += 25f * (float) Math.sin(Math.PI * (c - 7f) / 0.8f);
+        } else if (c > 9.2f && c < 10.6f) {
+            float s = (float) Math.sin(Math.PI * (c - 9.2f) / 1.4f);
+            pose.right = pose.left = -172f;
+            pose.rightWeight = pose.leftWeight = s;
+            pose.lean -= 8f * s;
+            pose.squash -= 0.04f * s;
+            pose.squint = s > 0.4f ? 1f : 0f;
+        }
     }
 
     // something heavy lands: a poof and a spray of whatever it landed on
