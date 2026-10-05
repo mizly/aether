@@ -185,6 +185,14 @@ public final class GuiCanvas {
                 local.w() * state.sx, local.h() * state.sy);
     }
 
+    public float toLocalX(float rootX) {
+        return (rootX - state.tx) / state.sx;
+    }
+
+    public float toLocalY(float rootY) {
+        return (rootY - state.ty) / state.sy;
+    }
+
     public boolean isVisible(Rect local) {
         return !state.clip.intersect(toRoot(local)).isEmpty();
     }

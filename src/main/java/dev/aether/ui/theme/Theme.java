@@ -178,6 +178,9 @@ public class Theme {
     public static boolean PRESET_MODIFIED = false;
     // the gui's pins and recent changes; kept beside uiScale and never exported, like the fields above
     public static JsonObject GUI_STATE = new JsonObject();
+    // a hand-edited hud keeps its colours when a preset is applied, unless the user picks menu + hud
+    public static boolean HUD_EDITED = false;
+    public static final String DEFAULT_COLOURS_ID = "classic";
 
     // ThemeEntry labels that cycle through rainbow colors each frame
     public static final Set<String> rainbowEntries = new HashSet<>();
@@ -269,6 +272,8 @@ public class Theme {
     private static final int[] DEFAULT_HUD_COLORS = HUD_ENTRIES.stream()
             .mapToInt(entry -> entry.getter.get())
             .toArray();
+    // colours as the last preset, default colours or load left them; edits are measured against this
+    private static int[] baseline = colours();
 
     // ============================================================
     // SAVE / LOAD
@@ -281,6 +286,7 @@ public class Theme {
     private static boolean savePending;
 
     public static void saveTheme() {
+        syncPresetState();
         if (saveBatchDepth > 0) {
             savePending = true;
             return;
@@ -300,6 +306,7 @@ public class Theme {
         obj.addProperty("presetId", PRESET_ID);
         obj.addProperty("presetModified", PRESET_MODIFIED);
         obj.add("guiState", GUI_STATE);
+        obj.addProperty("hudEdited", HUD_EDITED);
         JsonArray rainbowArr = new JsonArray();
         for (String s : rainbowEntries) rainbowArr.add(s);
         obj.add("rainbowEntries", rainbowArr);
@@ -323,7 +330,10 @@ public class Theme {
     }
 
     public static void loadTheme() {
-        if (!THEME_FILE.exists()) return;
+        if (!THEME_FILE.exists()) {
+            ThemePreset.DEFAULT.apply();
+            return;
+        }
         try (FileReader fr = new FileReader(THEME_FILE)) {
             JsonObject obj = JsonParser.parseReader(fr).getAsJsonObject();
             for (ThemeEntry e : ENTRIES) {
@@ -353,9 +363,17 @@ public class Theme {
             } else if (obj.has("rainbowTheme") && obj.get("rainbowTheme").getAsBoolean()) {
                 rainbowEntries.add("Accent"); // backward compat
             }
+            // themes saved before preset ids existed adopt the preset they still match exactly
+            if (!obj.has("presetId")) {
+                ThemePreset match = ThemePreset.matching();
+                PRESET_ID = match != null ? match.id() : matchesDefaultMenu() ? DEFAULT_COLOURS_ID : "";
+                PRESET_MODIFIED = false;
+            }
+            HUD_EDITED = obj.has("hudEdited") ? obj.get("hudEdited").getAsBoolean() : !hudFromKnownPalette();
         } catch (Exception ex) {
             ex.printStackTrace();
         }
+        baseline = colours();
     }
 
     public static String exportJson() {
@@ -413,13 +431,97 @@ public class Theme {
     }
 
     public static void resetColorsToDefaults() {
+        setDefaultColours(true);
+    }
+
+    // the classic palette as a pick of its own: it becomes the active "preset" and resets the edit flags
+    public static void applyDefaultColours(boolean includeHud) {
+        setDefaultColours(includeHud);
+        markPresetApplied(DEFAULT_COLOURS_ID, includeHud);
+    }
+
+    private static void setDefaultColours(boolean includeHud) {
         for (int i = 0; i < ENTRIES.size(); i++) {
             ENTRIES.get(i).setter.accept(DEFAULT_MENU_COLORS[i]);
         }
-        for (int i = 0; i < HUD_ENTRIES.size(); i++) {
-            HUD_ENTRIES.get(i).setter.accept(DEFAULT_HUD_COLORS[i]);
+        if (includeHud) {
+            for (int i = 0; i < HUD_ENTRIES.size(); i++) {
+                HUD_ENTRIES.get(i).setter.accept(DEFAULT_HUD_COLORS[i]);
+            }
         }
         rainbowEntries.clear();
+    }
+
+    public static int defaultColour(ThemeEntry entry) {
+        int menu = ENTRIES.indexOf(entry);
+        return menu >= 0 ? DEFAULT_MENU_COLORS[menu] : DEFAULT_HUD_COLORS[HUD_ENTRIES.indexOf(entry)];
+    }
+
+    // ============================================================
+    // PRESET STATE
+    // ============================================================
+
+    public static void markPresetApplied(String presetId, boolean includesHud) {
+        PRESET_ID = presetId;
+        PRESET_MODIFIED = false;
+        if (includesHud) HUD_EDITED = false;
+        baseline = colours();
+    }
+
+    // any colour that moved off the baseline is an edit; rainbow entries cycle on their own
+    public static void syncPresetState() {
+        int[] now = colours();
+        for (int i = 0; i < now.length; i++) {
+            if (now[i] == baseline[i]) continue;
+            boolean hud = i >= ENTRIES.size();
+            if (!hud && rainbowEntries.contains(ENTRIES.get(i).label)) continue;
+            PRESET_MODIFIED = true;
+            if (hud) HUD_EDITED = true;
+        }
+    }
+
+    public record Snapshot(String json, String presetId, boolean modified, boolean hudEdited, int[] baseline) {
+    }
+
+    public static Snapshot snapshot() {
+        return new Snapshot(exportJson(), PRESET_ID, PRESET_MODIFIED, HUD_EDITED, baseline.clone());
+    }
+
+    // brings back the colours and preset state only; animation speed and scale are left as they are now
+    public static void restore(Snapshot snapshot) {
+        float animTime = ANIM_TIME_MS;
+        importJson(snapshot.json());
+        ANIM_TIME_MS = animTime;
+        PRESET_ID = snapshot.presetId();
+        PRESET_MODIFIED = snapshot.modified();
+        HUD_EDITED = snapshot.hudEdited();
+        baseline = snapshot.baseline().clone();
+    }
+
+    private static int[] colours() {
+        int[] values = new int[ENTRIES.size() + HUD_ENTRIES.size()];
+        for (int i = 0; i < ENTRIES.size(); i++) values[i] = ENTRIES.get(i).getter.get();
+        for (int i = 0; i < HUD_ENTRIES.size(); i++) values[ENTRIES.size() + i] = HUD_ENTRIES.get(i).getter.get();
+        return values;
+    }
+
+    private static boolean matchesDefaultMenu() {
+        for (int i = 0; i < ENTRIES.size(); i++) {
+            if (ENTRIES.get(i).getter.get() != DEFAULT_MENU_COLORS[i]) return false;
+        }
+        return true;
+    }
+
+    private static boolean hudFromKnownPalette() {
+        boolean defaults = true;
+        for (int i = 0; i < HUD_ENTRIES.size(); i++) {
+            defaults &= HUD_ENTRIES.get(i).getter.get() == DEFAULT_HUD_COLORS[i];
+        }
+        if (defaults) return true;
+        for (ThemePreset preset : ThemePreset.values()) {
+            if (HUD_ENTRIES.stream().allMatch(e -> e.getter.get() == preset.colour(e.label))) return true;
+        }
+        return false;
     }
 
     // ============================================================
