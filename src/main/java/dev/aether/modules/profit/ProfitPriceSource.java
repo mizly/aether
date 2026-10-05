@@ -1,6 +1,7 @@
 package dev.aether.modules.profit;
 
 public enum ProfitPriceSource {
+    BEST("Best (Bazaar/NPC)"),
     BAZAAR("Bazaar"),
     NPC("NPC");
 
@@ -18,7 +19,7 @@ public enum ProfitPriceSource {
         try {
             return ProfitPriceSource.valueOf(value);
         } catch (Exception ignored) {
-            return BAZAAR;
+            return BEST;
         }
     }
 }

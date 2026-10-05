@@ -696,7 +696,7 @@ public final class AetherConfig {
 
         public static final BooleanEntry PROFIT_HUD_ENABLED = Config.bool("profitHudEnabled", true);
         public static final BooleanEntry COMPACT_PROFIT_CALCULATOR = Config.bool("compactProfitCalculator", true);
-        public static final StringEntry PROFIT_PRICE_SOURCE = Config.string("profitPriceSource", "BAZAAR");
+        public static final StringEntry PROFIT_PRICE_SOURCE = Config.string("profitPriceSource", "BEST");
         public static final StringEntry SHARD_PRICE_SOURCE = Config.string("shardPriceSource", "INSTA_SELL");
         public static final BooleanEntry FARMING_XP_HUD = Config.bool("farmingXpHud", true);
         public static final BooleanEntry FARMING_HUD_XP_RATE = Config.bool("farmingHudXpRate", true);
