@@ -62,6 +62,13 @@ public final class GardenPlots {
         return new Bounds(minX, minZ, minX + PLOT_SIZE, minZ + PLOT_SIZE);
     }
 
+    // the plot number covering a world column, or -1 outside the 5 x 5 garden
+    public static int plotAt(double x, double z) {
+        int col = gridIndex(x) + 2, row = gridIndex(z) + 2;
+        if (row < 0 || row >= PLOT_LAYOUT.length || col < 0 || col >= PLOT_LAYOUT[row].length) return -1;
+        return PLOT_LAYOUT[row][col];
+    }
+
     public static int gridIndex(double coord) {
         return Math.floorDiv(Mth.floor(coord) + PLOT_OFFSET, PLOT_SIZE);
     }

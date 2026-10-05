@@ -19,8 +19,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 // a top-down picture of each garden plot: the top block of every column in its texture's colour and biome tint,
-// shaded by height the way maps are. recorded whenever a plot is loaded during play and kept on disk, so the picker
-// shows every plot, not only the ones near you. reads blocks, sends nothing
+// shaded by height the way maps are. built up chunk by chunk from whatever the server has sent you and kept on
+// disk, with a faded sketch where a plot was never in range. reads blocks, sends nothing
 final class PlotMiniatures {
     static final int SIZE = 48;
     private static final int STEP = GardenPlots.PLOT_SIZE / SIZE;
@@ -31,6 +31,7 @@ final class PlotMiniatures {
     private static final int[] versions = new int[PLOTS];
     private static final int[] uploaded = new int[PLOTS];
     private static final int[] handles = new int[PLOTS];
+    private static final String[] composedItems = new String[PLOTS];
     private static final Map<Identifier, Integer> textureColors = new HashMap<>();
     private static java.util.UUID owner;
 
@@ -45,22 +46,47 @@ final class PlotMiniatures {
         if (client != null && client.isSameThread()) loadFor(client, nvg);
         int[] argb = pixels[plot];
         if (argb == null) return drawn(nvg, plot, item);
-        if (handles[plot] <= 0 || uploaded[plot] != versions[plot]) {
+        String key = item == null ? "" : item;
+        if (handles[plot] <= 0 || uploaded[plot] != versions[plot] || !key.equals(composedItems[plot])) {
+            // what has been seen, over a faded sketch where the plot was never loaded
+            int[] sketch = PlotSketch.draw(plot, item, SIZE);
             ByteBuffer rgba = MemoryUtil.memAlloc(SIZE * SIZE * 4);
             try {
                 for (int i = 0; i < SIZE * SIZE; i++) {
-                    int c = argb[i];
+                    int c = (argb[i] >>> 24) > 0 ? argb[i] : faded(sketch[i]);
                     rgba.put(i * 4, (byte) (c >> 16)).put(i * 4 + 1, (byte) (c >> 8)).put(i * 4 + 2, (byte) c)
-                            .put(i * 4 + 3, (byte) (c >>> 24));
+                            .put(i * 4 + 3, (byte) 0xFF);
                 }
                 if (handles[plot] > 0) nvg.deleteImage(handles[plot]);
                 handles[plot] = nvg.createImageRGBA(SIZE, SIZE, NanoVG.NVG_IMAGE_NEAREST, rgba);
                 uploaded[plot] = versions[plot];
+                composedItems[plot] = key;
             } finally {
                 MemoryUtil.memFree(rgba);
             }
         }
         return handles[plot] > 0 ? handles[plot] : -1;
+    }
+
+    // how much of the plot has ever been seen, 0 to 1
+    static float coverage(int plot) {
+        if (plot < 0 || plot >= PLOTS) return 0f;
+        Minecraft client = Minecraft.getInstance();
+        if (client != null && client.isSameThread()) loadFor(client, null);
+        int[] argb = pixels[plot];
+        if (argb == null) return 0f;
+        int seen = 0;
+        for (int c : argb) if ((c >>> 24) > 0) seen++;
+        return seen / (float) argb.length;
+    }
+
+    private static int faded(int c) {
+        int r = (c >> 16) & 255, g = (c >> 8) & 255, b = c & 255;
+        int grey = (r * 3 + g * 6 + b) / 10;
+        r = (r + grey) / 2 * 55 / 100;
+        g = (g + grey) / 2 * 55 / 100;
+        b = (b + grey) / 2 * 55 / 100;
+        return 0xFF000000 | r << 16 | g << 8 | b;
     }
 
     private static final int[] drawnHandles = new int[PLOTS];
@@ -91,11 +117,12 @@ final class PlotMiniatures {
         return recorded[plot] == 0L ? Long.MAX_VALUE : System.currentTimeMillis() - recorded[plot];
     }
 
-    // samples a loaded plot from the world and keeps it, in memory and on disk; false when it isn't loaded
+    // samples whatever part of the plot is loaded and merges it over what was seen before, in memory and on disk;
+    // false when none of it is loaded
     static boolean record(Minecraft client, int plot) {
         if (client.level == null || client.player == null) return false;
         loadFor(client, null);
-        int[] argb = sample(client, plot);
+        int[] argb = sample(client, plot, pixels[plot]);
         if (argb == null) return false;
         pixels[plot] = argb;
         recorded[plot] = System.currentTimeMillis();
@@ -130,7 +157,7 @@ final class PlotMiniatures {
     }
 
     private static void save(Minecraft client, int plot, int[] argb) {
-        try (NativeImage image = new NativeImage(SIZE, SIZE, false)) {
+        try (NativeImage image = new NativeImage(NativeImage.Format.RGBA, SIZE, SIZE, true)) {
             for (int y = 0; y < SIZE; y++) for (int x = 0; x < SIZE; x++) image.setPixel(x, y, argb[y * SIZE + x]);
             java.nio.file.Path dir = GardenMemory.dir(client.player.getUUID());
             java.nio.file.Files.createDirectories(dir);
@@ -140,34 +167,37 @@ final class PlotMiniatures {
         }
     }
 
-    private static int[] sample(Minecraft client, int plot) {
+    // the plot's columns in loaded chunks, merged over before (alpha 0 where never seen); null when nothing is loaded
+    private static int[] sample(Minecraft client, int plot, int[] before) {
         ClientLevel world = client.level;
         GardenPlots.Bounds bounds = GardenPlots.boundsForPlot(plot);
-        if (bounds == null || !world.hasChunksAt(bounds.minX(), bounds.minZ(), bounds.maxX() - 1, bounds.maxZ() - 1)) {
-            return null;
-        }
+        if (bounds == null) return null;
         int[] heights = new int[SIZE * SIZE];
         int[] colors = new int[SIZE * SIZE];
+        boolean[] seen = new boolean[SIZE * SIZE];
+        boolean any = false;
         WorldColumns columns = new WorldColumns(world);
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int row = 0; row < SIZE; row++) {
             for (int col = 0; col < SIZE; col++) {
                 int x = bounds.minX() + col * STEP + STEP / 2;
                 int z = bounds.minZ() + row * STEP + STEP / 2;
+                if (!world.hasChunk(x >> 4, z >> 4)) continue;
                 int y = columns.top(x, z);
-                if (y == Integer.MIN_VALUE) {
-                    heights[row * SIZE + col] = world.getMinY();
-                    colors[row * SIZE + col] = 0xFF2A2F36;
-                    continue;
-                }
-                BlockState state = columns.state(x, y, z);
-                heights[row * SIZE + col] = y;
-                colors[row * SIZE + col] = color(client, world, state, pos.set(x, y, z));
+                // an empty column in a loaded chunk is the server not having sent its blocks yet
+                if (y == Integer.MIN_VALUE) continue;
+                int i = row * SIZE + col;
+                seen[i] = true;
+                any = true;
+                heights[i] = y;
+                colors[i] = color(client, world, columns.state(x, y, z), pos.set(x, y, z));
             }
         }
-        int[] out = new int[SIZE * SIZE];
+        if (!any) return null;
+        int[] out = before != null ? before.clone() : new int[SIZE * SIZE];
         for (int i = 0; i < SIZE * SIZE; i++) {
-            int north = i >= SIZE ? heights[i - SIZE] : heights[i];
+            if (!seen[i]) continue;
+            int north = i >= SIZE && seen[i - SIZE] ? heights[i - SIZE] : heights[i];
             float shade = heights[i] > north ? 1.12f : heights[i] < north ? 0.8f : 1f;
             int c = colors[i];
             int r = Math.min(255, Math.round(((c >> 16) & 255) * shade));
