@@ -19,6 +19,11 @@ public final class PanelView {
     public record Hover(dev.aether.ui.settings.Setting setting, String pageId, String group) {
     }
 
+    // one search hit for the orbit's top bar; value is the setting's current state, or null
+    public record SearchHit(String kind, String title, String path, dev.aether.ui.gui.Icon icon, String value,
+                            Runnable run) {
+    }
+
     private final PanelHost host;
     private final GuiClock clock;
     private final GuiCanvas canvas = new GuiCanvas();
@@ -141,9 +146,44 @@ public final class PanelView {
         return page == null ? null : page.name();
     }
 
+    // brings a category to the front; an open page of that same category stays open
     public void orbitFocus(String categoryId) {
-        PanelStyle.Location at = style.location();
-        if (!categoryId.equals(at.categoryId()) || at.pageId() != null) style.openCategory(categoryId);
+        if (!categoryId.equals(style.location().categoryId())) style.openCategory(categoryId);
+    }
+
+    // the category the panel ui is on, which moves when a search hit or link opens another one
+    public String orbitCategory() {
+        return style.location().categoryId();
+    }
+
+    public java.util.List<SearchHit> orbitSearch(String query) {
+        java.util.List<SearchHit> out = new java.util.ArrayList<>();
+        for (PanelSearch.Result r : style.search.search(host, query, true)) {
+            String kind = switch (r.kind()) {
+                case ACTION -> "Action";
+                case PAGE -> "Page";
+                case GROUP -> "Group";
+                case SETTING -> "Setting";
+            };
+            out.add(new SearchHit(kind, r.title(), r.path(), r.icon(), valueText(r.setting()), r.run()));
+        }
+        return out;
+    }
+
+    private static String valueText(dev.aether.ui.settings.Setting setting) {
+        try {
+            return switch (setting) {
+                case null -> null;
+                case dev.aether.ui.settings.ToggleSetting t -> dev.aether.util.AetherLang.localize(t.getValue() ? "On" : "Off");
+                case dev.aether.ui.settings.SliderSetting sl -> PanelRows.formatValue(sl.getValue(), sl.getDecimals(), sl.getSuffix());
+                case dev.aether.ui.settings.RangeSliderSetting r -> PanelRows.formatValue(r.getLowerValue(), r.getDecimals(), "")
+                        + "–" + PanelRows.formatValue(r.getUpperValue(), r.getDecimals(), r.getSuffix());
+                case dev.aether.ui.settings.DropdownSetting d -> d.getSelectedOption();
+                default -> null;
+            };
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     public void orbitPlotHooks(PlotHooks hooks) {
@@ -188,6 +228,11 @@ public final class PanelView {
 
     public boolean orbitBack() {
         return style.up();
+    }
+
+    // a field or picker inside the panel has the keyboard
+    public boolean orbitTyping() {
+        return style.editingText() || style.overlays.isOpen();
     }
 
     public boolean orbitOverlayOpen() {

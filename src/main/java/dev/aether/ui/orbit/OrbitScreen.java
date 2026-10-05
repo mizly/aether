@@ -1,5 +1,7 @@
 package dev.aether.ui.orbit;
 
+import com.mojang.blaze3d.platform.cursor.CursorType;
+import com.mojang.blaze3d.platform.cursor.CursorTypes;
 import dev.aether.Aether;
 import dev.aether.macro.MacroCatalog;
 import dev.aether.macro.MacroStateManager;
@@ -69,6 +71,8 @@ public final class OrbitScreen extends Screen {
     private double mouseX = -1;
     private double mouseY = -1;
     private TravelCinematic cinematic;
+    private final OrbitSearchBar searchBar;
+    private String focused;
 
     public OrbitScreen() {
         super(Component.literal("Aether"));
@@ -87,7 +91,8 @@ public final class OrbitScreen extends Screen {
             surfaces[i] = new PanelSurface();
             unfold[i] = new OrbitSpring(0f, 120f, 15f);
         }
-        overlay = new OrbitOverlay(this, host);
+        searchBar = new OrbitSearchBar(view, () -> setOverview(false));
+        overlay = new OrbitOverlay(this, host, searchBar);
         var player = Minecraft.getInstance().player;
         if (player != null) {
             yaw0 = player.getYRot();
@@ -99,7 +104,10 @@ public final class OrbitScreen extends Screen {
         String first = OrbitIsland.initialCategory(MacroCatalog.lastStarted().map(MacroCatalog.Entry::id).orElse(null), island);
         int firstIndex = Math.max(0, categories.indexOf(first));
         ring.snap(firstIndex);
-        if (!categories.isEmpty()) view.orbitFocus(categories.get(firstIndex));
+        if (!categories.isEmpty()) {
+            focused = categories.get(firstIndex);
+            view.orbitFocus(focused);
+        }
         view.orbitPlotHooks(new dev.aether.ui.orbit.panel.PlotHooks() {
             @Override
             public void paintThumbnail(dev.aether.ui.gui.GuiCanvas canvas, dev.aether.ui.settings.PlotSetting setting,
@@ -172,9 +180,24 @@ public final class OrbitScreen extends Screen {
                 return;
             }
         }
-        String active = activeCategory();
-        if (active != null) view.orbitFocus(active);
+        syncFocus();
         computeLayout();
+    }
+
+    // the ring and the panel ui each move the focus: spinning opens that category, and a search hit or link
+    // that lands in another category spins the ring to it
+    private void syncFocus() {
+        String located = view.orbitCategory();
+        if (located != null && !located.equals(focused) && categories.contains(located)) {
+            spinTo(categories.indexOf(located));
+            focused = located;
+            return;
+        }
+        String active = activeCategory();
+        if (active != null && !active.equals(focused)) {
+            view.orbitFocus(active);
+            focused = active;
+        }
     }
 
     String activeCategory() {
@@ -257,7 +280,34 @@ public final class OrbitScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor graphics, int mx, int my, float partialTick) {
         simulate();
+        graphics.requestCursor(cursor());
         AetherRenderQueue.enqueue(this::renderOverlayFrame);
+    }
+
+    // the pointer shape for what is under it: the front panel's own regions, a hand on anything that spins the
+    // ring or opens something, and a sideways arrow while the ring is dragged
+    private CursorType cursor() {
+        if (cinematic != null && !cinematic.revealing() || plotScreen != null || mouseX < 0) return CursorTypes.ARROW;
+        if (draggingRing) return CursorTypes.RESIZE_EW;
+        if (overlay.hovering(mouseX, mouseY)) return CursorTypes.POINTING_HAND;
+        if (pressedPanel) return panelCursor();
+        OrbitLayout.Placement hit = pick(mouseX, mouseY);
+        if (hit == null) return CursorTypes.ARROW;
+        if (overview() || !hit.active()) return CursorTypes.POINTING_HAND;
+        return panelCursor();
+    }
+
+    private CursorType panelCursor() {
+        return switch (view.cursor()) {
+            case DEFAULT -> CursorTypes.ARROW;
+            case HAND -> CursorTypes.POINTING_HAND;
+            case IBEAM -> CursorTypes.IBEAM;
+            case CROSSHAIR -> CursorTypes.CROSSHAIR;
+            case RESIZE_EW -> CursorTypes.RESIZE_EW;
+            case RESIZE_NS -> CursorTypes.RESIZE_NS;
+            case MOVE -> CursorTypes.RESIZE_ALL;
+            case NOT_ALLOWED -> CursorTypes.NOT_ALLOWED;
+        };
     }
 
     @Override
@@ -537,6 +587,10 @@ public final class OrbitScreen extends Screen {
         mouseX = x;
         mouseY = y;
         if (cinematic != null && !cinematic.revealing()) return true;
+        if (searchBar.over(x, y)) {
+            searchBar.scroll(scrollY);
+            return true;
+        }
         if (hasControlDown()) {
             setOverview(scrollY < 0);
             return true;
@@ -561,6 +615,17 @@ public final class OrbitScreen extends Screen {
         if (skipCinematic()) return true;
         if (plotScreen != null) {
             if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_ENTER) plotScreen.close();
+            return true;
+        }
+        if (searchBar.isOpen()) {
+            if (hasControlDown() && key == GLFW.GLFW_KEY_V) {
+                searchBar.type(Minecraft.getInstance().keyboardHandler.getClipboard().replaceAll("\\s+", " "));
+                return true;
+            }
+            return searchBar.key(key, hasControlDown(), hasShiftDown());
+        }
+        if (hasControlDown() && key == GLFW.GLFW_KEY_F && !view.orbitTyping()) {
+            searchBar.open("");
             return true;
         }
         if (key == GLFW.GLFW_KEY_ESCAPE) {
@@ -602,7 +667,16 @@ public final class OrbitScreen extends Screen {
     @Override
     public boolean charTyped(CharacterEvent event) {
         if (!event.isAllowedChatCharacter() || cinematic != null && !cinematic.revealing()) return true;
-        view.charTyped(Character.toString(event.codepoint()));
+        String typed = Character.toString(event.codepoint());
+        if (searchBar.isOpen()) {
+            searchBar.type(typed);
+        } else if (view.orbitTyping()) {
+            view.charTyped(typed);
+        } else if (typed.equals("/")) {
+            searchBar.open("");
+        } else if (Character.isLetter(event.codepoint()) && plotScreen == null) {
+            searchBar.type(typed);
+        }
         return true;
     }
 

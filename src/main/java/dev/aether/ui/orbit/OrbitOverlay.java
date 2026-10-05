@@ -22,14 +22,23 @@ final class OrbitOverlay {
 
     private final OrbitScreen screen;
     private final PanelHost host;
+    private final OrbitSearchBar search;
     private final List<Button> buttons = new ArrayList<>();
 
-    OrbitOverlay(OrbitScreen screen, PanelHost host) {
+    OrbitOverlay(OrbitScreen screen, PanelHost host, OrbitSearchBar search) {
         this.screen = screen;
         this.host = host;
+        this.search = search;
+    }
+
+    boolean hovering(double x, double y) {
+        if (search.hovering(x, y)) return true;
+        for (Button b : buttons) if (b.contains(x, y)) return true;
+        return false;
     }
 
     boolean click(double x, double y, int button) {
+        if (search.click(x, y)) return true;
         for (Button b : buttons) {
             if (b.contains(x, y)) {
                 b.action().run();
@@ -62,7 +71,9 @@ final class OrbitOverlay {
         }
 
         // top right: close, and the macro the menu stopped with a resume button
+        float leftEnd = pad + brandW + 8f;
         float x = w - pad - 22f;
+        float rightStart = x;
         Button close = new Button(x, pad, 22f, 22f, screen::beginClose);
         boolean closeHover = close.contains(mx, my);
         nvg.roundedRect(x, pad, 22f, 22f, 7f, closeHover ? Argb.multiplyAlpha(Argb.withAlpha(p.text(), 0.16f), a) : chip);
@@ -75,6 +86,7 @@ final class OrbitOverlay {
             float rw = nvg.textWidth(Fonts.UI_SEMIBOLD, label, 8.5f) + 22f;
             float rx = x - 6f - rw;
             Button resume = new Button(rx, pad, rw, 22f, host::resume);
+            rightStart = rx;
             boolean hover = resume.contains(mx, my);
             nvg.roundedRect(rx, pad, rw, 22f, 7f, Argb.multiplyAlpha(hover ? Argb.mix(p.accent(), 0xFFFFFFFF, 0.12f) : p.accent(), a));
             triangle(nvg, rx + 9f, pad + 11f, 3.2f, Argb.multiplyAlpha(p.onAccent(), a));
@@ -84,11 +96,18 @@ final class OrbitOverlay {
                     + " · " + duration(session.sessionMs());
             float sw = nvg.textWidth(Fonts.UI_MEDIUM, status, 7.5f) + 26f;
             float sx = rx - 6f - sw;
-            nvg.roundedRect(sx, pad, sw, 22f, 7f, chip);
-            nvg.rectOutline(sx, pad, sw, 22f, 7f, 1f, border);
-            nvg.circle(sx + 10f, pad + 11f, 2.5f, Argb.multiplyAlpha(p.warning(), a));
-            nvg.text(Fonts.UI_MEDIUM, status, sx + 17f, pad + 7.5f, 7.5f, muted);
+            // the status chip gives way first so a narrow window keeps room for search
+            if (sx - 8f - leftEnd >= 140f) {
+                rightStart = sx;
+                nvg.roundedRect(sx, pad, sw, 22f, 7f, chip);
+                nvg.rectOutline(sx, pad, sw, 22f, 7f, 1f, border);
+                nvg.circle(sx + 10f, pad + 11f, 2.5f, Argb.multiplyAlpha(p.warning(), a));
+                nvg.text(Fonts.UI_MEDIUM, status, sx + 17f, pad + 7.5f, 7.5f, muted);
+            }
         }
+        float room = rightStart - 8f - leftEnd;
+        float searchW = room >= 90f ? Math.min(220f, room) : 22f;
+        float searchX = Math.max(leftEnd, Math.min(rightStart - 8f - searchW, (w - searchW) / 2f));
 
         // bottom: one tab per category, the active one underlined, plus the key hints above
         List<String> ids = screen.categoryIds();
@@ -127,9 +146,10 @@ final class OrbitOverlay {
         }
         String hint = overview
                 ? AetherLang.localize("Click a category to open it · Esc to close")
-                : AetherLang.localize("Scroll or drag to spin · Tab for overview · Esc back");
+                : AetherLang.localize("Scroll or drag to spin · Tab for overview · Type to search · Esc back");
         float hw = nvg.textWidth(Fonts.UI_REGULAR, hint, 7f);
         nvg.text(Fonts.UI_REGULAR, hint, (w - hw) / 2f, by - 12f, 7f, Argb.multiplyAlpha(Argb.withAlpha(p.text(), 0.55f), a));
+        search.render(nvg, p, searchX, pad, searchW, w, h, mx, my, a);
     }
 
     private static String duration(long ms) {

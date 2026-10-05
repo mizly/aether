@@ -36,7 +36,10 @@ final class PanelSearch {
 
     enum Kind { ACTION, PAGE, GROUP, SETTING }
 
-    record Result(Kind kind, String title, String path, Icon icon, Runnable run, int rank) {
+    record Result(Kind kind, String title, String path, Icon icon, Runnable run, int rank, Setting setting) {
+        Result(Kind kind, String title, String path, Icon icon, Runnable run, int rank) {
+            this(kind, title, path, icon, run, rank, null);
+        }
     }
 
     private final PanelStyle style;
@@ -229,15 +232,16 @@ final class PanelSearch {
         }
         lastQuery = q;
         lastGeneration = style.nav.generation();
-        results = search(f, q);
+        results = search(f.host(), q, false);
         selected = 0;
         scroll.jumpTo(0f);
     }
 
-    private List<Result> search(PanelFrame f, String q) {
+    // ranked hits for q; the orbit menu has no home page, so it leaves that action out
+    List<Result> search(PanelHost host, String q, boolean orbit) {
         List<Result> out = new ArrayList<>();
         String needle = q.toLowerCase(Locale.ROOT);
-        for (Result action : actions(f)) {
+        for (Result action : actions(host, orbit)) {
             int rank = rank(action.title(), needle);
             if (rank >= 0) {
                 out.add(new Result(action.kind(), action.title(), action.path(), action.icon(), action.run(), rank));
@@ -279,7 +283,7 @@ final class PanelSearch {
                         int settingRank = rank(setting.getName(), needle);
                         if (settingRank >= 0) {
                             out.add(new Result(Kind.SETTING, setting.getName(), groupPath + " › " + group.getName(),
-                                    null, () -> style.openPageAt(page.id(), groupKey), settingRank));
+                                    page.icon(), () -> style.openPageAt(page.id(), groupKey), settingRank, setting));
                         }
                     }
                 }
@@ -297,18 +301,18 @@ final class PanelSearch {
         }
     }
 
-    private List<Result> actions(PanelFrame f) {
+    private List<Result> actions(PanelHost host, boolean orbit) {
         List<Result> actions = new ArrayList<>();
-        PanelHost.Session session = f.host().session();
+        PanelHost.Session session = host.session();
         if (session != null && session.resumable()) {
             actions.add(new Result(Kind.ACTION, AetherLang.localize("Resume") + " " + AetherLang.localize(session.macroName()),
-                    "Ctrl+Enter", PanelSidebar.PLAY, () -> f.host().resume(), 0));
+                    "Ctrl+Enter", PanelSidebar.PLAY, host::resume, 0));
         }
         actions.add(new Result(Kind.ACTION, AetherLang.localize("Open macro menu"), null, PanelSidebar.PLAY,
-                () -> f.host().openMacroMenu(), 0));
+                host::openMacroMenu, 0));
         actions.add(new Result(Kind.ACTION, AetherLang.localize("Edit HUD layout"), null, PanelSidebar.HUD,
-                () -> f.host().openHudEditor(), 0));
-        actions.add(new Result(Kind.ACTION, AetherLang.localize("Go home"), null, null, style::goHome, 0));
+                host::openHudEditor, 0));
+        if (!orbit) actions.add(new Result(Kind.ACTION, AetherLang.localize("Go home"), null, null, style::goHome, 0));
         return actions;
     }
 
