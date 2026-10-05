@@ -9,11 +9,11 @@ final class OrbitRig {
     static final double HEIGHT = 4.9;
 
     static final Vector3d FP_POS = new Vector3d(0, 1.62, 0);
-    static final Vector3d TP_POS = new Vector3d(-6.6, 1.5, -8.0);
-    static final Vector3d TP_LOOK = new Vector3d(3.3, 4.35, 15.0);
+    static final Vector3d TP_POS = new Vector3d(-7.8, 3.5, -11.2);
+    static final Vector3d TP_LOOK = new Vector3d(2.6, 2.9, 15.0);
     static final Vector3d OV_POS = new Vector3d(0, 27.0, -37.0);
     static final Vector3d OV_LOOK = new Vector3d(0, 2.0, -3.6);
-    static final float FOV = 42f;
+    static final float FOV = 46f;
     static final float OV_FOV = 30f;
 
     private OrbitRig() {
