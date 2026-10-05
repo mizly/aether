@@ -37,6 +37,7 @@ public final class GardenRecorder {
         ticks++;
         if (ticks % 60 == 0) garden = ClientUtils.getCurrentLocation() == MacroState.Location.GARDEN;
         if (!garden || ticks % 10 != 0) return;
+        if (ticks % 200 == 0 && BarnCopy.refresh(client)) return;
         // freshly loaded chunks first, then whatever plot is loaded and getting old; one plot a pass keeps it cheap
         for (int plot = 0; plot < PLOTS; plot++) {
             if (dirty[plot] && PlotMiniatures.record(client, plot)) {
