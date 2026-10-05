@@ -113,6 +113,8 @@ public final class ClientFeatureBootstrap {
         // until the game closes never fires onMacroStop(), so this prevents the day's
         // un-committed time from being lost on exit.
         dev.aether.modules.session.DailyFarmTimeTracker.persistNow();
+        // Profit totals are saved in batches; write whatever is still pending before exit.
+        dev.aether.modules.profit.ProfitManager.flush();
         AetherTelemetryService.shutdown();
         AetherBanService.shutdown();
         IrcManager.shutdown();
