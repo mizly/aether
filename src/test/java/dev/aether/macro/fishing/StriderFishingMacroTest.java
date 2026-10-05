@@ -277,6 +277,47 @@ class StriderFishingMacroTest {
     }
 
     @Test
+    void aWhipAimedDownLandsOnTheStairFromAnywhereTheCentringAccepts() {
+        double offset = 0.12;
+        for (double eye : new double[] {1.27, 1.62}) {
+            for (int side = 0; side < 8; side++) {
+                double angle = Math.toRadians(side * 45.0);
+                double dx = Math.cos(angle) * offset;
+                double dz = Math.sin(angle) * offset;
+                for (float pitch = 84.0f; pitch <= 89.5f; pitch += 0.5f) {
+                    for (float yaw = -180.0f; yaw < 180.0f; yaw += 15.0f) {
+                        assertTrue(StriderFishingMacro.floorAimHits(dx, dz, eye, yaw, pitch),
+                                "eye " + eye + " side " + side + " pitch " + pitch + " yaw " + yaw);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void aShallowOrUpwardLookMissesTheStair() {
+        assertFalse(StriderFishingMacro.floorAimHits(0.0, 0.0, 1.62, 0.0f, 45.0f));
+        assertFalse(StriderFishingMacro.floorAimHits(0.0, 0.0, 1.62, 0.0f, -10.0f));
+        assertFalse(StriderFishingMacro.floorAimHits(0.45, 0.0, 1.62, -90.0f, 80.0f));
+    }
+
+    @Test
+    void theStairIsTheSpotsOwnBlockOnlyWhenTheFeetStandInsideIt() {
+        net.minecraft.core.BlockPos origin = new net.minecraft.core.BlockPos(-694, 120, 78);
+        assertEquals(origin, StriderFishingMacro.whipFloor(origin, true));
+        assertEquals(new net.minecraft.core.BlockPos(-694, 119, 78), StriderFishingMacro.whipFloor(origin, false));
+    }
+
+    @Test
+    void theWhipLookStaysSteeplyDown() {
+        java.util.Random random = new java.util.Random(11);
+        for (int i = 0; i < 500; i++) {
+            float pitch = StriderFishingMacro.whipPitch(random);
+            assertTrue(pitch >= 84.0f && pitch <= 89.5f);
+        }
+    }
+
+    @Test
     void theSawyerSpotRouteIsOneWalkOntoTheSpot() {
         Route route = StriderFishingMacro.fixedSpotRoute("");
 

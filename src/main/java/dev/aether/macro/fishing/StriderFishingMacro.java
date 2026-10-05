@@ -23,8 +23,11 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.projectile.FishingHook;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 import java.lang.ref.WeakReference;
@@ -89,6 +92,14 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private static final int SNAG_CLEAR_STREAK = 2;
     private static final long CARRIER_GRACE_MS = 3_000L;
     private static final int CARRIER_LAVA_DEPTH = 2;
+    private static final long CLEAR_REEL_RETRY_MS = 1_000L;
+    private static final float WHIP_YAW_JITTER = 3.0f;
+    private static final float WHIP_PITCH_MIN = 84.0f;
+    private static final float WHIP_PITCH_MAX = 89.5f;
+    private static final double WHIP_REACH = 5.0;
+    // a turn that ended off the stair gets a moment for the camera to settle before it is tried again
+    private static final long WHIP_AIM_SETTLE_MS = 1_000L;
+    private static final int MAX_WHIP_RETURNS = 3;
     private static final long REEL_SETTLE_MS = 350L;
 
     private static final float AIM_SMOOTHING_MS = 110.0f;
@@ -157,6 +168,10 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private int failedCasts;
     private int snagStreak;
     private int markerId = -1;
+    private BlockPos whipFloor;
+    private int whipTurns;
+    private long whipTurnEndedAt;
+    private long clearReelAt;
     // the classic search is the sawyer spot's fallback; once it runs dry the look-up throw goes out anyway
     private boolean classicExhausted;
     private CastAimSearch aimSearch;
@@ -367,7 +382,9 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             }
         }
 
-        watchCage(mc);
+        if (!sawyer()) {
+            watchCage(mc);
+        }
 
         // last word on the jump key, since every state above clears it
         homeKeeper.tickLiquidEscape(mc, System.currentTimeMillis(), ThreadLocalRandom.current());
@@ -1049,6 +1066,22 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return;
         }
 
+        // the whip is a fishing rod too, so with a line still out its first click would only reel that in
+        if (CatchWatch.hasLiveHook(mc)) {
+            holdStill(mc);
+            if (now >= clearReelAt) {
+                FailsafeManager.selectHotbarSlot(mc, rodSlot());
+                ClientUtils.performUseClick();
+                clearReelAt = now + CLEAR_REEL_RETRY_MS;
+            }
+            return;
+        }
+
+        if (sawyer()) {
+            tickStairWhip(mc, now);
+            return;
+        }
+
         if (target == null || !CatchWatch.isAlive(target) || !pooledCatchIds.contains(target.getId())) {
             // only a whip kill breaks the failing streak; one the weapon finished after a give up does not
             if (target != null && whipsAtTarget > 0 && !manualKillIds.contains(target.getId())) {
@@ -1079,6 +1112,92 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             return;
         }
         tickWhip(mc, now);
+    }
+
+    // the pool is stuck in the pit under the spot, so the whip goes down onto the stair and never chases one
+    private void tickStairWhip(Minecraft mc, long now) {
+        holdStill(mc);
+        if (!homeKeeper.isOnOrigin(mc)) {
+            beginReturn(mc, State.CLEAR);
+            return;
+        }
+        if (whipFloor == null) {
+            BlockPos origin = homeKeeper.origin();
+            boolean inStair = !mc.level.getBlockState(origin).getCollisionShape(mc.level, origin).isEmpty();
+            whipFloor = whipFloor(origin, inStair);
+            turnToStair(mc);
+        }
+
+        boolean turning = RotationManager.isRotating();
+        if (turning) {
+            whipTurnEndedAt = 0L;
+        } else if (whipTurnEndedAt == 0L) {
+            whipTurnEndedAt = now;
+        }
+        boolean aimed = !turning && aimsAt(mc, whipFloor);
+        if (!aimed && !turning && !whipClicker.midUse() && now - whipTurnEndedAt > WHIP_AIM_SETTLE_MS) {
+            if (whipTurns >= MAX_WHIP_RETURNS) {
+                fail("Strider fishing stopped: could not aim the Soul Whip at the stair under the spot.");
+                return;
+            }
+            whipTurns++;
+            turnToStair(mc);
+            return;
+        }
+        whipClicker.tick(now, ticks, whipSlot >= 0 ? whipSlot : soulWhipSlot(), weaponSlot(),
+                AetherConfig.STRIDER_FISHING_WHIP_SWAP_MIN.get(), AetherConfig.STRIDER_FISHING_WHIP_SWAP_MAX.get(),
+                () -> aimed, ThreadLocalRandom.current());
+    }
+
+    // looking down, the lash lands along the yaw, so it faces the way the throws go out over the pit
+    private void turnToStair(Minecraft mc) {
+        RandomGenerator random = ThreadLocalRandom.current();
+        float yaw = stairYaw(mc) + jitter(random, WHIP_YAW_JITTER);
+        RotationManager.rotateToYawPitch(mc, yaw, whipPitch(random), AetherConfig.ROTATION_TIME.get(), true);
+        whipTurnEndedAt = 0L;
+    }
+
+    private float stairYaw(Minecraft mc) {
+        YawSolve solve = yawSolve(mc);
+        if (!Float.isNaN(solve.confirmedYaw)) {
+            return solve.confirmedYaw;
+        }
+        if (solve.solved >= YAW_SAMPLES) {
+            int index = bestYawIndex(usableYaws(solve), YAW_MARGIN_SAMPLES);
+            if (index >= 0) {
+                return sampleYaw(index, YAW_STEP);
+            }
+        }
+        return Mth.wrapDegrees(mc.player.getYRot());
+    }
+
+    private static boolean aimsAt(Minecraft mc, BlockPos block) {
+        Vec3 eye = mc.player.getEyePosition();
+        Vec3 end = eye.add(Vec3.directionFromRotation(mc.player.getXRot(), mc.player.getYRot()).scale(WHIP_REACH));
+        BlockHitResult hit = mc.level.clip(new ClipContext(eye, end, ClipContext.Block.COLLIDER,
+                ClipContext.Fluid.NONE, mc.player));
+        return hit.getType() == HitResult.Type.BLOCK && hit.getBlockPos().equals(block);
+    }
+
+    // standing on the stair's lower step puts the feet inside its own block, so that block is the floor
+    static BlockPos whipFloor(BlockPos origin, boolean originHasCollision) {
+        return originHasCollision ? origin : origin.below();
+    }
+
+    static float whipPitch(RandomGenerator random) {
+        return random.nextFloat(WHIP_PITCH_MIN, WHIP_PITCH_MAX);
+    }
+
+    // where a look from an eye off the block's centre meets the top of that block, within its footprint or not
+    static boolean floorAimHits(double eyeDx, double eyeDz, double eyeAboveTop, float yaw, float pitch) {
+        Vec3 direction = Vec3.directionFromRotation(pitch, yaw);
+        if (direction.y >= 0.0) {
+            return false;
+        }
+        double reach = eyeAboveTop / -direction.y;
+        double x = eyeDx + direction.x * reach;
+        double z = eyeDz + direction.z * reach;
+        return Math.abs(x) <= 0.5 && Math.abs(z) <= 0.5;
     }
 
     private boolean whipsThisTarget() {
@@ -1258,13 +1377,14 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         return true;
     }
 
-    // a pool cleared by hand never swings the whip, so only the whip toggle asks for one
+    // a pool cleared by hand never swings the whip, so away from the sawyer spot only the toggle asks for one
     private boolean usesWhip() {
-        return AetherConfig.STRIDER_FISHING_SOUL_WHIP.get();
+        return AetherConfig.STRIDER_FISHING_SOUL_WHIP.get() || sawyer();
     }
 
+    // a strider caught at the sawyer spot cannot leave the pit, so it is always pooled there
     private boolean pooling() {
-        return AetherConfig.STRIDER_FISHING_SOUL_WHIP_FISHING.get();
+        return AetherConfig.STRIDER_FISHING_SOUL_WHIP_FISHING.get() || sawyer();
     }
 
     private int poolGoal() {
@@ -1294,6 +1414,13 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private void changeState(State next) {
         if ((state == State.FIGHT || state == State.CLEAR) && next != state) {
             RotationManager.cancelRotation();
+        }
+        // a clear picked back up after a walk home aims at the stair from scratch
+        if (next == State.CLEAR && state != State.CLEAR) {
+            whipFloor = null;
+            whipTurns = 0;
+            whipTurnEndedAt = 0L;
+            clearReelAt = 0L;
         }
         state = next;
         stateEnteredAt = System.currentTimeMillis();
