@@ -133,6 +133,7 @@ final class PanelRows {
             PanelPaint.toggle(c, p, sw, on, f.hits().hovered(toggleKey) ? 1f : 0f, true);
             f.hits().add(toggleKey, sw.inset(-4f), HitHandler.click(() -> {
                 group.toggle();
+                lever(f, group.isEnabled());
                 if (group.isEnabled()) {
                     peeked.remove(groupKey);
                 }
@@ -434,7 +435,8 @@ final class PanelRows {
                             controlWidth(setting, innerW)), right, cy, p.textSecondary());
                 }
             }
-            case ACTION -> PanelPaint.chevronRight(c, right - 6f, cy, 9f, 1.6f, p.accent());
+            case ACTION -> PanelPaint.button(c, p, new Rect(right - 64f, cy - 12f, 64f, 24f), AetherLang.localize("Run"),
+                    null, PanelPaint.ButtonKind.GHOST, rowHover ? 1f : 0f, f.hits().active(key), true);
             case COLOR -> {
                 int argb = ((ColorSetting) setting).getValue();
                 Rect swatch = new Rect(right - 40f, cy - 12f, 40f, 24f);
@@ -475,10 +477,30 @@ final class PanelRows {
         }
     }
 
+    private long lastNotch;
+
+    // a comparator's tick as a slider moves, pitched by how far along it is and never faster than a beat
+    void notch(PanelFrame f, float along) {
+        style.pressSounded = true;
+        long now = System.nanoTime();
+        if (now - lastNotch < 45_000_000L) return;
+        lastNotch = now;
+        f.host().sound(PanelHost.Sound.NOTCH, 0.5f + 0.9f * along);
+    }
+
+    // a lever's clack, higher thrown on than off, the way the block sounds
+    void lever(PanelFrame f, boolean on) {
+        f.host().sound(on ? PanelHost.Sound.LEVER_ON : PanelHost.Sound.LEVER_OFF, on ? 0.6f : 0.5f);
+        style.pressSounded = true;
+    }
+
     private HitHandler rowHandler(PanelFrame f, Setting setting, Key key, Rect row) {
         return HitHandler.click(() -> {
             switch (setting) {
-                case ToggleSetting toggle -> toggle.toggle();
+                case ToggleSetting toggle -> {
+                    toggle.toggle();
+                    lever(f, toggle.getValue());
+                }
                 case ActionSetting action -> action.execute();
                 case DropdownSetting dropdown -> style.openDropdown(key, dropdown, f.canvas().toRoot(row));
                 case ColorSetting color -> style.openColor(key, color, f.canvas().toRoot(row));
@@ -525,6 +547,7 @@ final class PanelRows {
                 if (e.button() != 0) {
                     return false;
                 }
+                style.pressSounded = true;
                 apply(e);
                 return true;
             }
@@ -537,7 +560,9 @@ final class PanelRows {
             private void apply(PointerEvent e) {
                 Rect r = e.pressRect().inset(8f, 0f, 8f, 0f);
                 float k = Math.max(0f, Math.min(1f, (e.localX() - r.x()) / Math.max(1f, r.w())));
+                float before = slider.getValue();
                 slider.setValue(quantize(slider.getMin() + (slider.getMax() - slider.getMin()) * k, slider.getDecimals()));
+                if (slider.getValue() != before) notch(f, k);
             }
         }, Cursor.HAND);
     }
@@ -576,6 +601,7 @@ final class PanelRows {
                 float l = range(range.getLowerValue(), range.getMin(), range.getMax());
                 float u = range(range.getUpperValue(), range.getMin(), range.getMax());
                 rangeHandle = Math.abs(k - l) <= Math.abs(k - u) && !(k > u) ? 0 : 1;
+                style.pressSounded = true;
                 apply(k);
                 return true;
             }
@@ -592,11 +618,13 @@ final class PanelRows {
 
             private void apply(float k) {
                 float v = quantize(range.getMin() + (range.getMax() - range.getMin()) * k, range.getDecimals());
+                float lower = range.getLowerValue(), upper = range.getUpperValue();
                 if (rangeHandle == 0) {
                     range.setValues(Math.min(v, range.getUpperValue()), range.getUpperValue());
                 } else {
                     range.setValues(range.getLowerValue(), Math.max(v, range.getLowerValue()));
                 }
+                if (range.getLowerValue() != lower || range.getUpperValue() != upper) notch(f, k);
             }
         }, Cursor.HAND);
     }
@@ -713,55 +741,75 @@ final class PanelRows {
         drawTrack(f, key, track, to, from, null);
     }
 
-    // label, when given, floats above the knob in a bubble while it is dragged
+    // the track as a line of redstone dust: powered from the start of the fill up to the knob, a redstone torch,
+    // glowing brightest beside it and fading a level a dot back the way wire does; the rest lies dark. label, when
+    // given, shows over the torch in a minecraft tooltip while it is dragged
     private void drawTrack(PanelFrame f, Key key, Rect track, float to, float from, String label) {
         GuiCanvas c = f.canvas();
-        Palette p = f.palette();
         boolean dragging = f.hits().active(key);
         float hover = f.anim().hover(key, f.hits().hovered(key) || dragging);
         float grab = f.anim().spring(new Key(key.page(), key.group(), key.groupIndex(), key.setting(),
                 key.settingIndex(), "grab"), dragging ? 1f : 0f);
-        c.roundedRect(track, 2f, Argb.withAlpha(p.text(), p.light() ? 0.14f : 0.12f));
+        float cy = track.centerY();
         float start = from < 0f ? 0f : from;
-        Rect fill = new Rect(track.x() + track.w() * start, track.y(), track.w() * (to - start), track.h());
-        if (hover > 0.01f) c.roundedRect(fill.inset(0f, -2f * hover, 0f, -2f * hover), 4f, Argb.withAlpha(p.accent(), 0.18f * hover));
-        c.roundedRect(fill, 2f, p.accent());
-        // the knob grows under the cursor and more while held, with a soft halo
-        float knob = 7f + 1.5f * hover + 1.5f * grab;
+        float spacing = 7f;
+        int dots = Math.max(2, (int) (track.w() / spacing) + 1);
+        float step = track.w() / (dots - 1);
+        float kx = track.x() + track.w() * to;
+        float[] xs = new float[dots];
+        int[] colors = new int[dots];
+        for (int i = 0; i < dots; i++) {
+            float x = track.x() + i * step;
+            float u = (x - track.x()) / Math.max(1f, track.w());
+            int power = u >= start - 1e-3f && u <= to + 1e-3f ? Math.max(1, 15 - (int) ((kx - x) / spacing)) : 0;
+            xs[i] = x;
+            colors[i] = redstone(power);
+        }
+        for (int i = 0; i + 1 < dots; i++) c.line(xs[i], cy, xs[i + 1], cy, 2.6f, colors[i]);
+        for (int i = 0; i < dots; i++) {
+            float x = xs[i];
+            int color = colors[i];
+            c.legacy(nvg -> nvg.guiSprite(DUST, x - 7f, cy - 7f, 14f, 14f, color));
+        }
         float[] knobs = from >= 0f ? new float[]{from, to} : new float[]{to};
         for (float k : knobs) {
-            float kx = track.x() + track.w() * k;
-            if (grab > 0.01f) c.circle(kx, track.centerY(), knob + 6f * grab, Argb.withAlpha(p.accent(), 0.16f * grab));
-            knob(c, p, kx, track.centerY(), knob);
+            float x = track.x() + track.w() * k;
+            float lift = 2f * hover + 3f * grab;
+            float size = 24f + 2f * hover + 4f * grab;
+            c.legacy(nvg -> {
+                nvg.radialGradient(x, cy - 6f - lift, 2f, 14f + 4f * hover, Argb.withAlpha(0xFFFF2A1A, 0.25f + 0.25f * hover),
+                        0x00FF2A1A);
+                nvg.mcIcon(dev.aether.renderer.McIcons.of("minecraft:redstone_torch"), x - size / 2f, cy - size + 5f - lift,
+                        size, 0xFFFFFFFF);
+            });
         }
         if (label != null && grab > 0.02f) {
-            float kx = track.x() + track.w() * to;
-            float w = c.textWidth(SEMIBOLD, 11.5f, label) + 16f, h = 22f;
-            float by = track.centerY() - knob - 10f - h * grab;
+            int scale = 2;
+            float w = dev.aether.renderer.McBitmapFont.widthLiteral(label, scale) + 12f, h = 8f * scale + 10f;
+            float by = cy - 26f - h * grab;
             c.save();
             c.alpha(Math.min(1f, grab * 1.4f));
-            c.translate(kx, by + h);
-            c.scale(0.6f + 0.4f * grab);
-            c.translate(-kx, -(by + h));
-            Rect bubble = new Rect(kx - w / 2f, by, w, h);
-            c.shadow(bubble.offset(0f, 2f), 7f, 8f, PanelPaint.shadow(p, 0.5f));
-            c.roundedRect(bubble, 7f, p.accent());
-            c.beginPath();
-            c.moveTo(kx - 5f, by + h - 0.5f);
-            c.lineTo(kx + 5f, by + h - 0.5f);
-            c.lineTo(kx, by + h + 5f);
-            c.closePath();
-            c.fillPath(p.accent());
-            PanelPaint.textCentered(c, SEMIBOLD, 11.5f, label, kx, by + h / 2f, p.onAccent());
+            Rect tip = new Rect(kx - w / 2f, by, w, h);
+            // minecraft's tooltip: near-black purple fill inside a fading violet frame
+            c.rect(tip, 0xF0100010);
+            c.verticalGradient(tip.inset(1f), 0f, 0x505000FF, 0x5028007F);
+            c.rect(tip.inset(2f), 0xF0100010);
+            c.legacy(nvg -> nvg.mcTextLiteral(label, tip.x() + 6f, tip.y() + 5f, scale, 0xFFFFFFFF, true));
             c.restore();
         }
     }
 
-    private static void knob(GuiCanvas c, Palette p, float cx, float cy, float r) {
-        c.shadow(new Rect(cx - r, cy - r + 1f, r * 2f, r * 2f), r, 4f, PanelPaint.shadow(p, 0.6f));
-        c.circle(cx, cy, r, 0xFFFFFFFF);
-        c.strokeCircle(cx, cy, r - 0.5f, 1f, Argb.withAlpha(p.accent(), 0.55f));
+    private static final String DUST = "minecraft:textures/block/redstone_dust_dot.png";
+
+    // redstone wire's colour at a power level 0 to 15, from RedStoneWireBlock
+    private static int redstone(int power) {
+        float f = power / 15f;
+        float r = f * 0.6f + (f > 0f ? 0.4f : 0.3f);
+        float g = Math.max(0f, Math.min(1f, f * f * 0.7f - 0.5f));
+        float b = Math.max(0f, Math.min(1f, f * f * 0.6f - 0.7f));
+        return 0xFF000000 | Math.round(r * 255) << 16 | Math.round(g * 255) << 8 | Math.round(b * 255);
     }
+
 
     private void drawText(PanelFrame f, TextSetting text, Key key, Rect row, float right, float cy, float innerX,
                           float innerW, float labelTop) {

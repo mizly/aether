@@ -220,7 +220,9 @@ public final class PanelView {
         if (style.pointerOutsideEditor(in.x(), in.y())) {
             style.commitEditor();
         }
+        style.pressSounded = false;
         boolean handled = hits.press(in);
+        if (handled && in.isLeft() && !style.pressSounded) host.sound(PanelHost.Sound.CLICK, 1f);
         if (hits.captured()) {
             batch.begin();
         }

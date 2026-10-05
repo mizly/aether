@@ -186,10 +186,13 @@ final class PanelOrbit {
         float right = card.right() - 14f;
         if (page.hasToggle()) {
             String toggleId = "orbit.toggle." + page.id();
-            Rect sw = new Rect(right - 20f, card.y() + 18f, 20f, 20f);
+            Rect sw = new Rect(right - 38f, card.y() + 17f, 38f, 22f);
             float onT = f.anim().spring(toggleId, page.enabled() ? 1f : 0f);
-            drawCheckbox(c, p, sw, onT, f.hits().hovered(toggleId) ? 1f : 0f);
-            f.hits().add(toggleId, sw.inset(-6f), HitHandler.click(page.tab()::toggle), Cursor.HAND);
+            PanelPaint.toggle(c, p, sw, onT, f.hits().hovered(toggleId) ? 1f : 0f, true);
+            f.hits().add(toggleId, sw.inset(-6f), HitHandler.click(() -> {
+                page.tab().toggle();
+                style.rows.lever(f, page.enabled());
+            }), Cursor.HAND);
             right = sw.x() - 12f;
         }
         PanelPaint.fitText(c, SEMIBOLD, 14f, page.name(), tx, card.y() + 21f, right - tx, on ? p.text() : p.textSecondary());
@@ -378,19 +381,6 @@ final class PanelOrbit {
             if (on) c.strokeRect(tile, 14f, 2f, p.accent());
             PanelPaint.icon(c, page.icon(), tile.centerX(), tile.centerY(), 44f, 0xFFFFFFFF);
             ix += size + 14f;
-        }
-    }
-
-    // the current menu's checkbox toggle, kept on purpose
-    static void drawCheckbox(GuiCanvas c, Palette p, Rect r, float on, float hover) {
-        int base = PanelPaint.fieldFill(p);
-        c.roundedRect(r, 5f, Argb.mix(base, p.accent(), on));
-        c.strokeRect(r, 5f, 1f, Argb.mix(Argb.mix(p.border(), p.text(), hover * 0.4f), p.accent(), on));
-        if (on > 0.05f) {
-            c.save();
-            c.alpha(Math.min(1f, on));
-            PanelPaint.check(c, r.centerX(), r.centerY() + 0.5f, r.w() * 0.36f, 2f, p.onAccent());
-            c.restore();
         }
     }
 }

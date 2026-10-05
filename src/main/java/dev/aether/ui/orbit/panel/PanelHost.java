@@ -8,6 +8,12 @@ import java.util.List;
 // what aurora reads from and asks of the game; the in-game shell and the preview harness implement it
 public interface PanelHost {
 
+    // the game's own ui sounds, played on this client only
+    enum Sound { CLICK, LEVER_ON, LEVER_OFF, NOTCH }
+
+    default void sound(Sound sound, float pitch) {
+    }
+
     enum AuthState { SIGNED_IN, SIGNING_IN, SIGNED_OUT }
 
     record Account(String name, AuthState state, long totalSeconds) {

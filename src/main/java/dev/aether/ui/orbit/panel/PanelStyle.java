@@ -35,6 +35,8 @@ public final class PanelStyle {
     final PanelOrbit orbit = new PanelOrbit(this);
     PlotHooks plotHooks = PlotHooks.NONE;
     PanelView.Hover hover;
+    // set when a press already made its own sound, so the panel skips the default click
+    boolean pressSounded;
 
     private final Deque<Location> history = new ArrayDeque<>();
     private final Map<String, ScrollState> scrolls = new HashMap<>();

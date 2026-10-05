@@ -118,70 +118,80 @@ final class PanelPaint {
     // -- controls ---------------------------------------------------------------
 
     // the current menu's checkbox, kept on purpose; on is 0..1 so the fill and tick can spring in
+    // a switch as minecraft wires one: a lever on a cobblestone base thrown across, and the redstone lamp it powers
+    // lighting up with a warm glow; on may overshoot, so the lever wobbles as it lands
     static void toggle(GuiCanvas c, Palette p, Rect r, float on, float hover, boolean enabled) {
-        float size = Math.min(r.h(), 20f);
-        Rect box = new Rect(r.right() - size, r.centerY() - size / 2f, size, size);
+        float lamp = Math.min(r.h(), 22f);
+        float k = Math.max(0f, Math.min(1f, on));
+        Rect box = new Rect(r.right() - lamp, r.centerY() - lamp / 2f, lamp, lamp);
         c.save();
-        if (!enabled) {
-            c.alpha(0.45f);
+        if (!enabled) c.alpha(0.45f);
+        if (k > 0.01f) {
+            c.legacy(nvg -> nvg.radialGradient(box.centerX(), box.centerY(), lamp * 0.3f, lamp * 1.15f,
+                    Argb.withAlpha(0xFFFFB347, 0.5f * k), 0x00FFB347));
         }
-        c.roundedRect(box, 5f, Argb.mix(fieldFill(p), p.accent(), on));
-        c.strokeRect(box, 5f, 1f, Argb.mix(Argb.mix(p.border(), p.text(), hover * 0.4f), p.accent(), on));
-        if (on > 0.05f) {
-            c.save();
-            c.alpha(Math.min(1f, on));
-            check(c, box.centerX(), box.centerY() + 0.5f, size * 0.36f, 2f, p.onAccent());
-            c.restore();
-        }
+        c.legacy(nvg -> {
+            nvg.guiSprite(LAMP, box.x(), box.y(), lamp, lamp, 0xFFFFFFFF);
+            if (k > 0.01f) nvg.guiSprite(LAMP_ON, box.x(), box.y(), lamp, lamp, Argb.withAlpha(0xFFFFFFFF, k));
+        });
+        c.strokeRect(box, 1.5f, 1f, Argb.withAlpha(0xFF000000, 0.35f));
+        if (hover > 0.01f) c.strokeRect(box.inset(-1.5f), 2.5f, 1f, Argb.withAlpha(0xFFFFFFFF, 0.45f * hover));
+        float bx = box.x() - 10f, by = box.bottom();
+        float angle = (float) Math.toRadians(-38f + 76f * on);
+        c.legacy(nvg -> {
+            nvg.guiSprite(COBBLE, bx - 7f, by - 6f, 14f, 6f, 0xFFFFFFFF);
+            dev.aether.renderer.McTextures.Texture lever = dev.aether.renderer.McTextures.get(LEVER);
+            nvg.translate(bx, by - 5f);
+            nvg.rotate(angle);
+            if (lever.missing()) nvg.rect(-2f, -16f, 4f, 16f, 0xFF6B4A2B);
+            else nvg.imageRegion(lever.handle(), lever.width(), lever.width(), 7f, 6f, 2f, 10f, -2f, -16f, 4f, 16f,
+                    0xFFFFFFFF);
+        });
         c.restore();
     }
 
+    private static final String LAMP = "minecraft:textures/block/redstone_lamp.png";
+    private static final String LAMP_ON = "minecraft:textures/block/redstone_lamp_on.png";
+    private static final String COBBLE = "minecraft:textures/block/cobblestone.png";
+    private static final String LEVER = "minecraft:textures/block/lever.png";
+
+    // minecraft's own button: the stone sprite, its highlighted frame under the cursor, pushed in a pixel while
+    // held, the label in the game's font with its drop shadow. primary and danger tint the stone
     static void button(GuiCanvas c, Palette p, Rect r, String label, Icon icon, ButtonKind kind, float hover,
                        boolean pressed, boolean enabled) {
-        float radius = Math.min(9f, r.h() / 2f);
-        int fill;
-        int text;
-        int stroke = 0;
-        switch (kind) {
-            case PRIMARY -> {
-                fill = Argb.mix(p.accent(), p.onAccent(), hover * 0.10f + (pressed ? 0.12f : 0f));
-                text = p.onAccent();
-            }
-            case DANGER -> {
-                fill = Argb.withAlpha(p.danger(), 0.18f + hover * 0.10f);
-                text = p.danger();
-            }
-            case SUBTLE -> {
-                fill = Argb.withAlpha(p.text(), 0.06f + hover * 0.05f + (pressed ? 0.04f : 0f));
-                text = p.text();
-            }
-            default -> {
-                fill = Argb.withAlpha(p.text(), hover * 0.06f + (pressed ? 0.05f : 0f));
-                text = p.text();
-                stroke = Argb.withAlpha(p.border(), 0.45f + hover * 0.25f);
-            }
-        }
+        int text = !enabled ? 0xFFA0A0A0 : kind == ButtonKind.DANGER ? 0xFFFF5555
+                : hover > 0.5f ? 0xFFFFFFA0 : 0xFFFFFFFF;
+        int stone = switch (kind) {
+            case PRIMARY -> Argb.mix(0xFFFFFFFF, p.accent(), 0.45f);
+            case DANGER -> 0xFFFFC8C8;
+            default -> 0xFFFFFFFF;
+        };
+        if (pressed) stone = Argb.mix(stone, 0xFF000000, 0.18f);
+        Rect at = pressed ? r.offset(0f, 1.5f) : r;
+        String sprite = !enabled ? "minecraft:widget/button_disabled"
+                : hover > 0.5f || pressed ? "minecraft:widget/button_highlighted" : "minecraft:widget/button";
+        int tint = stone;
         c.save();
-        if (!enabled) {
-            c.alpha(0.45f);
-        }
-        if (kind == ButtonKind.PRIMARY) {
-            c.shadow(r.offset(0f, 1f), radius, 8f, Argb.withAlpha(p.accent(), 0.28f + hover * 0.12f));
-        }
-        c.roundedRect(r, radius, fill);
-        if (stroke != 0) {
-            c.strokeRect(r, radius, 1f, stroke);
-        }
-        float size = r.h() >= 32f ? 13f : 12f;
-        float labelW = label.isEmpty() ? 0f : c.textWidth(SEMIBOLD, size, label);
-        float iconSize = icon == null ? 0f : size + 1f;
+        if (!pressed && enabled) c.rect(new Rect(at.x() + 1f, at.bottom(), at.w() - 2f, 1.5f), 0x55000000);
+        c.legacy(nvg -> nvg.guiSprite(sprite, at.x(), at.y(), at.w(), at.h(), tint));
+        float iconSize = icon == null ? 0f : 14f;
+        int scale = 2;
+        float mcW = label.isEmpty() ? 0f : dev.aether.renderer.McBitmapFont.widthLiteral(label, scale);
+        boolean mcFits = mcW + iconSize + 16f <= at.w() && at.h() >= 22f;
+        float size = at.h() >= 32f ? 13f : 12f;
+        float labelW = label.isEmpty() ? 0f : mcFits ? mcW : c.textWidth(SEMIBOLD, size, label);
         float gap = icon != null && !label.isEmpty() ? 7f : 0f;
-        float start = r.centerX() - (labelW + iconSize + gap) / 2f;
-        if (icon != null) {
-            icon(c, icon, start + iconSize / 2f, r.centerY(), iconSize, text);
-        }
+        float start = at.centerX() - (labelW + iconSize + gap) / 2f;
+        if (icon != null) icon(c, icon, start + iconSize / 2f, at.centerY(), iconSize, text);
         if (!label.isEmpty()) {
-            c.text(SEMIBOLD, size, label, start + iconSize + gap, top(r.centerY(), size), text);
+            float tx = start + iconSize + gap;
+            if (mcFits) {
+                float ty = at.centerY() - 4f * scale + 1f;
+                c.legacy(nvg -> nvg.mcTextLiteral(label, tx, ty, scale, text, true));
+            } else {
+                c.text(SEMIBOLD, size, label, tx + 1f, top(at.centerY(), size) + 1f, 0xFF3F3F3F);
+                c.text(SEMIBOLD, size, label, tx, top(at.centerY(), size), text);
+            }
         }
         c.restore();
     }
