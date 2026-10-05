@@ -191,6 +191,7 @@ class OrbitPreviewTest {
         if (only.isEmpty() || "travel".contains(only)) written.addAll(renderTravel(view, ids, surfaces));
         if (only.isEmpty() || "hover".contains(only)) written.addAll(renderHovers(view, ids, surfaces));
         if (only.isEmpty() || "search".contains(only)) written.add(renderSearch(view, ids, surfaces));
+        if (only.isEmpty() || "figure".contains(only)) written.add(renderFigure());
         System.out.println("orbit previews: " + written);
     }
 
@@ -244,6 +245,71 @@ class OrbitPreviewTest {
         dev.aether.ui.gui.plot.GardenPlotData.install(null);
         Path out = Path.of("build/reports/gui-preview/orbit/plots.png");
         ImageIO.write(image, "png", out.toFile());
+        return out.toString();
+    }
+
+    // the player figure in steve's skin through the scene shader, close up from the front and the back
+    private String renderFigure() throws Exception {
+        int scene = link("orbit_scene.vsh", "orbit_scene.fsh");
+        BufferedImage skinImage = ImageIO.read(OrbitPreviewTest.class.getResourceAsStream("/assets/minecraft/textures/entity/player/wide/steve.png"));
+        ByteBuffer px = ByteBuffer.allocateDirect(64 * 64 * 4);
+        for (int y = 0; y < 64; y++) {
+            for (int x = 0; x < 64; x++) {
+                int argb = skinImage.getRGB(x, y);
+                px.put((byte) (argb >> 16)).put((byte) (argb >> 8)).put((byte) argb).put((byte) (argb >>> 24));
+            }
+        }
+        px.flip();
+        int skin = GL11.glGenTextures();
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, skin);
+        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, 64, 64, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, px);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        int figVao = GL30.glGenVertexArrays();
+        int figVbo = GL15.glGenBuffers();
+        GL30.glBindVertexArray(figVao);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, figVbo);
+        GL20.glEnableVertexAttribArray(0);
+        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, SceneClone.STRIDE, 0L);
+        GL20.glEnableVertexAttribArray(1);
+        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, SceneClone.STRIDE, 12L);
+        GL20.glEnableVertexAttribArray(2);
+        GL20.glVertexAttribPointer(2, 4, GL11.GL_UNSIGNED_BYTE, true, SceneClone.STRIDE, 20L);
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        GL11.glViewport(0, 0, W, H);
+        GL11.glClearColor(0.78f, 0.86f, 0.96f, 1f);
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL11.GL_BLEND);
+        GL20.glUseProgram(scene);
+        GL20.glUniform1i(GL20.glGetUniformLocation(scene, "Sampler"), 0);
+        GL20.glUniform3f(GL20.glGetUniformLocation(scene, "Offset"), 0f, 0f, 0f);
+        GL20.glUniform2f(GL20.glGetUniformLocation(scene, "FogRange"), 1e8f, 2e8f);
+        GL20.glUniform1f(GL20.glGetUniformLocation(scene, "AlphaCut"), 0.1f);
+        // two figures: one facing the camera with its head turned to its left, one seen from behind
+        float[][] views = {{-1.1f, 0f, 30f}, {1.1f, 180f, -20f}};
+        for (float[] v : views) {
+            PlayerFigure fig = new PlayerFigure();
+            for (int i = 0; i < 120; i++) fig.lookAt(3f, 2.5f, 4f, 1f / 60f);
+            SceneClone.Buffer buf = new SceneClone.Buffer(512);
+            Matrix4f toWorld = new Matrix4f().translate(v[0], 0f, 0f).rotateY((float) Math.toRadians(v[1]));
+            fig.build(buf, toWorld, false, 0f);
+            Matrix4f vp = new Matrix4f().perspective((float) Math.toRadians(35), (float) W / H, 0.05f, 100f)
+                    .lookAt(0f, 1.1f, 6.5f, 0f, 0.95f, 0f, 0f, 1f, 0f);
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                GL20.glUniformMatrix4fv(GL20.glGetUniformLocation(scene, "ViewProjection"), false, vp.get(stack.mallocFloat(16)));
+            }
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, skin);
+            GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buf.finish(), GL15.GL_STREAM_DRAW);
+            GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, buf.count);
+            buf.free();
+        }
+        BufferedImage image = read();
+        Path out = Path.of("build/reports/gui-preview/orbit/figure.png");
+        ImageIO.write(image, "png", out.toFile());
+        GL30.glBindVertexArray(vao);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
         return out.toString();
     }
 
