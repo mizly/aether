@@ -325,7 +325,7 @@ public final class OrbitScreen extends Screen {
         var focus = overview() || state != State.OPEN ? null : view.orbitFocusModule();
         actors.update(lastDt, clock, focus == null ? SceneActors.Inputs.NONE : new SceneActors.Inputs(focus.name(),
                 focus.enabled(), AetherConfig.VISITOR_THRESHOLD.get(), AetherConfig.PEST_THRESHOLD.get(),
-                AetherConfig.VISITOR_MAX_PURCHASE_LIMIT.get() / 1e6), figure);
+                AetherConfig.VISITOR_MAX_PURCHASE_LIMIT.get() / 1e6, itemTexture(focus.item())), figure);
         figure.lookAt(lx, (float) target.y, lz, lastDt);
         if (figureBuffer == null) figureBuffer = new SceneClone.Buffer(512);
         figureBuffer.reset();
@@ -346,6 +346,20 @@ public final class OrbitScreen extends Screen {
         sceneRenderer.draw(clone, frame);
         renderWorld();
         sceneRenderer.sealDepth(frame);
+    }
+
+    // the flat sprite of a module's icon item for the farm to show off: its item texture, else its block's; null
+    // when it has neither
+    private static String itemTexture(String itemId) {
+        if (itemId == null) return null;
+        var id = net.minecraft.resources.Identifier.tryParse(itemId);
+        if (id == null) return null;
+        var resources = Minecraft.getInstance().getResourceManager();
+        for (String folder : new String[]{"textures/item/", "textures/block/"}) {
+            var texture = id.withPath(folder + id.getPath() + ".png");
+            if (resources.getResource(texture).isPresent()) return texture.toString();
+        }
+        return null;
     }
 
     // the ring's centre on the ground, at the player's feet
