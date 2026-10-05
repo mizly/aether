@@ -64,6 +64,7 @@ public final class PanelView {
         try {
             style.orbit.draw(frame, area, categoryId, true, 0f);
             style.overlays.render(frame);
+            style.juice.draw(canvas, palette, area, mouseX, mouseY, now);
         } finally {
             while (canvas.depth() > 0) canvas.restore();
             hits.end();
@@ -217,6 +218,7 @@ public final class PanelView {
 
     public boolean pointerPressed(PointerInput in) {
         focus.pointerUsed();
+        style.juice.press(in.x(), in.y(), clock.nanos());
         if (style.pointerOutsideEditor(in.x(), in.y())) {
             style.commitEditor();
         }

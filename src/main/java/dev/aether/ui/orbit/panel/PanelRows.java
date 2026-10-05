@@ -135,6 +135,7 @@ final class PanelRows {
                 group.toggle();
                 if (group.isEnabled()) {
                     peeked.remove(groupKey);
+                    style.juice.burst(f.palette().accent());
                 }
             }), Cursor.HAND);
             right -= 52f;
@@ -478,7 +479,10 @@ final class PanelRows {
     private HitHandler rowHandler(PanelFrame f, Setting setting, Key key, Rect row) {
         return HitHandler.click(() -> {
             switch (setting) {
-                case ToggleSetting toggle -> toggle.toggle();
+                case ToggleSetting toggle -> {
+                    toggle.toggle();
+                    if (toggle.getValue()) style.juice.burst(f.palette().accent());
+                }
                 case ActionSetting action -> action.execute();
                 case DropdownSetting dropdown -> style.openDropdown(key, dropdown, f.canvas().toRoot(row));
                 case ColorSetting color -> style.openColor(key, color, f.canvas().toRoot(row));
@@ -517,7 +521,7 @@ final class PanelRows {
         });
         Rect track = new Rect(right - width, cy - 2f, width - bubbleW - 14f, 4f);
         float t = range(slider.getValue(), slider.getMin(), slider.getMax());
-        drawTrack(f, key, track, t, -1f);
+        drawTrack(f, key, track, t, -1f, value);
         Rect hit = new Rect(track.x() - 8f, cy - 12f, track.w() + 16f, 24f);
         f.hits().add(key, hit, new HitHandler() {
             @Override
@@ -710,6 +714,11 @@ final class PanelRows {
     }
 
     private void drawTrack(PanelFrame f, Key key, Rect track, float to, float from) {
+        drawTrack(f, key, track, to, from, null);
+    }
+
+    // label, when given, floats above the knob in a bubble while it is dragged
+    private void drawTrack(PanelFrame f, Key key, Rect track, float to, float from, String label) {
         GuiCanvas c = f.canvas();
         Palette p = f.palette();
         boolean dragging = f.hits().active(key);
@@ -728,6 +737,27 @@ final class PanelRows {
             float kx = track.x() + track.w() * k;
             if (grab > 0.01f) c.circle(kx, track.centerY(), knob + 6f * grab, Argb.withAlpha(p.accent(), 0.16f * grab));
             knob(c, p, kx, track.centerY(), knob);
+        }
+        if (label != null && grab > 0.02f) {
+            float kx = track.x() + track.w() * to;
+            float w = c.textWidth(SEMIBOLD, 11.5f, label) + 16f, h = 22f;
+            float by = track.centerY() - knob - 10f - h * grab;
+            c.save();
+            c.alpha(Math.min(1f, grab * 1.4f));
+            c.translate(kx, by + h);
+            c.scale(0.6f + 0.4f * grab);
+            c.translate(-kx, -(by + h));
+            Rect bubble = new Rect(kx - w / 2f, by, w, h);
+            c.shadow(bubble.offset(0f, 2f), 7f, 8f, PanelPaint.shadow(p, 0.5f));
+            c.roundedRect(bubble, 7f, p.accent());
+            c.beginPath();
+            c.moveTo(kx - 5f, by + h - 0.5f);
+            c.lineTo(kx + 5f, by + h - 0.5f);
+            c.lineTo(kx, by + h + 5f);
+            c.closePath();
+            c.fillPath(p.accent());
+            PanelPaint.textCentered(c, SEMIBOLD, 11.5f, label, kx, by + h / 2f, p.onAccent());
+            c.restore();
         }
     }
 

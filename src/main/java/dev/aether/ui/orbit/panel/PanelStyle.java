@@ -33,6 +33,7 @@ public final class PanelStyle {
     final PanelSearch search = new PanelSearch(this);
     final PanelOverlays overlays = new PanelOverlays(this);
     final PanelOrbit orbit = new PanelOrbit(this);
+    final PanelJuice juice = new PanelJuice();
     PlotHooks plotHooks = PlotHooks.NONE;
     PanelView.Hover hover;
 
