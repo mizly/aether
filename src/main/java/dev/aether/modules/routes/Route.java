@@ -60,6 +60,14 @@ public final class Route {
         return waypoints.isEmpty() ? null : waypoints.getLast();
     }
 
+    public boolean hasWarp() {
+        return !warpCommand().isEmpty();
+    }
+
+    public boolean isWarpOnly() {
+        return hasWarp() && waypoints.isEmpty();
+    }
+
     public void add(Waypoint waypoint) {
         waypoints.add(waypoint);
     }

@@ -1,0 +1,11 @@
+{
+  "warp": "galatea",
+  "waypoints": [
+    {
+      "x": -694,
+      "y": 120,
+      "z": 78,
+      "type": "WALK"
+    }
+  ]
+}

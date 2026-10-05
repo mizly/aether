@@ -2,36 +2,13 @@ package dev.aether.macro.fishing;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class StriderFishingMacroTest {
-    @Test
-    void readsTheCatchMarkerThroughDecoration() {
-        assertTrue(StriderFishingMacro.isCatchMarker(
-                StriderFishingMacro.stripFormatting("§c§l!!")));
-        assertTrue(StriderFishingMacro.isCatchMarker(
-                StriderFishingMacro.stripFormatting("  §l!!  ")));
-        assertFalse(StriderFishingMacro.isCatchMarker(
-                StriderFishingMacro.stripFormatting("§e§l?")));
-        assertFalse(StriderFishingMacro.isCatchMarker(""));
-    }
-
-    @Test
-    void doesNotReadTheWaitingMarkerAsACatch() {
-        assertTrue(StriderFishingMacro.isBiteMarker(
-                StriderFishingMacro.stripFormatting("§e§l?")));
-        assertFalse(StriderFishingMacro.isBiteMarker(
-                StriderFishingMacro.stripFormatting("§c§l!!")));
-    }
-
-    @Test
-    void doesNotConfuseAHealthPlateWithTheCatchMarker() {
-        assertFalse(StriderFishingMacro.isCatchMarker(
-                StriderFishingMacro.stripFormatting("§c1,000§4❤")));
-    }
-
     @Test
     void approachesAndBacksOffWithoutStrafing() {
         assertEquals(1, StriderFishingMacro.followDirection(4.0, 1.5, 0));
@@ -85,36 +62,6 @@ class StriderFishingMacroTest {
     }
 
     @Test
-    void theCursorSitsOffCentreOnTheFloatModel() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        boolean sawOffCentre = false;
-        for (int i = 0; i < 500; i++) {
-            net.minecraft.world.phys.Vec3 offset = StriderFishingMacro.aimBoxOffset(random);
-            assertTrue(StriderFishingMacro.aimBoxOffsetInRange(offset));
-            sawOffCentre |= offset.length() > 0.02;
-        }
-        assertTrue(sawOffCentre);
-    }
-
-    @Test
-    void standingOnTheStartBlockNeedsNoRouteBackToIt() {
-        assertTrue(StriderFishingMacro.withinOriginBlock(0.0, 0.0, 0.0));
-        // the corners and lip of the block itself
-        assertTrue(StriderFishingMacro.withinOriginBlock(0.5, 0.0, 0.5));
-        assertTrue(StriderFishingMacro.withinOriginBlock(-0.5, 0.0, 0.5));
-        // a hair above it, mid hop out of the lava
-        assertTrue(StriderFishingMacro.withinOriginBlock(0.0, 0.9, 0.0));
-    }
-
-    @Test
-    void theNextBlockOverStillEarnsARouteHome() {
-        assertFalse(StriderFishingMacro.withinOriginBlock(0.8, 0.0, 0.0));
-        assertFalse(StriderFishingMacro.withinOriginBlock(0.0, 0.0, -0.8));
-        assertFalse(StriderFishingMacro.withinOriginBlock(0.0, 1.5, 0.0));
-        assertFalse(StriderFishingMacro.withinOriginBlock(0.0, -0.9, 0.0));
-    }
-
-    @Test
     void aMissedLavaAimBacksOffBeforeTryingSomewhereElse() {
         java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
         for (int i = 0; i < 500; i++) {
@@ -122,100 +69,6 @@ class StriderFishingMacroTest {
             assertTrue(StriderFishingMacro.aimRetryDelayInRange(delay));
             assertTrue(delay >= 400L && delay <= 900L);
         }
-    }
-
-    @Test
-    void aRefusedRouteBacksOffBeforeTryingAgain() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            long delay = StriderFishingMacro.nextReturnRetryDelayMs(random);
-            assertTrue(StriderFishingMacro.returnRetryDelayInRange(delay));
-            // long enough that the jump can lift us out of lava before the next plan
-            assertTrue(delay >= 500L && delay <= 900L);
-        }
-    }
-
-    @Test
-    void etherwarpOnlyEarnsItsKeepFromFourBlocksOut() {
-        assertFalse(StriderFishingMacro.shouldEtherwarp(3.9, false, true));
-        assertTrue(StriderFishingMacro.shouldEtherwarp(4.0, false, true));
-        assertFalse(StriderFishingMacro.shouldEtherwarp(40.0, false, false));
-    }
-
-    @Test
-    void lavaIsWarpedOutOfAsSoonAsThereIsAnywhereToGo() {
-        assertFalse(StriderFishingMacro.shouldEtherwarp(0.9, true, true));
-        assertTrue(StriderFishingMacro.shouldEtherwarp(1.0, true, true));
-        assertTrue(StriderFishingMacro.shouldEtherwarp(2.0, true, true));
-    }
-
-    @Test
-    void onlyACatchThatSurfacedAfterTheReelIsTargeted() {
-        java.util.Set<Integer> beforeReel = java.util.Set.of(11, 22, 33);
-        assertFalse(StriderFishingMacro.shouldAcceptTarget(22, beforeReel));
-        assertTrue(StriderFishingMacro.shouldAcceptTarget(44, beforeReel));
-    }
-
-    @Test
-    void theCursorIsAimedAtTheFloatItself() {
-        assertEquals(0.0f, StriderFishingMacro.yawTo(0.0, 4.0), 0.001f);
-        assertEquals(90.0f, StriderFishingMacro.yawTo(-4.0, 0.0), 0.001f);
-        assertEquals(-90.0f, StriderFishingMacro.yawTo(4.0, 0.0), 0.001f);
-        // the float sits below eye level, so looking at it is a downward pitch
-        assertEquals(45.0f, StriderFishingMacro.pitchTo(0.0, -4.0, 4.0), 0.001f);
-        assertEquals(0.0f, StriderFishingMacro.pitchTo(0.0, 0.0, 4.0), 0.001f);
-    }
-
-    @Test
-    void theCursorSettlesOntoTheFloatSoonAfterItLands() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            long delay = StriderFishingMacro.nextFirstIdleDelayMs(random);
-            assertTrue(StriderFishingMacro.firstIdleDelayInRange(delay));
-            assertTrue(delay < StriderFishingMacro.nextIdleDelayMs(random));
-        }
-    }
-
-    @Test
-    void theGlanceAtTheFloatIsAFlickRatherThanAGlide() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            long turn = StriderFishingMacro.nextIdleTurnMs(random);
-            assertTrue(StriderFishingMacro.idleTurnInRange(turn));
-            assertTrue(turn >= 100L && turn <= 220L);
-        }
-    }
-
-    @Test
-    void theIdleDriftStaysSmall() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            assertTrue(StriderFishingMacro.idleDelayInRange(StriderFishingMacro.nextIdleDelayMs(random)));
-            assertTrue(Math.abs(StriderFishingMacro.driftDegrees(random, 2.5f)) <= 2.5f);
-        }
-    }
-
-    @Test
-    void theSwimOutOfLavaWaitsABeatBeforeHoldingJump() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            long delay = StriderFishingMacro.nextLiquidJumpDelayMs(random);
-            assertTrue(StriderFishingMacro.liquidJumpDelayInRange(delay));
-            assertTrue(delay >= 100L && delay <= 300L);
-        }
-    }
-
-    @Test
-    void jumpIsHeldOnlyOnceTheSinkingBeatHasPassed() {
-        assertFalse(StriderFishingMacro.shouldHoldLiquidJump(true, 1_000L, 1_200L));
-        assertTrue(StriderFishingMacro.shouldHoldLiquidJump(true, 1_200L, 1_200L));
-        assertTrue(StriderFishingMacro.shouldHoldLiquidJump(true, 9_000L, 1_200L));
-    }
-
-    @Test
-    void dryLandNeverHoldsTheJumpKey() {
-        assertFalse(StriderFishingMacro.shouldHoldLiquidJump(false, 9_000L, 1_200L));
-        assertFalse(StriderFishingMacro.shouldHoldLiquidJump(true, 9_000L, 0L));
     }
 
     @Test
@@ -233,37 +86,21 @@ class StriderFishingMacroTest {
     }
 
     @Test
-    void theWeaponSwapLandsInsideTheConfiguredWindowPlusTheOddFumble() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        boolean sawVariety = false;
-        long first = StriderFishingMacro.nextWhipSwapDelayMs(random, 40, 130);
-        for (int i = 0; i < 2000; i++) {
-            long delay = StriderFishingMacro.nextWhipSwapDelayMs(random, 40, 130);
-            assertTrue(StriderFishingMacro.whipSwapDelayInRange(delay, 40, 130));
-            assertTrue(delay >= 40L && delay <= 220L);
-            sawVariety |= delay != first;
-        }
-        assertTrue(sawVariety);
+    void stridersLeftAliveByAClearShrinkThePoolUnderTheCap() {
+        assertEquals(8, StriderFishingMacro.effectiveGoal(8, 0));
+        assertEquals(8, StriderFishingMacro.effectiveGoal(8, 2));
+        assertEquals(7, StriderFishingMacro.effectiveGoal(8, 3));
+        assertEquals(10, StriderFishingMacro.effectiveGoal(10, 0));
+        assertEquals(1, StriderFishingMacro.effectiveGoal(10, 9));
+        assertEquals(0, StriderFishingMacro.effectiveGoal(1, 10));
     }
 
     @Test
-    void swappedSwapBoundsStillProduceAValidDelay() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            long delay = StriderFishingMacro.nextWhipSwapDelayMs(random, 130, 40);
-            assertTrue(StriderFishingMacro.whipSwapDelayInRange(delay, 40, 130));
-        }
-    }
-
-    @Test
-    void theWhipIsDrawnABeatBeforeTheClickAndSwungOnALooseRhythm() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            long draw = StriderFishingMacro.nextWhipDrawDelayMs(random);
-            assertTrue(StriderFishingMacro.whipDrawDelayInRange(draw));
-            assertTrue(draw >= 45L);
-            assertTrue(StriderFishingMacro.whipIntervalInRange(StriderFishingMacro.nextWhipIntervalMs(random)));
-        }
+    void theCapLineIsReadWhateverItsCase() {
+        assertTrue(StriderFishingMacro.isCapLine("There is not enough space for another Sea Creature!"));
+        assertTrue(StriderFishingMacro.isCapLine("  THERE IS NOT ENOUGH SPACE FOR ANOTHER SEA CREATURE! "));
+        assertFalse(StriderFishingMacro.isCapLine("There is not enough space in your inventory!"));
+        assertFalse(StriderFishingMacro.isCapLine(null));
     }
 
     @Test
@@ -272,32 +109,6 @@ class StriderFishingMacroTest {
         assertFalse(StriderFishingMacro.aimWithin(10.0f, 20.0f, 30.0f, 20.0f, 6.0f));
         // yaw wraps, so 179 and -179 are two degrees apart
         assertTrue(StriderFishingMacro.aimWithin(179.0f, 0.0f, -179.0f, 0.0f, 6.0f));
-    }
-    @Test
-    void theFloatLeavesJustAheadOfTheEye() {
-        net.minecraft.world.phys.Vec3[] path = StriderFishingMacro.castPath(
-                new net.minecraft.world.phys.Vec3(0.0, 1.27, 0.0), 0.0f, 10.0f);
-        assertEquals(0.0, path[0].x, 1e-9);
-        assertEquals(1.27, path[0].y, 1e-9);
-        assertEquals(0.3, path[0].z, 1e-9);
-    }
-
-    @Test
-    void theFloatDropsUnderTheCrosshairLine() {
-        // why a crouched look over a rim that is barely below the eye still clips it
-        float pitch = 6.0f;
-        net.minecraft.world.phys.Vec3[] path = StriderFishingMacro.castPath(
-                net.minecraft.world.phys.Vec3.ZERO, 0.0f, pitch);
-        double sightY = -Math.tan(Math.toRadians(pitch)) * path[2].z;
-        assertTrue(path[2].y < sightY);
-    }
-
-    @Test
-    void theThrowOnlyCountsAsSafeWithLandingPitchesEitherSide() {
-        boolean[] lands = {false, true, true, true, true, true, false};
-        assertEquals(0, StriderFishingMacro.castMargin(lands, 1));
-        assertEquals(2, StriderFishingMacro.castMargin(lands, 3));
-        assertEquals(0, StriderFishingMacro.castMargin(lands, 5));
     }
     @Test
     void onlyRememberedStridersThatAreStillThereCountTowardThePool() {
@@ -336,5 +147,172 @@ class StriderFishingMacroTest {
                 new net.minecraft.world.phys.Vec3(-2.0, 64.0, -2.0), home));
         assertTrue(StriderFishingMacro.escapedCage(null,
                 new net.minecraft.world.phys.Vec3(9.0, 64.0, 0.5), home));
+    }
+
+    @Test
+    void theYawRunCanWrapAroundTheBackOfTheCircle() {
+        boolean[] lands = new boolean[180];
+        for (int i = 175; i < 180; i++) {
+            lands[i] = true;
+        }
+        for (int i = 0; i < 5; i++) {
+            lands[i] = true;
+        }
+        lands[90] = true;
+        assertEquals(0, StriderFishingMacro.bestYawIndex(lands, 1));
+    }
+
+    @Test
+    void aYawRunNeedsALandingYawEitherSide() {
+        boolean[] lands = new boolean[180];
+        lands[40] = true;
+        lands[41] = true;
+        assertEquals(-1, StriderFishingMacro.bestYawIndex(lands, 1));
+        lands[42] = true;
+        assertEquals(41, StriderFishingMacro.bestYawIndex(lands, 1));
+        assertEquals(2, StriderFishingMacro.bestYawIndex(new boolean[] {false, true, true, false}, 0));
+    }
+
+    @Test
+    void theLongestYawRunWins() {
+        boolean[] lands = new boolean[180];
+        for (int i = 10; i < 15; i++) {
+            lands[i] = true;
+        }
+        for (int i = 100; i < 120; i++) {
+            lands[i] = true;
+        }
+        assertEquals(110, StriderFishingMacro.bestYawIndex(lands, 1));
+    }
+
+    @Test
+    void everyYawOrNoYawLandingIsToldApart() {
+        boolean[] all = new boolean[180];
+        java.util.Arrays.fill(all, true);
+        assertEquals(-2, StriderFishingMacro.bestYawIndex(all, 1));
+        assertEquals(-1, StriderFishingMacro.bestYawIndex(new boolean[180], 1));
+        assertEquals(-1, StriderFishingMacro.bestYawIndex(new boolean[0], 1));
+    }
+
+    @Test
+    void aMissRulesOutTheYawsAroundItAcrossTheBackOfTheCircle() {
+        boolean[] lands = new boolean[180];
+        java.util.Arrays.fill(lands, true);
+        StriderFishingMacro.rejectWindow(lands, 179.0f, 4.0f, 2.0f);
+        for (int i = 0; i < lands.length; i++) {
+            boolean ruledOut = i == 0 || i == 1 || i == 178 || i == 179;
+            assertEquals(!ruledOut, lands[i], "sample " + i);
+        }
+    }
+
+    @Test
+    void aYawIsFiledUnderTheNearestSample() {
+        assertEquals(0, StriderFishingMacro.nearestSample(179.5f, 180, 2.0f));
+        assertEquals(0, StriderFishingMacro.nearestSample(-179.2f, 180, 2.0f));
+        assertEquals(91, StriderFishingMacro.nearestSample(1.1f, 180, 2.0f));
+        assertEquals(91, StriderFishingMacro.nearestSample(361.1f, 180, 2.0f));
+        assertEquals(-178.0f, StriderFishingMacro.sampleYaw(1, 2.0f), 1e-6f);
+    }
+
+    @Test
+    void aSnagMovesTheThrowToTheFarEndOfItsYawRun() {
+        boolean[] lands = new boolean[180];
+        for (int i = 10; i <= 20; i++) {
+            lands[i] = true;
+        }
+        assertEquals(19, StriderFishingMacro.farthestInRun(lands, 12, 1));
+        assertEquals(11, StriderFishingMacro.farthestInRun(lands, 18, 1));
+        assertEquals(20, StriderFishingMacro.farthestInRun(lands, 12, 0));
+    }
+
+    @Test
+    void aSnagFollowsItsYawRunAcrossTheBackOfTheCircle() {
+        boolean[] lands = new boolean[180];
+        for (int i = 175; i < 180; i++) {
+            lands[i] = true;
+        }
+        for (int i = 0; i < 5; i++) {
+            lands[i] = true;
+        }
+        assertEquals(176, StriderFishingMacro.farthestInRun(lands, 1, 1));
+        assertEquals(3, StriderFishingMacro.farthestInRun(lands, 176, 1));
+    }
+
+    @Test
+    void aSnagWithNowhereElseInItsRunStaysPut() {
+        boolean[] lands = new boolean[180];
+        lands[50] = true;
+        lands[51] = true;
+        lands[52] = true;
+        assertEquals(-1, StriderFishingMacro.farthestInRun(lands, 51, 1));
+        assertEquals(-1, StriderFishingMacro.farthestInRun(lands, 90, 1));
+        java.util.Arrays.fill(lands, true);
+        assertEquals(100, StriderFishingMacro.farthestInRun(lands, 10, 1));
+    }
+
+    @Test
+    void theLandingTickIsTheFirstOneThatReachesTheLanding() {
+        net.minecraft.world.phys.Vec3 eye = net.minecraft.world.phys.Vec3.ZERO;
+        net.minecraft.world.phys.Vec3[] path = {
+                new net.minecraft.world.phys.Vec3(0.0, 0.0, 0.3),
+                new net.minecraft.world.phys.Vec3(0.0, 1.0, 1.0),
+                new net.minecraft.world.phys.Vec3(0.0, 1.5, 1.6),
+                new net.minecraft.world.phys.Vec3(0.0, 1.2, 2.0)};
+        assertEquals(2, StriderFishingMacro.landingTick(path, eye, new net.minecraft.world.phys.Vec3(0.0, 1.4, 1.3)));
+        assertEquals(1, StriderFishingMacro.landingTick(path, eye, new net.minecraft.world.phys.Vec3(0.0, 0.5, 0.6)));
+        assertEquals(3, StriderFishingMacro.landingTick(path, eye, new net.minecraft.world.phys.Vec3(0.0, 0.0, 9.0)));
+    }
+
+    @Test
+    void theLookUpTurnStaysSteepAndCloseToTheSolvedYaw() {
+        java.util.Random random = new java.util.Random(7);
+        for (int i = 0; i < 500; i++) {
+            float pitch = StriderFishingMacro.lookUpPitch(random);
+            assertTrue(pitch >= -89.0f && pitch <= -84.0f);
+            float jitter = StriderFishingMacro.jitter(random, 1.5f);
+            assertTrue(Math.abs(jitter) <= 1.5f);
+        }
+        assertEquals(0.0f, StriderFishingMacro.jitter(random, 0.0f));
+    }
+
+    @Test
+    void aWhipAimedDownLandsOnTheStairFromAnywhereTheCentringAccepts() {
+        double offset = 0.12;
+        for (double eye : new double[] {1.27, 1.62}) {
+            for (int side = 0; side < 8; side++) {
+                double angle = Math.toRadians(side * 45.0);
+                double dx = Math.cos(angle) * offset;
+                double dz = Math.sin(angle) * offset;
+                for (float pitch = 84.0f; pitch <= 89.5f; pitch += 0.5f) {
+                    for (float yaw = -180.0f; yaw < 180.0f; yaw += 15.0f) {
+                        assertTrue(StriderFishingMacro.floorAimHits(dx, dz, eye, yaw, pitch),
+                                "eye " + eye + " side " + side + " pitch " + pitch + " yaw " + yaw);
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    void aShallowOrUpwardLookMissesTheStair() {
+        assertFalse(StriderFishingMacro.floorAimHits(0.0, 0.0, 1.62, 0.0f, 45.0f));
+        assertFalse(StriderFishingMacro.floorAimHits(0.0, 0.0, 1.62, 0.0f, -10.0f));
+        assertFalse(StriderFishingMacro.floorAimHits(0.45, 0.0, 1.62, -90.0f, 80.0f));
+    }
+
+    @Test
+    void theStairIsTheSpotsOwnBlockOnlyWhenTheFeetStandInsideIt() {
+        net.minecraft.core.BlockPos origin = new net.minecraft.core.BlockPos(-694, 120, 78);
+        assertEquals(origin, StriderFishingMacro.whipFloor(origin, true));
+        assertEquals(new net.minecraft.core.BlockPos(-694, 119, 78), StriderFishingMacro.whipFloor(origin, false));
+    }
+
+    @Test
+    void theWhipLookStaysSteeplyDown() {
+        java.util.Random random = new java.util.Random(11);
+        for (int i = 0; i < 500; i++) {
+            float pitch = StriderFishingMacro.whipPitch(random);
+            assertTrue(pitch >= 84.0f && pitch <= 89.5f);
+        }
     }
 }

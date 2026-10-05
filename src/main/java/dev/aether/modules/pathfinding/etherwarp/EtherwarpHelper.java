@@ -2,6 +2,7 @@ package dev.aether.modules.pathfinding.etherwarp;
 
 import dev.aether.modules.pathfinding.movement.WalkabilityChecker;
 import dev.aether.modules.pathfinding.wrapper.PathPosition;
+import dev.aether.util.SkyblockLocation;
 import dev.aether.util.TablistUtils;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -227,15 +228,9 @@ public final class EtherwarpHelper {
     }
 
     private static boolean usesModernSneakingEyeHeight(Minecraft mc) {
-        String areaLine = mc == null ? null : TablistUtils.findLine(mc, "Area:");
-        if (areaLine == null) {
+        String areaName = mc == null ? null : SkyblockLocation.areaName(TablistUtils.findLine(mc, "Area:"));
+        if (areaName == null) {
             return false;
-        }
-
-        String areaName = areaLine;
-        int separatorIndex = areaLine.indexOf(':');
-        if (separatorIndex >= 0 && separatorIndex + 1 < areaLine.length()) {
-            areaName = areaLine.substring(separatorIndex + 1).trim();
         }
 
         return areaName.equalsIgnoreCase("Galatea")

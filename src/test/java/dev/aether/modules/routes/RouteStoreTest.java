@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RouteStoreTest {
-    private static final RouteStore.Folder FOLDER = new RouteStore.Folder("strider_fishing", "Strider Fishing", null);
+    private static final RouteStore.Folder FOLDER = new RouteStore.Folder("strider_fishing", "Strider Fishing", List.of());
 
     @TempDir
     Path root;
@@ -107,6 +107,20 @@ class RouteStoreTest {
     }
 
     @Test
+    void aWarpWithNoLegsIsAWarpOnlyRoute() {
+        Route warpOnly = new Route("a", "crimson");
+        assertTrue(warpOnly.hasWarp());
+        assertTrue(warpOnly.isWarpOnly());
+
+        Route nothing = new Route("a", "  ");
+        assertFalse(nothing.hasWarp());
+        assertFalse(nothing.isWarpOnly());
+
+        assertTrue(sampleRoute("a").hasWarp());
+        assertFalse(sampleRoute("a").isWarpOnly());
+    }
+
+    @Test
     void theBundledStriderRouteIsPutBackWhenMissing() {
         RouteStore store = new RouteStore(root);
 
@@ -119,12 +133,25 @@ class RouteStoreTest {
     }
 
     @Test
+    void theSawyerSpotShipsAsAOneWalkRouteOntoTheSpot() {
+        RouteStore store = new RouteStore(root);
+
+        assertTrue(store.list(RouteStore.STRIDER_FISHING).contains("sawyer_spot"));
+        Route route = store.load(RouteStore.STRIDER_FISHING, "sawyer_spot");
+
+        assertNotNull(route);
+        assertEquals("/warp galatea", route.warpCommand());
+        assertEquals(new Route.Waypoint(-694, 120, 78, Route.LegType.WALK), route.end());
+        assertEquals(1, route.waypoints().size());
+    }
+
+    @Test
     void resetRestoresTheBundledCopyOverAnEditedOne() {
         RouteStore store = new RouteStore(root);
         Route edited = new Route("default_strider", "hub");
         store.save(RouteStore.STRIDER_FISHING, edited);
 
-        assertTrue(store.resetDefault(RouteStore.STRIDER_FISHING));
+        assertTrue(store.resetDefault(RouteStore.STRIDER_FISHING, "default_strider"));
 
         assertEquals("galatea", store.load(RouteStore.STRIDER_FISHING, "default_strider").warp());
     }

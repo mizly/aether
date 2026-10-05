@@ -74,6 +74,7 @@ public final class PathfindingManager {
     private static boolean etherwarpAllowWalkAssist = true;
     private static boolean walkAllowReplan = true;
     private static boolean walkRequireFullPath = false;
+    private static boolean walkQuietFailure = false;
     private static boolean walkStrictGoalCompletion = false;
     private static double walkPreciseGoalTolerance = 0.5;
     private static double walkStickySneakDistance = -1.0;
@@ -355,11 +356,19 @@ public final class PathfindingManager {
     // walks the whole way upright: no crouch on the approach and none while centring on the goal
     public static void startUprightWalk(Minecraft mc, Vec3 target, Runnable onFinished, Runnable onFailed,
                                         boolean centerOnGoal) {
+        startUprightWalk(mc, target, onFinished, onFailed, centerOnGoal, false);
+    }
+
+    public static void startUprightWalk(Minecraft mc, Vec3 target, Runnable onFinished, Runnable onFailed,
+                                        boolean centerOnGoal, boolean requireFullPath) {
         int x = Mth.floor(target.x);
         int y = Mth.floor(target.y);
         int z = Mth.floor(target.z);
         disableTransientDebugRendering();
         resetWalkExecutionOptions();
+        walkRequireFullPath = requireFullPath;
+        // a caller that insists on a full path has its own next step, so a dead one is no news to the player
+        walkQuietFailure = requireFullPath;
         walkGoalCenterX = target.x - x;
         walkGoalCenterZ = target.z - z;
         configureWalkExecution(null, onFinished, onFailed, true, centerOnGoal ? 0.35 : 0.5, centerOnGoal);
@@ -479,6 +488,7 @@ public final class PathfindingManager {
 
         rotationTarget = null;
         walkRequireFullPath = false;
+        walkQuietFailure = false;
         configureWalkExecution(target.add(0, -10.0, 0), onFinished, null, !isFirst, 0.25, true);
         walkGoalCenterX = target.x - tx;
         walkGoalCenterZ = target.z - tz;
@@ -577,6 +587,7 @@ public final class PathfindingManager {
         walkFailureCallback = null;
         walkAllowReplan = true;
         walkRequireFullPath = false;
+        walkQuietFailure = false;
         walkStrictGoalCompletion = false;
         walkPreciseGoalTolerance = 0.5;
         walkStickySneakDistance = -1.0;
@@ -1210,7 +1221,9 @@ public final class PathfindingManager {
             navigating = false;
             activeMode = NavigationMode.NONE;
             clearTransientDebugRenderingIfActive();
-            if (mc.player != null) {
+            if (walkQuietFailure) {
+                ClientUtils.sendDebugMessage("No path found!");
+            } else if (mc.player != null) {
                 ClientUtils.sendMessage("\u00A7cNo path found!", false);
             }
             if (walkFailureCallback != null) {
@@ -1230,7 +1243,9 @@ public final class PathfindingManager {
             navigating = false;
             activeMode = NavigationMode.NONE;
             clearTransientDebugRenderingIfActive();
-            if (mc.player != null) {
+            if (walkQuietFailure) {
+                ClientUtils.sendDebugMessage("Walk path result was partial.");
+            } else if (mc.player != null) {
                 ClientUtils.sendMessage("\u00A7eWalk path result was partial. Falling back to the next recovery path...",
                         false);
             }

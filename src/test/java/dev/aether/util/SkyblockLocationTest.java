@@ -4,6 +4,7 @@ import dev.aether.macro.MacroState.Location;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class SkyblockLocationTest {
     @Test
@@ -34,5 +35,12 @@ class SkyblockLocationTest {
         assertEquals(Location.HUB, SkyblockLocation.resolve("SKYBLOCK", false, "Area: Garden Lobby"));
         assertEquals(Location.CRYSTAL_HOLLOWS,
                 SkyblockLocation.resolve("SKYBLOCK", false, "Area: Crystal Hollows"));
+    }
+
+    @Test
+    void readsTheIslandOffTheAreaLine() {
+        assertEquals("Galatea", SkyblockLocation.areaName("Area: Galatea"));
+        assertEquals("Spider's Den", SkyblockLocation.areaName("Area:  Spider's Den"));
+        assertNull(SkyblockLocation.areaName(null));
     }
 }

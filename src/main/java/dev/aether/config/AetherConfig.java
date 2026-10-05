@@ -1,5 +1,6 @@
 package dev.aether.config;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -114,7 +115,10 @@ public final class AetherConfig {
                 boolean loaded = Config.loadFromJson(json);
                 if (loaded) {
                         try {
-                                migrateLegacyLoadoutKeys(JsonParser.parseString(json).getAsJsonObject());
+                                JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+                                migrateLegacyLoadoutKeys(root);
+                                migrateStriderRedesign(root);
+                                migrateFishingAimAt(root);
                         } catch (Exception ignored) {
                         }
                         resetRuntimeOnlyEntries();
@@ -264,7 +268,10 @@ public final class AetherConfig {
 
                 try (Reader reader = Files.newBufferedReader(sourceFile.toPath())) {
                         JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
-                        if (migrateLegacyLoadoutKeys(root)) {
+                        boolean updated = migrateLegacyLoadoutKeys(root);
+                        updated |= migrateStriderRedesign(root);
+                        updated |= migrateFishingAimAt(root);
+                        if (updated) {
                                 save();
                         }
                 } catch (Exception ignored) {
@@ -302,6 +309,31 @@ public final class AetherConfig {
                 }
 
                 return updated;
+        }
+
+        // every config saved before the redesign still holds the old route and pool defaults, so routes off and
+        // the lower pool cap would never reach anyone; the save drops the marker key so this runs once
+        static boolean migrateStriderRedesign(JsonObject root) {
+                if (root == null || !root.has("striderFishingRandomLook")) {
+                        return false;
+                }
+                if (STRIDER_FISHING_SOUL_WHIP_COUNT.get() > 8) {
+                        STRIDER_FISHING_SOUL_WHIP_COUNT.set(8);
+                }
+                return true;
+        }
+
+        // the aim mode setting became a hotspot toggle, the liquid is now picked by itself
+        static boolean migrateFishingAimAt(JsonObject root) {
+                if (root == null || !root.has("fishingMacroAimAt")) {
+                        return false;
+                }
+                if (!root.has("fishingMacroHotspot")) {
+                        JsonElement aimAt = root.get("fishingMacroAimAt");
+                        FISHING_MACRO_HOTSPOT.set(aimAt.isJsonPrimitive()
+                                        && "HOTSPOT".equalsIgnoreCase(aimAt.getAsString()));
+                }
+                return true;
         }
 
         private static boolean migrateLegacyDelayRange(
@@ -1156,16 +1188,14 @@ public final class AetherConfig {
                         .range(0, 3000);
         public static final IntEntry STRIDER_FISHING_CAST_DELAY_MAX = Config.integer("striderFishingCastDelayMax", 900)
                         .range(0, 3000);
-        // blank means the macro fishes wherever it was started, with no warp or route first
+        // the strider needs a route; one ending on the sawyer spot (-694 120 78) casts up and whips from the stair
         public static final StringEntry STRIDER_FISHING_RESTART_ROUTE = Config.string("striderFishingRestartRoute",
-                        "default_strider");
-        public static final BooleanEntry STRIDER_FISHING_RANDOM_LOOK = Config.bool("striderFishingRandomLook", true);
-        public static final BooleanEntry STRIDER_FISHING_BLOCK_SHUFFLE = Config.bool("striderFishingBlockShuffle", true);
+                        "sawyer_spot");
         // soul whip fishing leaves each catch stuck in a small pool and only clears the pool once it holds this many
         public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP_FISHING = Config
                         .bool("striderFishingSoulWhipFishing", false);
-        public static final IntEntry STRIDER_FISHING_SOUL_WHIP_COUNT = Config.integer("striderFishingSoulWhipCount", 10)
-                        .range(5, 20);
+        public static final IntEntry STRIDER_FISHING_SOUL_WHIP_COUNT = Config.integer("striderFishingSoulWhipCount", 8)
+                        .range(1, 10);
         public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP = Config.bool("striderFishingSoulWhip", false);
         public static final IntEntry STRIDER_FISHING_SOUL_WHIP_SLOT = Config.integer("striderFishingSoulWhipSlot", 3)
                         .range(1, 9);
@@ -1174,4 +1204,34 @@ public final class AetherConfig {
                         .range(0, 250);
         public static final IntEntry STRIDER_FISHING_WHIP_SWAP_MAX = Config.integer("striderFishingWhipSwapMax", 130)
                         .range(0, 250);
+
+        // -- FISHING MACRO ---------------------------------------------------------
+        public static final IntEntry FISHING_MACRO_ROD_SLOT = Config.integer("fishingMacroRodSlot", 1).range(1, 9);
+        public static final IntEntry FISHING_MACRO_WEAPON_SLOT = Config.integer("fishingMacroWeaponSlot", 2)
+                        .range(1, 9);
+        public static final BooleanEntry FISHING_MACRO_ALWAYS_SNEAK = Config.bool("fishingMacroAlwaysSneak", false);
+        // off releases sneak while standing in lava or water, so the crouch only happens on solid ground
+        public static final BooleanEntry FISHING_MACRO_SNEAK_IN_LIQUID = Config.bool("fishingMacroSneakInLiquid", false);
+        public static final BooleanEntry FISHING_MACRO_ETHERWARP_RETURN = Config
+                        .bool("fishingMacroEtherwarpReturn", false);
+        public static final BooleanEntry FISHING_MACRO_HOTSPOT = Config.bool("fishingMacroHotspot", false);
+        // CENTRE stands underwater below the hotspot's nametag, anything else casts in from the side
+        public static final StringEntry FISHING_MACRO_HOTSPOT_POSITION = Config.string("fishingMacroHotspotPosition",
+                        "SIDE");
+        public static final BooleanEntry FISHING_MACRO_RANDOM_LOOK = Config.bool("fishingMacroRandomLook", true);
+        public static final BooleanEntry FISHING_MACRO_BLOCK_SHUFFLE = Config.bool("fishingMacroBlockShuffle", true);
+        public static final IntEntry FISHING_MACRO_CAST_DELAY_MIN = Config.integer("fishingMacroCastDelayMin", 400)
+                        .range(0, 3000);
+        public static final IntEntry FISHING_MACRO_CAST_DELAY_MAX = Config.integer("fishingMacroCastDelayMax", 900)
+                        .range(0, 3000);
+        public static final ListEntry<String> FISHING_MACRO_MOB_WHITELIST = Config.list("fishingMacroMobWhitelist",
+                        Collections.emptyList(), String.class);
+        public static final ListEntry<String> FISHING_MACRO_MOB_BLACKLIST = Config.list("fishingMacroMobBlacklist",
+                        Collections.emptyList(), String.class);
+        public static final BooleanEntry FISHING_MACRO_USE_HYPERION = Config.bool("fishingMacroUseHyperion", false);
+        public static final BooleanEntry FISHING_MACRO_USE_WAND = Config.bool("fishingMacroUseWand", false);
+        public static final IntEntry FISHING_MACRO_HEAL_BELOW_PERCENT = Config
+                        .integer("fishingMacroHealBelowPercent", 50).range(10, 90);
+        // blank fishes wherever the macro was started
+        public static final StringEntry FISHING_MACRO_ROUTE = Config.string("fishingMacroRoute", "");
 }

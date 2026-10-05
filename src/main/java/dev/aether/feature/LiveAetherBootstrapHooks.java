@@ -41,6 +41,7 @@ import dev.aether.util.BpsTracker;
 import dev.aether.util.DelayedBlockBreakTracker;
 import dev.aether.util.NickHiderUtils;
 import dev.aether.util.PingTracker;
+import dev.aether.util.PlayerVitals;
 import dev.aether.util.ProgrammaticMovementTracker;
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.KeyMapping;
@@ -206,6 +207,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
     public Component transformOverlayMessage(Component component) {
         FailsafeManager.observeGhostBlockOverlayMessage(component);
         dev.aether.modules.profit.helpers.SkillXpTracker.onActionBarAll(component);
+        PlayerVitals.onActionBar(component);
         return transformDisplayComponent(component);
     }
 

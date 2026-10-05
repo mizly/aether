@@ -35,6 +35,7 @@ public final class EtherwarpLeg {
     // right after a landing the position is still settling, so a missing line of sight gets a moment
     private static final long SIGHT_GRACE_MS = 800L;
     private static final long LAND_TIMEOUT_MS = 1_000L;
+    private static final long OWN_WARP_WINDOW_MS = 3_000L;
     private static final double LEFT_START_DISTANCE = 2.0;
     private static final int MAX_TURNS = 4;
     // an aim is only as good as the spot it was worked out from, so the player has to be at rest first
@@ -193,6 +194,8 @@ public final class EtherwarpLeg {
                 }
                 clicks++;
                 clickedFrom = mc.player.position();
+                // the landing jump would trip the tp check, and it can trail the click by a second or more
+                FailsafeManager.expectOwnTeleport(OWN_WARP_WINDOW_MS);
                 ClientUtils.performUseClick();
                 enter(Phase.WAIT_LAND, now);
             }

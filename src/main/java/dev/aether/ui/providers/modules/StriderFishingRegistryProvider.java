@@ -37,7 +37,7 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
 
         groups.add(SettingGroup.alwaysOn(
                         "Hotbar Slots",
-                        "Where the fishing rod and the weapon sit in the hotbar")
+                        "Where the fishing rod, the weapon and the Soul Whip sit in the hotbar")
                 .add(new SliderSetting("Fishing Rod Slot", 1, 9,
                         () -> (float) AetherConfig.STRIDER_FISHING_ROD_SLOT.get(),
                         v -> {
@@ -49,6 +49,13 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
                         () -> (float) AetherConfig.STRIDER_FISHING_WEAPON_SLOT.get(),
                         v -> {
                             AetherConfig.STRIDER_FISHING_WEAPON_SLOT.set(Math.round(v));
+                            AetherConfig.save();
+                        })
+                        .withDecimals(0))
+                .add(new SliderSetting("Soul Whip Slot", 1, 9,
+                        () -> (float) AetherConfig.STRIDER_FISHING_SOUL_WHIP_SLOT.get(),
+                        v -> {
+                            AetherConfig.STRIDER_FISHING_SOUL_WHIP_SLOT.set(Math.round(v));
                             AetherConfig.save();
                         })
                         .withDecimals(0)));
@@ -100,29 +107,19 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
                             AetherConfig.STRIDER_FISHING_CAST_DELAY_MAX.set(Math.round(v));
                             AetherConfig.save();
                         })
-                        .withDecimals(0).withSuffix("ms"))
-                .add(new ToggleSetting("Random Look Around",
-                        () -> AetherConfig.STRIDER_FISHING_RANDOM_LOOK.get(),
-                        v -> {
-                            AetherConfig.STRIDER_FISHING_RANDOM_LOOK.set(v);
-                            AetherConfig.save();
-                        }))
-                .add(new ToggleSetting("Move Around On Block",
-                        () -> AetherConfig.STRIDER_FISHING_BLOCK_SHUFFLE.get(),
-                        v -> {
-                            AetherConfig.STRIDER_FISHING_BLOCK_SHUFFLE.set(v);
-                            AetherConfig.save();
-                        })));
+                        .withDecimals(0).withSuffix("ms")));
 
-        groups.add(SettingGroup.of(
-                        "Soul Whip Fishing",
-                        "Fills a small lava pool with striders and clears it once enough are stuck",
+        // always shown, since the sawyer spot pools and whips whatever the toggle says
+        groups.add(SettingGroup.alwaysOn(
+                        "Soul Whip",
+                        "How the pool fills up and what clears it")
+                .add(new ToggleSetting("Soul Whip Fishing",
                         () -> AetherConfig.STRIDER_FISHING_SOUL_WHIP_FISHING.get(),
                         v -> {
                             AetherConfig.STRIDER_FISHING_SOUL_WHIP_FISHING.set(v);
                             AetherConfig.save();
-                        })
-                .add(new SliderSetting("Striders Before Kill", 5, 20,
+                        }))
+                .add(new SliderSetting("Striders Before Kill", 1, 10,
                         () -> (float) AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.get(),
                         v -> {
                             AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.set(Math.round(v));
@@ -135,13 +132,6 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
                             AetherConfig.STRIDER_FISHING_SOUL_WHIP.set(v);
                             AetherConfig.save();
                         }))
-                .add(new SliderSetting("Soul Whip Slot", 1, 9,
-                        () -> (float) AetherConfig.STRIDER_FISHING_SOUL_WHIP_SLOT.get(),
-                        v -> {
-                            AetherConfig.STRIDER_FISHING_SOUL_WHIP_SLOT.set(Math.round(v));
-                            AetherConfig.save();
-                        })
-                        .withDecimals(0))
                 .add(new SliderSetting("Weapon Swap Delay Min", 0, 250,
                         () -> (float) AetherConfig.STRIDER_FISHING_WHIP_SWAP_MIN.get(),
                         v -> {
@@ -164,7 +154,9 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
                         () -> Minecraft.getInstance().setScreen(new RoutesScreen(RouteStore.STRIDER_FISHING))))
                 .add(new InfoSetting("Selected Route", () -> {
                     String selected = AetherConfig.STRIDER_FISHING_RESTART_ROUTE.get();
-                    return selected == null || selected.isBlank() ? AetherLang.localize("No route selected") : selected;
+                    return selected == null || selected.isBlank()
+                            ? AetherLang.localize("No route selected")
+                            : selected;
                 })));
 
         return groups;

@@ -5,6 +5,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import dev.aether.util.SkyblockItems;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -19,14 +20,7 @@ final class SprayonatorItem {
 
     static boolean matches(ItemStack stack) {
         if (stack == null || stack.isEmpty()) return false;
-        var custom = stack.get(DataComponents.CUSTOM_DATA);
-        String id = "";
-        if (custom != null) {
-            var tag = custom.copyTag();
-            id = tag.getString("id").orElseGet(() -> tag.getCompound("ExtraAttributes")
-                    .flatMap(attributes -> attributes.getString("id")).orElse(""));
-        }
-        return matches(id, stack.getHoverName().getString());
+        return matches(SkyblockItems.skyblockId(stack), stack.getHoverName().getString());
     }
 
     static boolean matches(String id, String name) {
