@@ -98,6 +98,10 @@ public final class AetherCommandRegistrar {
                                 AetherUiActions.toggleMainGui();
                                 return 1;
                             })
+                            .then(ClientCommands.literal("legacy").executes(ctx -> {
+                                AetherUiActions.openLegacyGui();
+                                return 1;
+                            }))
                             .then(ClientCommands.literal("farming")
                                     .executes(ctx -> {
                                         Minecraft client = Minecraft.getInstance();
