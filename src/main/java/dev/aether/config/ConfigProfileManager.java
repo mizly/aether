@@ -22,6 +22,14 @@ public final class ConfigProfileManager {
 
     private ConfigProfileManager() {}
 
+    // the loaded profile's name, null before any profile was saved or loaded this session
+    public static String activeName() {
+        Path path = activeProfilePath;
+        if (path == null) return null;
+        String name = path.getFileName().toString();
+        return name.endsWith(".json") ? name.substring(0, name.length() - 5) : name;
+    }
+
     // -- CRUD ------------------------------------------------------------------
 
     public static List<String> list() {

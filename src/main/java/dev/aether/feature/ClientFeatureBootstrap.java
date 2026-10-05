@@ -71,6 +71,7 @@ public final class ClientFeatureBootstrap {
         McTextures.registerReloadListener();
 
         LevelRenderEvents.END_MAIN.register(ctx -> {
+            dev.aether.ui.orbit.OrbitScreen.renderWorldIfOpen();
             if (StreamerModeManager.isEnabled()) {
                 return;
             }
