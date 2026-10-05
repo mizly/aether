@@ -21,8 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-// your garden's Barn as blocks: copied out of the chunks the server has sent while you stand on the Barn plot, kept
-// on disk per account, and stood in the menu's farm in place of its own barn. reads blocks only
+// your garden's Barn as blocks: copied out of the chunks the server has sent once the whole Barn plot is in view,
+// kept on disk per account, and stood in the menu's farm in place of its own barn. reads blocks only
 final class BarnCopy {
     static final int MAX_SIDE = 32;
     static final int MAX_HEIGHT = 28;
@@ -50,13 +50,12 @@ final class BarnCopy {
         return copy;
     }
 
-    // a fresh copy when you are on the Barn plot and the last one is old; true when it took one
+    // a fresh copy when the Barn plot is loaded and the last copy is old; true when it took one
     static boolean refresh(Minecraft client) {
         if (client.level == null || client.player == null) return false;
         load(client);
         long now = System.currentTimeMillis();
         if (now - recorded < REFRESH_MS) return false;
-        if (GardenPlots.plotAt(client.player.getX(), client.player.getZ()) != BARN_PLOT) return false;
         Copy fresh = scan(client.level);
         if (fresh == null) return false;
         copy = fresh;
@@ -68,32 +67,33 @@ final class BarnCopy {
     private static Copy scan(ClientLevel level) {
         GardenPlots.Bounds plot = GardenPlots.boundsForPlot(BARN_PLOT);
         if (plot == null) return null;
-        // every chunk of the plot has to be in, or the copy would come out with holes
-        for (int cx = plot.minX() >> 4; cx <= (plot.maxX() - 1) >> 4; cx++) {
-            for (int cz = plot.minZ() >> 4; cz <= (plot.maxZ() - 1) >> 4; cz++) {
-                if (!level.hasChunk(cx, cz)) return null;
-            }
-        }
+        // only part of the plot may be in from where you stand; columns not in yet stay unknown, and the copy waits
+        // until everything under the building has arrived
         WorldColumns columns = new WorldColumns(level);
         int w = plot.maxX() - plot.minX(), d = plot.maxZ() - plot.minZ();
         int[] tops = new int[w * d];
         Map<Integer, Integer> counts = new HashMap<>();
+        int known = 0;
         for (int z = 0; z < d; z++) {
             for (int x = 0; x < w; x++) {
-                int top = columns.top(plot.minX() + x, plot.minZ() + z);
+                int wx = plot.minX() + x, wz = plot.minZ() + z;
                 // an empty column in a loaded chunk is the server not having sent its blocks yet
-                if (top == Integer.MIN_VALUE) return null;
+                int top = level.hasChunk(wx >> 4, wz >> 4) ? columns.top(wx, wz) : Integer.MIN_VALUE;
                 tops[z * w + x] = top;
+                if (top == Integer.MIN_VALUE) continue;
                 counts.merge(top, 1, Integer::sum);
+                known++;
             }
         }
+        if (known < w * d / 4) return null;
         int ground = counts.entrySet().stream().max(Map.Entry.comparingByValue()).orElseThrow().getKey();
         // the building's middle, weighted by height so the barn outweighs lamp posts and fences round the plot
         double sx = 0, sz = 0, weight = 0;
         for (int z = 0; z < d; z++) {
             for (int x = 0; x < w; x++) {
-                int rise = tops[z * w + x] - ground;
-                if (rise < TALL) continue;
+                int top = tops[z * w + x];
+                if (top == Integer.MIN_VALUE || top - ground < TALL) continue;
+                int rise = top - ground;
                 sx += (double) x * rise;
                 sz += (double) z * rise;
                 weight += rise;
@@ -108,7 +108,7 @@ final class BarnCopy {
         for (int z = z0; z <= z1; z++) {
             for (int x = x0; x <= x1; x++) {
                 int top = tops[z * w + x];
-                if (top - ground < TALL) continue;
+                if (top == Integer.MIN_VALUE || top - ground < TALL) continue;
                 bx0 = Math.min(bx0, x);
                 bz0 = Math.min(bz0, z);
                 bx1 = Math.max(bx1, x);
@@ -120,6 +120,12 @@ final class BarnCopy {
         bz0 = Math.max(z0, bz0 - 1);
         bx1 = Math.min(x1, bx1 + 1);
         bz1 = Math.min(z1, bz1 + 1);
+        // anything still unknown in or right round the building means part of it hasn't arrived
+        for (int z = Math.max(0, bz0 - 2); z <= Math.min(d - 1, bz1 + 2); z++) {
+            for (int x = Math.max(0, bx0 - 2); x <= Math.min(w - 1, bx1 + 2); x++) {
+                if (tops[z * w + x] == Integer.MIN_VALUE) return null;
+            }
+        }
         int width = bx1 - bx0 + 1, depth = bz1 - bz0 + 1, height = Math.min(MAX_HEIGHT, peak - ground + 1);
         BlockState[] blocks = new BlockState[width * height * depth];
         for (int y = 0; y < height; y++) {

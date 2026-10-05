@@ -81,6 +81,10 @@ final class PlotDiorama {
     private static Pick drawPlot(NVGRenderer nvg, View view, int plot, PlotPickerModel.PlotLook look, float rise,
                                  boolean hovered, float time, boolean labels, int accent, float alpha, float dim) {
         boolean barn = plot == PlotToken.BARN;
+        if (barn) {
+            BarnVoxels.Model voxels = BarnVoxels.current();
+            if (voxels != null) return drawBarn(nvg, view, voxels, look, hovered, accent, alpha, dim);
+        }
         String item = look == null ? null : look.itemId();
         float half = (barn ? 0.8f : PLOT) / 2f;
         float height = barn ? 0.62f : BASE + rise * LIFT + (glassy(item) ? 0.22f : 0f);
@@ -153,6 +157,72 @@ final class PlotDiorama {
             nvg.text(Fonts.UI_BOLD, text, tx, ty, fs, Argb.multiplyAlpha(0xFFFFFFFF, alpha));
         }
         return new Pick(plot, polygon);
+    }
+
+    // your Barn as copied in the garden, a voxel model on a thin slab of earth, drawn face by face far to near
+    private static Pick drawBarn(NVGRenderer nvg, View view, BarnVoxels.Model model, PlotPickerModel.PlotLook look,
+                                 boolean hovered, int accent, float alpha, float dim) {
+        double cx = x(PlotToken.BARN), cz = z(PlotToken.BARN);
+        double half = 0.4, slab = 0.05;
+        double x0 = cx - half, x1 = cx + half, z0 = cz - half, z1 = cz + half;
+        double yaw = Math.toRadians(view.yaw());
+        boolean southVisible = Math.cos(yaw) > 0;
+        boolean eastVisible = Math.sin(yaw) < 0;
+        String dirt = "minecraft:textures/block/dirt.png";
+        double zFace = southVisible ? z1 : z0, xFace = eastVisible ? x1 : x0;
+        face(nvg, view, new double[]{x0, slab, zFace}, new double[]{x1, slab, zFace}, new double[]{x0, 0, zFace}, dirt,
+                shade(0xFFFFFFFF, SHADE_LEFT * dim), alpha);
+        face(nvg, view, new double[]{xFace, slab, z0}, new double[]{xFace, slab, z1}, new double[]{xFace, 0, z0}, dirt,
+                shade(0xFFFFFFFF, SHADE_RIGHT * dim), alpha);
+        face(nvg, view, new double[]{x0, slab, z0}, new double[]{x1, slab, z0}, new double[]{x0, slab, z1},
+                "minecraft:textures/block/grass_block_top.png", shade(0xFF7CBD6B, SHADE_TOP * dim), alpha);
+
+        double s = 2 * half / Math.max(model.width(), model.depth());
+        double ox = cx - model.width() * s / 2, oz = cz - model.depth() * s / 2;
+        int side = southVisible ? 2 : 1, end = eastVisible ? 4 : 3;
+        List<double[]> quads = new ArrayList<>();
+        for (BarnVoxels.Face f : model.faces()) {
+            if (f.dir() != 0 && f.dir() != side && f.dir() != end) continue;
+            double vx0 = ox + f.x() * s, vx1 = vx0 + s, vz0 = oz + f.z() * s, vz1 = vz0 + s;
+            // the floor layer's top lies on the slab, everything else stands on it
+            double top = slab + f.y() * s, bottom = top - s;
+            double[] q = switch (f.dir()) {
+                case 0 -> new double[]{vx0, top, vz0, vx1, top, vz0, vx1, top, vz1, vx0, top, vz1};
+                case 1 -> new double[]{vx0, top, vz0, vx1, top, vz0, vx1, bottom, vz0, vx0, bottom, vz0};
+                case 2 -> new double[]{vx0, top, vz1, vx1, top, vz1, vx1, bottom, vz1, vx0, bottom, vz1};
+                case 3 -> new double[]{vx0, top, vz0, vx0, top, vz1, vx0, bottom, vz1, vx0, bottom, vz0};
+                default -> new double[]{vx1, top, vz0, vx1, top, vz1, vx1, bottom, vz1, vx1, bottom, vz0};
+            };
+            float k = f.dir() == 0 ? SHADE_TOP : f.dir() <= 2 ? SHADE_LEFT : SHADE_RIGHT;
+            double depth = view.depth((q[0] + q[6]) / 2, (q[1] + q[7]) / 2, (q[2] + q[8]) / 2);
+            quads.add(new double[]{depth, shade(f.argb(), k * dim), q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7], q[8],
+                    q[9], q[10], q[11]});
+        }
+        quads.sort(Comparator.comparingDouble(q -> q[0]));
+        // neighbouring faces share edges, and antialiased edges would leave hairline seams between them
+        nvg.shapeAntiAlias(false);
+        for (double[] q : quads) {
+            int color = Argb.multiplyAlpha((int) (long) q[1], alpha);
+            nvg.beginPath();
+            for (int i = 0; i < 4; i++) {
+                float[] p = view.project(q[2 + i * 3], q[3 + i * 3], q[4 + i * 3]);
+                if (i == 0) nvg.moveTo(p[0], p[1]);
+                else nvg.lineTo(p[0], p[1]);
+            }
+            nvg.closePath();
+            nvg.fillPath(color);
+        }
+        nvg.shapeAntiAlias(true);
+
+        float[] tl = view.project(x0, slab, z0), tr = view.project(x1, slab, z0);
+        float[] br = view.project(x1, slab, z1), bl = view.project(x0, slab, z1);
+        float[] polygon = {tl[0], tl[1], tr[0], tr[1], br[0], br[1], bl[0], bl[1]};
+        if (look != null && look.marked()) {
+            outline(nvg, polygon, 2.2f, Argb.multiplyAlpha(accent, alpha));
+        } else if (hovered) {
+            outline(nvg, polygon, 1.6f, Argb.multiplyAlpha(0xCCFFFFFF, alpha));
+        }
+        return new Pick(PlotToken.BARN, polygon);
     }
 
     // maps the unit square onto the parallelogram p0 -> p1 (u) and p0 -> p3 (v)

@@ -64,6 +64,8 @@ public final class OrbitScreen extends Screen {
     private float momentum;
     private boolean draggingRing;
     private double dragLastX;
+    private double dragStartX;
+    private boolean ringMoved;
     private boolean pressedPanel;
     private float wheelLock;
 
@@ -294,13 +296,12 @@ public final class OrbitScreen extends Screen {
         int ox = (int) Math.floor(anchor.x), oy = (int) Math.floor(anchor.y + 1e-3), oz = (int) Math.floor(anchor.z);
         Vector3d lens = rigToWorld(anchor, OrbitRig.TP_POS.x, 0, OrbitRig.TP_POS.z);
         double cx = lens.x - ox, cz = lens.z - oz;
-        PresetGarden source = new PresetGarden(ox, oy, oz, sceneYaw(), BarnCopy.current(client));
+        PresetGarden source = new PresetGarden(ox, oy, oz, sceneYaw());
         stage.set(ox + 0.5, oy, oz + 0.5);
         try {
-            return SceneClone.build(source, ox, oy, oz, PresetGarden.RADIUS, (dx, dz) -> {
+            return SceneClone.build(source, ox, oy, oz, 40, (dx, dz) -> {
                 double toLens = (dx + 0.5 - cx) * (dx + 0.5 - cx) + (dz + 0.5 - cz) * (dz + 0.5 - cz);
                 if (toLens < 16) return 0;
-                if (source.uncapped(ox + dx, oz + dz)) return 64;
                 return dx * dx + dz * dz <= 22 * 22 ? 1 : 64;
             });
         } catch (RuntimeException | LinkageError e) {
@@ -448,6 +449,7 @@ public final class OrbitScreen extends Screen {
         float k = (float) OrbitLayout.pixelRatio(Minecraft.getInstance().getWindow().getHeight());
         float z = zoom.x;
         List<OrbitWorldRenderer.Quad> quads = new ArrayList<>();
+        OrbitWorldRenderer.Quad front = null;
         for (OrbitLayout.Placement p : layout.placements()) {
             if (p.alpha() <= 0.001f) continue;
             String id = categories.get(p.index());
@@ -464,9 +466,11 @@ public final class OrbitScreen extends Screen {
             shadow(quads, p);
             PanelSurface surface = surfaces[p.index()];
             float radius = dev.aether.ui.orbit.panel.PanelView.ORBIT_RADIUS;
-            quads.add(new OrbitWorldRenderer.Quad(p.corner(-1, 1), p.corner(1, 1), p.corner(1, -1), p.corner(-1, -1),
+            var quad = new OrbitWorldRenderer.Quad(p.corner(-1, 1), p.corner(1, 1), p.corner(1, -1), p.corner(-1, -1),
                     surface.texture(), p.alpha(), p.dim(), surface.uMax(), surface.vMax(), radius / p.designW(),
-                    radius / p.designH()));
+                    radius / p.designH());
+            if (p.active() && z < 0.5f) front = quad;
+            else quads.add(quad);
         }
         boolean safetyFront = "safety".equals(activeCategory()) && z < 0.5f && state != State.CLOSING;
         failsafeRing.step(lastDt, safetyFront);
@@ -485,6 +489,8 @@ public final class OrbitScreen extends Screen {
         }
         Vec3 eye = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         quads.sort(Comparator.comparingDouble((OrbitWorldRenderer.Quad q) -> -distanceSq(q, eye)));
+        // the panel you are reading goes on last, so no shadow, preview or neighbour drawn by distance can shade it
+        if (front != null) quads.add(front);
         renderer.draw(quads, into, intoWidth, intoHeight);
     }
 
@@ -655,6 +661,8 @@ public final class OrbitScreen extends Screen {
         if (click.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             draggingRing = true;
             dragLastX = click.x();
+            dragStartX = click.x();
+            ringMoved = false;
             momentum = 0f;
         }
         return true;
@@ -669,6 +677,9 @@ public final class OrbitScreen extends Screen {
             return true;
         }
         if (draggingRing) {
+            // a held click wobbles a few pixels; the ring only turns once the mouse really travels
+            if (!ringMoved && Math.abs(click.x() - dragStartX) < 6) return true;
+            ringMoved = true;
             double delta = (click.x() - dragLastX) / width * count * 0.9;
             dragLastX = click.x();
             ring.x -= (float) delta;

@@ -17,11 +17,9 @@ import net.minecraft.world.level.block.state.BlockState;
 // the menu's own little garden, built from real blocks around the player: a path at your feet, crop fields split by
 // water lanes on both sides, a pumpkin and melon patch behind, a barn and a few trees. always complete, never loaded
 final class PresetGarden implements SceneClone.Source {
-    static final int RADIUS = 56;
+    private static final int RADIUS = 40;
     private static final int LOW = -2;
-    private static final int HIGH = BarnCopy.MAX_HEIGHT;
-    // your copied Barn's near corner, out on the left past the lawn where it stands behind the skits, not in them
-    private static final int BARN_X = 10, BARN_Z = 10;
+    private static final int HIGH = 10;
 
     private final int ox, oy, oz;
     private final int cos, sin;
@@ -29,11 +27,9 @@ final class PresetGarden implements SceneClone.Source {
     private final int size = RADIUS * 2 + 1;
     private final BlockState[][] columns = new BlockState[size * size][];
     private final int[] tops = new int[size * size];
-    private final BarnCopy.Copy barn;
 
     // yaw is snapped to quarter turns, so the farm's +z (ahead of the player) lines up with the ring's front
-    PresetGarden(int ox, int oy, int oz, float yaw, BarnCopy.Copy barn) {
-        this.barn = barn;
+    PresetGarden(int ox, int oy, int oz, float yaw) {
         this.ox = ox;
         this.oy = oy;
         this.oz = oz;
@@ -85,7 +81,7 @@ final class PresetGarden implements SceneClone.Source {
         for (int x = 6; x <= 7; x++) {
             for (int z = 3; z <= 4; z++) set(x, -1, z, Blocks.WATER.defaultBlockState());
         }
-        if (barn == null) barn(-29, 22);
+        barn(-29, 22);
         tree(30, -24);
         tree(-33, -12);
         tree(36, 6);
@@ -96,7 +92,6 @@ final class PresetGarden implements SceneClone.Source {
         hay(-16, 22);
         lawn(-18, 31);
         set(-18, 0, 31, Blocks.COMPOSTER.defaultBlockState());
-        if (barn != null) copiedBarn();
         moisten();
     }
 
@@ -244,32 +239,6 @@ final class PresetGarden implements SceneClone.Source {
                 for (int z = z0 - 1; z <= z0 + d; z++) set(x, 5 + k, z, roof);
             }
         }
-    }
-
-    // your Barn as copied, its floor layer in place of the ground and the building on it; whatever the farm had
-    // there, trees overhanging included, makes way
-    private void copiedBarn() {
-        for (int z = 0; z < barn.depth(); z++) {
-            for (int x = 0; x < barn.width(); x++) {
-                int fx = BARN_X + x, fz = BARN_Z + z;
-                clear(fx, fz);
-                set(fx, -2, fz, Blocks.DIRT.defaultBlockState());
-                BlockState floor = barn.at(x, 0, z);
-                set(fx, -1, fz, floor.isAir() ? Blocks.GRASS_BLOCK.defaultBlockState() : floor);
-                for (int y = 1; y < barn.height(); y++) {
-                    BlockState s = barn.at(x, y, z);
-                    if (!s.isAir()) set(fx, y - 1, fz, s);
-                }
-            }
-        }
-    }
-
-    // the barn's columns stand full height in the menu, where the rest of the farm near you is kept low
-    boolean uncapped(int worldX, int worldZ) {
-        if (barn == null) return false;
-        int wx = worldX - ox, wz = worldZ - oz;
-        int dx = wx * cos + wz * sin, dz = -wx * sin + wz * cos;
-        return dx >= BARN_X && dx < BARN_X + barn.width() && dz >= BARN_Z && dz < BARN_Z + barn.depth();
     }
 
     private void tree(int x, int z) {
