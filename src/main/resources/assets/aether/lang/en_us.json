@@ -59,7 +59,7 @@
   "text.aether.mob_whitelist": "Mob Whitelist",
   "text.aether.mob_blacklist": "Mob Blacklist",
   "text.aether.add_mob_name": "Add mob name",
-  "text.aether.what_the_fishing_macro_casts_into_lava_water_or_a_nearby_fishing_hotspot_with_no_hotspot_around_it_fishes_whichever_liquid_is_closest": "What the fishing macro casts into: lava, water, or a nearby fishing hotspot. With no hotspot around it fishes whichever liquid is closest.",
+  "text.aether.what_the_fishing_macro_casts_into_lava_water_or_a_nearby_fishing_hotspot_which_it_walks_over_to_with_no_hotspot_around_it_fishes_whichever_liquid_is_closest": "What the fishing macro casts into: lava, water, or a nearby fishing hotspot, which it walks over to. With no hotspot around it fishes whichever liquid is closest.",
   "text.aether.only_catches_whose_name_contains_one_of_these_entries_are_fought_leave_it_empty_to_fight_everything_that_is_not_blacklisted": "Only catches whose name contains one of these entries are fought. Leave it empty to fight everything that is not blacklisted.",
   "text.aether.catches_whose_name_contains_one_of_these_entries_are_left_alone_and_named_in_chat_checked_before_the_whitelist": "Catches whose name contains one of these entries are left alone and named in chat. Checked before the whitelist.",
   "text.aether.fishing_macro_stopped_no_water_or_lava_within_reach": "Fishing Macro stopped: no water or lava within reach.",

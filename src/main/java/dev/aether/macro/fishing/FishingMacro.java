@@ -39,7 +39,7 @@ import java.util.random.RandomGenerator;
 // every delay here is wall-clock and every decision runs on the client tick, so the macro behaves the same at any fps
 public final class FishingMacro extends AbstractFishingMacro {
 
-    public enum State { MOVE, AIM, HEAL, CAST, WAIT_BITE, REEL, FIGHT }
+    public enum State { MOVE, SEEK, AIM, HEAL, CAST, WAIT_BITE, REEL, FIGHT }
 
     public enum AimAt {
         LAVA, WATER, HOTSPOT;
@@ -75,6 +75,8 @@ public final class FishingMacro extends AbstractFishingMacro {
     private static final long BOBBER_SETTLE_MS = 1_500L;
     // the server drops the float a moment after the reel, and the wand must not go out while it is still there
     private static final long HEAL_REEL_WAIT_MS = 2_000L;
+    // the same wait before a hotspot move, which is only planned once the float is gone
+    private static final long LINE_IN_WAIT_MS = 2_000L;
     private static final long REEL_SETTLE_MS = 350L;
     private static final long EMPTY_CATCH_DELAY_MIN_MS = 150L;
     private static final long EMPTY_CATCH_DELAY_MAX_MS = 400L;
@@ -141,7 +143,8 @@ public final class FishingMacro extends AbstractFishingMacro {
     private boolean hyperionMissingWarned;
 
     private final WandHealer healer = new WandHealer();
-    private final HotspotDetector hotspots = new HotspotDetector();
+    private final HotspotSeeker hotspots = new HotspotSeeker();
+    private long reeledAt;
     private State healResume = State.AIM;
     private long healReelAt;
     private int ticks;
@@ -159,7 +162,8 @@ public final class FishingMacro extends AbstractFishingMacro {
         unfoughtIds.clear();
         capFullSeen = false;
         healReelAt = 0L;
-        hotspots.clear();
+        hotspots.reset();
+        reeledAt = 0L;
         idle.clear();
         changeState(State.AIM);
         BlockPos origin = homeKeeper.origin();
@@ -170,6 +174,7 @@ public final class FishingMacro extends AbstractFishingMacro {
     @Override
     public void onDisable(Minecraft mc) {
         healer.abort(mc);
+        hotspots.cancel();
         homeKeeper.cancel(mc);
         RotationManager.cancelRotation();
         releaseAll(mc);
@@ -193,7 +198,7 @@ public final class FishingMacro extends AbstractFishingMacro {
         ticks++;
         healer.confirm(mc, System.currentTimeMillis());
         if (aimAt() == AimAt.HOTSPOT) {
-            hotspots.tick(mc);
+            hotspots.scan(mc);
         }
 
         // a turn has to land before the look it was for can be checked; the bite still has to be polled every tick
@@ -202,6 +207,7 @@ public final class FishingMacro extends AbstractFishingMacro {
         } else {
             switch (state) {
                 case MOVE -> tickMove(mc);
+                case SEEK -> tickSeek(mc);
                 case AIM -> tickAim(mc);
                 case HEAL -> tickHeal(mc);
                 case CAST -> tickCast(mc);
@@ -236,6 +242,20 @@ public final class FishingMacro extends AbstractFishingMacro {
             return;
         }
 
+        // a move is only planned with the line in, so no float is left behind at the old spot
+        if (aimAt() == AimAt.HOTSPOT && hotspots.wantsReplan(mc, now)) {
+            if (mc.player.fishing == null) {
+                hotspots.beginSeek();
+                resetOrigin();
+                changeState(State.SEEK);
+            } else if (now - reeledAt >= LINE_IN_WAIT_MS) {
+                FailsafeManager.selectHotbarSlot(mc, rodSlot());
+                ClientUtils.performUseClick();
+                reeledAt = now;
+            }
+            return;
+        }
+
         // a crouch still lifting moves the eye, and with it where the throw lands
         if (now < aimRetryAt || mc.player.isCrouching() || mc.player.getPose() != Pose.STANDING) {
             return;
@@ -252,8 +272,15 @@ public final class FishingMacro extends AbstractFishingMacro {
                 nextActionAt = now + castDelayForCycle();
                 return;
             }
-            // the turn landed somewhere a float cannot go after all, so that spot is out
-            rejected.add(aimTargetBlock);
+            // the turn landed somewhere a float cannot go after all, so that spot is out;
+            // a hotspot has only the one cell, so there it counts against the spot we stand on instead
+            if (hotspotTarget() != null) {
+                hotspots.miss();
+                confirmedAim = null;
+                aimSearch = null;
+            } else {
+                rejected.add(aimTargetBlock);
+            }
             aimTargetBlock = null;
         }
 
@@ -268,7 +295,7 @@ public final class FishingMacro extends AbstractFishingMacro {
 
         if (aimSearch == null) {
             aimSearch = new CastAimSearch(mc.level, mc.player.blockPosition(), mc.player.getEyePosition(),
-                    mc.player.getYRot(), CastAimSearch.Spec.GENERAL, rejected, liquid, ThreadLocalRandom.current());
+                    mc.player.getYRot(), aimSpec(), rejected, liquid, ThreadLocalRandom.current());
         }
         CastAimSearch.Step step = aimSearch.step();
         if (step.status() == CastAimSearch.Status.WORKING) {
@@ -276,6 +303,10 @@ public final class FishingMacro extends AbstractFishingMacro {
         }
         if (step.status() == CastAimSearch.Status.EXHAUSTED) {
             aimSearch = null;
+            if (hotspotTarget() != null) {
+                hotspots.spotUnusable();
+                return;
+            }
             if (sweepsExhausted(++emptySweeps)) {
                 fail("Fishing Macro stopped: no water or lava within reach.");
                 return;
@@ -370,11 +401,22 @@ public final class FishingMacro extends AbstractFishingMacro {
             // a float parked on an entity says nothing about where it came down
             if (!inLiquid && hookedIn == null) {
                 ClientUtils.sendDebugMessage("[FishingMacro] float landed out of the liquid, recasting");
-                rejectCast();
+                missCast();
+                reelBack();
+                return;
+            }
+            HotspotDetector.Hotspot hotspot = hotspotTarget();
+            if (hotspot != null && hookedIn == null
+                    && !HotspotSpotFinder.inRing(hook.position(), hotspot.centre(), HotspotSeeker.FLOAT_RING)) {
+                ClientUtils.sendDebugMessage("[FishingMacro] float came down outside the hotspot, recasting");
+                missCast();
                 reelBack();
                 return;
             }
             if (inLiquid) {
+                if (hotspot != null) {
+                    hotspots.hit();
+                }
                 // a float down in the liquid proves the spot, so the misses before it are forgiven
                 rejected.clear();
                 aimSearch = null;
@@ -430,6 +472,7 @@ public final class FishingMacro extends AbstractFishingMacro {
     private void reelBack() {
         idle.clear();
         ClientUtils.performUseClick();
+        reeledAt = System.currentTimeMillis();
         changeState(State.AIM);
         aimRetryAt = System.currentTimeMillis() + nextEmptyCatchDelayMs(ThreadLocalRandom.current());
     }
@@ -437,6 +480,7 @@ public final class FishingMacro extends AbstractFishingMacro {
     private void tickReel(Minecraft mc) {
         holdStill(mc);
         ClientUtils.performUseClick();
+        reeledAt = System.currentTimeMillis();
         target = null;
         fightIds.clear();
         long now = System.currentTimeMillis();
@@ -738,7 +782,28 @@ public final class FishingMacro extends AbstractFishingMacro {
         }
     }
 
+    private void tickSeek(Minecraft mc) {
+        holdStill(mc);
+        long now = System.currentTimeMillis();
+        HotspotSeeker.Seek seek = hotspots.tickSeek(mc, now, ThreadLocalRandom.current());
+        if (seek == HotspotSeeker.Seek.WORKING) {
+            return;
+        }
+        if (seek == HotspotSeeker.Seek.NONE) {
+            changeState(State.AIM);
+            return;
+        }
+        idle.clear();
+        releaseAll(mc);
+        hotspots.beginTrip(mc, now);
+        changeState(State.MOVE);
+    }
+
     private void tickMove(Minecraft mc) {
+        if (hotspots.onTrip()) {
+            tickHotspotTrip(mc);
+            return;
+        }
         if (homeKeeper.origin() == null) {
             changeState(State.AIM);
             return;
@@ -752,6 +817,23 @@ public final class FishingMacro extends AbstractFishingMacro {
         } else if (result == HomeKeeper.Result.FAILED) {
             fail("Fishing Macro stopped: could not get back onto the start block.");
         }
+    }
+
+    private void tickHotspotTrip(Minecraft mc) {
+        HotspotSeeker.Trip trip = hotspots.tickTrip(mc, System.currentTimeMillis());
+        if (trip == HotspotSeeker.Trip.RUNNING) {
+            return;
+        }
+        releaseAll(mc);
+        RotationManager.cancelRotation();
+        if (trip == HotspotSeeker.Trip.FAILED) {
+            changeState(State.SEEK);
+            return;
+        }
+        // the spot is home from now on, so a knock off it walks back here rather than to where we started
+        homeKeeper.start(hotspots.spot());
+        resetOrigin();
+        changeState(State.AIM);
     }
 
     private void beginMove(Minecraft mc) {
@@ -807,6 +889,18 @@ public final class FishingMacro extends AbstractFishingMacro {
         castAim = null;
     }
 
+    // at a hotspot every throw aims at the one middle cell, so a bad float counts against the spot instead
+    private void missCast() {
+        if (hotspotTarget() == null) {
+            rejectCast();
+            return;
+        }
+        hotspots.miss();
+        confirmedAim = null;
+        castLanding = null;
+        castAim = null;
+    }
+
     // the sim promised this throw the liquid, so neither the cell nor the block it aimed at is trusted again
     private void rejectCast() {
         if (castLanding != null) {
@@ -831,7 +925,23 @@ public final class FishingMacro extends AbstractFishingMacro {
         Vec3 landing = CastSim.predictCastLanding(mc.level, mc.player.getEyePosition(), mc.player.getYRot(),
                 mc.player.getXRot(), liquid, CastSim.DEFAULT_TICKS, spec.maxLandingHorizontal());
         BlockPos block = landing == null ? null : BlockPos.containing(landing);
+        HotspotDetector.Hotspot hotspot = hotspotTarget();
+        if (hotspot != null && block != null
+                && !HotspotSpotFinder.inRing(landing, hotspot.centre(), spec.targetTolerance())) {
+            return null;
+        }
         return CastSim.acceptsLanding(block, rejected) ? block : null;
+    }
+
+    private CastAimSearch.Spec aimSpec() {
+        HotspotDetector.Hotspot hotspot = hotspotTarget();
+        return hotspot != null
+                ? CastAimSearch.Spec.GENERAL.withTarget(hotspot.aimPoint())
+                : CastAimSearch.Spec.GENERAL;
+    }
+
+    private HotspotDetector.Hotspot hotspotTarget() {
+        return aimAt() == AimAt.HOTSPOT ? hotspots.fishing() : null;
     }
 
     static boolean withinPitchBand(float pitch, float min, float max) {
@@ -843,8 +953,7 @@ public final class FishingMacro extends AbstractFishingMacro {
             case LAVA -> CastSim::isLava;
             case WATER -> CastSim::isWater;
             case HOTSPOT -> {
-                HotspotDetector.Hotspot hotspot = HotspotDetector.nearest(hotspots.seen(), mc.player.position(),
-                        Set.of());
+                HotspotDetector.Hotspot hotspot = hotspotTarget();
                 yield hotspot != null ? hotspot.liquid() : nearestLiquid(mc);
             }
         };
