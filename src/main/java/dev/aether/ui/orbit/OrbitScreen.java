@@ -339,7 +339,7 @@ public final class OrbitScreen extends Screen {
         Vector3d lens = new Vector3d(cam.pos()).sub(anchor);
         Vector3d camLocal = new Vector3d(lens.x * Math.cos(yaw) + lens.z * Math.sin(yaw), lens.y,
                 -lens.x * Math.sin(yaw) + lens.z * Math.cos(yaw));
-        var draws = actors.build(toWorld, camLocal, figure);
+        var draws = actors.build(toWorld, camLocal, new org.joml.Vector3f(cam.right()), new org.joml.Vector3f(cam.up()), figure);
         var frame = new SceneRenderer.Frame(anchor.x, anchor.y, anchor.z, sceneYaw(), figureBuffer,
                 skin.body().texturePath(), crimson ? 0xFF2A0A10 : 0xFF6FA2E8, crimson ? 0xFF7A2E1C : 0xFFC7DDF5,
                 draws, null);
@@ -478,10 +478,6 @@ public final class OrbitScreen extends Screen {
                         SettingPreview.liveRewarps());
                 settingPreview.appendQuads(quads, world, layout.camera(), clock);
             }
-        }
-        if (clone != null && player != null) {
-            Vector3d anchorNow = sceneAnchor(player.getPosition(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true)));
-            actors.appendQuads(quads, local -> rigToWorld(anchorNow, local.x, local.y, local.z), layout.camera());
         }
         Vec3 eye = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         quads.sort(Comparator.comparingDouble((OrbitWorldRenderer.Quad q) -> -distanceSq(q, eye)));

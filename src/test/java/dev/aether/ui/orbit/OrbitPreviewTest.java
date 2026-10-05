@@ -256,13 +256,18 @@ class OrbitPreviewTest {
     private List<String> renderStages(String only) throws Exception {
         Vector3f front = new Vector3f(3.2f, 2.4f, 6.5f), side = new Vector3f(9f, 3.4f, 4.5f);
         Vector3f centre = new Vector3f(0.4f, 0.9f, 0f);
+        Vector3f game = new Vector3f((float) OrbitRig.TP_POS.x, (float) OrbitRig.TP_POS.y + 1.62f, (float) OrbitRig.TP_POS.z);
+        Vector3f gameAt = new Vector3f((float) OrbitRig.TP_LOOK.x, (float) OrbitRig.TP_LOOK.y, (float) OrbitRig.TP_LOOK.z);
+        float[] pestTimes = {0.6f, 1.0f, 1.4f, 2.2f, 3.2f, 4.6f, 5.6f, 6.6f, 8.6f};
         List<Stage> stages = List.of(
-                new Stage("stage-pests", new SceneActors.Inputs("Pest Manager", true, 0, 5, 0),
-                        new float[]{0.5f, 1.0f, 1.15f, 1.8f, 2.6f, 3.1f, 3.8f, 4.4f, 5.2f}, new Vector3f(7f, 3f, 2.5f),
-                        new Vector3f(0f, 1f, -1f)),
+                new Stage("stage-pests", new SceneActors.Inputs("Pest Manager", true, 0, 5, 0), pestTimes,
+                        new Vector3f(-4.5f, 3.6f, -5.5f), new Vector3f(1.4f, 0.9f, 0.6f)),
+                new Stage("stage-pests-game", new SceneActors.Inputs("Pest Manager", true, 0, 5, 0), pestTimes, game, gameAt),
                 new Stage("stage-bed", new SceneActors.Inputs("Dynamic Rest", true, 0, 0, 0),
-                        new float[]{0.45f, 0.85f, 1.4f, 1.75f, 2.1f, 2.7f, 3.2f, 3.5f, 5.5f}, new Vector3f(2.5f, 2.8f, 6.5f),
-                        new Vector3f(1f, 0.8f, -0.4f)),
+                        new float[]{0.45f, 0.85f, 1.4f, 1.8f, 2.2f, 2.8f, 3.25f, 3.6f, 5.5f}, new Vector3f(-2.5f, 3.2f, 4.5f),
+                        new Vector3f(1.8f, 0.6f, -0.4f)),
+                new Stage("stage-bed-game", new SceneActors.Inputs("Dynamic Rest", true, 0, 0, 0),
+                        new float[]{0.45f, 0.85f, 1.4f, 1.8f, 2.2f, 2.8f, 3.25f, 3.6f, 5.5f}, game, gameAt),
                 new Stage("stage-craft", new SceneActors.Inputs("Auto Supercraft", true, 0, 0, 0),
                         new float[]{0.2f, 0.45f, 0.8f, 1.0f, 1.3f, 2.4f, 2.7f, 6f, 12f}, new Vector3f(4.5f, 2.6f, 4.5f),
                         new Vector3f(0.5f, 0.9f, 0.7f)),
@@ -270,14 +275,16 @@ class OrbitPreviewTest {
                         new float[]{0.6f, 1f, 1.4f, 1.8f, 2.2f, 2.6f, 3f, 3.4f, 3.8f}, new Vector3f(4.5f, 2.6f, 4.5f),
                         new Vector3f(0.5f, 0.9f, 0.7f)),
                 new Stage("stage-visitors", new SceneActors.Inputs("Auto Visitor", true, 4, 0, 0),
-                        new float[]{1f, 2.5f, 4f, 5.5f, 7f, 8.5f, 10f, 11.5f, 13f}, side, new Vector3f(0f, 0.9f, 4.5f)),
+                        new float[]{1f, 2.5f, 4f, 5.5f, 7f, 8.5f, 10f, 11.5f, 13f}, new Vector3f(9f, 3.4f, 4.5f),
+                        new Vector3f(0f, 0.9f, 4.5f)),
                 new Stage("stage-gold", new SceneActors.Inputs("Auto Visitor", true, 1, 0, 20),
-                        new float[]{0.3f, 1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f}, front, centre),
-                new Stage("stage-gold-light", new SceneActors.Inputs("Auto Visitor", true, 1, 0, 2),
-                        new float[]{0.3f, 1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f}, front, centre),
+                        new float[]{0.3f, 1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f}, new Vector3f(3.2f, 2.4f, 6.5f),
+                        new Vector3f(0.4f, 0.9f, 0f)),
                 new Stage("stage-loadout", new SceneActors.Inputs("Auto Loadout", true, 0, 0, 0),
-                        new float[]{0.5f, 1.3f, 1.8f, 2.2f, 3.0f, 3.9f, 4.5f, 6.4f, 7.2f}, new Vector3f(1.5f, 2.6f, 7.5f),
-                        new Vector3f(2f, 0.9f, 0.5f)));
+                        new float[]{0.5f, 1.3f, 1.8f, 2.2f, 3.0f, 3.9f, 4.5f, 6.4f, 7.2f}, new Vector3f(1.5f, 2.6f, 9.5f),
+                        new Vector3f(3f, 0.9f, 1.5f)),
+                new Stage("stage-loadout-game", new SceneActors.Inputs("Auto Loadout", true, 0, 0, 0),
+                        new float[]{0.5f, 1.3f, 1.8f, 2.2f, 3.0f, 3.9f, 4.5f, 6.4f, 7.2f}, game, gameAt));
         int scene = link("orbit_scene.vsh", "orbit_scene.fsh");
         int stageVao = GL30.glGenVertexArrays();
         int stageVbo = GL15.glGenBuffers();
@@ -319,8 +326,9 @@ class OrbitPreviewTest {
             Vector3d forward = new Vector3d(look).sub(eye).normalize();
             Vector3d right = new Vector3d(forward).cross(0, 1, 0).normalize();
             Vector3d up = new Vector3d(right).cross(forward).normalize();
-            OrbitLayout.Camera cam = new OrbitLayout.Camera(eye, look, forward, right, up, 40f);
-            Matrix4f vp = new Matrix4f().perspective((float) Math.toRadians(40), (float) W / H, 0.05f, 200f)
+            float fov = stage.name().endsWith("-game") ? OrbitRig.FOV : 40f;
+            OrbitLayout.Camera cam = new OrbitLayout.Camera(eye, look, forward, right, up, fov);
+            Matrix4f vp = new Matrix4f().perspective((float) Math.toRadians(fov), (float) W / H, 0.05f, 200f)
                     .lookAt(stage.eye(), stage.at(), new Vector3f(0, 1, 0));
             BufferedImage strip = new BufferedImage(W, H, BufferedImage.TYPE_INT_RGB);
             java.awt.Graphics2D g = strip.createGraphics();
@@ -334,10 +342,8 @@ class OrbitPreviewTest {
                 figure.lookAt((float) eye.x, (float) eye.y, (float) eye.z, dt);
                 body.reset();
                 figure.build(body, new Matrix4f(), false, t);
-                var draws = actors.build(new Matrix4f(), new Vector3d(eye), figure);
+                var draws = actors.build(new Matrix4f(), new Vector3d(eye), new Vector3f(cam.right()), new Vector3f(cam.up()), figure);
                 if (t + 1e-4f < stage.times()[shot]) continue;
-                List<OrbitWorldRenderer.Quad> flat = new ArrayList<>();
-                actors.appendQuads(flat, v -> new Vector3d(v.x, v.y, v.z), cam);
                 GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
                 GL11.glViewport(0, 0, W, H);
                 GL11.glClearColor(0.6f, 0.76f, 0.95f, 1f);
@@ -353,14 +359,7 @@ class OrbitPreviewTest {
                 GL20.glUniform1i(GL20.glGetUniformLocation(program, "Panel"), 0);
                 GL30.glBindVertexArray(vao);
                 GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-                quad(new Vector3d(-30, 0, 30), new Vector3d(30, 0, 30), new Vector3d(30, 0, -30), new Vector3d(-30, 0, -30),
-                        white, 1f, 0f, 0.38f, 0.58f, 0.25f);
-                quad(new Vector3d(-1, 0.005, 30), new Vector3d(1, 0.005, 30), new Vector3d(1, 0.005, -12), new Vector3d(-1, 0.005, -12),
-                        white, 1f, 0f, 0.55f, 0.42f, 0.28f);
-                for (int k = -12; k <= 30; k += 2) {
-                    quad(new Vector3d(-1, 0.007, k + 0.05), new Vector3d(1, 0.007, k + 0.05), new Vector3d(1, 0.007, k - 0.05),
-                            new Vector3d(-1, 0.007, k - 0.05), white, 1f, 0f, 0.45f, 0.34f, 0.22f);
-                }
+                stageGround();
                 GL20.glUseProgram(scene);
                 GL20.glUniform1i(GL20.glGetUniformLocation(scene, "Sampler"), 0);
                 GL20.glUniform3f(GL20.glGetUniformLocation(scene, "Offset"), 0f, 0f, 0f);
@@ -382,18 +381,6 @@ class OrbitPreviewTest {
                     GL15.glBufferData(GL15.GL_ARRAY_BUFFER, d.buffer().finish(), GL15.GL_STREAM_DRAW);
                     GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, count);
                 }
-                GL20.glUseProgram(program);
-                GL30.glBindVertexArray(vao);
-                GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-                GL11.glEnable(GL11.GL_BLEND);
-                GL14.glBlendFuncSeparate(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
-                GL11.glDepthMask(false);
-                flat.sort(Comparator.comparingDouble((OrbitWorldRenderer.Quad q) -> -q.topLeft().distanceSquared(eye)));
-                for (OrbitWorldRenderer.Quad q : flat) {
-                    quad(q.topLeft(), q.topRight(), q.bottomRight(), q.bottomLeft(), q.texture(), q.alpha(), q.dim(), 1f, 1f, 1f);
-                }
-                GL11.glDepthMask(true);
-                GL11.glDisable(GL11.GL_BLEND);
                 int col = shot % 3, row = shot / 3;
                 g.drawImage(read(), col * W / 3, row * H / 3, W / 3, H / 3, null);
                 g.setColor(java.awt.Color.WHITE);
@@ -410,6 +397,31 @@ class OrbitPreviewTest {
         GL30.glBindVertexArray(vao);
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
         return out;
+    }
+
+    // a flat sketch of the preset farm around the player: the path and its cross path, wheat and potato fields and
+    // the hedged yard beside the path, laid out like PresetGarden with the player in the middle of block 0
+    private void stageGround() {
+        flat(-40, 40, -40, 40, 0f, 0.38f, 0.58f, 0.25f);
+        flat(2.5, 34.5, -8.5, 13.5, 0.004, 0.78f, 0.68f, 0.3f);
+        flat(-34.5, -2.5, -8.5, 13.5, 0.004, 0.42f, 0.55f, 0.22f);
+        for (int lane = -34; lane <= 34; lane++) {
+            if (Math.abs(lane) < 3 || Math.floorMod(Math.abs(lane) - 3, 9) != 4) continue;
+            flat(lane - 0.5, lane + 0.5, -8.5, 13.5, 0.006, 0.25f, 0.42f, 0.85f);
+        }
+        flat(1.5, 8.5, -5.5, 7.5, 0.008, 0.38f, 0.58f, 0.25f);
+        flat(-1.5, 1.5, -12.5, 38.5, 0.01, 0.58f, 0.45f, 0.3f);
+        flat(-38.5, 38.5, 12.5, 15.5, 0.01, 0.58f, 0.45f, 0.3f);
+        box(7.5, 0, -5.5, 8.5, 1, 7.5, 0.2f, 0.45f, 0.15f);
+        box(1.5, 0, -5.5, 8.5, 1, -4.5, 0.2f, 0.45f, 0.15f);
+        box(1.5, 0, 6.5, 8.5, 1, 7.5, 0.2f, 0.45f, 0.15f);
+        for (double[] post : new double[][]{{1.5, -5.5}, {7.5, -5.5}, {1.5, 6.5}, {7.5, 6.5}}) {
+            box(post[0], 0, post[1], post[0] + 1, 2.2, post[1] + 1, 0.55f, 0.42f, 0.25f);
+        }
+    }
+
+    private void flat(double x0, double x1, double z0, double z1, double y, float r, float g, float b) {
+        quad(new Vector3d(x0, y, z1), new Vector3d(x1, y, z1), new Vector3d(x1, y, z0), new Vector3d(x0, y, z0), white, 1f, 0f, r, g, b);
     }
 
     private static int textureFrom(java.io.InputStream in) throws Exception {

@@ -1,7 +1,5 @@
 package dev.aether.ui.orbit;
 
-import dev.aether.renderer.McIcons;
-import dev.aether.ui.util.Fonts;
 import net.minecraft.resources.Identifier;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
@@ -11,13 +9,12 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.function.IntFunction;
 
 // the farm acts out the module you are looking at, each as a little looping skit in the spirit of minecraft live:
 // visitors queue up the path and trade, gold bars weigh you down, a crafting table drops in and you craft, flying
-// pests chase you around, a bed lands and you hop in with a nightcap, armour stands show themselves off.
-// local space is the farm's, in blocks around your feet, +z up the path
+// pests chase you round the yard until you vacuum them up, a bed lands and you hop in with a nightcap, armour
+// stands show off their sets. local space is the farm's, in blocks around your feet, +z up the path, the yard at +x
 final class SceneActors implements AutoCloseable {
     record Draw(Identifier texture, SceneClone.Buffer buffer) {
     }
@@ -42,18 +39,23 @@ final class SceneActors implements AutoCloseable {
     private static final Identifier BEE = mc("textures/entity/bee/bee.png");
     private static final Identifier RED_WOOL = mc("textures/block/red_wool.png");
     private static final Identifier WHITE_WOOL = mc("textures/block/white_wool.png");
+    private static final Identifier IRON = mc("textures/block/iron_block.png");
+    private static final Identifier LIME = mc("textures/block/lime_concrete.png");
+    private static final Identifier GRAY = mc("textures/block/gray_concrete.png");
+    private static final Identifier BLACK = mc("textures/block/black_concrete.png");
+    private static final Identifier PATH = mc("textures/block/dirt_path_top.png");
+    private static final Identifier GRASS = mc("textures/block/grass_block_top.png");
+    private static final Identifier EMERALD = mc("textures/item/emerald.png");
+    private static final int GRASS_TINT = 0x91BD59;
     private static final String[] METALS = {"gold", "diamond", "netherite"};
+
+    // the yard beside the path where the bed and the stands go, clear of the crops (see PresetGarden.yard)
+    private static final float BED_X = 2.9f, BED_Z = -0.6f;
+    private static final float TABLE_Z = 1.3f;
 
     // drop-ins fall for DROP seconds, then squash on landing for LAND
     private static final float DROP = 0.35f;
     private static final float LAND = 0.3f;
-
-    private enum Kind { PUFF, ZEE, SPARKLE, GLINT, BANG, QUESTION, YAWN, SWEAT, CHIP, HAPPY, BUBBLE, EMERALD, DUST }
-
-    private static final class Particle {
-        Kind kind;
-        float x, y, z, vx, vy, vz, gravity, drag, age, life, size;
-    }
 
     private enum Step { LOOKING, WALKING, WAITING, LEAVING }
 
@@ -70,7 +72,7 @@ final class SceneActors implements AutoCloseable {
         final Vector3f at = new Vector3f();
         final Vector3f last = new Vector3f();
         boolean shown;
-        float shownFor;
+        float shownFor, scale = 1f;
 
         Pest(int index) {
             this.index = index;
@@ -93,10 +95,8 @@ final class SceneActors implements AutoCloseable {
     private final Map<Identifier, SceneClone.Buffer> buffers = new LinkedHashMap<>();
     private final List<Villager> villagers = new ArrayList<>();
     private final List<Pest> pests = new ArrayList<>();
-    private final List<Particle> particles = new ArrayList<>();
     private final List<Crafted> crafted = new ArrayList<>();
-    private final Map<Kind, PanelSurface> sprites = new LinkedHashMap<>();
-    private boolean drawn;
+    private final SceneParticles particles = new SceneParticles();
 
     private String focus;
     private float scene;
@@ -106,12 +106,14 @@ final class SceneActors implements AutoCloseable {
     private float tableHit;
     private float bed = -1f;
     private float cap;
+    private float vacuum;
     private int worn = -1;
     private float spawnCooldown;
-    private float[] stands = new float[3];
+    private final float[] stands = new float[3];
     private int bars;
     private float strikes;
-    private float zeeTimer, sweatTimer, dustTimer, sparkleTimer, snoreTimer, questionTimer, glintTimer;
+    private float zeeTimer, sweatTimer, dustTimer, sparkleTimer, snoreTimer, questionTimer, glintTimer, breathTimer,
+            suckTimer;
 
     SceneActors(IntFunction<Identifier> heads) {
         this.heads = heads;
@@ -148,41 +150,48 @@ final class SceneActors implements AutoCloseable {
         float shownFor = DROP + LAND;
         table = crafting ? (table < 0f ? 0f : table + dt) : (table < 0f ? -1f : Math.min(table, shownFor) - dt * 3f);
         if (!crafting && table < 0f) table = -1f;
-        if (crafting && table - dt < DROP && table >= DROP) burst(0f, 0.2f, 1.3f, 14, Kind.PUFF);
+        if (crafting && table - dt < DROP && table >= DROP) landed(0f, TABLE_Z);
         if (crafting) craft(dt, pose);
 
         bed = resting ? (bed < 0f ? 0f : bed + dt) : (bed < 0f ? -1f : Math.min(bed, shownFor) - dt * 3f);
         if (!resting && bed < 0f) bed = -1f;
-        if (resting && bed - dt < DROP && bed >= DROP) burst(1.8f, 0.2f, -0.6f, 14, Kind.PUFF);
+        if (resting && bed - dt < DROP && bed >= DROP) landed(BED_X, BED_Z);
         if (resting) sleep(dt, pose);
 
         pests(dt, pestsOn ? clamp(in.pests(), 0, 8) : 0, pose);
+        if (!pestsOn) vacuum = Math.max(0f, vacuum - dt * 4f);
 
         if (loadout) {
             if (scene - dt <= 0f) for (int i = 0; i < 3; i++) stands[i] = -0.2f * i;
             for (int i = 0; i < 3; i++) {
                 float before = stands[i];
                 stands[i] += dt;
-                if (before < DROP && stands[i] >= DROP) burst(standSpot(i).x, 0.2f, standSpot(i).z, 12, Kind.PUFF);
+                Vector3f at = standSpot(i);
+                if (before < DROP && stands[i] >= DROP) landed(at.x, at.z);
             }
-            loadout(dt, pose);
+            loadout(pose);
         } else {
             for (int i = 0; i < 3; i++) stands[i] = Math.max(0f, Math.min(stands[i], shownFor) - dt * 3f);
         }
 
-        for (int i = particles.size() - 1; i >= 0; i--) {
-            Particle p = particles.get(i);
-            p.age += dt;
-            p.vy -= p.gravity * dt;
-            float keep = (float) Math.pow(p.drag, dt);
-            p.vx *= keep;
-            p.vz *= keep;
-            p.x += p.vx * dt;
-            p.y += p.vy * dt;
-            p.z += p.vz * dt;
-            if (p.age >= p.life) particles.remove(i);
-        }
+        particles.step(dt);
         for (Crafted c : crafted) c.age += dt;
+    }
+
+    // something heavy lands: a poof and a spray of whatever it landed on
+    private void landed(float x, float z) {
+        particles.poof(x, 0.3f, z, 10, 0.5f);
+        for (int i = 0; i < 12; i++) {
+            float a = (float) (Math.random() * Math.PI * 2);
+            ground(x + (float) Math.cos(a) * 0.5f, z + (float) Math.sin(a) * 0.5f, (float) Math.cos(a) * 0.12f, 0.2f,
+                    (float) Math.sin(a) * 0.12f);
+        }
+    }
+
+    // a crumb of the block under (x, z): the path near the middle, grass either side
+    private void ground(float x, float z, float vx, float vy, float vz) {
+        boolean path = Math.abs(x) < 1.5f;
+        particles.terrain(path ? PATH : GRASS, x, 0.05f, z, vx, vy, vz, path ? 0xFFFFFF : GRASS_TINT);
     }
 
     // visitors pop in down the path, look about and queue up toward you. the one at the front grumbles over your
@@ -203,14 +212,14 @@ final class SceneActors implements AutoCloseable {
             v.x = 0f;
             v.z = SPAWN;
             villagers.add(v);
-            burst(v.x, 0.9f, v.z, 16, Kind.PUFF);
+            particles.poof(v.x, 0.9f, v.z, 14, 0.4f);
             spawnCooldown = 0.55f;
         }
         for (int i = villagers.size() - 1; i >= 0 && staying > count; i--) {
             Villager v = villagers.get(i);
             if (v.step == Step.LEAVING || v.poof >= 0f) continue;
             v.poof = 0f;
-            burst(v.x, 0.9f, v.z, 12, Kind.PUFF);
+            particles.poof(v.x, 0.9f, v.z, 12, 0.4f);
             staying--;
         }
         for (int i = villagers.size() - 1; i >= 0; i--) {
@@ -231,13 +240,15 @@ final class SceneActors implements AutoCloseable {
                     float to = queueSpot(v.place);
                     float move = Math.min(Math.abs(v.z - to), 2.4f * dt);
                     v.z -= Math.signum(v.z - to) * move;
+                    float before = v.stride;
                     v.stride += move;
+                    if ((int) (before * 1.1f) != (int) (v.stride * 1.1f)) ground(v.x, v.z, 0f, 0.1f, 0f);
                     if (Math.abs(v.z - to) < 1e-3f) {
                         next(v, Step.WAITING);
                         v.landed = 0f;
                         if (v.place == 0) {
                             figure.wave(v.x, v.z);
-                            burst(v.x, 1.7f, v.z, 5, Kind.HAPPY);
+                            particles.happy(v.x, 1.9f, v.z, 5, 0.4f);
                         }
                     }
                 }
@@ -246,9 +257,10 @@ final class SceneActors implements AutoCloseable {
                     else if (v.place == 0) {
                         float before = v.trade;
                         v.trade += dt;
+                        if (before < 0.25f && v.trade >= 0.25f) particles.angry(v.x, 1.6f, v.z);
                         if (before < 0.9f && v.trade >= 0.9f) {
-                            emerald(v.x, 2.4f, v.z);
-                            burst(v.x, 1.4f, v.z, 9, Kind.HAPPY);
+                            particles.item(EMERALD, v.x, 2.2f, v.z, 0.18f, 26, 0.22f);
+                            particles.happy(v.x, 1.4f, v.z, 9, 0.45f);
                         }
                         if (v.trade >= TRADE) {
                             next(v, Step.LEAVING);
@@ -266,7 +278,7 @@ final class SceneActors implements AutoCloseable {
                     }
                     if (v.x > 3.6f) {
                         v.poof = 0f;
-                        burst(v.x, 0.9f, v.z, 12, Kind.PUFF);
+                        particles.poof(v.x, 0.9f, v.z, 12, 0.4f);
                     }
                 }
             }
@@ -299,11 +311,12 @@ final class SceneActors implements AutoCloseable {
         float stagger = (time % 3.1f) / 0.7f;
         if (w > 0.45f && stagger < 1f) {
             float s = (float) Math.sin(Math.PI * stagger);
+            float side = (int) (time / 3.1f) % 2 == 0 ? 1f : -1f;
             pose.legs = (float) Math.sin(stagger * Math.PI * 2) * 22f * w;
             pose.legsWeight = 1f;
-            pose.roll += s * 9f * w * ((int) (time / 3.1f) % 2 == 0 ? 1f : -1f);
+            pose.roll += s * 9f * w * side;
             pose.lean -= s * 8f;
-            pose.x += s * 0.08f * ((int) (time / 3.1f) % 2 == 0 ? 1f : -1f);
+            pose.x += s * 0.08f * side;
         }
         Villager trader = trader();
         if (trader != null) {
@@ -315,8 +328,8 @@ final class SceneActors implements AutoCloseable {
         sparkleTimer -= dt * (0.6f + bars * 0.25f);
         if (sparkleTimer <= 0f) {
             sparkleTimer = 0.4f;
-            spawn(Kind.SPARKLE, pose.x + (float) (Math.random() - 0.5) * 0.4f, 1.1f + bars * 0.05f, 0.4f, 0f, 0.3f, 0f,
-                    0f, 1f, 0.7f, 0.18f);
+            particles.spark(pose.x + (float) (Math.random() - 0.5) * 0.4f, 1.1f + bars * 0.05f, 0.45f, 0f, 0.02f, 0f,
+                    0xFFD84A);
         }
         if (w > 0.35f) sweat(dt * w * 1.5f, pose.x, pose.z);
     }
@@ -336,7 +349,7 @@ final class SceneActors implements AutoCloseable {
             questionTimer -= dt;
             if (questionTimer <= 0f) {
                 questionTimer = 2.2f;
-                spawn(Kind.QUESTION, 0.15f, 2.3f, 0f, 0f, 0.35f, 0f, 0f, 1f, 1.4f, 0.45f);
+                particles.glyph('?', 0xFFFF55, 0.1f, 2.25f, 0f, 0f, 0.02f, 30, 0.22f);
             }
             return;
         }
@@ -352,23 +365,24 @@ final class SceneActors implements AutoCloseable {
             float k = c * 4f;
             if ((int) k != (int) strikes) {
                 tableHit = 0.12f;
-                for (int i = 0; i < 3; i++) {
-                    spawn(Kind.CHIP, (float) (Math.random() - 0.5) * 0.5f, 1.05f, 1.3f + (float) (Math.random() - 0.5) * 0.5f,
-                            (float) (Math.random() - 0.5) * 2f, 2f + (float) Math.random(), (float) (Math.random() - 0.5) * 2f,
-                            9f, 0.5f, 0.6f, 0.12f);
+                for (int i = 0; i < 4; i++) {
+                    particles.terrain(i % 2 == 0 ? TABLE_FRONT : PLANKS, (float) (Math.random() - 0.5) * 0.6f, 1.02f,
+                            TABLE_Z + (float) (Math.random() - 0.5) * 0.6f, (float) (Math.random() - 0.5) * 0.15f,
+                            0.12f + (float) Math.random() * 0.1f, (float) (Math.random() - 0.5) * 0.15f, 0xFFFFFF);
                 }
+                particles.crit(0f, 1.05f, TABLE_Z, 2, false);
             }
             strikes = k;
         } else if (c < 2.1f) {
             if (strikes < 6.4f) {
                 strikes = 7f;
                 int n = crafted.size();
-                crafted.add(new Crafted(1.2f + (n % 3) * 0.33f, (n / 3) * 0.3f, 1.0f + (n % 2) * 0.28f));
+                crafted.add(new Crafted(1.0f + (n % 3) * 0.33f, (n / 3) * 0.3f, 1.0f + (n % 2) * 0.28f));
                 if (crafted.size() > 9) {
                     crafted.clear();
-                    burst(1.5f, 0.3f, 1.2f, 10, Kind.PUFF);
+                    particles.poof(1.3f, 0.3f, 1.2f, 10, 0.4f);
                 }
-                burst(0f, 1.2f, 1.3f, 6, Kind.SPARKLE);
+                particles.crit(0f, 1.2f, TABLE_Z, 10, true);
             }
             // a little cheer
             float k = (c - 1.6f) / 0.5f;
@@ -382,33 +396,36 @@ final class SceneActors implements AutoCloseable {
         }
         glintTimer -= dt;
         if (glintTimer <= 0f && !crafted.isEmpty()) {
-            glintTimer = 0.35f;
-            Crafted c2 = crafted.get((int) (Math.random() * crafted.size()));
-            spawn(Kind.GLINT, c2.x + (float) (Math.random() - 0.5) * 0.3f, c2.y + 0.15f + (float) Math.random() * 0.2f,
-                    c2.z + (float) (Math.random() - 0.5) * 0.3f, 0f, 0.2f, 0f, 0f, 1f, 0.8f, 0.16f);
+            glintTimer = 0.4f;
+            Crafted g = crafted.get((int) (Math.random() * crafted.size()));
+            particles.crit(g.x, g.y + 0.3f, g.z, 1, true);
         }
     }
 
-    // the bed drops beside you; you yawn, hop on, turn, pull a nightcap on and topple back to snore
+    // the bed drops beside you in the yard; you yawn, hop on, turn, pull a nightcap on and topple back to snore
     private void sleep(float dt, PlayerFigure.Pose pose) {
         float t = bed;
         float bedTop = 0.5625f;
-        float bx = 1.8f, bz = 0.3f;
+        float bx = BED_X, bz = BED_Z + 0.9f;
         pose.look = 0f;
         if (t < 0.65f) {
-            pose.headYaw = 50f * smooth(t / 0.3f);
+            pose.headYaw = 55f * smooth(t / 0.3f);
             if (t > DROP) pose.y = (float) Math.sin(Math.PI * Math.min(1f, (t - DROP) / LAND)) * 0.12f;
             return;
         }
         if (t < 1.25f) {
             float k = (t - 0.65f) / 0.6f;
             float s = (float) Math.sin(Math.PI * k);
-            pose.headYaw = 50f * (1f - smooth(k));
+            pose.headYaw = 55f * (1f - smooth(k));
             pose.right = pose.left = -170f;
             pose.rightWeight = pose.leftWeight = s;
             pose.lean = -12f * s;
             pose.headPitch = -25f * s;
-            if (t - dt < 0.75f && t >= 0.75f) spawn(Kind.YAWN, 0f, 1.75f, 0.35f, 0f, 0.2f, 0.1f, 0f, 1f, 0.9f, 0.3f);
+            breathTimer -= dt;
+            if (k > 0.2f && k < 0.7f && breathTimer <= 0f) {
+                breathTimer = 0.08f;
+                particles.cloud(0f, 1.62f, 0.3f, 0f, 0.02f, 0.04f, 0.6f);
+            }
             return;
         }
         if (t < 1.5f) {
@@ -419,36 +436,37 @@ final class SceneActors implements AutoCloseable {
             pose.lean = 18f * k;
             return;
         }
-        if (t < 2.0f) {
-            float k = (t - 1.5f) / 0.5f;
+        if (t < 2.05f) {
+            float k = (t - 1.5f) / 0.55f;
+            float e = smooth(k);
             pose.facing = 90f;
-            pose.x = bx * k;
-            pose.z = bz * k;
-            pose.y = bedTop * k + (float) Math.sin(Math.PI * k) * 1.1f;
+            pose.x = bx * e;
+            pose.z = bz * e;
+            pose.y = bedTop * k + (float) Math.sin(Math.PI * k) * 1.2f;
             pose.right = pose.left = -165f;
             pose.rightWeight = pose.leftWeight = 1f;
             pose.legs = 30f * (float) Math.sin(Math.PI * k);
             pose.legsWeight = 1f;
             pose.lean = -8f;
-            if (t - dt < 1.5f) burst(0f, 0.1f, 0f, 6, Kind.DUST);
+            if (t - dt < 1.5f) for (int i = 0; i < 6; i++) ground(0f, 0f, (float) (Math.random() - 0.5) * 0.2f, 0.15f, -0.05f);
             return;
         }
         pose.x = bx;
         pose.z = bz;
         pose.y = bedTop;
-        if (t < 2.35f) {
+        if (t < 2.4f) {
             // land with a bounce and hop round to face down the bed
-            float k = (t - 2.0f) / 0.35f;
-            if (t - dt < 2.0f) burst(bx, bedTop, bz, 8, Kind.PUFF);
+            float k = (t - 2.05f) / 0.35f;
+            if (t - dt < 2.05f) particles.poof(bx, bedTop + 0.1f, bz, 5, 0.3f);
             pose.facing = 90f * (1f - smooth(k));
             pose.y += (float) Math.sin(Math.PI * k) * 0.18f;
             pose.lean = 10f * (1f - k);
             return;
         }
-        if (t < 2.95f) {
+        if (t < 3.0f) {
             // both hands pull the nightcap on
-            float k = (t - 2.35f) / 0.6f;
-            if (cap == 0f && k > 0.35f) burst(bx, 2.3f, bz, 6, Kind.SPARKLE);
+            float k = (t - 2.4f) / 0.6f;
+            if (cap == 0f && k > 0.35f) particles.poof(bx, bedTop + 2.0f, bz, 4, 0.15f);
             if (k > 0.35f) cap = Math.min(1f, cap + dt / 0.25f);
             float s = (float) Math.sin(Math.PI * k);
             pose.right = pose.left = -175f;
@@ -458,13 +476,13 @@ final class SceneActors implements AutoCloseable {
         }
         cap = 1f;
         // topple straight back like a plank, bounce once on the mattress, then snore
-        float k = OrbitRig.clamp((t - 2.95f) / 0.45f, 0f, 1f);
+        float k = OrbitRig.clamp((t - 3.0f) / 0.45f, 0f, 1f);
         float lie = k * k;
         pose.lie = lie;
         pose.y = bedTop * (1f - lie);
-        float after = t - 3.4f;
+        float after = t - 3.45f;
         if (after > 0f && after < 0.4f) pose.y += (float) Math.sin(Math.PI * after / 0.4f) * 0.07f;
-        if (t - dt < 3.4f && t >= 3.4f) burst(bx, 0.7f, bz - 0.8f, 6, Kind.PUFF);
+        if (t - dt < 3.45f && t >= 3.45f) particles.poof(bx, 0.75f, bz - 0.8f, 6, 0.4f);
         if (k < 1f) {
             pose.right = pose.left = -40f * k;
             pose.rightWeight = pose.leftWeight = 1f;
@@ -472,47 +490,63 @@ final class SceneActors implements AutoCloseable {
         }
         zeeTimer -= dt;
         if (zeeTimer <= 0f) {
-            zeeTimer = 1.1f;
-            spawn(Kind.ZEE, bx, 1.0f, bz - 1.55f, 0.18f, 0.45f, 0f, 0f, 1f, 2.4f, 0.34f);
+            zeeTimer = 1.0f;
+            particles.glyph('Z', 0xFFFFFF, bx + 0.1f, 1.0f, bz - 1.55f, 0.012f, 0.025f, 50, 0.16f);
         }
         snoreTimer -= dt;
         if (snoreTimer <= 0f) {
-            snoreTimer = 4.2f;
-            spawn(Kind.BUBBLE, bx - 0.1f, 0.95f, bz - 1.75f, 0f, 0.05f, 0f, 0f, 1f, 1.3f, 0.5f);
+            snoreTimer = 2.4f;
+            particles.bubble(bx - 0.05f, 0.95f, bz - 1.7f, 2.5f);
         }
     }
 
-    // the pest loop: they appear in front of you, you jump out of your skin and back away, they give chase, swoop
-    // round behind and chase you back to your spot, you catch your breath, they vanish and it starts over
-    private static final float LOOP = 6.4f;
+    // the pest loop: they appear in front of you, you jump out of your skin, spin and run a lap of the yard with them
+    // on your tail, skid back onto your spot, turn round on them, vacuum every one up, catch your breath, repeat
+    private static final float LOOP = 10f;
+    private static final float LAP_R = 1.6f;
+    private static final float RUN_FROM = 1.45f, RUN_TO = 4.3f;
+    private static final float SUCK = 5.0f;
+
+    // where the lap puts you at angle theta, and your heading there in degrees
+    private static Vector3f lap(float theta) {
+        return new Vector3f(LAP_R - LAP_R * (float) Math.cos(theta), 0f, -LAP_R * (float) Math.sin(theta));
+    }
+
+    private float lapAngle(float c) {
+        float k = clamp01((c - RUN_FROM) / (RUN_TO - RUN_FROM));
+        // ease in and out a little so the start and the skid aren't instant
+        float e = k * k * (3f - 2f * k) * 0.35f + k * 0.65f;
+        return e * (float) Math.PI * 2f;
+    }
 
     private void pests(float dt, int count, PlayerFigure.Pose pose) {
         while (pests.size() < 8) pests.add(new Pest(pests.size()));
         if (count == 0) {
             for (Pest p : pests) {
-                if (p.shown) burst(p.at.x, p.at.y, p.at.z, 5, Kind.PUFF);
+                if (p.shown) particles.poof(p.at.x, p.at.y, p.at.z, 5, 0.2f);
                 p.shown = false;
             }
             return;
         }
         float c = scene % LOOP;
         float fear = 0.6f + 0.4f * (count - 1) / 7f;
-        float run = 2.6f + 0.15f * count;
-        float back = 0f;
-        if (c >= 1.3f && c < 2.9f) back = run * smooth((c - 1.3f) / 1.6f);
-        else if (c >= 2.9f && c < 3.3f) back = run;
-        else if (c >= 3.3f && c < 4.6f) back = run * (1f - smooth((c - 3.3f) / 1.3f));
-        pose.z = -back;
-        Vector3f player = new Vector3f(0f, 0f, -back);
-        Vector3f spawnAt = new Vector3f(0.9f, 1.45f, 3.0f);
+        float suckEnd = SUCK + 0.35f + 0.26f * count;
+        float theta = lapAngle(c);
+        Vector3f spawnAt = new Vector3f(0.8f, 1.5f, 2.8f);
+        boolean running = c >= RUN_FROM && c < RUN_TO;
+        if (c >= RUN_FROM) {
+            Vector3f at = lap(theta);
+            pose.x = at.x;
+            pose.z = at.z;
+        }
 
-        if (c < 0.9f) {
-            // unaware: a little whistle and a look round as they appear
+        if (c < 0.85f) {
+            // unaware: looking about as they pop in
             pose.headYaw = (float) Math.sin(c * 5) * 25f;
             pose.look = 0.4f;
-        } else if (c < 1.3f) {
-            float k = (c - 0.9f) / 0.4f;
-            if (c - dt < 0.9f) spawn(Kind.BANG, 0f, 2.4f, 0f, 0f, 0.6f, 0f, 0f, 1f, 1.1f, 0.6f);
+        } else if (c < 1.2f) {
+            float k = (c - 0.85f) / 0.35f;
+            if (c - dt < 0.85f) particles.glyph('!', 0xFF5555, 0f, 2.3f, 0f, 0f, 0.03f, 24, 0.3f);
             pose.y = (float) Math.sin(Math.PI * k) * 0.55f * fear;
             pose.right = pose.left = -172f;
             pose.rightWeight = pose.leftWeight = 1f;
@@ -520,93 +554,156 @@ final class SceneActors implements AutoCloseable {
             pose.headPitch = -12f;
             pose.legs = 22f;
             pose.legsWeight = 1f;
-        } else if (c < 2.9f) {
-            // backpedal, arms flailing
-            float s = c * 16f * fear;
-            pose.legs = (float) Math.sin(s) * 52f;
+        } else if (c < RUN_FROM) {
+            // whirl round to run, crouching to push off
+            float k = (c - 1.2f) / (RUN_FROM - 1.2f);
+            pose.facing = 180f * smooth(k);
+            pose.lean = 20f * k;
+            pose.right = pose.left = 30f * k;
+            pose.rightWeight = pose.leftWeight = 1f;
+        } else if (running) {
+            // the lap: heading follows the circle, arms pumping, glancing back now and then
+            pose.facing = 180f - (float) Math.toDegrees(theta);
+            float stride = theta * LAP_R * 3.2f;
+            pose.legs = (float) Math.sin(stride) * 55f;
             pose.legsWeight = 1f;
-            pose.y = Math.abs((float) Math.sin(s)) * 0.1f * fear;
-            pose.lean = -16f;
-            pose.right = -150f + (float) Math.sin(c * 17) * 40f * fear;
-            pose.left = -150f + (float) Math.sin(c * 17 + 2.1f) * 40f * fear;
+            pose.y = Math.abs((float) Math.sin(stride)) * 0.1f;
+            pose.lean = 20f;
+            pose.roll = -8f;
+            pose.right = (float) Math.sin(stride) * 75f;
+            pose.left = -(float) Math.sin(stride) * 75f;
             pose.rightWeight = pose.leftWeight = 1f;
-            pose.roll = (float) Math.sin(c * 21) * 6f * fear;
-            sweat(dt, 0f, -back);
-            dust(dt, 0f, -back);
-        } else if (c < 3.3f) {
-            // they swoop round behind; you spin to look
-            float k = (c - 2.9f) / 0.4f;
-            pose.tilt = 18f * (float) Math.sin(Math.PI * k);
-            pose.turn = -35f * smooth(k);
-            pose.headYaw = -70f * smooth(k);
             pose.look = 0f;
-            pose.right = pose.left = -120f;
+            float glance = (float) Math.max(0, Math.sin(c * 4.2f)) * fear;
+            pose.headYaw = 80f * glance;
+            pose.turn = 25f * glance;
+            pose.headPitch = -5f;
+            sweat(dt, pose.x, pose.z);
+            dust(dt, pose.x, pose.z);
+        } else if (c < SUCK) {
+            // skid onto the spot, spin round to face them and whip the vacuum out
+            float k = clamp01((c - RUN_TO) / (SUCK - RUN_TO));
+            pose.facing = -180f + 180f * smooth(clamp01(k / 0.55f));
+            pose.lean = -14f * (1f - k);
+            pose.right = -90f * smooth(clamp01((k - 0.4f) / 0.6f));
+            pose.left = -80f * smooth(clamp01((k - 0.5f) / 0.5f));
             pose.rightWeight = pose.leftWeight = 1f;
-            if (c - dt < 2.9f) spawn(Kind.BANG, 0f, 2.4f, -back, 0f, 0.6f, 0f, 0f, 1f, 0.9f, 0.5f);
-        } else if (c < 4.6f) {
-            // sprint home with them on your tail, glancing back over your shoulder
-            float s = c * 17f * fear;
-            pose.legs = (float) Math.sin(s) * 55f;
+            pose.look = 0f;
+            pose.headPitch = -6f;
+            vacuum = Math.max(vacuum, smooth(clamp01((k - 0.4f) / 0.5f)));
+            if (c - dt < RUN_TO) for (int i = 0; i < 8; i++) ground(0f, 0f, (float) (Math.random() - 0.5) * 0.2f, 0.2f, -0.1f);
+        } else if (c < suckEnd) {
+            // braced, shaking with the suction
+            float shake = (float) Math.sin(c * 60) * 2f;
+            pose.right = -90f + shake;
+            pose.left = -80f - shake;
+            pose.rightWeight = pose.leftWeight = 1f;
+            pose.lean = -8f;
+            pose.legs = 14f;
             pose.legsWeight = 1f;
-            pose.y = Math.abs((float) Math.sin(s)) * 0.12f;
-            pose.lean = 18f;
-            pose.right = (float) Math.sin(s) * 70f;
-            pose.left = -(float) Math.sin(s) * 70f;
-            pose.rightWeight = pose.leftWeight = 1f;
+            pose.roll = shake * 0.6f;
             pose.look = 0f;
-            float glance = (float) Math.max(0, Math.sin(c * 4.5f));
-            pose.headYaw = -75f * glance;
-            pose.turn = -30f * glance;
-            sweat(dt, 0f, -back);
-            dust(dt, 0f, -back);
-        } else if (c < 5.6f) {
-            // hands on knees, panting
-            pose.lean = 32f;
-            pose.right = pose.left = -20f;
+            pose.headPitch = -4f;
+            vacuum = 1f;
+            suckTimer -= dt;
+            if (suckTimer <= 0f) {
+                suckTimer = 0.04f;
+                Vector3f tip = nozzle(pose);
+                float a = (float) (Math.random() * Math.PI * 2);
+                float r = 0.5f + (float) Math.random() * 0.4f;
+                float sx = tip.x + (float) Math.cos(a) * r, sy = tip.y + (float) Math.sin(a) * r, sz = tip.z + 0.9f;
+                particles.cloud(sx, sy, sz, (tip.x - sx) * 0.12f, (tip.y - sy) * 0.12f, (tip.z - sz) * 0.12f, 0.5f);
+            }
+        } else if (c < suckEnd + 0.35f) {
+            float k = (c - suckEnd) / 0.35f;
+            vacuum = 1f - smooth(k);
+            pose.right = -90f * (1f - k);
+            pose.left = -80f * (1f - k);
             pose.rightWeight = pose.leftWeight = 1f;
-            pose.headPitch = -20f + (float) Math.sin(c * 14) * 6f;
+        } else if (c < LOOP - 0.9f) {
+            // hands on knees, puffing, then a big breath out
+            vacuum = 0f;
+            float k = (c - suckEnd - 0.35f) / (LOOP - 0.9f - suckEnd - 0.35f);
+            float bend = k < 0.75f ? 1f : 1f - smooth((k - 0.75f) / 0.25f);
+            pose.lean = 34f * bend - 10f * (1f - bend);
+            pose.right = pose.left = -20f * bend;
+            pose.rightWeight = pose.leftWeight = 1f;
+            pose.headPitch = (-20f + (float) Math.sin(c * 14) * 6f) * bend - 15f * (1f - bend);
+            pose.y = (float) Math.sin(c * 14) * 0.015f * bend;
             pose.look = 0f;
-            sweat(dt, 0f, 0f);
+            breathTimer -= dt;
+            if (breathTimer <= 0f) {
+                breathTimer = bend > 0.5f ? 0.38f : 0.06f;
+                float mouthY = bend > 0.5f ? 1.25f : 1.6f;
+                particles.cloud(0f, mouthY, 0.35f, 0f, bend > 0.5f ? -0.01f : 0.03f, 0.05f, bend > 0.5f ? 0.5f : 0.8f);
+            }
+            sweat(dt * 0.6f, 0f, 0f);
         } else {
             // phew: wipe the brow
-            float k = (c - 5.6f) / 0.8f;
+            float k = (c - (LOOP - 0.9f)) / 0.9f;
             pose.right = -140f + (float) Math.sin(k * Math.PI * 3) * 15f;
             pose.rightWeight = (float) Math.sin(Math.PI * k);
             pose.tilt = 10f;
         }
 
+        Vector3f player = new Vector3f(pose.x, 0f, pose.z);
         for (Pest p : pests) {
-            boolean want = p.index < count && c >= p.index * 0.07f && c < 5.6f;
+            float sucked = SUCK + 0.15f + 0.26f * p.index;
+            boolean want = p.index < count && c >= p.index * 0.08f && c < sucked + 0.4f;
             if (want && !p.shown) {
                 p.at.set(spawnAt).add(ring(p.index, count, 0.9f));
                 p.last.set(p.at);
                 p.shownFor = 0f;
-                burst(p.at.x, p.at.y, p.at.z, 7, Kind.PUFF);
+                p.scale = 1f;
+                particles.poof(p.at.x, p.at.y, p.at.z, 7, 0.25f);
             }
-            if (!want && p.shown) burst(p.at.x, p.at.y, p.at.z, 7, Kind.PUFF);
+            if (!want && p.shown) {
+                // gone into the vacuum with a pop
+                Vector3f tip = nozzle(pose);
+                particles.poof(tip.x, tip.y, tip.z, 4, 0.1f);
+                particles.crit(tip.x, tip.y, tip.z, 4, false);
+            }
             p.shown = want;
             if (!want) continue;
             p.shownFor += dt;
             Vector3f target;
-            Vector3f ring = ring(p.index, count, 0.85f);
-            if (c < 1.3f) {
-                target = new Vector3f(spawnAt).add(ring);
-            } else if (c < 2.9f) {
-                target = new Vector3f(player).add(0f, 1.45f, 1.7f).add(ring);
-            } else if (c < 3.3f) {
-                double arc = Math.PI * smooth((c - 2.9f) / 0.4f);
-                target = new Vector3f(player).add((float) Math.sin(arc) * 1.9f, 1.5f, (float) Math.cos(arc) * 1.9f).add(ring);
-            } else if (c < 4.6f) {
-                target = new Vector3f(player).add(0f, 1.45f, -1.6f).add(ring);
+            float follow = 1f - (float) Math.exp(-dt * (4.5f + p.index * 0.35f));
+            if (c < RUN_FROM) {
+                target = new Vector3f(spawnAt).add(ring(p.index, count, 0.85f));
+            } else if (c < RUN_TO + 0.2f) {
+                // they chase along your trail, each a little further back
+                float lag = (1.5f + 0.55f * p.index) / LAP_R;
+                float back = theta - lag;
+                target = back >= 0f ? lap(back) : new Vector3f(spawnAt).lerp(lap(0f), clamp01(1f + back / 1.5f));
+                target.add(0f, 1.45f + (float) Math.sin(c * 6 + p.index) * 0.12f, 0f).add(ring(p.index, count, 0.25f));
+            } else if (c < sucked) {
+                // they bunch up in front of you as you turn on them
+                target = new Vector3f(player).add(0f, 1.4f, 2.0f).add(ring(p.index, count, 0.75f));
+                if (c > SUCK) {
+                    // the pull: drawn sideways toward the nozzle, wobbling harder as their turn comes
+                    float pull = clamp01((c - SUCK) / (sucked - SUCK)) * 0.35f;
+                    target.lerp(nozzle(pose), pull);
+                    target.add((float) Math.sin(c * 30 + p.index) * 0.05f, 0f, 0f);
+                }
             } else {
-                double a = p.index * Math.PI * 2 / count + c * 2.5;
-                target = new Vector3f((float) Math.cos(a) * 1.5f, 1.75f, (float) Math.sin(a) * 1.5f);
+                float k = clamp01((c - sucked) / 0.4f);
+                Vector3f tip = nozzle(pose);
+                float spin = k * 12f;
+                target = new Vector3f(tip).add((float) Math.cos(spin) * 0.3f * (1f - k), (float) Math.sin(spin) * 0.3f * (1f - k), 0f);
+                follow = 1f - (float) Math.exp(-dt * 18f);
+                p.scale = 1f - k * 0.9f;
             }
-            target.y += (float) Math.sin(time * 5.1f + p.index) * 0.1f;
+            target.y += (float) Math.sin(time * 5.1f + p.index) * 0.08f;
             p.last.set(p.at);
-            float follow = 1f - (float) Math.exp(-dt * (5.5f + p.index * 0.4f));
             p.at.lerp(target, follow);
         }
+    }
+
+    // where the vacuum's mouth is, held out in front of you
+    private static Vector3f nozzle(PlayerFigure.Pose pose) {
+        double f = Math.toRadians(pose.facing);
+        float fx = (float) Math.sin(f), fz = (float) Math.cos(f);
+        return new Vector3f(pose.x + fx * 1.35f - fz * 0.3f, 1.15f, pose.z + fz * 1.35f + fx * 0.3f);
     }
 
     private static Vector3f ring(int index, int count, float radius) {
@@ -614,10 +711,10 @@ final class SceneActors implements AutoCloseable {
         return new Vector3f((float) Math.cos(a) * radius, (float) Math.sin(a * 2) * 0.2f, (float) Math.sin(a) * radius);
     }
 
-    // three stands land in turn; one at a time spins to show off its set, which jumps onto you for a flex
+    // three stands land in the yard; one at a time spins to show off its set, which jumps onto you for a moment
     private static final float SHOWCASE = 2.6f;
 
-    private void loadout(float dt, PlayerFigure.Pose pose) {
+    private void loadout(PlayerFigure.Pose pose) {
         if (scene < 1.0f) {
             worn = -1;
             return;
@@ -629,15 +726,16 @@ final class SceneActors implements AutoCloseable {
         if (wearing != worn) {
             Vector3f at = standSpot(show);
             if (wearing >= 0) {
-                burst(0f, 1.2f, 0f, 12, Kind.SPARKLE);
-                burst(at.x, 1.2f, at.z, 6, Kind.PUFF);
+                particles.totem(0f, 1.1f, 0f, 30);
+                particles.poof(at.x, 1.0f, at.z, 6, 0.3f);
             } else {
-                burst(at.x, 1.2f, at.z, 8, Kind.SPARKLE);
+                particles.poof(0f, 1.0f, 0f, 6, 0.3f);
+                particles.happy(at.x, 1.2f, at.z, 6, 0.4f);
             }
             worn = wearing;
         }
         if (wearing < 0) {
-            pose.headYaw = 40f;
+            pose.headYaw = 45f;
             pose.look = 0.3f;
             return;
         }
@@ -662,39 +760,36 @@ final class SceneActors implements AutoCloseable {
     }
 
     private static Vector3f standSpot(int i) {
-        return new Vector3f(2.3f + 1.2f * i, 0f, 1.6f - 1.0f * i);
+        return new Vector3f(3.4f + 1.55f * i, 0f, 2.6f);
     }
 
     private void sweat(float dt, float x, float z) {
         sweatTimer -= dt;
         if (sweatTimer > 0f) return;
-        sweatTimer = 0.14f;
+        sweatTimer = 0.16f;
         float side = Math.random() < 0.5 ? -1f : 1f;
-        spawn(Kind.SWEAT, x + side * 0.28f, 1.75f, z, side * 0.9f, 1.4f, 0f, 7f, 1f, 0.6f, 0.13f);
+        particles.drip(x + side * 0.25f, 1.75f, z, side * 0.04f, 0.1f, 0f);
     }
 
     private void dust(float dt, float x, float z) {
         dustTimer -= dt;
         if (dustTimer > 0f) return;
-        dustTimer = 0.1f;
-        spawn(Kind.DUST, x + (float) (Math.random() - 0.5) * 0.4f, 0.05f, z, 0f, 0.4f, 0f, 0f, 0.5f, 0.5f, 0.25f);
-    }
-
-    private void emerald(float x, float y, float z) {
-        spawn(Kind.EMERALD, x, y, z, 0f, 0.7f, 0f, 0.9f, 1f, 1.3f, 0.5f);
+        dustTimer = 0.07f;
+        ground(x + (float) (Math.random() - 0.5) * 0.3f, z + (float) (Math.random() - 0.5) * 0.3f, 0f, 0.12f, 0f);
     }
 
     // -- geometry -----------------------------------------------------------------------------------------------
 
-    // fills the entity buffers in the scene renderer's space; local maps the farm's blocks into it
-    List<Draw> build(Matrix4f local, Vector3d camLocal, PlayerFigure figure) {
+    // fills the entity buffers in the scene renderer's space; local maps the farm's blocks into it and right / up
+    // are the camera's axes there, for the particles
+    List<Draw> build(Matrix4f local, Vector3d camLocal, Vector3f right, Vector3f up, PlayerFigure figure) {
         for (SceneClone.Buffer b : buffers.values()) b.reset();
         for (Villager v : villagers) villagerFrame(v, local);
         for (Pest p : pests) {
             if (!p.shown) continue;
             Identifier skin = heads.apply(p.index);
             if (skin == null) continue;
-            float grow = backOut(Math.min(1f, p.shownFor / 0.35f)) * 0.8f;
+            float grow = backOut(Math.min(1f, p.shownFor / 0.35f)) * 0.8f * p.scale;
             float wobble = (float) (Math.sin(p.shownFor * 24) * Math.exp(-p.shownFor * 6) * 0.35);
             float dx = p.at.x - p.last.x, dz = p.at.z - p.last.z;
             float heading = dx * dx + dz * dz > 1e-6f ? (float) Math.atan2(dx, dz)
@@ -727,13 +822,13 @@ final class SceneActors implements AutoCloseable {
         if (worn >= 0) wear(figure, worn);
         if (table >= 0f) {
             float squash = tableHit > 0f ? (float) Math.sin(Math.PI * tableHit / 0.12f) * 0.12f : 0f;
-            Matrix4f m = drop(new Matrix4f(local).translate(0f, 0f, 1.3f), table, "Auto Supercraft".equals(focus))
+            Matrix4f m = drop(new Matrix4f(local).translate(0f, 0f, TABLE_Z), table, "Auto Supercraft".equals(focus))
                     .scale(1f + squash * 0.5f, 1f - squash, 1f + squash * 0.5f).translate(-0.5f, 0f, -0.5f);
             cube(m, 0, 0, 0, 1, 1, 1, TABLE_TOP, PLANKS, TABLE_FRONT, TABLE_SIDE, TABLE_SIDE, TABLE_FRONT);
         }
         for (Crafted c : crafted) {
             float k = Math.min(1f, c.age / 0.6f);
-            float x = c.x * smooth(k), z = 1.3f + (c.z - 1.3f) * smooth(k);
+            float x = c.x * smooth(k), z = TABLE_Z + (c.z - TABLE_Z) * smooth(k);
             float y = 1.0f + (c.y - 1.0f) * k + (float) Math.sin(Math.PI * k) * 1.0f;
             float land = c.age > 0.6f && c.age < 0.8f ? (float) Math.sin(Math.PI * (c.age - 0.6f) / 0.2f) * 0.2f : 0f;
             Matrix4f m = new Matrix4f(local).translate(x, y, z).rotateY((1f - k) * 6f + c.x * 3f)
@@ -741,12 +836,14 @@ final class SceneActors implements AutoCloseable {
             cube(m, 0, 0, 0, 1, 1, 1, HAY_TOP, HAY_TOP, HAY_SIDE, HAY_SIDE, HAY_SIDE, HAY_SIDE);
         }
         if (bed >= 0f) {
-            Matrix4f m = drop(new Matrix4f(local).translate(1.8f, 0f, -0.6f), bed, "Dynamic Rest".equals(focus));
+            Matrix4f m = drop(new Matrix4f(local).translate(BED_X, 0f, BED_Z), bed, "Dynamic Rest".equals(focus));
             bedHalf(buffer(BED), new Matrix4f(m).translate(-0.5f, 0f, 0f), 0);
             bedHalf(buffer(BED), new Matrix4f(m).translate(-0.5f, 0f, 1f), 22);
         }
         if (bars > 0) goldBars(figure);
         if (cap > 0f) nightcap(figure.headFrame(), backOut(cap));
+        if (vacuum > 0.01f) vacuum(figure.rightArmFrame(), backOut(vacuum));
+        particles.build(this::buffer, local, right, up);
         List<Draw> out = new ArrayList<>();
         for (Map.Entry<Identifier, SceneClone.Buffer> e : buffers.entrySet()) {
             if (e.getValue().count > 0) out.add(new Draw(e.getKey(), e.getValue()));
@@ -776,6 +873,17 @@ final class SceneActors implements AutoCloseable {
         ModelBoxes.part(inner, left, 64, 32, true, 0, 24, 0, 0, 0, 0, -2, 0, -2, 4, 12, 4, 0, 16, 0.5f);
         ModelBoxes.part(outer, right, 64, 32, false, 0, 24, 0, 0, 0, 0, -2, 0, -2, 4, 12, 4, 0, 16, 1f);
         ModelBoxes.part(outer, left, 64, 32, true, 0, 24, 0, 0, 0, 0, -2, 0, -2, 4, 12, 4, 0, 16, 1f);
+    }
+
+    // a pest vacuum in the right hand: iron canister under the forearm with a lime band, a hose out past the fist
+    // and a black intake. built in the arm's frame, where -y runs down the arm to the hand
+    private void vacuum(Matrix4f arm, float s) {
+        Matrix4f m = new Matrix4f(arm).translate(0f, -10f, -1f).scale(s).translate(0f, 10f, 1f);
+        float px = 1f / 16f;
+        cubeInto(buffer(IRON), m, -2.5f, -13f, -6.5f, 2.5f, -5f, -2f, px);
+        cubeInto(buffer(LIME), m, -2.7f, -10f, -6.7f, 2.7f, -8.5f, -1.8f, px);
+        cubeInto(buffer(GRAY), m, -1f, -23f, -3f, 1f, -11f, -1f, px);
+        cubeInto(buffer(BLACK), m, -2.5f, -26f, -4.5f, 2.5f, -23f, 0.5f, px);
     }
 
     // a visitor's performance: it pops in with a squash and stretch, glances about, waddles up the path, lands in
@@ -980,176 +1088,41 @@ final class SceneActors implements AutoCloseable {
         ModelBoxes.part(out, m, 64, 64, false, 0, 0, 0, 0, 0, 0, -4, -8, -4, 8, 8, 8, 32, 0, 0.5f);
     }
 
+    // vanilla's default armour stand pose, in radians: arms held a little forward and out, legs barely apart
+    private static final float R_ARM_X = rad(-15), R_ARM_Z = rad(10), L_ARM_X = rad(-10), L_ARM_Z = rad(-10);
+    private static final float R_LEG = rad(1), L_LEG = rad(-1);
+
+    // the armour stand exactly as ArmorStandModel builds it, in its default pose
     static void stand(SceneClone.Buffer out, Matrix4f m) {
         ModelBoxes.part(out, m, 64, 64, false, 0, 1, 0, 0, 0, 0, -1, -7, -1, 2, 7, 2, 0, 0, 0f);
         ModelBoxes.part(out, m, 64, 64, false, 0, 0, 0, 0, 0, 0, -6, 0, -1.5f, 12, 3, 3, 0, 26, 0f);
-        ModelBoxes.part(out, m, 64, 64, false, -5, 2, 0, 0, 0, 0, -2, -2, -1, 2, 12, 2, 24, 0, 0f);
-        ModelBoxes.part(out, m, 64, 64, true, 5, 2, 0, 0, 0, 0, 0, -2, -1, 2, 12, 2, 32, 16, 0f);
-        ModelBoxes.part(out, m, 64, 64, false, -1.9f, 12, 0, 0, 0, 0, -1, 0, -1, 2, 11, 2, 8, 0, 0f);
-        ModelBoxes.part(out, m, 64, 64, true, 1.9f, 12, 0, 0, 0, 0, -1, 0, -1, 2, 11, 2, 40, 16, 0f);
+        ModelBoxes.part(out, m, 64, 64, false, -5, 2, 0, R_ARM_X, 0, R_ARM_Z, -2, -2, -1, 2, 12, 2, 24, 0, 0f);
+        ModelBoxes.part(out, m, 64, 64, true, 5, 2, 0, L_ARM_X, 0, L_ARM_Z, 0, -2, -1, 2, 12, 2, 32, 16, 0f);
+        ModelBoxes.part(out, m, 64, 64, false, -1.9f, 12, 0, R_LEG, 0, R_LEG, -1, 0, -1, 2, 11, 2, 8, 0, 0f);
+        ModelBoxes.part(out, m, 64, 64, true, 1.9f, 12, 0, L_LEG, 0, L_LEG, -1, 0, -1, 2, 11, 2, 40, 16, 0f);
         ModelBoxes.part(out, m, 64, 64, false, 0, 0, 0, 0, 0, 0, -3, 3, -1, 2, 7, 2, 16, 0, 0f);
         ModelBoxes.part(out, m, 64, 64, false, 0, 0, 0, 0, 0, 0, 1, 3, -1, 2, 7, 2, 48, 16, 0f);
         ModelBoxes.part(out, m, 64, 64, false, 0, 0, 0, 0, 0, 0, -4, 10, -1, 8, 2, 2, 0, 48, 0f);
         ModelBoxes.part(out, m, 64, 64, false, 0, 12, 0, 0, 0, 0, -6, 11, -6, 12, 1, 12, 0, 32, 0f);
     }
 
-    // a full set: helmet, chestplate and boots from the outer layer, leggings from the inner one
+    // a full set the way ArmorStandArmorModel fits it: helmet with its overlay, chestplate and boots from the outer
+    // layer, leggings from the inner one, the limbs following the stand's pose
     static void armour(SceneClone.Buffer outer, SceneClone.Buffer inner, Matrix4f m) {
         ModelBoxes.part(outer, m, 64, 32, false, 0, 1, 0, 0, 0, 0, -4, -8, -4, 8, 8, 8, 0, 0, 1f);
+        ModelBoxes.part(outer, m, 64, 32, false, 0, 1, 0, 0, 0, 0, -4, -8, -4, 8, 8, 8, 32, 0, 1.5f);
         ModelBoxes.part(outer, m, 64, 32, false, 0, 0, 0, 0, 0, 0, -4, 0, -2, 8, 12, 4, 16, 16, 1f);
-        ModelBoxes.part(outer, m, 64, 32, false, -5, 2, 0, 0, 0, 0, -3, -2, -2, 4, 12, 4, 40, 16, 1f);
-        ModelBoxes.part(outer, m, 64, 32, true, 5, 2, 0, 0, 0, 0, -1, -2, -2, 4, 12, 4, 40, 16, 1f);
-        ModelBoxes.part(outer, m, 64, 32, false, -1.9f, 12, 0, 0, 0, 0, -2, 0, -2, 4, 12, 4, 0, 16, 1f);
-        ModelBoxes.part(outer, m, 64, 32, true, 1.9f, 12, 0, 0, 0, 0, -2, 0, -2, 4, 12, 4, 0, 16, 1f);
+        ModelBoxes.part(outer, m, 64, 32, false, -5, 2, 0, R_ARM_X, 0, R_ARM_Z, -3, -2, -2, 4, 12, 4, 40, 16, 1f);
+        ModelBoxes.part(outer, m, 64, 32, true, 5, 2, 0, L_ARM_X, 0, L_ARM_Z, -1, -2, -2, 4, 12, 4, 40, 16, 1f);
+        ModelBoxes.part(outer, m, 64, 32, false, -1.9f, 11, 0, R_LEG, 0, R_LEG, -2, 0, -2, 4, 12, 4, 0, 16, 0.9f);
+        ModelBoxes.part(outer, m, 64, 32, true, 1.9f, 11, 0, L_LEG, 0, L_LEG, -2, 0, -2, 4, 12, 4, 0, 16, 0.9f);
         ModelBoxes.part(inner, m, 64, 32, false, 0, 0, 0, 0, 0, 0, -4, 0, -2, 8, 12, 4, 16, 16, 0.5f);
-        ModelBoxes.part(inner, m, 64, 32, false, -1.9f, 12, 0, 0, 0, 0, -2, 0, -2, 4, 12, 4, 0, 16, 0.5f);
-        ModelBoxes.part(inner, m, 64, 32, true, 1.9f, 12, 0, 0, 0, 0, -2, 0, -2, 4, 12, 4, 0, 16, 0.5f);
+        ModelBoxes.part(inner, m, 64, 32, false, -1.9f, 11, 0, R_LEG, 0, R_LEG, -2, 0, -2, 4, 12, 4, 0, 16, 0.4f);
+        ModelBoxes.part(inner, m, 64, 32, true, 1.9f, 11, 0, L_LEG, 0, L_LEG, -2, 0, -2, 4, 12, 4, 0, 16, 0.4f);
     }
 
-    // -- flat things: puffs, z's, sparkles, sweat, chips and the rest ------------------------------------------------
-
-    void appendQuads(List<OrbitWorldRenderer.Quad> out, Function<Vector3f, Vector3d> toWorld, OrbitLayout.Camera cam) {
-        if (!drawn) {
-            drawSprites();
-            drawn = true;
-        }
-        for (Particle p : particles) {
-            float k = p.age / p.life;
-            float alpha, size;
-            switch (p.kind) {
-                case ZEE -> {
-                    alpha = Math.min(1f, (1f - k) * 1.6f);
-                    size = p.size * (0.7f + 0.6f * k);
-                }
-                case SPARKLE, HAPPY, GLINT -> {
-                    alpha = (float) Math.sin(Math.PI * k);
-                    size = p.size * (float) Math.sin(Math.PI * k);
-                }
-                case BANG, QUESTION -> {
-                    alpha = Math.min(1f, (1f - k) * 3f);
-                    size = p.size * backOut(Math.min(1f, k * 5f));
-                }
-                case BUBBLE -> {
-                    alpha = k < 0.9f ? 0.9f : (1f - k) * 9f;
-                    size = p.size * (0.3f + 0.9f * k);
-                }
-                case EMERALD -> {
-                    alpha = Math.min(1f, (1f - k) * 2.5f);
-                    size = p.size * backOut(Math.min(1f, k * 4f));
-                }
-                default -> {
-                    alpha = (1f - k) * (1f - k);
-                    size = p.size * (0.6f + 0.9f * k);
-                }
-            }
-            if (size <= 0.005f) continue;
-            out.add(billboard(toWorld.apply(new Vector3f(p.x, p.y, p.z)), cam, size, sprites.get(p.kind).texture(), alpha));
-        }
-    }
-
-    private void drawSprites() {
-        sprite(Kind.PUFF, nvg -> {
-            nvg.radialGradient(16f, 16f, 2f, 15f, 0xF0F2F2F2, 0x00B8B8B8);
-            nvg.circle(13f, 13f, 6f, 0x66FFFFFF);
-        });
-        sprite(Kind.DUST, nvg -> nvg.radialGradient(16f, 16f, 2f, 15f, 0xC0B39B7A, 0x00A08A6A));
-        sprite(Kind.SPARKLE, nvg -> star(nvg, 0xFFFFF4B0, 0xCCFFE680));
-        sprite(Kind.HAPPY, nvg -> star(nvg, 0xFF8BF07A, 0xCC40D060));
-        sprite(Kind.CHIP, nvg -> {
-            nvg.rect(9f, 9f, 14f, 14f, 0xFF9C7448);
-            nvg.rect(9f, 9f, 14f, 4f, 0xFFB98D5C);
-        });
-        sprite(Kind.SWEAT, nvg -> {
-            nvg.beginPath();
-            nvg.moveTo(16f, 3f);
-            nvg.bezierTo(24f, 14f, 26f, 19f, 26f, 22f);
-            nvg.bezierTo(26f, 28f, 21f, 30f, 16f, 30f);
-            nvg.bezierTo(11f, 30f, 6f, 28f, 6f, 22f);
-            nvg.bezierTo(6f, 19f, 8f, 14f, 16f, 3f);
-            nvg.closePath();
-            nvg.fillPath(0xE69AD4FF);
-            nvg.circle(12f, 21f, 2.5f, 0xCCFFFFFF);
-        });
-        sprite(Kind.BANG, nvg -> {
-            nvg.text(Fonts.UI_BOLD, "!", 11f, 0f, 30f, 0xFF000000);
-            nvg.text(Fonts.UI_BOLD, "!", 9f, -2f, 30f, 0xFFFF4040);
-        });
-        sprite(Kind.ZEE, nvg -> {
-            nvg.text(Fonts.UI_BOLD, "Z", 7f, 2f, 24f, 0xCC000000);
-            nvg.text(Fonts.UI_BOLD, "Z", 5f, 0f, 24f, 0xFFFFFFFF);
-        });
-        sprite(Kind.BUBBLE, nvg -> {
-            nvg.radialGradient(16f, 16f, 8f, 15f, 0x22CFE8FF, 0x99E8F4FF);
-            nvg.circleOutline(16f, 16f, 14f, 1.5f, 0xDDFFFFFF);
-            nvg.circle(11f, 11f, 3f, 0xCCFFFFFF);
-        });
-        sprite(Kind.EMERALD, nvg -> nvg.mcIcon(McIcons.of("minecraft:emerald"), 2f, 2f, 28f, 0xFFFFFFFF));
-        sprite(Kind.GLINT, nvg -> star(nvg, 0xFFF0C8FF, 0xCCB070FF));
-        sprite(Kind.QUESTION, nvg -> {
-            nvg.text(Fonts.UI_BOLD, "?", 9f, 2f, 30f, 0xFF000000);
-            nvg.text(Fonts.UI_BOLD, "?", 7f, 0f, 30f, 0xFFFFD84A);
-        });
-        sprite(Kind.YAWN, nvg -> {
-            nvg.radialGradient(16f, 16f, 6f, 15f, 0xAAFFFFFF, 0x00FFFFFF);
-            nvg.circleOutline(16f, 16f, 11f, 1.5f, 0x88FFFFFF);
-        });
-    }
-
-    private void sprite(Kind kind, java.util.function.Consumer<dev.aether.renderer.NVGRenderer> draw) {
-        PanelSurface s = new PanelSurface();
-        s.render(32f, 32f, 2f, draw);
-        sprites.put(kind, s);
-    }
-
-    private static void star(dev.aether.renderer.NVGRenderer nvg, int core, int glow) {
-        nvg.radialGradient(16f, 16f, 1f, 12f, glow, glow & 0x00FFFFFF);
-        nvg.beginPath();
-        nvg.moveTo(16f, 2f);
-        nvg.lineTo(18.5f, 13.5f);
-        nvg.lineTo(30f, 16f);
-        nvg.lineTo(18.5f, 18.5f);
-        nvg.lineTo(16f, 30f);
-        nvg.lineTo(13.5f, 18.5f);
-        nvg.lineTo(2f, 16f);
-        nvg.lineTo(13.5f, 13.5f);
-        nvg.closePath();
-        nvg.fillPath(core);
-    }
-
-    private static OrbitWorldRenderer.Quad billboard(Vector3d at, OrbitLayout.Camera cam, double size, int texture, float a) {
-        Vector3d r = new Vector3d(cam.right()).mul(size / 2), u = new Vector3d(cam.up()).mul(size / 2);
-        return new OrbitWorldRenderer.Quad(new Vector3d(at).sub(r).add(u), new Vector3d(at).add(r).add(u),
-                new Vector3d(at).add(r).sub(u), new Vector3d(at).sub(r).sub(u), texture, a, 0f);
-    }
-
-    // a puff of particles of one kind around a point in farm blocks
-    private void burst(float x, float y, float z, int count, Kind kind) {
-        for (int i = 0; i < count; i++) {
-            double a = Math.random() * Math.PI * 2;
-            float r = (float) (0.2 + Math.random() * 0.35);
-            float speed = kind == Kind.PUFF ? 0.6f + (float) Math.random() : 0.4f + (float) Math.random() * 0.6f;
-            spawn(kind, x + (float) Math.cos(a) * r, y + (float) (Math.random() - 0.5) * (kind == Kind.PUFF ? 1.2f : 0.5f),
-                    z + (float) Math.sin(a) * r, (float) Math.cos(a) * speed, 0.2f + (float) Math.random() * 0.6f,
-                    (float) Math.sin(a) * speed, kind == Kind.PUFF ? -0.15f : 0f, 0.15f,
-                    0.6f + (float) Math.random() * 0.5f, kind == Kind.PUFF ? 0.35f + (float) Math.random() * 0.3f : 0.2f);
-        }
-    }
-
-    private void spawn(Kind kind, float x, float y, float z, float vx, float vy, float vz, float gravity, float drag,
-                       float life, float size) {
-        Particle p = new Particle();
-        p.kind = kind;
-        p.x = x;
-        p.y = y;
-        p.z = z;
-        p.vx = vx;
-        p.vy = vy;
-        p.vz = vz;
-        p.gravity = gravity;
-        p.drag = drag;
-        p.life = life;
-        p.size = size;
-        particles.add(p);
+    private static float rad(float degrees) {
+        return (float) Math.toRadians(degrees);
     }
 
     private static float backOut(float t) {
@@ -1178,7 +1151,6 @@ final class SceneActors implements AutoCloseable {
     public void close() {
         for (SceneClone.Buffer b : buffers.values()) b.free();
         buffers.clear();
-        for (PanelSurface s : sprites.values()) s.close();
-        sprites.clear();
+        particles.clear();
     }
 }
