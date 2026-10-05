@@ -136,7 +136,10 @@ class OrbitPreviewTest {
         if (errors != null) errors.free();
     }
 
-    private record Scenario(String name, String category, String page, float zoom) {
+    private record Scenario(String name, String category, String page, float zoom, String anchor) {
+        Scenario(String name, String category, String page, float zoom) {
+            this(name, category, page, zoom, null);
+        }
     }
 
     @Test
@@ -149,7 +152,9 @@ class OrbitPreviewTest {
                 new Scenario("pests", "pests", null, 0f),
                 new Scenario("farming", "farming", null, 0f),
                 new Scenario("pest-manager", "pests", "pest-manager", 0f),
-                new Scenario("safety", "safety", null, 0f));
+                new Scenario("safety", "safety", null, 0f),
+                new Scenario("farming-macro", "farming", "farming-macro", 0f, "Farm Macro Settings"),
+                new Scenario("humanization", "safety", "humanization", 0f));
         String only = System.getProperty("preview.scenario", "");
         List<String> written = new ArrayList<>();
         PanelSurface[] surfaces = new PanelSurface[ids.size()];
@@ -158,7 +163,8 @@ class OrbitPreviewTest {
             if (!only.isEmpty() && !scenario.name().contains(only)) continue;
             int active = ids.indexOf(scenario.category());
             view.orbitFocus(scenario.category());
-            if (scenario.page() != null) view.orbitOpenPage(scenario.page());
+            if (scenario.anchor() != null) view.orbitOpenPage(scenario.page(), scenario.anchor());
+            else if (scenario.page() != null) view.orbitOpenPage(scenario.page());
             for (int f = 0; f < 40; f++) now += 16_666_667L;
             float expand = scenario.page() == null ? 0f : 1f;
             double[][] lean = OrbitRig.lean(scenario.category());
