@@ -26,6 +26,8 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 // init() once at client startup and destroy() at shutdown; every frame pairs beginFrame with endFrame
 // fonts load from the mod's resources - look them up with getFontId and a Fonts constant
@@ -68,6 +70,8 @@ public final class NanoVGManager {
     // nanovg binds its own vao and never restores the previous one, which makes mc's font renderer read the wrong vertex state
     private static int savedVao = 0;
 
+    private static final Queue<Runnable> nextFrameTasks = new ConcurrentLinkedQueue<>();
+
     private static final Map<String, Integer> fontIds = new HashMap<>();
     // keeps the ByteBuffers alive so nanovg doesn't read freed memory
     private static final Map<String, ByteBuffer> fontBuffers = new HashMap<>();
@@ -93,6 +97,12 @@ public final class NanoVGManager {
         loadFont("Inter-Bold",    "/assets/aether/fonts/Inter-Bold.otf");
         loadFont("Inter-Mono",    "/assets/aether/fonts/Inter-Mono.otf");
         loadFont(Fonts.SCOREBOARD_BOLD, "/assets/aether/fonts/scoreboard/Inter-Bold.otf");
+        loadFont(Fonts.UI_REGULAR, "/assets/aether/fonts/ui/Inter-Regular.otf");
+        loadFont(Fonts.UI_MEDIUM, "/assets/aether/fonts/ui/Inter-Medium.otf");
+        loadFont(Fonts.UI_SEMIBOLD, "/assets/aether/fonts/ui/Inter-SemiBold.otf");
+        loadFont(Fonts.UI_BOLD, "/assets/aether/fonts/ui/Inter-Bold.otf");
+        loadFont(Fonts.UI_MONO, "/assets/aether/fonts/ui/JetBrainsMono-Regular.ttf");
+        loadFont(Fonts.UI_MONO_BOLD, "/assets/aether/fonts/ui/JetBrainsMono-Bold.ttf");
         loadUnicodeFallbackFont();
 
         initialized = true;
@@ -100,6 +110,9 @@ public final class NanoVGManager {
 
     public static void destroy() {
         if (!initialized) return;
+        // queued tasks hold handles from this context, which must never reach a later one
+        nextFrameTasks.clear();
+        McTextures.destroy(vg);
         SVGRenderer.destroy(vg);
         NanoVGGL3.nvgDelete(vg);
         vg = -1L;
@@ -114,9 +127,7 @@ public final class NanoVGManager {
 
     // binds mc's main render target; pair with exactly one endFrame()
     public static void beginFrame(float width, float height) {
-        if (!initialized) throw new IllegalStateException("[Aether] NanoVGManager.init() must be called first");
-        if (drawing)      throw new IllegalStateException("[Aether] endFrame() was not called before beginFrame()");
-
+        checkCanBeginFrame();
         saveFrameState();
         float computedRatio = 1f;
         try {
@@ -137,7 +148,24 @@ public final class NanoVGManager {
             overrideTargetFbo = -1;
         }
 
-        pxRatio = computedRatio;
+        startFrame(width, height, computedRatio);
+    }
+
+    // draws into whatever framebuffer and viewport the caller bound, for offscreen previews; pxRatio is viewport px per unit
+    // pair with exactly one endFrame()
+    public static void beginFrame(float width, float height, float pxRatio) {
+        checkCanBeginFrame();
+        saveFrameState();
+        startFrame(width, height, pxRatio);
+    }
+
+    private static void checkCanBeginFrame() {
+        if (!initialized) throw new IllegalStateException("[Aether] NanoVGManager.init() must be called first");
+        if (drawing)      throw new IllegalStateException("[Aether] endFrame() was not called before beginFrame()");
+    }
+
+    private static void startFrame(float width, float height, float ratio) {
+        pxRatio = ratio;
 
         // Unbind MC's sampler from unit 0 so NanoVG can bind its font atlas texture.
         GL33C.glBindSampler(0, 0);
@@ -147,6 +175,26 @@ public final class NanoVGManager {
         NanoVG.nvgBeginFrame(vg, width, height, pxRatio);
         NanoVG.nvgTextAlign(vg, NanoVG.NVG_ALIGN_LEFT | NanoVG.NVG_ALIGN_TOP);
         drawing = true;
+        runNextFrameTasks();
+    }
+
+    // runs once inside the next frame, right after it begins, on the render thread; any thread may queue
+    // image creation and deletion must happen inside a frame, where saveFrameState protects mc's gl state
+    public static void runInNextFrame(Runnable task) {
+        nextFrameTasks.add(task);
+    }
+
+    private static void runNextFrameTasks() {
+        // only the tasks queued before this frame, so a task that queues another waits a frame
+        for (int pending = nextFrameTasks.size(); pending > 0; pending--) {
+            Runnable task = nextFrameTasks.poll();
+            if (task == null) return;
+            try {
+                task.run();
+            } catch (RuntimeException e) {
+                System.err.println("[Aether] NanoVG frame task failed: " + e);
+            }
+        }
     }
 
     public static void endFrame() {
@@ -370,6 +418,12 @@ public final class NanoVGManager {
         addFallback(Fonts.BOLD, fallbackId);
         addFallback(Fonts.MONO, fallbackId);
         addFallback(Fonts.SCOREBOARD_BOLD, fallbackId);
+        addFallback(Fonts.UI_REGULAR, fallbackId);
+        addFallback(Fonts.UI_MEDIUM, fallbackId);
+        addFallback(Fonts.UI_SEMIBOLD, fallbackId);
+        addFallback(Fonts.UI_BOLD, fallbackId);
+        addFallback(Fonts.UI_MONO, fallbackId);
+        addFallback(Fonts.UI_MONO_BOLD, fallbackId);
     }
 
     private static void addFallback(String baseFont, int fallbackId) {
