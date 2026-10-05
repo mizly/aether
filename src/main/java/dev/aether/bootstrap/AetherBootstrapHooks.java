@@ -19,6 +19,10 @@ import java.util.function.Consumer;
 
 public final class AetherBootstrapHooks {
     public interface FeatureHooks {
+        default CameraOverride cameraOverride() {
+            return null;
+        }
+
         default boolean isAttackSuppressed() {
             return false;
         }
@@ -371,6 +375,10 @@ public final class AetherBootstrapHooks {
 
     public static boolean shouldHideFilteredChatMessage(Component message) {
         return hooks.shouldHideFilteredChatMessage(message);
+    }
+
+    public static CameraOverride cameraOverride() {
+        return hooks.cameraOverride();
     }
 
     public static boolean isFreecamEnabled() {

@@ -37,7 +37,7 @@ public class MixinGameRenderer {
 
     @Inject(method = "renderItemInHand", at = @At("HEAD"), cancellable = true)
     private void onRenderItemInHand(CameraRenderState cameraRenderState, float partialTick, org.joml.Matrix4fc matrix4f, CallbackInfo ci) {
-        if (AetherBootstrapHooks.isFreecamEnabled()) {
+        if (AetherBootstrapHooks.isFreecamEnabled() || AetherBootstrapHooks.cameraOverride() != null) {
             ci.cancel();
         }
     }
