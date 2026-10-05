@@ -190,6 +190,7 @@ class OrbitPreviewTest {
         if (only.isEmpty() || "plots".contains(only)) written.add(renderPlots(view, ids, surfaces));
         if (only.isEmpty() || "travel".contains(only)) written.addAll(renderTravel(view, ids, surfaces));
         if (only.isEmpty() || "hover".contains(only)) written.addAll(renderHovers(view, ids, surfaces));
+        if (only.isEmpty() || "search".contains(only)) written.add(renderSearch(view, ids, surfaces));
         System.out.println("orbit previews: " + written);
     }
 
@@ -242,6 +243,36 @@ class OrbitPreviewTest {
         }
         dev.aether.ui.gui.plot.GardenPlotData.install(null);
         Path out = Path.of("build/reports/gui-preview/orbit/plots.png");
+        ImageIO.write(image, "png", out.toFile());
+        return out.toString();
+    }
+
+    // the top bar search open on a query, over the pests panel
+    private String renderSearch(PanelView view, List<String> ids, PanelSurface[] surfaces) throws Exception {
+        int active = ids.indexOf("pests");
+        view.orbitFocus("pests");
+        double[][] lean = OrbitRig.lean("pests");
+        float[] unfold = new float[ids.size()];
+        java.util.Arrays.fill(unfold, 1f);
+        OrbitLayout.Result layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(), 0f, 0f, 1.62, 70f,
+                ids.size(), active, 0f, 0f, 1f, true, 0f, unfold, active, lean[0], lean[1], H));
+        OrbitSearchBar bar = new OrbitSearchBar(view, () -> { });
+        bar.type("pest th");
+        BufferedImage image = null;
+        for (int frame = 0; frame < 30; frame++) {
+            now += 16_666_667L;
+            render(view, ids, surfaces, layout, 0f, false);
+            float gw = W / 2f, gh = H / 2f;
+            NanoVGManager.beginFrame(gw, gh, 2f);
+            try {
+                bar.render(NanoVGManager.getRenderer(), dev.aether.ui.gui.Palette.fromTheme(), gw / 2f - 110f, 10f, 220f,
+                        gw, gh, gw / 2f, 62f, 1f);
+            } finally {
+                NanoVGManager.endFrame();
+            }
+            if (frame == 29) image = read();
+        }
+        Path out = Path.of("build/reports/gui-preview/orbit/search.png");
         ImageIO.write(image, "png", out.toFile());
         return out.toString();
     }
