@@ -21,6 +21,7 @@ final class SceneParticles {
     private static final Identifier CRIT = particle("critical_hit");
     private static final Identifier MAGIC = particle("enchanted_hit");
     private static final Identifier DRIP = particle("drip_fall");
+    private static final Identifier HANG = particle("drip_hang");
     private static final Identifier BUBBLE = particle("bubble");
     private static final Identifier ANGRY = particle("angry");
     private static final Identifier NOTE = particle("note");
@@ -38,6 +39,10 @@ final class SceneParticles {
         boolean popIn, ground, shrink;
         // a bubble bursts into the pop animation where it ends; a drop splashes where it lands
         boolean pops, splashes;
+        // a bead stuck to a moving point (the side of a head) until it lets go and falls as a drip
+        Vector3f anchor;
+        float ox, oy, oz;
+        int hold;
         float shadow = -1f;
     }
 
@@ -174,19 +179,22 @@ final class SceneParticles {
         }
     }
 
-    // a falling water drop, flung off with v
-    void drip(float x, float y, float z, float vx, float vy, float vz) {
-        Particle p = add(new Identifier[]{DRIP}, false, x, y, z);
-        p.vx = vx;
-        p.vy = vy;
-        p.vz = vz;
-        p.gravity = 0.06f * 12f;
+    // a bead of sweat that forms on the side of a moving head, runs down it, then drips off and splashes; side is
+    // the way it gets flung, in blocks a tick
+    void sweat(Vector3f anchor, float sx, float sz) {
+        Particle p = add(new Identifier[]{HANG}, false, anchor.x, anchor.y, anchor.z);
+        p.anchor = anchor;
+        p.hold = 8 + random.nextInt(6);
+        p.vx = sx;
+        p.vz = sz;
+        p.gravity = 0.06f * 10f;
         p.r = 0.2f;
         p.g = 0.3f;
         p.b = 1f;
-        p.size = 0.1f * (random.nextFloat() * 0.5f + 0.5f) * 2f * 0.6f;
-        p.lifetime = (int) (64.0 / (random.nextFloat() * 0.8 + 0.2));
+        p.size = 0.045f + random.nextFloat() * 0.015f;
+        p.lifetime = 60;
         p.splashes = true;
+        p.popIn = true;
     }
 
     // a bubble rising slowly and bursting at the end
@@ -293,6 +301,21 @@ final class SceneParticles {
                 }
                 continue;
             }
+            if (p.anchor != null) {
+                // clinging: slide down the head a little each tick, then let go
+                p.oy -= 0.008f;
+                p.x = p.anchor.x + p.ox;
+                p.y = p.anchor.y + p.oy;
+                p.z = p.anchor.z + p.oz;
+                if (--p.hold <= 0) {
+                    p.px = p.x;
+                    p.py = p.y;
+                    p.pz = p.z;
+                    p.anchor = null;
+                    p.frames = new Identifier[]{DRIP};
+                }
+                continue;
+            }
             p.vy -= 0.04f * p.gravity;
             p.x += p.vx;
             p.y += p.vy;
@@ -337,7 +360,8 @@ final class SceneParticles {
             if (p.shrink && t > 0.75f) size *= Math.max(0f, (1f - t) / 0.25f);
             if (size <= 0.002f) continue;
             Identifier frame = p.byAge ? p.frames[Math.min(p.frames.length - 1, (int) (t * p.frames.length))] : p.frames[0];
-            local.transformPosition(lerp(p.px, p.x, partial), lerp(p.py, p.y, partial), lerp(p.pz, p.z, partial), c);
+            if (p.anchor != null) local.transformPosition(p.anchor.x + p.ox, p.anchor.y + p.oy, p.anchor.z + p.oz, c);
+            else local.transformPosition(lerp(p.px, p.x, partial), lerp(p.py, p.y, partial), lerp(p.pz, p.z, partial), c);
             SceneClone.Buffer out = buffers.apply(frame);
             if (p.shadow >= 0f) {
                 Vector3f s = new Vector3f(c).fma(size / 8f, right).fma(-size / 8f, up).sub(toward);

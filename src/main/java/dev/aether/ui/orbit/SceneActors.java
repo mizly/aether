@@ -65,6 +65,9 @@ final class SceneActors implements AutoCloseable {
         Step step = Step.LOOKING;
         float age, stepAge, poof = -1f, trade, stride, landed = 9f;
         float x, z, yaw = (float) Math.PI;
+        // the drawn head, body and limb angles ease toward each frame's targets so steps blend into each other
+        final float[] eased = new float[8];
+        boolean primed;
     }
 
     private static final class Pest {
@@ -112,6 +115,8 @@ final class SceneActors implements AutoCloseable {
     private final float[] stands = new float[3];
     private int bars;
     private float strikes;
+    private float frameDt;
+    private final Vector3f browRight = new Vector3f(), browLeft = new Vector3f();
     private float zeeTimer, sweatTimer, dustTimer, sparkleTimer, snoreTimer, questionTimer, glintTimer, breathTimer,
             suckTimer;
 
@@ -124,6 +129,7 @@ final class SceneActors implements AutoCloseable {
     // advances every skit for the focused module and poses the player for it
     void update(float dt, float time, Inputs inputs, PlayerFigure figure) {
         this.time = time;
+        this.frameDt = dt;
         this.in = inputs == null ? Inputs.NONE : inputs;
         String now = in.focus();
         if (now == null ? focus != null : !now.equals(focus)) {
@@ -307,6 +313,7 @@ final class SceneActors implements AutoCloseable {
         pose.roll += tremble * 1.5f;
         pose.headPitch += 10f - 22f * w * (0.5f + 0.5f * (float) Math.sin(time * 1.7f));
         pose.look = 1f - 0.6f * w;
+        pose.squash = 0.03f + 0.07f * w;
         // heavy loads make you stagger a step every few seconds
         float stagger = (time % 3.1f) / 0.7f;
         if (w > 0.45f && stagger < 1f) {
@@ -317,6 +324,7 @@ final class SceneActors implements AutoCloseable {
             pose.roll += s * 9f * w * side;
             pose.lean -= s * 8f;
             pose.x += s * 0.08f * side;
+            pose.squint = s > 0.3f ? 1f : 0f;
         }
         Villager trader = trader();
         if (trader != null) {
@@ -331,7 +339,7 @@ final class SceneActors implements AutoCloseable {
             particles.spark(pose.x + (float) (Math.random() - 0.5) * 0.4f, 1.1f + bars * 0.05f, 0.45f, 0f, 0.02f, 0f,
                     0xFFD84A);
         }
-        if (w > 0.35f) sweat(dt * w * 1.5f, pose.x, pose.z);
+        if (w > 0.35f) sweat(dt * w * 1.5f);
     }
 
     // the table drops in front of you; with the module on you hammer at it until a bale pops out onto the pile
@@ -362,6 +370,7 @@ final class SceneActors implements AutoCloseable {
             pose.left = -45f;
             pose.leftWeight = 1f;
             pose.lean += 16f;
+            pose.squash = 0.05f * (1f - hit);
             float k = c * 4f;
             if ((int) k != (int) strikes) {
                 tableHit = 0.12f;
@@ -386,10 +395,12 @@ final class SceneActors implements AutoCloseable {
             }
             // a little cheer
             float k = (c - 1.6f) / 0.5f;
-            float s = (float) Math.sin(Math.PI * k);
+            float air = clamp01((k - 0.2f) / 0.8f);
+            float s = (float) Math.sin(Math.PI * air);
+            pose.squash = k < 0.2f ? 0.2f : 0f;
             pose.right = pose.left = -170f;
             pose.rightWeight = pose.leftWeight = s;
-            pose.y += s * 0.25f;
+            pose.y += s * 0.3f;
             pose.headPitch -= 25f;
         } else {
             strikes = 0f;
@@ -421,6 +432,7 @@ final class SceneActors implements AutoCloseable {
             pose.rightWeight = pose.leftWeight = s;
             pose.lean = -12f * s;
             pose.headPitch = -25f * s;
+            pose.squint = s > 0.3f ? 1f : 0f;
             breathTimer -= dt;
             if (k > 0.2f && k < 0.7f && breathTimer <= 0f) {
                 breathTimer = 0.08f;
@@ -434,6 +446,7 @@ final class SceneActors implements AutoCloseable {
             pose.right = pose.left = 40f;
             pose.rightWeight = pose.leftWeight = k;
             pose.lean = 18f * k;
+            pose.squash = 0.25f * smooth(k);
             return;
         }
         if (t < 2.05f) {
@@ -547,7 +560,10 @@ final class SceneActors implements AutoCloseable {
         } else if (c < 1.2f) {
             float k = (c - 0.85f) / 0.35f;
             if (c - dt < 0.85f) particles.glyph('!', 0xFF5555, 0f, 2.3f, 0f, 0f, 0.03f, 24, 0.3f);
-            pose.y = (float) Math.sin(Math.PI * k) * 0.55f * fear;
+            // a flinch down, then up out of his skin
+            float air = clamp01((k - 0.18f) / 0.82f);
+            pose.squash = k < 0.18f ? 0.3f : 0f;
+            pose.y = (float) Math.sin(Math.PI * air) * 0.6f * fear;
             pose.right = pose.left = -172f;
             pose.rightWeight = pose.leftWeight = 1f;
             pose.lean = -20f * fear;
@@ -578,7 +594,7 @@ final class SceneActors implements AutoCloseable {
             pose.headYaw = 80f * glance;
             pose.turn = 25f * glance;
             pose.headPitch = -5f;
-            sweat(dt, pose.x, pose.z);
+            sweat(dt);
             dust(dt, pose.x, pose.z);
         } else if (c < SUCK) {
             // skid onto the spot, spin round to face them and whip the vacuum out
@@ -593,8 +609,10 @@ final class SceneActors implements AutoCloseable {
             vacuum = Math.max(vacuum, smooth(clamp01((k - 0.4f) / 0.5f)));
             if (c - dt < RUN_TO) for (int i = 0; i < 8; i++) ground(0f, 0f, (float) (Math.random() - 0.5) * 0.2f, 0.2f, -0.1f);
         } else if (c < suckEnd) {
-            // braced, shaking with the suction
+            // braced, shaking with the suction, eyes screwed shut
             float shake = (float) Math.sin(c * 60) * 2f;
+            pose.squint = 1f;
+            pose.squash = 0.06f;
             pose.right = -90f + shake;
             pose.left = -80f - shake;
             pose.rightWeight = pose.leftWeight = 1f;
@@ -630,6 +648,8 @@ final class SceneActors implements AutoCloseable {
             pose.rightWeight = pose.leftWeight = 1f;
             pose.headPitch = (-20f + (float) Math.sin(c * 14) * 6f) * bend - 15f * (1f - bend);
             pose.y = (float) Math.sin(c * 14) * 0.015f * bend;
+            pose.squash = (0.04f + (float) Math.sin(c * 14) * 0.03f) * bend;
+            pose.squint = k < 0.35f ? 1f : 0f;
             pose.look = 0f;
             breathTimer -= dt;
             if (breathTimer <= 0f) {
@@ -637,7 +657,7 @@ final class SceneActors implements AutoCloseable {
                 float mouthY = bend > 0.5f ? 1.25f : 1.6f;
                 particles.cloud(0f, mouthY, 0.35f, 0f, bend > 0.5f ? -0.01f : 0.03f, 0.05f, bend > 0.5f ? 0.5f : 0.8f);
             }
-            sweat(dt * 0.6f, 0f, 0f);
+            sweat(dt * 0.6f);
         } else {
             // phew: wipe the brow
             float k = (c - (LOOP - 0.9f)) / 0.9f;
@@ -742,7 +762,9 @@ final class SceneActors implements AutoCloseable {
         float w = k - 0.75f;
         if (w < 0.6f) {
             // arms up in triumph
-            float s = (float) Math.sin(Math.PI * Math.min(1f, w / 0.6f));
+            float air = clamp01((w - 0.08f) / 0.52f);
+            float s = (float) Math.sin(Math.PI * air);
+            pose.squash = w < 0.08f ? 0.25f : 0f;
             pose.right = -160f + (float) Math.sin(w * 20) * 10f;
             pose.left = -160f - (float) Math.sin(w * 20) * 10f;
             pose.rightWeight = pose.leftWeight = s;
@@ -763,12 +785,16 @@ final class SceneActors implements AutoCloseable {
         return new Vector3f(3.4f + 1.55f * i, 0f, 2.6f);
     }
 
-    private void sweat(float dt, float x, float z) {
+    // a bead forms on one side of the head, runs down and drips off; heavier work, more often
+    private void sweat(float dt) {
         sweatTimer -= dt;
         if (sweatTimer > 0f) return;
-        sweatTimer = 0.16f;
-        float side = Math.random() < 0.5 ? -1f : 1f;
-        particles.drip(x + side * 0.25f, 1.75f, z, side * 0.04f, 0.1f, 0f);
+        sweatTimer = 0.35f + (float) Math.random() * 0.25f;
+        boolean leftSide = Math.random() < 0.5;
+        Vector3f side = new Vector3f(browLeft).sub(browRight);
+        if (side.lengthSquared() < 1e-6f) return;
+        side.normalize(leftSide ? 0.025f : -0.025f);
+        particles.sweat(leftSide ? browLeft : browRight, side.x, side.z);
     }
 
     private void dust(float dt, float x, float z) {
@@ -843,6 +869,10 @@ final class SceneActors implements AutoCloseable {
         if (bars > 0) goldBars(figure);
         if (cap > 0f) nightcap(figure.headFrame(), backOut(cap));
         if (vacuum > 0.01f) vacuum(figure.rightArmFrame(), backOut(vacuum));
+        // the temples in farm blocks, where sweat beads cling
+        Matrix4f toFarm = new Matrix4f(local).invert();
+        toFarm.transformPosition(figure.headFrame().transformPosition(-4.4f, 5f, 1.5f, browRight));
+        toFarm.transformPosition(figure.headFrame().transformPosition(4.4f, 5f, 1.5f, browLeft));
         particles.build(this::buffer, local, right, up);
         List<Draw> out = new ArrayList<>();
         for (Map.Entry<Identifier, SceneClone.Buffer> e : buffers.entrySet()) {
@@ -959,6 +989,21 @@ final class SceneActors implements AutoCloseable {
             sy *= 1f - 0.24f * (float) Math.sin(Math.PI * c);
             sxz *= 1f + 0.12f * (float) Math.sin(Math.PI * c);
         }
+        float[] target = {headYaw, headPitch, headRoll, turn, roll, lean, legs, arms};
+        float head = 1f - (float) Math.exp(-frameDt * 11f), limbs = 1f - (float) Math.exp(-frameDt * 22f);
+        for (int i = 0; i < 8; i++) {
+            if (!v.primed) v.eased[i] = target[i];
+            else v.eased[i] += (target[i] - v.eased[i]) * (i >= 6 ? limbs : head);
+        }
+        v.primed = true;
+        headYaw = v.eased[0];
+        headPitch = v.eased[1];
+        headRoll = v.eased[2];
+        turn = v.eased[3];
+        roll = v.eased[4];
+        lean = v.eased[5];
+        legs = v.eased[6];
+        arms = v.eased[7];
         float spin = v.poof >= 0f ? v.poof * 18f : 0f;
         Matrix4f m = new Matrix4f(local).translate(v.x, hop, v.z).rotateY(v.yaw + turn + spin).rotateZ(roll).rotateX(lean)
                 .scale(grow * sxz, grow * sy, grow * sxz);
