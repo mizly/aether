@@ -17,6 +17,7 @@ import dev.aether.ui.theme.Theme;
 import dev.aether.util.AetherResources;
 import org.joml.Matrix4f;
 import org.joml.Vector3d;
+import org.joml.Vector3f;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Tag;
@@ -191,8 +192,7 @@ class OrbitPreviewTest {
         if (only.isEmpty() || "travel".contains(only)) written.addAll(renderTravel(view, ids, surfaces));
         if (only.isEmpty() || "hover".contains(only)) written.addAll(renderHovers(view, ids, surfaces));
         if (only.isEmpty() || "search".contains(only)) written.add(renderSearch(view, ids, surfaces));
-        if (only.isEmpty() || "figure".contains(only)) written.add(renderFigure());
-        if (only.isEmpty() || "actors".contains(only)) written.add(renderActors());
+        written.addAll(renderStages(only));
         System.out.println("orbit previews: " + written);
     }
 
@@ -249,141 +249,178 @@ class OrbitPreviewTest {
         return out.toString();
     }
 
-    // the player figure in steve's skin through the scene shader, close up from the front and the back
-    private String renderFigure() throws Exception {
+    // each skit of the farm's actors played from the start, nine frames of it in a filmstrip
+    private record Stage(String name, SceneActors.Inputs inputs, float[] times, Vector3f eye, Vector3f at) {
+    }
+
+    private List<String> renderStages(String only) throws Exception {
+        Vector3f front = new Vector3f(3.2f, 2.4f, 6.5f), side = new Vector3f(9f, 3.4f, 4.5f);
+        Vector3f centre = new Vector3f(0.4f, 0.9f, 0f);
+        List<Stage> stages = List.of(
+                new Stage("stage-pests", new SceneActors.Inputs("Pest Manager", true, 0, 5, 0),
+                        new float[]{0.5f, 1.0f, 1.15f, 1.8f, 2.6f, 3.1f, 3.8f, 4.4f, 5.2f}, new Vector3f(7f, 3f, 2.5f),
+                        new Vector3f(0f, 1f, -1f)),
+                new Stage("stage-bed", new SceneActors.Inputs("Dynamic Rest", true, 0, 0, 0),
+                        new float[]{0.45f, 0.85f, 1.4f, 1.75f, 2.1f, 2.7f, 3.2f, 3.5f, 5.5f}, new Vector3f(2.5f, 2.8f, 6.5f),
+                        new Vector3f(1f, 0.8f, -0.4f)),
+                new Stage("stage-craft", new SceneActors.Inputs("Auto Supercraft", true, 0, 0, 0),
+                        new float[]{0.2f, 0.45f, 0.8f, 1.0f, 1.3f, 2.4f, 2.7f, 6f, 12f}, new Vector3f(4.5f, 2.6f, 4.5f),
+                        new Vector3f(0.5f, 0.9f, 0.7f)),
+                new Stage("stage-craft-off", new SceneActors.Inputs("Auto Supercraft", false, 0, 0, 0),
+                        new float[]{0.6f, 1f, 1.4f, 1.8f, 2.2f, 2.6f, 3f, 3.4f, 3.8f}, new Vector3f(4.5f, 2.6f, 4.5f),
+                        new Vector3f(0.5f, 0.9f, 0.7f)),
+                new Stage("stage-visitors", new SceneActors.Inputs("Auto Visitor", true, 4, 0, 0),
+                        new float[]{1f, 2.5f, 4f, 5.5f, 7f, 8.5f, 10f, 11.5f, 13f}, side, new Vector3f(0f, 0.9f, 4.5f)),
+                new Stage("stage-gold", new SceneActors.Inputs("Auto Visitor", true, 1, 0, 20),
+                        new float[]{0.3f, 1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f}, front, centre),
+                new Stage("stage-gold-light", new SceneActors.Inputs("Auto Visitor", true, 1, 0, 2),
+                        new float[]{0.3f, 1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f}, front, centre),
+                new Stage("stage-loadout", new SceneActors.Inputs("Auto Loadout", true, 0, 0, 0),
+                        new float[]{0.5f, 1.3f, 1.8f, 2.2f, 3.0f, 3.9f, 4.5f, 6.4f, 7.2f}, new Vector3f(1.5f, 2.6f, 7.5f),
+                        new Vector3f(2f, 0.9f, 0.5f)));
         int scene = link("orbit_scene.vsh", "orbit_scene.fsh");
-        BufferedImage skinImage = ImageIO.read(OrbitPreviewTest.class.getResourceAsStream("/assets/minecraft/textures/entity/player/wide/steve.png"));
-        ByteBuffer px = ByteBuffer.allocateDirect(64 * 64 * 4);
-        for (int y = 0; y < 64; y++) {
-            for (int x = 0; x < 64; x++) {
-                int argb = skinImage.getRGB(x, y);
-                px.put((byte) (argb >> 16)).put((byte) (argb >> 8)).put((byte) argb).put((byte) (argb >>> 24));
-            }
-        }
-        px.flip();
-        int skin = GL11.glGenTextures();
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, skin);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, 64, 64, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, px);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
-        int figVao = GL30.glGenVertexArrays();
-        int figVbo = GL15.glGenBuffers();
-        GL30.glBindVertexArray(figVao);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, figVbo);
+        int stageVao = GL30.glGenVertexArrays();
+        int stageVbo = GL15.glGenBuffers();
+        GL30.glBindVertexArray(stageVao);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, stageVbo);
         GL20.glEnableVertexAttribArray(0);
         GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, SceneClone.STRIDE, 0L);
         GL20.glEnableVertexAttribArray(1);
         GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, SceneClone.STRIDE, 12L);
         GL20.glEnableVertexAttribArray(2);
         GL20.glVertexAttribPointer(2, 4, GL11.GL_UNSIGNED_BYTE, true, SceneClone.STRIDE, 20L);
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GL11.glViewport(0, 0, W, H);
-        GL11.glClearColor(0.78f, 0.86f, 0.96f, 1f);
-        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthMask(true);
-        GL11.glDisable(GL11.GL_BLEND);
-        GL20.glUseProgram(scene);
-        GL20.glUniform1i(GL20.glGetUniformLocation(scene, "Sampler"), 0);
-        GL20.glUniform3f(GL20.glGetUniformLocation(scene, "Offset"), 0f, 0f, 0f);
-        GL20.glUniform2f(GL20.glGetUniformLocation(scene, "FogRange"), 1e8f, 2e8f);
-        GL20.glUniform1f(GL20.glGetUniformLocation(scene, "AlphaCut"), 0.1f);
-        // six figures in a row: calm, panicking, crafting, waving, holding gold and asleep
-        String[] poses = {"calm", "panic", "craft", "wave", "hold", "sleep"};
-        for (int n = 0; n < poses.length; n++) {
-            String pose = poses[n];
-            PlayerFigure fig = new PlayerFigure();
-            SceneClone.Buffer buf = new SceneClone.Buffer(512);
-            Matrix4f toWorld = new Matrix4f().translate(-4.2f + n * 1.7f, 0f, 0f).rotateY((float) Math.toRadians(25));
-            fig.build(buf, toWorld, false, 0f);
-            buf.reset();
-            float t = 0f;
-            for (int i = 0; i < 90; i++) {
-                t += 1f / 60f;
-                fig.pose(pose.equals("panic") ? 1f : 0f, pose.equals("craft"), pose.equals("hold"), pose.equals("sleep"), 1f / 60f);
-                fig.lookAt(0f, 1.5f, 5f, 1f / 60f);
-                if (pose.equals("wave") && i == 40) fig.wave(3f, 3f);
-                fig.build(buf, toWorld, false, t);
-                buf.reset();
+        java.util.Map<String, Integer> textures = new java.util.HashMap<>();
+        Path headDir = Path.of(System.getProperty("preview.heads", "/tmp/claude-1000/heads"));
+        List<Path> heads = new ArrayList<>();
+        if (java.nio.file.Files.isDirectory(headDir)) {
+            try (var files = java.nio.file.Files.list(headDir)) {
+                files.filter(f -> !f.getFileName().toString().startsWith("face_")).sorted().forEach(heads::add);
             }
-            fig.build(buf, toWorld, false, t + 0.13f);
-            Matrix4f vp = new Matrix4f().perspective((float) Math.toRadians(35), (float) W / H, 0.05f, 100f)
-                    .lookAt(0f, 1.6f, 9f, 0f, 0.9f, 0f, 0f, 1f, 0f);
-            try (MemoryStack stack = MemoryStack.stackPush()) {
-                GL20.glUniformMatrix4fv(GL20.glGetUniformLocation(scene, "ViewProjection"), false, vp.get(stack.mallocFloat(16)));
-            }
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, skin);
-            GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buf.finish(), GL15.GL_STREAM_DRAW);
-            GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, buf.count);
-            buf.free();
         }
-        BufferedImage image = read();
-        Path out = Path.of("build/reports/gui-preview/orbit/figure.png");
-        ImageIO.write(image, "png", out.toFile());
+        java.util.function.ToIntFunction<net.minecraft.resources.Identifier> texture = id -> textures.computeIfAbsent(id.toString(), k -> {
+            try {
+                if (id.getNamespace().equals("preview")) {
+                    return textureFrom(java.nio.file.Files.newInputStream(heads.get(Integer.parseInt(id.getPath()))));
+                }
+                return textureFrom(OrbitPreviewTest.class.getResourceAsStream("/assets/" + id.getNamespace() + "/" + id.getPath()));
+            } catch (Exception e) {
+                throw new IllegalStateException(id.toString(), e);
+            }
+        });
+        int skin = textureFrom(OrbitPreviewTest.class.getResourceAsStream("/assets/minecraft/textures/entity/player/wide/steve.png"));
+        List<String> out = new ArrayList<>();
+        for (Stage stage : stages) {
+            if (!only.isEmpty() && !stage.name().contains(only)) continue;
+            SceneActors actors = new SceneActors(i -> heads.isEmpty() ? null
+                    : net.minecraft.resources.Identifier.fromNamespaceAndPath("preview", Integer.toString(i % heads.size())));
+            PlayerFigure figure = new PlayerFigure();
+            Vector3d eye = new Vector3d(stage.eye());
+            Vector3d look = new Vector3d(stage.at());
+            Vector3d forward = new Vector3d(look).sub(eye).normalize();
+            Vector3d right = new Vector3d(forward).cross(0, 1, 0).normalize();
+            Vector3d up = new Vector3d(right).cross(forward).normalize();
+            OrbitLayout.Camera cam = new OrbitLayout.Camera(eye, look, forward, right, up, 40f);
+            Matrix4f vp = new Matrix4f().perspective((float) Math.toRadians(40), (float) W / H, 0.05f, 200f)
+                    .lookAt(stage.eye(), stage.at(), new Vector3f(0, 1, 0));
+            BufferedImage strip = new BufferedImage(W, H, BufferedImage.TYPE_INT_RGB);
+            java.awt.Graphics2D g = strip.createGraphics();
+            g.setRenderingHint(java.awt.RenderingHints.KEY_INTERPOLATION, java.awt.RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            float t = 0f, dt = 1f / 60f;
+            int shot = 0;
+            SceneClone.Buffer body = new SceneClone.Buffer(512);
+            while (shot < stage.times().length) {
+                t += dt;
+                actors.update(dt, t, stage.inputs(), figure);
+                figure.lookAt((float) eye.x, (float) eye.y, (float) eye.z, dt);
+                body.reset();
+                figure.build(body, new Matrix4f(), false, t);
+                var draws = actors.build(new Matrix4f(), new Vector3d(eye), figure);
+                if (t + 1e-4f < stage.times()[shot]) continue;
+                List<OrbitWorldRenderer.Quad> flat = new ArrayList<>();
+                actors.appendQuads(flat, v -> new Vector3d(v.x, v.y, v.z), cam);
+                GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+                GL11.glViewport(0, 0, W, H);
+                GL11.glClearColor(0.6f, 0.76f, 0.95f, 1f);
+                GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+                GL11.glEnable(GL11.GL_DEPTH_TEST);
+                GL11.glDepthFunc(GL11.GL_LEQUAL);
+                GL11.glDepthMask(true);
+                GL11.glDisable(GL11.GL_BLEND);
+                GL20.glUseProgram(program);
+                try (MemoryStack stack = MemoryStack.stackPush()) {
+                    GL20.glUniformMatrix4fv(GL20.glGetUniformLocation(program, "ViewProjection"), false, vp.get(stack.mallocFloat(16)));
+                }
+                GL20.glUniform1i(GL20.glGetUniformLocation(program, "Panel"), 0);
+                GL30.glBindVertexArray(vao);
+                GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+                quad(new Vector3d(-30, 0, 30), new Vector3d(30, 0, 30), new Vector3d(30, 0, -30), new Vector3d(-30, 0, -30),
+                        white, 1f, 0f, 0.38f, 0.58f, 0.25f);
+                quad(new Vector3d(-1, 0.005, 30), new Vector3d(1, 0.005, 30), new Vector3d(1, 0.005, -12), new Vector3d(-1, 0.005, -12),
+                        white, 1f, 0f, 0.55f, 0.42f, 0.28f);
+                for (int k = -12; k <= 30; k += 2) {
+                    quad(new Vector3d(-1, 0.007, k + 0.05), new Vector3d(1, 0.007, k + 0.05), new Vector3d(1, 0.007, k - 0.05),
+                            new Vector3d(-1, 0.007, k - 0.05), white, 1f, 0f, 0.45f, 0.34f, 0.22f);
+                }
+                GL20.glUseProgram(scene);
+                GL20.glUniform1i(GL20.glGetUniformLocation(scene, "Sampler"), 0);
+                GL20.glUniform3f(GL20.glGetUniformLocation(scene, "Offset"), 0f, 0f, 0f);
+                GL20.glUniform2f(GL20.glGetUniformLocation(scene, "FogRange"), 1e8f, 2e8f);
+                GL20.glUniform1f(GL20.glGetUniformLocation(scene, "AlphaCut"), 0.1f);
+                GL20.glUniform1f(GL20.glGetUniformLocation(scene, "Solid"), 1f);
+                try (MemoryStack stack = MemoryStack.stackPush()) {
+                    GL20.glUniformMatrix4fv(GL20.glGetUniformLocation(scene, "ViewProjection"), false, vp.get(stack.mallocFloat(16)));
+                }
+                GL30.glBindVertexArray(stageVao);
+                GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, stageVbo);
+                GL11.glBindTexture(GL11.GL_TEXTURE_2D, skin);
+                int bodyCount = body.count;
+                GL15.glBufferData(GL15.GL_ARRAY_BUFFER, body.finish(), GL15.GL_STREAM_DRAW);
+                GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, bodyCount);
+                for (SceneActors.Draw d : draws) {
+                    GL11.glBindTexture(GL11.GL_TEXTURE_2D, texture.applyAsInt(d.texture()));
+                    int count = d.buffer().count;
+                    GL15.glBufferData(GL15.GL_ARRAY_BUFFER, d.buffer().finish(), GL15.GL_STREAM_DRAW);
+                    GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, count);
+                }
+                GL20.glUseProgram(program);
+                GL30.glBindVertexArray(vao);
+                GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+                GL11.glEnable(GL11.GL_BLEND);
+                GL14.glBlendFuncSeparate(GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ONE_MINUS_SRC_ALPHA);
+                GL11.glDepthMask(false);
+                flat.sort(Comparator.comparingDouble((OrbitWorldRenderer.Quad q) -> -q.topLeft().distanceSquared(eye)));
+                for (OrbitWorldRenderer.Quad q : flat) {
+                    quad(q.topLeft(), q.topRight(), q.bottomRight(), q.bottomLeft(), q.texture(), q.alpha(), q.dim(), 1f, 1f, 1f);
+                }
+                GL11.glDepthMask(true);
+                GL11.glDisable(GL11.GL_BLEND);
+                int col = shot % 3, row = shot / 3;
+                g.drawImage(read(), col * W / 3, row * H / 3, W / 3, H / 3, null);
+                g.setColor(java.awt.Color.WHITE);
+                g.drawString(String.format("t=%.2f", t), col * W / 3 + 6, row * H / 3 + 16);
+                shot++;
+            }
+            g.dispose();
+            body.free();
+            actors.close();
+            Path file = Path.of("build/reports/gui-preview/orbit/" + stage.name() + ".png");
+            ImageIO.write(strip, "png", file.toFile());
+            out.add(file.toString());
+        }
         GL30.glBindVertexArray(vao);
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-        return out.toString();
+        return out;
     }
 
-    // the farm's actors with their real textures: a villager, an armour stand in gold and a silverfish
-    private String renderActors() throws Exception {
-        int scene = link("orbit_scene.vsh", "orbit_scene.fsh");
-        int actorVao = GL30.glGenVertexArrays();
-        int actorVbo = GL15.glGenBuffers();
-        GL30.glBindVertexArray(actorVao);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, actorVbo);
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, SceneClone.STRIDE, 0L);
-        GL20.glEnableVertexAttribArray(1);
-        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, SceneClone.STRIDE, 12L);
-        GL20.glEnableVertexAttribArray(2);
-        GL20.glVertexAttribPointer(2, 4, GL11.GL_UNSIGNED_BYTE, true, SceneClone.STRIDE, 20L);
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
-        GL11.glViewport(0, 0, W, H);
-        GL11.glClearColor(0.78f, 0.86f, 0.96f, 1f);
-        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
-        GL11.glEnable(GL11.GL_DEPTH_TEST);
-        GL11.glDepthMask(true);
-        GL11.glDisable(GL11.GL_BLEND);
-        GL20.glUseProgram(scene);
-        GL20.glUniform1i(GL20.glGetUniformLocation(scene, "Sampler"), 0);
-        GL20.glUniform3f(GL20.glGetUniformLocation(scene, "Offset"), 0f, 0f, 0f);
-        GL20.glUniform2f(GL20.glGetUniformLocation(scene, "FogRange"), 1e8f, 2e8f);
-        GL20.glUniform1f(GL20.glGetUniformLocation(scene, "AlphaCut"), 0.1f);
-        GL20.glUniform1f(GL20.glGetUniformLocation(scene, "Solid"), 1f);
-        Matrix4f vp = new Matrix4f().perspective((float) Math.toRadians(35), (float) W / H, 0.05f, 100f)
-                .lookAt(0.6f, 1.5f, 6.5f, 0.3f, 0.8f, 0f, 0f, 1f, 0f);
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            GL20.glUniformMatrix4fv(GL20.glGetUniformLocation(scene, "ViewProjection"), false, vp.get(stack.mallocFloat(16)));
+    private static int textureFrom(java.io.InputStream in) throws Exception {
+        BufferedImage img;
+        try (in) {
+            img = ImageIO.read(in);
         }
-        java.util.Map<String, SceneClone.Buffer> draws = new java.util.LinkedHashMap<>();
-        java.util.function.Function<String, SceneClone.Buffer> buf = k -> draws.computeIfAbsent(k, x -> new SceneClone.Buffer(1024));
-        Matrix4f villager = new Matrix4f().translate(-1.6f, 0f, 0f).rotateY(0.5f);
-        for (String t : new String[]{"villager/villager", "villager/type/plains", "villager/profession/farmer"}) {
-            SceneActors.villager(buf.apply("/assets/minecraft/textures/entity/" + t + ".png"), villager, 0.4f, 0f);
-        }
-        Matrix4f stand = new Matrix4f().translate(0.6f, 0f, 0f).rotateY(-0.4f);
-        SceneActors.stand(buf.apply("/assets/minecraft/textures/entity/armorstand/armorstand.png"), stand);
-        SceneActors.armour(buf.apply("/assets/minecraft/textures/entity/equipment/humanoid/gold.png"),
-                buf.apply("/assets/minecraft/textures/entity/equipment/humanoid_leggings/gold.png"), stand);
-        SceneActors.silverfish(buf.apply("/assets/minecraft/textures/entity/silverfish/silverfish.png"),
-                new Matrix4f().translate(2.2f, 0f, 1.2f).rotateY(-0.9f).scale(2f), 10f);
-        for (var e : draws.entrySet()) {
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureFrom(e.getKey()));
-            int count = e.getValue().count;
-            GL15.glBufferData(GL15.GL_ARRAY_BUFFER, e.getValue().finish(), GL15.GL_STREAM_DRAW);
-            GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, count);
-            e.getValue().free();
-        }
-        Path out = Path.of("build/reports/gui-preview/orbit/actors.png");
-        ImageIO.write(read(), "png", out.toFile());
-        GL30.glBindVertexArray(vao);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-        return out.toString();
+        return upload(img);
     }
 
-    private static int textureFrom(String resource) throws Exception {
-        BufferedImage img = ImageIO.read(OrbitPreviewTest.class.getResourceAsStream(resource));
+    private static int upload(BufferedImage img) {
         ByteBuffer px = ByteBuffer.allocateDirect(img.getWidth() * img.getHeight() * 4);
         for (int y = 0; y < img.getHeight(); y++) {
             for (int x = 0; x < img.getWidth(); x++) {

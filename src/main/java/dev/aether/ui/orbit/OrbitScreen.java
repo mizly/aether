@@ -2,6 +2,7 @@ package dev.aether.ui.orbit;
 
 import com.mojang.blaze3d.platform.cursor.CursorType;
 import com.mojang.blaze3d.platform.cursor.CursorTypes;
+import dev.aether.config.AetherConfig;
 import dev.aether.Aether;
 import dev.aether.macro.MacroCatalog;
 import dev.aether.macro.MacroStateManager;
@@ -82,7 +83,7 @@ public final class OrbitScreen extends Screen {
     private SceneClone.Mesh clone;
     private final SceneRenderer sceneRenderer = new SceneRenderer();
     private final PlayerFigure figure = new PlayerFigure();
-    private final SceneActors actors = new SceneActors();
+    private final SceneActors actors = new SceneActors(dev.aether.renderer.PestHeads::texture);
     private SceneClone.Buffer figureBuffer;
     private final OrbitSearchBar searchBar;
     private String focused;
@@ -322,7 +323,9 @@ public final class OrbitScreen extends Screen {
         float lx = (float) (target.x * Math.cos(yaw) + target.z * Math.sin(yaw));
         float lz = (float) (-target.x * Math.sin(yaw) + target.z * Math.cos(yaw));
         var focus = overview() || state != State.OPEN ? null : view.orbitFocusModule();
-        actors.update(lastDt, clock, focus == null ? null : focus.name(), focus != null && focus.enabled(), figure);
+        actors.update(lastDt, clock, focus == null ? SceneActors.Inputs.NONE : new SceneActors.Inputs(focus.name(),
+                focus.enabled(), AetherConfig.VISITOR_THRESHOLD.get(), AetherConfig.PEST_THRESHOLD.get(),
+                AetherConfig.VISITOR_MAX_PURCHASE_LIMIT.get() / 1e6), figure);
         figure.lookAt(lx, (float) target.y, lz, lastDt);
         if (figureBuffer == null) figureBuffer = new SceneClone.Buffer(512);
         figureBuffer.reset();
@@ -336,10 +339,10 @@ public final class OrbitScreen extends Screen {
         Vector3d lens = new Vector3d(cam.pos()).sub(anchor);
         Vector3d camLocal = new Vector3d(lens.x * Math.cos(yaw) + lens.z * Math.sin(yaw), lens.y,
                 -lens.x * Math.sin(yaw) + lens.z * Math.cos(yaw));
-        var draws = actors.build(toWorld, camLocal);
+        var draws = actors.build(toWorld, camLocal, figure);
         var frame = new SceneRenderer.Frame(anchor.x, anchor.y, anchor.z, sceneYaw(), figureBuffer,
                 skin.body().texturePath(), crimson ? 0xFF2A0A10 : 0xFF6FA2E8, crimson ? 0xFF7A2E1C : 0xFFC7DDF5,
-                draws, actors.blocks());
+                draws, null);
         sceneRenderer.draw(clone, frame);
         renderWorld();
         sceneRenderer.sealDepth(frame);
@@ -478,8 +481,7 @@ public final class OrbitScreen extends Screen {
         }
         if (clone != null && player != null) {
             Vector3d anchorNow = sceneAnchor(player.getPosition(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(true)));
-            boolean slim = player.getSkin().model() == net.minecraft.world.entity.player.PlayerModelType.SLIM;
-            actors.appendQuads(quads, local -> rigToWorld(anchorNow, local.x, local.y, local.z), layout.camera(), figure, slim);
+            actors.appendQuads(quads, local -> rigToWorld(anchorNow, local.x, local.y, local.z), layout.camera());
         }
         Vec3 eye = Minecraft.getInstance().gameRenderer.getMainCamera().position();
         quads.sort(Comparator.comparingDouble((OrbitWorldRenderer.Quad q) -> -distanceSq(q, eye)));
