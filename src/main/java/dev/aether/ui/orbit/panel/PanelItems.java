@@ -234,13 +234,6 @@ final class PanelItems {
                 apply(e);
             }
 
-            @Override
-            public boolean scroll(PointerEvent e, double dy) {
-                int next = Math.max(min, Math.min(max, Math.round(setting.getValue()) + (dy > 0 ? 1 : -1)));
-                setting.setValue(next);
-                return true;
-            }
-
             private void apply(PointerEvent e) {
                 Rect r = e.pressRect();
                 int i = (int) Math.floor((e.localX() - r.x() - 3f) / step);

@@ -554,6 +554,12 @@ public final class OrbitScreen extends Screen {
         return hit == null ? new float[]{-1f, -1f} : hit;
     }
 
+    private OrbitLayout.Placement frontPlacement() {
+        if (layout == null) return null;
+        for (OrbitLayout.Placement p : layout.placements()) if (p.active()) return p;
+        return null;
+    }
+
     // nearest panel under the cursor
     private OrbitLayout.Placement pick(double gx, double gy) {
         if (layout == null) return null;
@@ -730,9 +736,19 @@ public final class OrbitScreen extends Screen {
             return true;
         }
         OrbitLayout.Placement hit = pick(x, y);
-        if (hit != null && hit.active() && !overview() && !hasShiftDown()) {
-            float[] local = intersect(hit, rayDirection(x, y));
-            if (local != null && view.scrolled(local[0], local[1], scrollX, scrollY)) return true;
+        if (!overview() && !hasShiftDown()) {
+            boolean overFront = hit != null && hit.active();
+            if (overFront) {
+                float[] local = intersect(hit, rayDirection(x, y));
+                if (local != null && view.scrolled(local[0], local[1], scrollX, scrollY)) return true;
+            }
+            // over the front panel's header, or anywhere with a page open, the wheel scrolls that panel; spinning
+            // the ring would switch category and close the page under you
+            if (overFront || view.orbitModuleOpen()) {
+                OrbitLayout.Placement front = frontPlacement();
+                if (front != null) view.scrolled(front.designW() / 2f, front.designH() * 0.6f, scrollX, scrollY);
+                return true;
+            }
         }
         if (wheelLock <= 0f && scrollY != 0) {
             spinBy(scrollY > 0 ? -1 : 1);

@@ -196,7 +196,13 @@ final class PanelModulePage {
             c.rect(bar, Argb.withAlpha(p.panel(), 0.96f));
             c.line(bar.x(), bar.bottom() - 0.5f, bar.right(), bar.bottom() - 0.5f, 1f, PanelPaint.hairline(p));
         }
-        f.hits().block(bar);
+        // the stuck bar keeps clicks off the rows sliding under it, but lets the wheel through to the page
+        f.hits().add("aurora.pills.bar", bar, new HitHandler() {
+            @Override
+            public boolean press(PointerEvent e) {
+                return true;
+            }
+        });
         int active = 0;
         float probe = scroll.offset() + PILLS_H + 30f;
         for (int i = 0; i < list.size(); i++) {
@@ -233,13 +239,6 @@ final class PanelModulePage {
         }
         pillScroll = Math.max(0f, Math.min(maxScroll, pillScroll));
         float shift = f.anim().spring("aurora.pills.scroll", pillScroll);
-        f.hits().add("aurora.pills", bar, new HitHandler() {
-            @Override
-            public boolean scroll(PointerEvent e, double dy) {
-                pillScroll = Math.max(0f, Math.min(maxScroll, pillScroll - (float) dy * 40f));
-                return true;
-            }
-        });
         c.save();
         c.clip(lane);
         float selLeft = f.anim().spring("aurora.pills.sel.x", lefts[active]);
