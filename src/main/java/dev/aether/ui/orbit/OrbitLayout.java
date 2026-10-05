@@ -13,13 +13,13 @@ final class OrbitLayout {
     // ring, eye and eyeLook are where the player looks from in the world, which the opening flies away from
     record Input(Vector3d anchor, float yaw, float pitch, double eyeHeight, float baseFov, int count, float ring,
                  float zoom, float expand, float open, boolean settled, float clock, float[] unfold, int active,
-                 double[] leanPos, double[] leanLook, double windowHeight, Vector3d eye, Vector3d eyeLook) {
+                 double windowHeight, Vector3d eye, Vector3d eyeLook) {
         // the ring around the player: their eye sits above the anchor, looking along yaw and pitch
         Input(Vector3d anchor, float yaw, float pitch, double eyeHeight, float baseFov, int count, float ring,
               float zoom, float expand, float open, boolean settled, float clock, float[] unfold, int active,
-              double[] leanPos, double[] leanLook, double windowHeight) {
+              double windowHeight) {
             this(anchor, yaw, pitch, eyeHeight, baseFov, count, ring, zoom, expand, open, settled, clock, unfold, active,
-                    leanPos, leanLook, windowHeight, new Vector3d(anchor).add(0, eyeHeight, 0),
+                    windowHeight, new Vector3d(anchor).add(0, eyeHeight, 0),
                     lookPoint(new Vector3d(anchor).add(0, eyeHeight, 0), yaw, pitch));
         }
     }
@@ -71,9 +71,9 @@ final class OrbitLayout {
 
     private static Camera camera(Input in) {
         float e = in.open();
-        double ex = in.expand();
-        Vector3d tpPos = new Vector3d(OrbitRig.TP_POS).add(in.leanPos()[0] - ex * 1.3, in.leanPos()[1], in.leanPos()[2] - ex * 0.5);
-        Vector3d tpLook = new Vector3d(OrbitRig.TP_LOOK).add(in.leanLook()[0], in.leanLook()[1], in.leanLook()[2]);
+        // one fixed shot for every category and page, so the farm never drifts nearer or further as you browse
+        Vector3d tpPos = new Vector3d(OrbitRig.TP_POS);
+        Vector3d tpLook = new Vector3d(OrbitRig.TP_LOOK);
         Vector3d fpPos = toRig(in, in.eye(), new Vector3d());
         Vector3d fpLook = toRig(in, in.eyeLook(), new Vector3d());
         double eb = 1 - Math.pow(1 - e, 2.2);

@@ -54,8 +54,6 @@ public final class OrbitScreen extends Screen {
     private final OrbitSpring tiltX = new OrbitSpring(0f, 60f, 12f);
     private final OrbitSpring tiltY = new OrbitSpring(0f, 60f, 12f);
     private float[] frontMouse = {-1f, -1f};
-    private final OrbitSpring[] leanPos = {new OrbitSpring(0, 30, 11), new OrbitSpring(0, 30, 11), new OrbitSpring(0, 30, 11)};
-    private final OrbitSpring[] leanLook = {new OrbitSpring(0, 30, 11), new OrbitSpring(0, 30, 11), new OrbitSpring(0, 30, 11)};
 
     private State state = State.OPENING;
     private float openT;
@@ -164,14 +162,6 @@ public final class OrbitScreen extends Screen {
         zoom.step(dt);
         expand.t = view.orbitModuleOpen() ? 1f : 0f;
         expand.step(dt);
-        double[][] lean = OrbitRig.lean(activeCategory());
-        float lk = (1f - zoom.x) * (view.orbitModuleOpen() ? 0.55f : 1f);
-        for (int k = 0; k < 3; k++) {
-            leanPos[k].t = (float) lean[0][k] * lk;
-            leanLook[k].t = (float) lean[1][k] * lk;
-            leanPos[k].step(dt);
-            leanLook[k].step(dt);
-        }
         for (OrbitSpring u : unfold) u.step(dt);
         if (cinematic != null) {
             cinematic.step(dt);
@@ -255,14 +245,12 @@ public final class OrbitScreen extends Screen {
         };
         float[] unfoldNow = new float[count];
         for (int i = 0; i < count; i++) unfoldNow[i] = unfold[i].x;
-        double[] lp = {leanPos[0].x, leanPos[1].x, leanPos[2].x};
-        double[] ll = {leanLook[0].x, leanLook[1].x, leanLook[2].x};
         Vector3d anchor = sceneAnchor(feet);
         Vector3d eye = new Vector3d(feet.x, feet.y + player.getEyeHeight(), feet.z);
         Vector3d eyeLook = OrbitLayout.lookPoint(eye, yaw0, pitch0);
         layout = OrbitLayout.compute(new OrbitLayout.Input(anchor, sceneYaw(), pitch0,
                 player.getEyeHeight(), client.options.fov().get(), count, ring.x, zoom.x, expand.x, e,
-                state == State.OPEN, clock, unfoldNow, activeIndex(), lp, ll, client.getWindow().getHeight(),
+                state == State.OPEN, clock, unfoldNow, activeIndex(), client.getWindow().getHeight(),
                 eye, eyeLook));
         layout = tiltFront(layout);
         OrbitLayout.Camera cam = layout.camera();
@@ -356,9 +344,10 @@ public final class OrbitScreen extends Screen {
         });
     }
 
-    // the ring's centre on the ground, at the player's feet
+    // the ring's centre: the middle of the block you stand in, where the farm puts your figure, so the shot is the
+    // same wherever in the block you opened the menu
     private Vector3d sceneAnchor(Vec3 feet) {
-        return new Vector3d(feet.x, feet.y, feet.z);
+        return new Vector3d(Math.floor(feet.x) + 0.5, Math.floor(feet.y + 1e-3), Math.floor(feet.z) + 0.5);
     }
 
     // the facing on open snapped to a quarter turn, which the preset farm is laid out along

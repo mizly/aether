@@ -169,14 +169,10 @@ class OrbitPreviewTest {
             else if (scenario.page() != null) view.orbitOpenPage(scenario.page());
             for (int f = 0; f < 40; f++) now += 16_666_667L;
             float expand = scenario.page() == null ? 0f : 1f;
-            double[][] lean = OrbitRig.lean(scenario.category());
-            float lk = (1 - scenario.zoom()) * (expand > 0 ? 0.55f : 1f);
-            double[] lp = {lean[0][0] * lk, lean[0][1] * lk, lean[0][2] * lk};
-            double[] ll = {lean[1][0] * lk, lean[1][1] * lk, lean[1][2] * lk};
             float[] unfold = new float[ids.size()];
             java.util.Arrays.fill(unfold, 1f);
             OrbitLayout.Result layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(), 0f, 0f, 1.62, 70f,
-                    ids.size(), active, scenario.zoom(), expand, 1f, true, 0f, unfold, active, lp, ll, H));
+                    ids.size(), active, scenario.zoom(), expand, 1f, true, 0f, unfold, active, H));
             BufferedImage image = null;
             for (int frame = 0; frame < 45; frame++) {
                 now += 16_666_667L;
@@ -224,11 +220,10 @@ class OrbitPreviewTest {
                 dev.aether.ui.settings.PlotSetting.Mode.MULTI, () -> values, v -> { values.clear(); values.addAll(v); });
         int active = ids.indexOf("pests");
         view.orbitFocus("pests");
-        double[][] lean = OrbitRig.lean("pests");
         float[] unfold = new float[ids.size()];
         java.util.Arrays.fill(unfold, 1f);
         OrbitLayout.Result layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(), 0f, 0f, 1.62, 70f,
-                ids.size(), active, 0f, 0f, 1f, true, 0f, unfold, active, lean[0], lean[1], H));
+                ids.size(), active, 0f, 0f, 1f, true, 0f, unfold, active, H));
         OrbitPlotScreen screen = new OrbitPlotScreen(setting, new float[]{W * 0.6f, H * 0.4f, 60f, 60f}, 30f);
         BufferedImage image = null;
         for (int frame = 0; frame < 70; frame++) {
@@ -391,12 +386,11 @@ class OrbitPreviewTest {
                 String cat = ids.stream().filter(id -> id.contains(stage.category())).findFirst().orElse(ids.get(0));
                 view.orbitFocus(cat);
                 int active = ids.indexOf(cat);
-                double[][] lean = OrbitRig.lean(cat);
                 float[] unfold = new float[ids.size()];
                 java.util.Arrays.fill(unfold, 1f);
                 float expand = System.getenv("PREVIEW_EXPAND") != null ? 1f : 0f;
                 layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(), 0f, 0f, 1.62, 70f, ids.size(), active,
-                        0f, expand, 1f, true, 0f, unfold, active, lean[0], lean[1], H));
+                        0f, expand, 1f, true, 0f, unfold, active, H));
                 cam = layout.camera();
             } else {
                 Vector3d e0 = new Vector3d(stage.eye()), l0 = new Vector3d(stage.at());
@@ -608,11 +602,10 @@ class OrbitPreviewTest {
     private String renderSearch(PanelView view, List<String> ids, PanelSurface[] surfaces) throws Exception {
         int active = ids.indexOf("pests");
         view.orbitFocus("pests");
-        double[][] lean = OrbitRig.lean("pests");
         float[] unfold = new float[ids.size()];
         java.util.Arrays.fill(unfold, 1f);
         OrbitLayout.Result layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(), 0f, 0f, 1.62, 70f,
-                ids.size(), active, 0f, 0f, 1f, true, 0f, unfold, active, lean[0], lean[1], H));
+                ids.size(), active, 0f, 0f, 1f, true, 0f, unfold, active, H));
         OrbitSearchBar bar = new OrbitSearchBar(view, () -> { });
         bar.type("pest th");
         BufferedImage image = null;
@@ -660,11 +653,10 @@ class OrbitPreviewTest {
         for (Hover h : hovers) {
             int active = ids.indexOf(h.category());
             view.orbitFocus(h.category());
-            double[][] lean = OrbitRig.lean(h.category());
             float[] unfold = new float[ids.size()];
             java.util.Arrays.fill(unfold, 1f);
             OrbitLayout.Result layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(), 0f, 0f, 1.62, 70f,
-                    ids.size(), active, 0f, 0f, 1f, true, 0f, unfold, active, lean[0], lean[1], H));
+                    ids.size(), active, 0f, 0f, 1f, true, 0f, unfold, active, H));
             SettingPreview preview = new SettingPreview();
             var world = new SettingPreview.World(new Vector3d(), 1.62, 0f, 3f, garden, List.of(pair));
             BufferedImage image = null;
@@ -690,7 +682,7 @@ class OrbitPreviewTest {
         float[] unfold = new float[ids.size()];
         java.util.Arrays.fill(unfold, 1f);
         OrbitLayout.Result layout = OrbitLayout.compute(new OrbitLayout.Input(new Vector3d(), 0f, 0f, 1.62, 70f,
-                ids.size(), active, 1f, 0f, 1f, true, 0f, unfold, active, new double[3], new double[3], H));
+                ids.size(), active, 1f, 0f, 1f, true, 0f, unfold, active, H));
         TravelCinematic.FacePainter face = (nvg, x, y, size, alpha) -> {
             nvg.rect(x, y, size, size, 0xFF6B4F3A);
             nvg.rect(x, y, size, size * 0.25f, 0xFF3A2A1E);

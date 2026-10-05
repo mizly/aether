@@ -27,20 +27,6 @@ final class OrbitRig {
         return out.set(-r * Math.sin(phi), HEIGHT + (1 - z) * 0.35 * Math.min(ao, 2) - z * 2.5, r * Math.cos(phi));
     }
 
-    // camera lean per category so the shot drifts toward what that category affects
-    static double[][] lean(String categoryId) {
-        return switch (categoryId) {
-            case "farming" -> new double[][]{{0.3, -0.35, 0.5}, {-0.3, -0.45, 0}};
-            case "pests" -> new double[][]{{0, 0.9, -0.3}, {0.8, 0.4, 0}};
-            case "garden" -> new double[][]{{0.6, 0.3, 0}, {2.6, -0.2, 0}};
-            case "macros", "other" -> new double[][]{{-0.4, 0, 0}, {0, 0.3, 0}};
-            case "safety" -> new double[][]{{0.6, 0, 1.6}, {0.3, -0.1, 0}};
-            case "display" -> new double[][]{{0, -0.3, -0.2}, {0, 0.75, 0}};
-            case "client" -> new double[][]{{0, 0, 0}, {-0.8, 0.6, 0}};
-            default -> new double[][]{{0, 0, 0}, {0, 0, 0}};
-        };
-    }
-
     static double lerp(double a, double b, double t) {
         return a + (b - a) * t;
     }
