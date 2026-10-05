@@ -717,7 +717,7 @@ public final class OrbitScreen extends Screen {
             return true;
         }
         if (key == GLFW.GLFW_KEY_ESCAPE) {
-            if (view.orbitOverlayOpen() && view.keyPressed(input)) return true;
+            if ((view.orbitOverlayOpen() || view.orbitTyping()) && view.keyPressed(input)) return true;
             if (view.orbitModuleOpen()) {
                 view.orbitBack();
             } else if (!overview()) {

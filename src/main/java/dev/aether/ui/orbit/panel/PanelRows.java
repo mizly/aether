@@ -491,9 +491,10 @@ final class PanelRows {
         String value = formatValue(slider.getValue(), slider.getDecimals(), slider.getSuffix());
         float bubbleW = Math.max(52f, c.textWidth(MEDIUM, 12f, value) + 20f);
         Rect bubble = new Rect(right - bubbleW, cy - 13f, bubbleW, 26f);
-        c.roundedRect(bubble, 8f, PanelPaint.fieldFill(p));
-        c.strokeRect(bubble, 8f, 1f, Argb.withAlpha(p.border(), 0.30f));
-        PanelPaint.textCentered(c, MEDIUM, 12f, value, bubble.centerX(), cy, p.text());
+        valueBox(f, key, bubble, value, NumberText.format(slider.getValue(), slider.getDecimals()), text -> {
+            float[] n = numbers(text);
+            if (n.length > 0) slider.setValue(quantize(n[0], slider.getDecimals()));
+        });
         Rect track = new Rect(right - width, cy - 2f, width - bubbleW - 14f, 4f);
         float t = range(slider.getValue(), slider.getMin(), slider.getMax());
         drawTrack(f, key, track, t, -1f);
@@ -529,9 +530,16 @@ final class PanelRows {
                 + formatValue(range.getUpperValue(), range.getDecimals(), range.getSuffix());
         float bubbleW = Math.max(52f, c.textWidth(MEDIUM, 12f, value) + 20f);
         Rect bubble = new Rect(right - bubbleW, cy - 13f, bubbleW, 26f);
-        c.roundedRect(bubble, 8f, PanelPaint.fieldFill(p));
-        c.strokeRect(bubble, 8f, 1f, Argb.withAlpha(p.border(), 0.30f));
-        PanelPaint.textCentered(c, MEDIUM, 12f, value, bubble.centerX(), cy, p.text());
+        String editText = NumberText.format(range.getLowerValue(), range.getDecimals()) + " - "
+                + NumberText.format(range.getUpperValue(), range.getDecimals());
+        valueBox(f, key, bubble, value, editText, text -> {
+            float[] n = numbers(text);
+            if (n.length == 1) range.setValues(quantize(n[0], range.getDecimals()), quantize(n[0], range.getDecimals()));
+            if (n.length >= 2) {
+                float a = quantize(n[0], range.getDecimals()), b = quantize(n[1], range.getDecimals());
+                range.setValues(Math.min(a, b), Math.max(a, b));
+            }
+        });
         float trackW = Math.max(60f, width - bubbleW - 14f);
         Rect track = new Rect(right - bubbleW - 14f - trackW, cy - 2f, trackW, 4f);
         float lo = range(range.getLowerValue(), range.getMin(), range.getMax());
@@ -574,6 +582,53 @@ final class PanelRows {
     }
 
     // from < 0 draws a single-knob slider filled from the left
+    // a slider's value box: shows the value, and on a click becomes a field to type a new one into
+    private void valueBox(PanelFrame f, Key key, Rect bubble, String shown, String editText,
+                          java.util.function.Consumer<String> commit) {
+        GuiCanvas c = f.canvas();
+        Palette p = f.palette();
+        Key boxKey = new Key(key.page(), key.group(), key.groupIndex(), key.setting(), key.settingIndex(), "value");
+        boolean editing = style.editing(boxKey);
+        boolean hover = f.hits().hovered(boxKey);
+        if (editing) {
+            drawField(c, p, bubble, hover, true);
+            style.drawEditor(f, bubble.inset(8f, 0f, 8f, 0f), false);
+        } else {
+            c.roundedRect(bubble, 8f, PanelPaint.fieldFill(p));
+            c.strokeRect(bubble, 8f, 1f, Argb.withAlpha(p.border(), hover ? 0.6f : 0.30f));
+            PanelPaint.textCentered(c, MEDIUM, 12f, shown, bubble.centerX(), bubble.centerY(), p.text());
+        }
+        f.hits().add(boxKey, bubble, new HitHandler() {
+            @Override
+            public boolean press(PointerEvent e) {
+                if (e.button() != 0) {
+                    return false;
+                }
+                style.beginEdit(boxKey, editText, false, commit);
+                style.editorPress(e.localX() - bubble.x() - 8f, 0f);
+                return true;
+            }
+        }, Cursor.IBEAM);
+    }
+
+    // every number in what was typed, so "2.5s", "500 - 3000" and "-30" all read the way they look
+    static float[] numbers(String text) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("-?\\d+(?:\\.\\d+)?").matcher(text == null ? "" : text);
+        java.util.List<Float> found = new ArrayList<>();
+        while (m.find()) {
+            String n = m.group();
+            // a dash between two numbers is a range separator, not a minus sign
+            if (n.startsWith("-") && !found.isEmpty()) n = n.substring(1);
+            try {
+                found.add(Float.parseFloat(n));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        float[] out = new float[found.size()];
+        for (int i = 0; i < out.length; i++) out[i] = found.get(i);
+        return out;
+    }
+
     private void drawTrack(PanelFrame f, Key key, Rect track, float to, float from) {
         GuiCanvas c = f.canvas();
         Palette p = f.palette();
