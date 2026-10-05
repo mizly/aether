@@ -49,8 +49,13 @@ public final class ConfigProfileManager {
     public static boolean load(String name) {
         Path src = DIR.resolve(sanitize(name) + ".json");
         if (!Files.exists(src)) return false;
+        // loadFrom may save while migrating, which must not sync the incoming values into the outgoing profile
+        Path previous = activeProfilePath;
+        activeProfilePath = null;
         boolean loaded = AetherConfig.loadFrom(src.toFile());
-        if (loaded) {
+        if (!loaded) {
+            activeProfilePath = previous;
+        } else {
             activeProfilePath = src;
             AetherBootstrapHooks.onConfigProfileLoaded(src.toFile());
             AetherConfig.flush();
