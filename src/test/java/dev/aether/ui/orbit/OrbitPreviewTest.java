@@ -336,6 +336,9 @@ class OrbitPreviewTest {
             float t = 0f, dt = 1f / 60f;
             int shot = 0;
             SceneClone.Buffer body = new SceneClone.Buffer(512);
+            float[] prevV = null;
+            float prevD = 0f;
+            java.util.List<float[]> spikes = new java.util.ArrayList<>();
             while (shot < stage.times().length) {
                 t += dt;
                 actors.update(dt, t, stage.inputs(), figure);
@@ -343,6 +346,27 @@ class OrbitPreviewTest {
                 body.reset();
                 figure.build(body, new Matrix4f(), false, t);
                 var draws = actors.build(new Matrix4f(), new Vector3d(eye), new Vector3f(cam.right()), new Vector3f(cam.up()), figure);
+                // PREVIEW_MOTION=1 prints the frames where the figure's motion jumps hardest, to hunt snaps
+                if (System.getenv("PREVIEW_MOTION") != null) {
+                    int n = Math.min(body.count, 432);
+                    java.nio.ByteBuffer fin = body.finish();
+                    java.nio.ByteBuffer bb = fin.duplicate().order(java.nio.ByteOrder.nativeOrder());
+                    float[] vs = new float[n * 3];
+                    for (int i = 0; i < n; i++) {
+                        vs[i * 3] = bb.getFloat(i * SceneClone.STRIDE);
+                        vs[i * 3 + 1] = bb.getFloat(i * SceneClone.STRIDE + 4);
+                        vs[i * 3 + 2] = bb.getFloat(i * SceneClone.STRIDE + 8);
+                    }
+                    fin.position(fin.limit());
+                    fin.limit(fin.capacity());
+                    if (prevV != null) {
+                        float d = 0f;
+                        for (int i = 0; i < Math.min(vs.length, prevV.length); i++) d = Math.max(d, Math.abs(vs[i] - prevV[i]));
+                        spikes.add(new float[]{t, d, Math.abs(d - prevD)});
+                        prevD = d;
+                    }
+                    prevV = vs;
+                }
                 if (t + 1e-4f < stage.times()[shot]) continue;
                 GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
                 GL11.glViewport(0, 0, W, H);
@@ -388,6 +412,12 @@ class OrbitPreviewTest {
                 shot++;
             }
             g.dispose();
+            if (!spikes.isEmpty()) {
+                spikes.sort((a, b) -> Float.compare(b[2], a[2]));
+                StringBuilder sb = new StringBuilder(stage.name() + " worst jerks:");
+                for (int i = 0; i < Math.min(6, spikes.size()); i++) sb.append(String.format(" t=%.2f d=%.3f j=%.3f", spikes.get(i)[0], spikes.get(i)[1], spikes.get(i)[2]));
+                System.out.println(sb);
+            }
             body.free();
             actors.close();
             Path file = Path.of("build/reports/gui-preview/orbit/" + stage.name() + ".png");
