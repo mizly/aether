@@ -11,8 +11,10 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
-// ordered by accent hue so the picker reads as a colour wheel, with the neutral and light themes last
+// the original red on black first, then ordered by accent hue so the picker reads as a colour wheel, with the
+// neutral and light themes last
 public enum ThemePreset {
+    AETHER("Aether", "aether"),
     CRIMSON("Crimson", "crimson"),
     EMBER("Ember", "ember"),
     GRUVBOX("Gruvbox", "gruvbox"),
