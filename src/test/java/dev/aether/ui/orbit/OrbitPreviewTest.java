@@ -192,6 +192,7 @@ class OrbitPreviewTest {
         if (only.isEmpty() || "hover".contains(only)) written.addAll(renderHovers(view, ids, surfaces));
         if (only.isEmpty() || "search".contains(only)) written.add(renderSearch(view, ids, surfaces));
         if (only.isEmpty() || "figure".contains(only)) written.add(renderFigure());
+        if (only.isEmpty() || "actors".contains(only)) written.add(renderActors());
         System.out.println("orbit previews: " + written);
     }
 
@@ -311,6 +312,82 @@ class OrbitPreviewTest {
         GL30.glBindVertexArray(vao);
         GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
         return out.toString();
+    }
+
+    // the farm's actors with their real textures: a villager, an armour stand in gold and a silverfish
+    private String renderActors() throws Exception {
+        int scene = link("orbit_scene.vsh", "orbit_scene.fsh");
+        int actorVao = GL30.glGenVertexArrays();
+        int actorVbo = GL15.glGenBuffers();
+        GL30.glBindVertexArray(actorVao);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, actorVbo);
+        GL20.glEnableVertexAttribArray(0);
+        GL20.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, SceneClone.STRIDE, 0L);
+        GL20.glEnableVertexAttribArray(1);
+        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, SceneClone.STRIDE, 12L);
+        GL20.glEnableVertexAttribArray(2);
+        GL20.glVertexAttribPointer(2, 4, GL11.GL_UNSIGNED_BYTE, true, SceneClone.STRIDE, 20L);
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+        GL11.glViewport(0, 0, W, H);
+        GL11.glClearColor(0.78f, 0.86f, 0.96f, 1f);
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL11.GL_BLEND);
+        GL20.glUseProgram(scene);
+        GL20.glUniform1i(GL20.glGetUniformLocation(scene, "Sampler"), 0);
+        GL20.glUniform3f(GL20.glGetUniformLocation(scene, "Offset"), 0f, 0f, 0f);
+        GL20.glUniform2f(GL20.glGetUniformLocation(scene, "FogRange"), 1e8f, 2e8f);
+        GL20.glUniform1f(GL20.glGetUniformLocation(scene, "AlphaCut"), 0.1f);
+        GL20.glUniform1f(GL20.glGetUniformLocation(scene, "Solid"), 1f);
+        Matrix4f vp = new Matrix4f().perspective((float) Math.toRadians(35), (float) W / H, 0.05f, 100f)
+                .lookAt(0.6f, 1.5f, 6.5f, 0.3f, 0.8f, 0f, 0f, 1f, 0f);
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            GL20.glUniformMatrix4fv(GL20.glGetUniformLocation(scene, "ViewProjection"), false, vp.get(stack.mallocFloat(16)));
+        }
+        java.util.Map<String, SceneClone.Buffer> draws = new java.util.LinkedHashMap<>();
+        java.util.function.Function<String, SceneClone.Buffer> buf = k -> draws.computeIfAbsent(k, x -> new SceneClone.Buffer(1024));
+        Matrix4f villager = new Matrix4f().translate(-1.6f, 0f, 0f).rotateY(0.5f);
+        for (String t : new String[]{"villager/villager", "villager/type/plains", "villager/profession/farmer"}) {
+            SceneActors.villager(buf.apply("/assets/minecraft/textures/entity/" + t + ".png"), villager, 0.4f, 0f);
+        }
+        Matrix4f stand = new Matrix4f().translate(0.6f, 0f, 0f).rotateY(-0.4f);
+        SceneActors.stand(buf.apply("/assets/minecraft/textures/entity/armorstand/armorstand.png"), stand);
+        SceneActors.armour(buf.apply("/assets/minecraft/textures/entity/equipment/humanoid/gold.png"),
+                buf.apply("/assets/minecraft/textures/entity/equipment/humanoid_leggings/gold.png"), stand);
+        SceneActors.silverfish(buf.apply("/assets/minecraft/textures/entity/silverfish/silverfish.png"),
+                new Matrix4f().translate(2.2f, 0f, 1.2f).rotateY(-0.9f).scale(2f), 10f);
+        for (var e : draws.entrySet()) {
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureFrom(e.getKey()));
+            int count = e.getValue().count;
+            GL15.glBufferData(GL15.GL_ARRAY_BUFFER, e.getValue().finish(), GL15.GL_STREAM_DRAW);
+            GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, count);
+            e.getValue().free();
+        }
+        Path out = Path.of("build/reports/gui-preview/orbit/actors.png");
+        ImageIO.write(read(), "png", out.toFile());
+        GL30.glBindVertexArray(vao);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+        return out.toString();
+    }
+
+    private static int textureFrom(String resource) throws Exception {
+        BufferedImage img = ImageIO.read(OrbitPreviewTest.class.getResourceAsStream(resource));
+        ByteBuffer px = ByteBuffer.allocateDirect(img.getWidth() * img.getHeight() * 4);
+        for (int y = 0; y < img.getHeight(); y++) {
+            for (int x = 0; x < img.getWidth(); x++) {
+                int argb = img.getRGB(x, y);
+                px.put((byte) (argb >> 16)).put((byte) (argb >> 8)).put((byte) argb).put((byte) (argb >>> 24));
+            }
+        }
+        px.flip();
+        int tex = GL11.glGenTextures();
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, tex);
+        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, img.getWidth(), img.getHeight(), 0, GL11.GL_RGBA,
+                GL11.GL_UNSIGNED_BYTE, px);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
+        return tex;
     }
 
     // the top bar search open on a query, over the pests panel
