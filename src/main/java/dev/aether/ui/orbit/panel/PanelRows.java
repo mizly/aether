@@ -698,13 +698,20 @@ final class PanelRows {
         Key boxKey = new Key(key.page(), key.group(), key.groupIndex(), key.setting(), key.settingIndex(), "value");
         boolean editing = style.editing(boxKey);
         boolean hover = f.hits().hovered(boxKey);
+        // minecraft's text field, the value in the game's font; it lights its frame under the cursor or while typing
+        String field = editing || hover ? "minecraft:widget/text_field_highlighted" : "minecraft:widget/text_field";
+        c.legacy(nvg -> nvg.guiSprite(field, bubble.x(), bubble.y(), bubble.w(), bubble.h(), 0xFFFFFFFF));
         if (editing) {
-            drawField(c, p, bubble, hover, true);
             style.drawEditor(f, bubble.inset(8f, 0f, 8f, 0f), false);
         } else {
-            c.roundedRect(bubble, 8f, PanelPaint.fieldFill(p));
-            c.strokeRect(bubble, 8f, 1f, Argb.withAlpha(p.border(), hover ? 0.6f : 0.30f));
-            PanelPaint.textCentered(c, MEDIUM, 12f, shown, bubble.centerX(), bubble.centerY(), p.text());
+            int scale = 2;
+            float w = dev.aether.renderer.McBitmapFont.widthLiteral(shown, scale);
+            if (w <= bubble.w() - 10f) {
+                float tx = bubble.centerX() - w / 2f, ty = bubble.centerY() - 4f * scale + 1f;
+                c.legacy(nvg -> nvg.mcTextLiteral(shown, tx, ty, scale, 0xFFE0E0E0, true));
+            } else {
+                PanelPaint.textCentered(c, MEDIUM, 12f, shown, bubble.centerX(), bubble.centerY(), 0xFFE0E0E0);
+            }
         }
         f.hits().add(boxKey, bubble, new HitHandler() {
             @Override

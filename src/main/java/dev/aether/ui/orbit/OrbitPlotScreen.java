@@ -203,12 +203,8 @@ final class OrbitPlotScreen {
         clear = new float[]{done[0] - 8f - bw, done[1], bw, bh};
         boolean doneHover = inside(done, mx, my);
         boolean clearHover = inside(clear, mx, my);
-        nvg.roundedRect(clear[0], clear[1], bw, bh, 7f,
-                Argb.multiplyAlpha(Argb.withAlpha(p.text(), clearHover ? 0.14f : 0.07f), a));
-        centered(nvg, Fonts.UI_MEDIUM, AetherLang.localize("Clear"), clear, 8.5f, Argb.multiplyAlpha(p.text(), a));
-        nvg.roundedRect(done[0], done[1], bw, bh, 7f,
-                Argb.multiplyAlpha(doneHover ? Argb.mix(p.accent(), 0xFFFFFFFF, 0.12f) : p.accent(), a));
-        centered(nvg, Fonts.UI_SEMIBOLD, AetherLang.localize("Done"), done, 8.5f, Argb.multiplyAlpha(p.onAccent(), a));
+        mcButton(nvg, clear, AetherLang.localize("Clear"), clearHover, 0xFFFFFFFF, a);
+        mcButton(nvg, done, AetherLang.localize("Done"), doneHover, Argb.mix(0xFFFFFFFF, p.accent(), 0.45f), a);
     }
 
     private static String strip(String formatted) {
@@ -268,6 +264,15 @@ final class OrbitPlotScreen {
 
     private static boolean inside(float[] r, double x, double y) {
         return x >= r[0] && x < r[0] + r[2] && y >= r[1] && y < r[1] + r[3];
+    }
+
+    // minecraft's stone button with its label in the game's font
+    private static void mcButton(NVGRenderer nvg, float[] r, String label, boolean hover, int stone, float a) {
+        String sprite = hover ? "minecraft:widget/button_highlighted" : "minecraft:widget/button";
+        nvg.guiSprite(sprite, r[0], r[1], r[2], r[3], Argb.multiplyAlpha(stone, a));
+        float w = dev.aether.renderer.McBitmapFont.widthLiteral(label, 1);
+        nvg.mcTextLiteral(label, r[0] + (r[2] - w) / 2f, r[1] + (r[3] - 8f) / 2f, 1,
+                Argb.multiplyAlpha(hover ? 0xFFFFFFA0 : 0xFFFFFFFF, a), true);
     }
 
     private static void centered(NVGRenderer nvg, String font, String text, float[] r, float size, int color) {
