@@ -149,6 +149,11 @@ public final class PanelView {
         style.openPage(pageId);
     }
 
+    // opens a page scrolled to a group or section, by its key or its label
+    public void orbitOpenPage(String pageId, String anchor) {
+        style.openPageAt(pageId, anchor);
+    }
+
     // the failsafe tile under the cursor on the front panel, for the ring around the player
     public String orbitHoveredFailsafe() {
         return style.orbit.hoveredFailsafe();

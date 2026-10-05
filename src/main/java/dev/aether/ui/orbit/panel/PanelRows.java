@@ -248,6 +248,10 @@ final class PanelRows {
     // -- rows -------------------------------------------------------------------
 
     private float controlWidth(Setting setting, float innerW) {
+        PanelItems.Kind items = PanelItems.kind(setting);
+        if (items != null) {
+            return PanelItems.stacked(items, innerW) ? 0f : PanelItems.inlineWidth(items);
+        }
         return switch (setting.getType()) {
             case TOGGLE -> 38f;
             case SLIDER, RANGE_SLIDER -> Math.max(180f, Math.min(300f, innerW * 0.42f));
@@ -279,6 +283,10 @@ final class PanelRows {
         }
         float labelW = labelWidth(setting, innerW);
         float text = labelBlock(c, setting, labelW);
+        PanelItems.Kind items = PanelItems.kind(setting);
+        if (items != null && PanelItems.stacked(items, innerW)) {
+            return text + 18f + PanelItems.blockHeight(items);
+        }
         float h = Math.max(ROW_MIN, text + 24f);
         if (setting.getType() == SettingType.PLOT) {
             h = Math.max(h, THUMB + 16f);
@@ -318,7 +326,8 @@ final class PanelRows {
             return;
         }
         boolean rowHover = f.hits().hovered(key);
-        boolean wholeRow = switch (setting.getType()) {
+        PanelItems.Kind items = PanelItems.kind(setting);
+        boolean wholeRow = items == null && switch (setting.getType()) {
             case TOGGLE, ACTION, DROPDOWN, COLOR, PLOT -> true;
             default -> false;
         };
@@ -331,7 +340,7 @@ final class PanelRows {
         }
 
         float labelW = labelWidth(setting, innerW);
-        boolean stacked = stacked(setting);
+        boolean stacked = stacked(setting) || items != null && PanelItems.stacked(items, innerW);
         float labelTop = stacked ? row.y() + 12f : row.centerY() - labelBlock(c, setting, labelW) / 2f + 1f;
         int labelColor = setting.getType() == SettingType.ACTION ? p.accent() : p.text();
         c.text(MEDIUM, LABEL, c.ellipsize(MEDIUM, LABEL, setting.getName(), labelW), innerX, labelTop, labelColor);
@@ -346,6 +355,16 @@ final class PanelRows {
 
         float right = innerX + innerW;
         float cy = stacked ? labelTop + 8f : row.centerY();
+        if (items != null) {
+            if (stacked) {
+                Rect block = new Rect(innerX, labelTop + labelBlock(c, setting, labelW) + 4f, innerW,
+                        PanelItems.blockHeight(items));
+                PanelItems.drawBlock(f, items, setting, key.toString(), block);
+            } else {
+                PanelItems.drawInline(f, items, setting, key.toString(), right, cy);
+            }
+            return;
+        }
         switch (setting.getType()) {
             case TOGGLE -> {
                 ToggleSetting toggle = (ToggleSetting) setting;
