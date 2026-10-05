@@ -699,7 +699,8 @@ public final class FishingMacro extends AbstractFishingMacro {
             targetReachedAt = now;
         }
         if (onCatch && now >= nextActionAt && now >= nextAttackAt) {
-            ClientUtils.performAttackClick();
+            // a held attack key only mines, so with the mouse grabbed only a queued click hits an entity
+            ClientUtils.performAttackClickDirect();
             nextAttackAt = now + nextAttackDelayMs(ThreadLocalRandom.current());
         }
 

@@ -977,7 +977,8 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         }
         // the tracker is already on the catch, so swing on cadence instead of waiting for a perfect angle
         if (horizontal <= follow + ATTACK_RANGE_SLACK && now >= nextAttackAt) {
-            ClientUtils.performAttackClick();
+            // a held attack key only mines, so with the mouse grabbed only a queued click hits an entity
+            ClientUtils.performAttackClickDirect();
             nextAttackAt = now + nextAttackDelayMs(ThreadLocalRandom.current());
         }
     }
