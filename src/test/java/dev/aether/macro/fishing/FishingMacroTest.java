@@ -12,23 +12,29 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FishingMacroTest {
     @Test
-    void anUnknownAimSettingFishesWater() {
-        assertEquals(FishingMacro.AimAt.LAVA, FishingMacro.AimAt.fromConfig("LAVA"));
-        assertEquals(FishingMacro.AimAt.HOTSPOT, FishingMacro.AimAt.fromConfig(" hotspot "));
-        assertEquals(FishingMacro.AimAt.WATER, FishingMacro.AimAt.fromConfig("WATER"));
-        assertEquals(FishingMacro.AimAt.WATER, FishingMacro.AimAt.fromConfig("magma"));
-        assertEquals(FishingMacro.AimAt.WATER, FishingMacro.AimAt.fromConfig(""));
-        assertEquals(FishingMacro.AimAt.WATER, FishingMacro.AimAt.fromConfig(null));
+    void anUnknownHotspotPositionCastsFromTheSide() {
+        assertEquals(FishingMacro.HotspotPosition.CENTRE, FishingMacro.HotspotPosition.fromConfig(" centre "));
+        assertEquals(FishingMacro.HotspotPosition.SIDE, FishingMacro.HotspotPosition.fromConfig("SIDE"));
+        assertEquals(FishingMacro.HotspotPosition.SIDE, FishingMacro.HotspotPosition.fromConfig("middle"));
+        assertEquals(FishingMacro.HotspotPosition.SIDE, FishingMacro.HotspotPosition.fromConfig(null));
     }
 
     @Test
-    void theHotspotFallbackFishesWhicheverLiquidIsCloser() {
-        assertEquals(FishingMacro.AimAt.LAVA, FishingMacro.nearerLiquid(2.0, 3.5));
-        assertEquals(FishingMacro.AimAt.WATER, FishingMacro.nearerLiquid(4.0, 3.5));
-        assertEquals(FishingMacro.AimAt.WATER, FishingMacro.nearerLiquid(3.0, 3.0));
-        assertEquals(FishingMacro.AimAt.LAVA, FishingMacro.nearerLiquid(5.0, Double.POSITIVE_INFINITY));
-        assertEquals(FishingMacro.AimAt.WATER,
-                FishingMacro.nearerLiquid(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY));
+    void theMacroFishesWhicheverLiquidIsCloser() {
+        assertTrue(FishingMacro.lavaIsNearer(2.0, 3.5));
+        assertFalse(FishingMacro.lavaIsNearer(4.0, 3.5));
+        assertFalse(FishingMacro.lavaIsNearer(3.0, 3.0));
+        assertTrue(FishingMacro.lavaIsNearer(5.0, Double.POSITIVE_INFINITY));
+        assertFalse(FishingMacro.lavaIsNearer(Double.POSITIVE_INFINITY, Double.POSITIVE_INFINITY));
+    }
+
+    @Test
+    void underTheNametagTheFloatIsThrownStraightUp() {
+        SplittableRandom random = new SplittableRandom(5);
+        for (int i = 0; i < 500; i++) {
+            float pitch = FishingMacro.centrePitch(random);
+            assertTrue(pitch >= -89.5f && pitch <= -86.0f, "pitch " + pitch);
+        }
     }
 
     @Test

@@ -88,4 +88,23 @@ class StriderConfigMigrationTest {
             assertTrue(Config.loadFromJson(saved));
         }
     }
+
+    @Test
+    void anOldHotspotAimSettingTurnsHotspotFishingOn() {
+        boolean saved = AetherConfig.FISHING_MACRO_HOTSPOT.get();
+        try {
+            AetherConfig.FISHING_MACRO_HOTSPOT.set(false);
+            assertTrue(AetherConfig.migrateFishingAimAt(
+                    JsonParser.parseString("{\"fishingMacroAimAt\": \"HOTSPOT\"}").getAsJsonObject()));
+            assertTrue(AetherConfig.FISHING_MACRO_HOTSPOT.get());
+
+            assertTrue(AetherConfig.migrateFishingAimAt(
+                    JsonParser.parseString("{\"fishingMacroAimAt\": \"LAVA\"}").getAsJsonObject()));
+            assertFalse(AetherConfig.FISHING_MACRO_HOTSPOT.get());
+            assertFalse(AetherConfig.migrateFishingAimAt(
+                    JsonParser.parseString("{}").getAsJsonObject()));
+        } finally {
+            AetherConfig.FISHING_MACRO_HOTSPOT.set(saved);
+        }
+    }
 }

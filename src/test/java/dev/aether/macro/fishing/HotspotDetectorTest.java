@@ -99,4 +99,52 @@ class HotspotDetectorTest {
         assertFalse(water.lava());
         assertEquals(60, water.surfaceCell().getY());
     }
+
+    // a pond with its surface cell at y 63 and a floor block at the given height in each column
+    private static HotspotDetector.Column pond(int floorY, int shallowX, int shallowFloorY) {
+        return new HotspotDetector.Column() {
+            private int floorAt(BlockPos pos) {
+                return pos.getX() == shallowX ? shallowFloorY : floorY;
+            }
+
+            @Override
+            public boolean water(BlockPos pos) {
+                return pos.getY() > floorAt(pos) && pos.getY() <= 63;
+            }
+
+            @Override
+            public boolean solid(BlockPos pos) {
+                return pos.getY() <= floorAt(pos);
+            }
+        };
+    }
+
+    @Test
+    void theCentreSpotIsTheFloorRightUnderTheNametag() {
+        HotspotDetector.Hotspot hotspot = new HotspotDetector.Hotspot(1, new Vec3(0.5, 63.9, 0.5),
+                new BlockPos(0, 63, 0), false);
+
+        assertEquals(new BlockPos(0, 61, 0), HotspotDetector.centreFeet(pond(60, 99, 0), hotspot));
+    }
+
+    @Test
+    void aColumnTooShallowToStandUnderIsSkippedForTheOneBesideIt() {
+        HotspotDetector.Hotspot hotspot = new HotspotDetector.Hotspot(1, new Vec3(0.4, 63.9, 0.5),
+                new BlockPos(0, 63, 0), false);
+
+        // the middle column only has one block of water over its floor, so the head would stick out
+        BlockPos feet = HotspotDetector.centreFeet(pond(60, 0, 62), hotspot);
+        assertEquals(new BlockPos(-1, 61, 0), feet);
+    }
+
+    @Test
+    void lavaAndShallowWaterHaveNoCentreSpot() {
+        HotspotDetector.Hotspot lava = new HotspotDetector.Hotspot(1, new Vec3(0.5, 63.9, 0.5),
+                new BlockPos(0, 63, 0), true);
+        HotspotDetector.Hotspot water = new HotspotDetector.Hotspot(2, new Vec3(0.5, 63.9, 0.5),
+                new BlockPos(0, 63, 0), false);
+
+        assertNull(HotspotDetector.centreFeet(pond(60, 99, 0), lava));
+        assertNull(HotspotDetector.centreFeet(pond(62, 99, 0), water));
+    }
 }

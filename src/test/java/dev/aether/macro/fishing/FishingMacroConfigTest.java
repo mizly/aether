@@ -31,10 +31,11 @@ class FishingMacroConfigTest {
     }
 
     @Test
-    void aFreshConfigFishesWaterWhereTheMacroStartsAndFightsEverything() {
+    void aFreshConfigFishesWhereTheMacroStartsAndFightsEverything() {
         assertEquals("", AetherConfig.FISHING_MACRO_ROUTE.getDefault());
-        assertEquals(FishingMacro.AimAt.WATER,
-                FishingMacro.AimAt.fromConfig(AetherConfig.FISHING_MACRO_AIM_AT.getDefault()));
+        assertFalse(AetherConfig.FISHING_MACRO_HOTSPOT.getDefault());
+        assertEquals(FishingMacro.HotspotPosition.SIDE,
+                FishingMacro.HotspotPosition.fromConfig(AetherConfig.FISHING_MACRO_HOTSPOT_POSITION.getDefault()));
         assertTrue(AetherConfig.FISHING_MACRO_MOB_WHITELIST.getDefault().isEmpty());
         assertTrue(AetherConfig.FISHING_MACRO_MOB_BLACKLIST.getDefault().isEmpty());
     }

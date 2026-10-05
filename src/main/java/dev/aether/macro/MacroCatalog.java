@@ -21,7 +21,7 @@ public final class MacroCatalog {
                     "Fishes Stridersurfers out of lava and kills them", "Fishing", "Strider Fishing",
                     () -> AetherKeybindHandler.startStriderFishingMacro(Minecraft.getInstance())),
             new Entry("fishing_macro", "Fishing Macro",
-                    "Fishes lava or water next to you and fights what it catches", "Fishing", "Fishing Macro",
+                    "Fishes the lava or water next to you, or a hotspot, and fights what it catches", "Fishing", "Fishing Macro",
                     () -> AetherKeybindHandler.startFishingMacro(Minecraft.getInstance(), FishingMacroKind.GENERAL,
                             true)));
 

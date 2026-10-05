@@ -12,6 +12,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
+import java.util.function.DoubleSupplier;
 import java.util.random.RandomGenerator;
 
 // which hotspot the macro fishes, the spot it casts from, and the walk over there
@@ -33,11 +35,14 @@ final class HotspotSeeker {
     private static final long SKIP_MS = 60_000L;
 
     private final HotspotDetector detector = new HotspotDetector();
+    private final BooleanSupplier wantCentre;
+    private final DoubleSupplier castEyeHeight;
     private final Set<BlockPos> badSpots = new HashSet<>();
     private final Map<Integer, Long> skippedUntil = new HashMap<>();
     private HotspotDetector.Hotspot hotspot;
     private HotspotSpotFinder finder;
     private BlockPos spot;
+    private boolean centre;
     private boolean settled;
     private int misses;
     private long nextSeekAt;
@@ -49,6 +54,11 @@ final class HotspotSeeker {
     private long idleSince;
     private BlockCentering centering;
     private long centeringSince;
+
+    HotspotSeeker(BooleanSupplier wantCentre, DoubleSupplier castEyeHeight) {
+        this.wantCentre = wantCentre;
+        this.castEyeHeight = castEyeHeight;
+    }
 
     void reset() {
         detector.clear();
@@ -71,6 +81,15 @@ final class HotspotSeeker {
 
     BlockPos spot() {
         return spot;
+    }
+
+    // standing underwater below the nametag, where every cast goes straight up
+    boolean atCentre() {
+        return settled && centre;
+    }
+
+    boolean centreTrip() {
+        return centre;
     }
 
     void miss() {
@@ -102,6 +121,7 @@ final class HotspotSeeker {
         misses = 0;
         finder = null;
         spot = null;
+        centre = false;
     }
 
     Seek tickSeek(Minecraft mc, long now, RandomGenerator random) {
@@ -118,8 +138,17 @@ final class HotspotSeeker {
                 return Seek.NONE;
             }
         }
+        if (finder == null && wantCentre.getAsBoolean()) {
+            BlockPos feet = HotspotDetector.centreFeet(HotspotDetector.liveColumn(mc.level), hotspot);
+            if (feet != null && !badSpots.contains(feet)) {
+                spot = feet;
+                centre = true;
+                return Seek.FOUND;
+            }
+        }
+        centre = false;
         if (finder == null) {
-            finder = HotspotSpotFinder.live(mc, hotspot, badSpots, random);
+            finder = HotspotSpotFinder.live(mc, hotspot, badSpots, random, castEyeHeight.getAsDouble());
         }
         HotspotSpotFinder.Step step = finder.step();
         if (step.status() == HotspotSpotFinder.Status.WORKING) {
@@ -145,6 +174,7 @@ final class HotspotSeeker {
         hotspot = null;
         finder = null;
         spot = null;
+        centre = false;
         settled = false;
         misses = 0;
     }
@@ -186,7 +216,7 @@ final class HotspotSeeker {
         }
         if (walkDone) {
             walking = false;
-            if (!onSpot(mc)) {
+            if (!(centre ? sinkingOnto(mc) : onSpot(mc))) {
                 return failTrip();
             }
             startCentering(now);
@@ -220,6 +250,14 @@ final class HotspotSeeker {
         PathfindingManager.stop(false);
         centering = new BlockCentering(now, spot.below());
         centeringSince = now;
+    }
+
+    // a swimmer arrives a little above the floor and is sunk onto it by the crouch while centring
+    private boolean sinkingOnto(Minecraft mc) {
+        Vec3 feet = Vec3.atBottomCenterOf(spot);
+        double dy = mc.player.getY() - feet.y;
+        return Math.abs(mc.player.getX() - feet.x) <= 1.0 && Math.abs(mc.player.getZ() - feet.z) <= 1.0
+                && dy >= -0.5 && dy <= 2.5;
     }
 
     private boolean onSpot(Minecraft mc) {

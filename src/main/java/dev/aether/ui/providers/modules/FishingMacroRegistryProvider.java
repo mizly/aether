@@ -31,7 +31,7 @@ public final class FishingMacroRegistryProvider extends AbstractFishingRegistryP
     protected ModulesTab.SubTab createSubTab() {
         return MainGUIRegistry.subTab(
                 FishingMacroKind.GENERAL.displayName(),
-                "Fishes lava or water next to you and fights what it catches",
+                "Fishes the lava or water next to you, or a hotspot, and fights what it catches",
                 buildGroups());
     }
 
@@ -56,17 +56,25 @@ public final class FishingMacroRegistryProvider extends AbstractFishingRegistryP
                         })
                         .withDecimals(0)));
 
-        FishingMacro.AimAt[] aimModes = FishingMacro.AimAt.values();
         groups.add(SettingGroup.alwaysOn(
-                        "Aiming",
-                        "Where the macro casts and how it moves while it waits")
-                .add(new DropdownSetting("Aim At", List.of("Lava", "Water", "Hotspot"),
-                        () -> FishingMacro.AimAt.fromConfig(AetherConfig.FISHING_MACRO_AIM_AT.get()).ordinal(),
-                        index -> {
-                            if (index < 0 || index >= aimModes.length) {
-                                return;
-                            }
-                            AetherConfig.FISHING_MACRO_AIM_AT.set(aimModes[index].name());
+                        "Behaviour",
+                        "How the macro stands, moves and gets back while it fishes")
+                .add(new ToggleSetting("Always Sneak",
+                        () -> AetherConfig.FISHING_MACRO_ALWAYS_SNEAK.get(),
+                        v -> {
+                            AetherConfig.FISHING_MACRO_ALWAYS_SNEAK.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(new ToggleSetting("Continue Sneak In Liquid",
+                        () -> AetherConfig.FISHING_MACRO_SNEAK_IN_LIQUID.get(),
+                        v -> {
+                            AetherConfig.FISHING_MACRO_SNEAK_IN_LIQUID.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(new ToggleSetting("Etherwarp To Destination",
+                        () -> AetherConfig.FISHING_MACRO_ETHERWARP_RETURN.get(),
+                        v -> {
+                            AetherConfig.FISHING_MACRO_ETHERWARP_RETURN.set(v);
                             AetherConfig.save();
                         }))
                 .add(new ToggleSetting("Random Look Around",
@@ -95,6 +103,26 @@ public final class FishingMacroRegistryProvider extends AbstractFishingRegistryP
                             AetherConfig.save();
                         })
                         .withDecimals(0).withSuffix("ms")));
+
+        FishingMacro.HotspotPosition[] positions = FishingMacro.HotspotPosition.values();
+        groups.add(SettingGroup.of(
+                        "Hotspot Fishing",
+                        "Fishes the nearest fishing hotspot, lava or water, and walks to the next one when it closes.",
+                        () -> AetherConfig.FISHING_MACRO_HOTSPOT.get(),
+                        v -> {
+                            AetherConfig.FISHING_MACRO_HOTSPOT.set(v);
+                            AetherConfig.save();
+                        })
+                .add(new DropdownSetting("Hotspot Position", List.of("Side", "Centre"),
+                        () -> FishingMacro.HotspotPosition.fromConfig(
+                                AetherConfig.FISHING_MACRO_HOTSPOT_POSITION.get()).ordinal(),
+                        index -> {
+                            if (index < 0 || index >= positions.length) {
+                                return;
+                            }
+                            AetherConfig.FISHING_MACRO_HOTSPOT_POSITION.set(positions[index].name());
+                            AetherConfig.save();
+                        })));
 
         groups.add(SettingGroup.alwaysOn(
                         "Targets",

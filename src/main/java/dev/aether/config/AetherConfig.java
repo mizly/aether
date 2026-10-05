@@ -1,5 +1,6 @@
 package dev.aether.config;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -117,6 +118,7 @@ public final class AetherConfig {
                                 JsonObject root = JsonParser.parseString(json).getAsJsonObject();
                                 migrateLegacyLoadoutKeys(root);
                                 migrateStriderRedesign(root);
+                                migrateFishingAimAt(root);
                         } catch (Exception ignored) {
                         }
                         resetRuntimeOnlyEntries();
@@ -268,6 +270,7 @@ public final class AetherConfig {
                         JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
                         boolean updated = migrateLegacyLoadoutKeys(root);
                         updated |= migrateStriderRedesign(root);
+                        updated |= migrateFishingAimAt(root);
                         if (updated) {
                                 save();
                         }
@@ -316,6 +319,19 @@ public final class AetherConfig {
                 }
                 if (STRIDER_FISHING_SOUL_WHIP_COUNT.get() > 8) {
                         STRIDER_FISHING_SOUL_WHIP_COUNT.set(8);
+                }
+                return true;
+        }
+
+        // the aim mode setting became a hotspot toggle, the liquid is now picked by itself
+        static boolean migrateFishingAimAt(JsonObject root) {
+                if (root == null || !root.has("fishingMacroAimAt")) {
+                        return false;
+                }
+                if (!root.has("fishingMacroHotspot")) {
+                        JsonElement aimAt = root.get("fishingMacroAimAt");
+                        FISHING_MACRO_HOTSPOT.set(aimAt.isJsonPrimitive()
+                                        && "HOTSPOT".equalsIgnoreCase(aimAt.getAsString()));
                 }
                 return true;
         }
@@ -1193,8 +1209,15 @@ public final class AetherConfig {
         public static final IntEntry FISHING_MACRO_ROD_SLOT = Config.integer("fishingMacroRodSlot", 1).range(1, 9);
         public static final IntEntry FISHING_MACRO_WEAPON_SLOT = Config.integer("fishingMacroWeaponSlot", 2)
                         .range(1, 9);
-        // an aim mode name (lava, water or hotspot); anything else reads as water
-        public static final StringEntry FISHING_MACRO_AIM_AT = Config.string("fishingMacroAimAt", "WATER");
+        public static final BooleanEntry FISHING_MACRO_ALWAYS_SNEAK = Config.bool("fishingMacroAlwaysSneak", false);
+        // off releases sneak while standing in lava or water, so the crouch only happens on solid ground
+        public static final BooleanEntry FISHING_MACRO_SNEAK_IN_LIQUID = Config.bool("fishingMacroSneakInLiquid", false);
+        public static final BooleanEntry FISHING_MACRO_ETHERWARP_RETURN = Config
+                        .bool("fishingMacroEtherwarpReturn", false);
+        public static final BooleanEntry FISHING_MACRO_HOTSPOT = Config.bool("fishingMacroHotspot", false);
+        // CENTRE stands underwater below the hotspot's nametag, anything else casts in from the side
+        public static final StringEntry FISHING_MACRO_HOTSPOT_POSITION = Config.string("fishingMacroHotspotPosition",
+                        "SIDE");
         public static final BooleanEntry FISHING_MACRO_RANDOM_LOOK = Config.bool("fishingMacroRandomLook", true);
         public static final BooleanEntry FISHING_MACRO_BLOCK_SHUFFLE = Config.bool("fishingMacroBlockShuffle", true);
         public static final IntEntry FISHING_MACRO_CAST_DELAY_MIN = Config.integer("fishingMacroCastDelayMin", 400)

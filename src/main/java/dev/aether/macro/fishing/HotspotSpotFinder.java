@@ -40,20 +40,23 @@ final class HotspotSpotFinder {
     static final double MAX_RISE = 4.0;
     static final double PLAYER_CLEARANCE = 1.0;
     private static final int CANDIDATES_PER_TICK = 2;
-    // casts are planned from the standing eye, which is how the macro throws
-    private static final double EYE_HEIGHT = 1.62;
+    static final double STANDING_EYE = 1.62;
+    static final double CROUCHING_EYE = 1.27;
 
     private final List<Candidate> candidates;
     private final Throw cast;
+    // the eye the macro will throw from on that spot, crouched or standing
+    private final double eyeHeight;
     private int next;
 
-    private HotspotSpotFinder(List<Candidate> candidates, Throw cast) {
+    private HotspotSpotFinder(List<Candidate> candidates, Throw cast, double eyeHeight) {
         this.candidates = candidates;
         this.cast = cast;
+        this.eyeHeight = eyeHeight;
     }
 
     static HotspotSpotFinder live(Minecraft mc, HotspotDetector.Hotspot hotspot, Set<BlockPos> bad,
-                                  RandomGenerator random) {
+                                  RandomGenerator random, double eyeHeight) {
         Level level = mc.level;
         WalkabilityChecker checker = new WalkabilityChecker(level);
         Ground ground = feet -> {
@@ -78,12 +81,17 @@ final class HotspotSpotFinder {
                     hotspot.liquid(), random).step(1);
             return step.status() == CastAimSearch.Status.FOUND ? step.aim() : null;
         };
-        return of(hotspot.centre(), ground, players, bad, mc.player.position(), cast);
+        return of(hotspot.centre(), ground, players, bad, mc.player.position(), cast, eyeHeight);
     }
 
     static HotspotSpotFinder of(Vec3 centre, Ground ground, List<Vec3> players, Set<BlockPos> bad, Vec3 from,
                                 Throw cast) {
-        return new HotspotSpotFinder(candidates(centre, ground, players, bad, from), cast);
+        return of(centre, ground, players, bad, from, cast, STANDING_EYE);
+    }
+
+    static HotspotSpotFinder of(Vec3 centre, Ground ground, List<Vec3> players, Set<BlockPos> bad, Vec3 from,
+                                Throw cast, double eyeHeight) {
+        return new HotspotSpotFinder(candidates(centre, ground, players, bad, from), cast, eyeHeight);
     }
 
     Step step() {
@@ -95,7 +103,7 @@ final class HotspotSpotFinder {
         while (next < candidates.size() && tried < budget) {
             Candidate candidate = candidates.get(next++);
             tried++;
-            if (cast.from(candidate.feet(), candidate.stand().add(0.0, EYE_HEIGHT, 0.0)) != null) {
+            if (cast.from(candidate.feet(), candidate.stand().add(0.0, eyeHeight, 0.0)) != null) {
                 return new Step(Status.FOUND, candidate.feet());
             }
         }

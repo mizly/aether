@@ -35,20 +35,20 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Predicate;
 import java.util.random.RandomGenerator;
 
-// casts into the lava or water next to the start block, reels on the bite and fights whatever came up
+// casts into whichever of lava or water is next to the start block, reels on the bite and fights whatever came up
 // every delay here is wall-clock and every decision runs on the client tick, so the macro behaves the same at any fps
 public final class FishingMacro extends AbstractFishingMacro {
 
     public enum State { MOVE, SEEK, AIM, HEAL, CAST, WAIT_BITE, REEL, FIGHT }
 
-    public enum AimAt {
-        LAVA, WATER, HOTSPOT;
+    public enum HotspotPosition {
+        SIDE, CENTRE;
 
-        public static AimAt fromConfig(String value) {
+        public static HotspotPosition fromConfig(String value) {
             try {
                 return valueOf(value.trim().toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException | NullPointerException e) {
-                return WATER;
+                return SIDE;
             }
         }
     }
@@ -84,7 +84,7 @@ public final class FishingMacro extends AbstractFishingMacro {
     private static final long AIM_RETRY_MIN_MS = 400L;
     private static final long AIM_RETRY_MAX_MS = 900L;
     private static final int MAX_EMPTY_SWEEPS = 3;
-    // the hotspot fallback picks whichever liquid has a surface this close, the same reach the cast search has
+    // the liquid with a surface this close is the one fished, the same reach the cast search has
     private static final int LIQUID_PICK_RADIUS = 6;
     // the rotation lands on the gcd grid, so the pitch the cast comes from can sit a hair outside the band
     private static final float PITCH_SLACK = 1.0f;
@@ -96,6 +96,10 @@ public final class FishingMacro extends AbstractFishingMacro {
     private static final float AIM_SMOOTHING_MS = 110.0f;
     private static final float AIM_MAX_TURN_SPEED = 520.0f;
     private static final double AIM_HEIGHT = 0.6;
+    // under the nametag the float is thrown straight up and rises to the surface over the head
+    private static final float CENTRE_PITCH_MIN = -89.5f;
+    private static final float CENTRE_PITCH_MAX = -86.0f;
+    private static final float CENTRE_PITCH_LIMIT = -80.0f;
 
     private State state = State.AIM;
     private long stateEnteredAt;
@@ -104,7 +108,11 @@ public final class FishingMacro extends AbstractFishingMacro {
     private boolean emptyCatch;
     private long moveStartedAt;
 
-    private final HomeKeeper homeKeeper = new HomeKeeper("[FishingMacro]", () -> false, Entity::isInLava, true);
+    private final HotspotSeeker hotspots = new HotspotSeeker(
+            () -> hotspotPosition() == HotspotPosition.CENTRE, FishingMacro::castEyeHeight);
+    // an etherwarp cannot land under water, so the trip down to the hotspot's floor is always walked
+    private final HomeKeeper homeKeeper = new HomeKeeper("[FishingMacro]",
+            () -> AetherConfig.FISHING_MACRO_ETHERWARP_RETURN.get() && !this.castUp, Entity::isInLava, true);
     private final IdleMotion idle = new IdleMotion(() -> AetherConfig.FISHING_MACRO_RANDOM_LOOK.get(),
             () -> AetherConfig.FISHING_MACRO_BLOCK_SHUFFLE.get(), null);
 
@@ -145,11 +153,13 @@ public final class FishingMacro extends AbstractFishingMacro {
     private boolean hyperionMissingWarned;
 
     private final WandHealer healer = new WandHealer();
-    private final HotspotSeeker hotspots = new HotspotSeeker();
     private long reeledAt;
     private State healResume = State.AIM;
     private long healReelAt;
     private int ticks;
+    // standing on the floor under a hotspot's nametag, where the float is thrown straight up; this stays true
+    // after the hotspot closes, since that is still the spot the player is sunk on
+    private boolean castUp;
 
     @Override
     public void onEnable(Minecraft mc) {
@@ -157,6 +167,7 @@ public final class FishingMacro extends AbstractFishingMacro {
             return;
         }
         homeKeeper.start(home(mc));
+        castUp = false;
         resetOrigin();
         nextAttackAt = 0L;
         emptyCatch = false;
@@ -199,7 +210,7 @@ public final class FishingMacro extends AbstractFishingMacro {
         }
         ticks++;
         healer.confirm(mc, System.currentTimeMillis());
-        if (aimAt() == AimAt.HOTSPOT) {
+        if (hotspotsOn()) {
             hotspots.scan(mc);
         }
 
@@ -245,7 +256,7 @@ public final class FishingMacro extends AbstractFishingMacro {
         }
 
         // a move is only planned with the line in, so no float is left behind at the old spot
-        if (aimAt() == AimAt.HOTSPOT && hotspots.wantsReplan(mc, now)) {
+        if (hotspotsOn() && hotspots.wantsReplan(mc, now)) {
             if (mc.player.fishing == null) {
                 hotspots.beginSeek();
                 resetOrigin();
@@ -258,8 +269,16 @@ public final class FishingMacro extends AbstractFishingMacro {
             return;
         }
 
-        // a crouch still lifting moves the eye, and with it where the throw lands
-        if (now < aimRetryAt || mc.player.isCrouching() || mc.player.getPose() != Pose.STANDING) {
+        if (now < aimRetryAt) {
+            return;
+        }
+        if (castUp) {
+            tickCentreAim(mc, now);
+            return;
+        }
+        // a crouch still lifting or settling moves the eye, and with it where the throw lands
+        boolean sneak = wantsSneak(mc);
+        if (mc.player.isCrouching() != sneak || (!sneak && mc.player.getPose() != Pose.STANDING)) {
             return;
         }
 
@@ -321,6 +340,25 @@ public final class FishingMacro extends AbstractFishingMacro {
         turnTo(mc, step.aim());
     }
 
+    // straight up from the floor under the nametag, so only the pitch matters and every throw is fresh
+    private void tickCentreAim(Minecraft mc, long now) {
+        liquid = CastSim::isWater;
+        if (aimTargetBlock != null && lookLanding(mc) != null) {
+            FailsafeManager.selectHotbarSlot(mc, rodSlot());
+            changeState(State.CAST);
+            nextActionAt = now + castDelayForCycle();
+            return;
+        }
+        RandomGenerator random = ThreadLocalRandom.current();
+        turnTo(mc, new CastSim.CastAim(homeKeeper.origin().above(),
+                mc.player.getYRot() + IdleMotion.driftDegrees(random, 20.0f),
+                centrePitch(random)));
+    }
+
+    static float centrePitch(RandomGenerator random) {
+        return CENTRE_PITCH_MIN + random.nextFloat() * (CENTRE_PITCH_MAX - CENTRE_PITCH_MIN);
+    }
+
     private void turnTo(Minecraft mc, CastSim.CastAim aim) {
         aimTargetBlock = aim.block();
         // forced, since a dropped turn would read as a miss and rule out a good spot
@@ -358,8 +396,8 @@ public final class FishingMacro extends AbstractFishingMacro {
         float pitch = mc.player.getXRot();
         castLanding = landing;
         castAim = new CastSim.CastAim(aimTargetBlock != null ? aimTargetBlock : landing, yaw, pitch);
-        castFlightTicks = flightTicks(CastSim.castPath(eye, yaw, pitch, CastSim.DEFAULT_TICKS), eye,
-                Vec3.atCenterOf(landing));
+        castFlightTicks = castUp ? 0 : flightTicks(CastSim.castPath(eye, yaw, pitch,
+                CastSim.DEFAULT_TICKS), eye, Vec3.atCenterOf(landing));
         aimTargetBlock = null;
         hookSeenAt = 0L;
         settleHandled = false;
@@ -432,7 +470,7 @@ public final class FishingMacro extends AbstractFishingMacro {
                 rejected.clear();
                 aimSearch = null;
                 emptySweeps = 0;
-                confirmedAim = castAim;
+                confirmedAim = castUp ? null : castAim;
             }
         }
 
@@ -466,7 +504,9 @@ public final class FishingMacro extends AbstractFishingMacro {
             return;
         }
 
-        idle.tick(mc, now, false, !mc.player.isInLiquid(), homeKeeper.isOnOrigin(mc), ThreadLocalRandom.current());
+        // under water a shuffle tap would swim off the spot, so only the look wanders there
+        idle.tick(mc, now, wantsSneak(mc), !mc.player.isInLiquid() && !castUp,
+                homeKeeper.isOnOrigin(mc), ThreadLocalRandom.current());
     }
 
     private static boolean isSnagged(Entity hookedIn) {
@@ -843,6 +883,7 @@ public final class FishingMacro extends AbstractFishingMacro {
         }
         // the spot is home from now on, so a knock off it walks back here rather than to where we started
         homeKeeper.start(hotspots.spot());
+        castUp = hotspots.atCentre();
         resetOrigin();
         changeState(State.AIM);
     }
@@ -930,6 +971,9 @@ public final class FishingMacro extends AbstractFishingMacro {
 
     // where a cast at the current look comes down, or null when that is not a throw the search would pick
     private BlockPos lookLanding(Minecraft mc) {
+        if (castUp) {
+            return mc.player.getXRot() <= CENTRE_PITCH_LIMIT ? homeKeeper.origin().above() : null;
+        }
         CastAimSearch.Spec spec = CastAimSearch.Spec.GENERAL;
         if (liquid == null || !withinPitchBand(mc.player.getXRot(), spec.pitchMin(), spec.pitchMax())) {
             return null;
@@ -953,26 +997,25 @@ public final class FishingMacro extends AbstractFishingMacro {
     }
 
     private HotspotDetector.Hotspot hotspotTarget() {
-        return aimAt() == AimAt.HOTSPOT ? hotspots.fishing() : null;
+        return hotspotsOn() ? hotspots.fishing() : null;
+    }
+
+    private static boolean hotspotsOn() {
+        return AetherConfig.FISHING_MACRO_HOTSPOT.get();
+    }
+
+    private static HotspotPosition hotspotPosition() {
+        return HotspotPosition.fromConfig(AetherConfig.FISHING_MACRO_HOTSPOT_POSITION.get());
     }
 
     static boolean withinPitchBand(float pitch, float min, float max) {
         return pitch >= Math.min(min, max) - PITCH_SLACK && pitch <= Math.max(min, max) + PITCH_SLACK;
     }
 
+    // a hotspot says which liquid it is; anywhere else the nearer of lava and water is fished
     private Predicate<BlockState> pickLiquid(Minecraft mc) {
-        return switch (aimAt()) {
-            case LAVA -> CastSim::isLava;
-            case WATER -> CastSim::isWater;
-            case HOTSPOT -> {
-                HotspotDetector.Hotspot hotspot = hotspotTarget();
-                yield hotspot != null ? hotspot.liquid() : nearestLiquid(mc);
-            }
-        };
-    }
-
-    private static AimAt aimAt() {
-        return AimAt.fromConfig(AetherConfig.FISHING_MACRO_AIM_AT.get());
+        HotspotDetector.Hotspot hotspot = hotspotTarget();
+        return hotspot != null ? hotspot.liquid() : nearestLiquid(mc);
     }
 
     private static Predicate<BlockState> nearestLiquid(Minecraft mc) {
@@ -982,7 +1025,7 @@ public final class FishingMacro extends AbstractFishingMacro {
                 eye);
         double water = nearestSurface(CastAimSearch.surfaceCells(mc.level, base, LIQUID_PICK_RADIUS,
                 CastSim::isWater), eye);
-        return nearerLiquid(lava, water) == AimAt.LAVA ? CastSim::isLava : CastSim::isWater;
+        return lavaIsNearer(lava, water) ? CastSim::isLava : CastSim::isWater;
     }
 
     private static double nearestSurface(List<BlockPos> cells, Vec3 eye) {
@@ -994,8 +1037,8 @@ public final class FishingMacro extends AbstractFishingMacro {
     }
 
     // water wins a tie, and with neither in reach the search simply comes up empty on water
-    static AimAt nearerLiquid(double lavaDistance, double waterDistance) {
-        return lavaDistance < waterDistance ? AimAt.LAVA : AimAt.WATER;
+    static boolean lavaIsNearer(double lavaDistance, double waterDistance) {
+        return lavaDistance < waterDistance;
     }
 
     // ticks until the float is as far out as where it lands, since it only ever moves outward
@@ -1025,8 +1068,26 @@ public final class FishingMacro extends AbstractFishingMacro {
         MacroInput.set(options.keyRight, false);
         MacroInput.set(options.keySprint, false);
         MacroInput.set(options.keyJump, false);
-        // casts are planned from the standing eye, so the macro never crouches outside a fight
-        MacroInput.set(options.keyShift, false);
+        MacroInput.set(options.keyShift, wantsSneak(mc));
+    }
+
+    // under the nametag the crouch is what keeps the player sunk on the floor
+    private boolean wantsSneak(Minecraft mc) {
+        if (castUp) {
+            return true;
+        }
+        if (state == State.MOVE || !AetherConfig.FISHING_MACRO_ALWAYS_SNEAK.get()) {
+            return false;
+        }
+        boolean inLiquid = mc.player != null && mc.player.isInLiquid();
+        return StriderFishingMacro.sneakAllowedInLiquid(inLiquid, AetherConfig.FISHING_MACRO_SNEAK_IN_LIQUID.get());
+    }
+
+    // the eye a throw leaves from, which the bank spots around a hotspot are planned with
+    static double castEyeHeight() {
+        return AetherConfig.FISHING_MACRO_ALWAYS_SNEAK.get()
+                ? HotspotSpotFinder.CROUCHING_EYE
+                : HotspotSpotFinder.STANDING_EYE;
     }
 
     @Override
