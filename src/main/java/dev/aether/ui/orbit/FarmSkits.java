@@ -229,14 +229,14 @@ final class FarmSkits {
         }
     }
 
-    // -- fishing: cast into the water lane, wait for the bite, yank a fish out -------------------------------------
+    // -- fishing: cast into the lawn's pond, wait for the bite, yank a fish out --------------------------------------
 
-    private static final Vector3f WATER = new Vector3f(-6.8f, -0.05f, 0.6f);
+    private static final Vector3f WATER = new Vector3f(6.4f, -0.05f, 3.4f);
     private static final float CAST_AT = 1.0f, LANDS = 2.0f, BITE = 4.6f, CATCH = 5.0f, LOOP = 7.2f;
 
     private void fishing(float dt, PlayerFigure.Pose pose) {
         float c = scene % LOOP;
-        pose.facing = -90f;
+        pose.facing = (float) Math.toDegrees(Math.atan2(WATER.x, WATER.z));
         pose.look = 0.3f;
         pose.headPitch = 8f;
         if (c < 0.6f) {

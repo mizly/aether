@@ -68,6 +68,10 @@ final class PresetGarden implements SceneClone.Source {
         path();
         yard(2, 8, -5, 7, true, Integer.MIN_VALUE);
         yard(-8, -2, -5, 7, false, -7);
+        // the fishing skit's pond, at the back of the lawn where the menu camera sees it clear of the panel
+        for (int x = 6; x <= 7; x++) {
+            for (int z = 3; z <= 4; z++) set(x, -1, z, Blocks.WATER.defaultBlockState());
+        }
         barn(-29, 22);
         tree(30, -24);
         tree(-33, -12);
@@ -150,7 +154,7 @@ final class PresetGarden implements SceneClone.Source {
 
     // a lawn beside the path, hedged on three sides with lantern posts at the corners, where the menu's skits put
     // their beds, stands and chases instead of on the crops
-    // open is the side toward the path; canal is a column left as water, for the fishing skit
+    // open is the side toward the path; canal is a column left as water
     private void yard(int x0, int x1, int z0, int z1, boolean openLow, int canal) {
         int outer = openLow ? x1 : x0;
         BlockState hedge = Blocks.OAK_LEAVES.defaultBlockState();

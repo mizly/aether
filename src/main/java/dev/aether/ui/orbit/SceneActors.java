@@ -972,7 +972,7 @@ final class SceneActors implements AutoCloseable {
     }
 
     private static Vector3f standSpot(int i) {
-        return new Vector3f(3.4f + 1.55f * i, 0f, 2.6f);
+        return new Vector3f(3.4f + 1.55f * i, 0f, 1.9f);
     }
 
     // a bead forms on one side of the head, runs down and drips off; heavier work, more often
