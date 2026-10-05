@@ -80,11 +80,42 @@ class AbilitySwapClickerTest {
 
     @Test
     void theFloorHoldsEvenWithNoDrawOrInterval() {
-        AbilitySwapClicker.Timing instant = new AbilitySwapClicker.Timing(0L, 0L, 0L, 0L);
+        AbilitySwapClicker.Timing instant = new AbilitySwapClicker.Timing(0L, 0L, 0L, 0L, 550L);
         List<Long> clicks = runClicker(instant, new Random(1L), 0, 2, 10_000L);
         assertTrue(clicks.size() > 10);
-        for (int i = 1; i < clicks.size(); i++) {
-            assertTrue(clicks.get(i) - clicks.get(i - 1) >= 550L);
+        assertGapsAtLeast(clicks, 550L);
+    }
+
+    @Test
+    void eachAbilityKeepsItsOwnFloor() {
+        for (long floor : new long[] {150L, 550L, 1_000L}) {
+            AbilitySwapClicker.Timing instant = new AbilitySwapClicker.Timing(0L, 0L, 0L, 0L, floor);
+            for (int back : new int[] {-1, 2}) {
+                List<Long> clicks = runClicker(instant, new Random(floor), 0, back, 20_000L);
+                assertTrue(clicks.size() > 15);
+                assertGapsAtLeast(clicks, floor);
+                // nothing else holds the clicks back here, so the floor is what spaces them
+                assertTrue(clicks.get(1) - clicks.get(0) < floor + 20L);
+            }
+        }
+    }
+
+    @Test
+    void thePresetsKeepTheirFloorsAndIntervals() {
+        assertPreset(AbilitySwapClicker.SOUL_WHIP, 550L, 500L, 800L, 2);
+        assertPreset(AbilitySwapClicker.HYPERION, 150L, 160L, 280L, -1);
+        assertPreset(AbilitySwapClicker.HEALING_WAND, 1_000L, 1_000L, 1_500L, 2);
+    }
+
+    @Test
+    void swappedIntervalBoundsStillDrawInsideThem() {
+        AbilitySwapClicker.Timing swapped = new AbilitySwapClicker.Timing(120L, 45L, 800L, 500L, 550L);
+        Random random = new Random(9L);
+        for (int i = 0; i < 500; i++) {
+            long interval = AbilitySwapClicker.nextIntervalMs(random, swapped);
+            assertTrue(interval >= 500L && interval <= 800L);
+            long draw = AbilitySwapClicker.nextDrawDelayMs(random, swapped);
+            assertTrue(draw >= 45L && draw <= 120L);
         }
     }
 
@@ -104,6 +135,20 @@ class AbilitySwapClickerTest {
         assertTrue(clicks.size() > 20);
         for (int i = 1; i < clicks.size(); i++) {
             assertTrue(clicks.get(i) - clicks.get(i - 1) >= 550L);
+        }
+    }
+
+    private static void assertPreset(AbilitySwapClicker.Timing timing, long floor, long intervalMin, long intervalMax,
+                                     int backSlot) {
+        assertEquals(floor, timing.minClickGapMs());
+        assertEquals(intervalMin, timing.intervalMinMs());
+        assertEquals(intervalMax, timing.intervalMaxMs());
+        assertGapsAtLeast(runClicker(timing, new Random(floor), 0, backSlot, 30_000L), floor);
+    }
+
+    private static void assertGapsAtLeast(List<Long> clicks, long floor) {
+        for (int i = 1; i < clicks.size(); i++) {
+            assertTrue(clicks.get(i) - clicks.get(i - 1) >= floor, "gap " + (clicks.get(i) - clicks.get(i - 1)));
         }
     }
 
