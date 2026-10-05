@@ -1430,6 +1430,10 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         if ((state == State.FIGHT || state == State.CLEAR) && next != state) {
             RotationManager.cancelRotation();
         }
+        // a queued whip click must not outlive the aim it was armed for, say across a walk home
+        if (state == State.CLEAR && next != State.CLEAR) {
+            clearWhip();
+        }
         // a clear picked back up after a walk home aims at the stair from scratch
         if (next == State.CLEAR && state != State.CLEAR) {
             whipFloor = null;
