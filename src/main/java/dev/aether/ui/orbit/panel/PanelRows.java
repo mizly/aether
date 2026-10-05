@@ -252,6 +252,9 @@ final class PanelRows {
         if (items != null) {
             return PanelItems.stacked(items, innerW) ? 0f : PanelItems.inlineWidth(items);
         }
+        if (setting instanceof DropdownSetting dropdown && segmented(dropdown, innerW)) {
+            return segmentsWidth(dropdown);
+        }
         return switch (setting.getType()) {
             case TOGGLE -> 38f;
             case SLIDER, RANGE_SLIDER -> Math.max(180f, Math.min(300f, innerW * 0.42f));
@@ -330,7 +333,7 @@ final class PanelRows {
         }
         boolean rowHover = f.hits().hovered(key);
         PanelItems.Kind items = PanelItems.kind(setting);
-        boolean wholeRow = items == null && switch (setting.getType()) {
+        boolean wholeRow = items == null && !(setting instanceof DropdownSetting d && segmented(d, innerW)) && switch (setting.getType()) {
             case TOGGLE, ACTION, DROPDOWN, COLOR, PLOT -> true;
             default -> false;
         };
@@ -374,12 +377,29 @@ final class PanelRows {
                 Rect sw = new Rect(right - 38f, cy - 11f, 38f, 22f);
                 float on = f.anim().spring(new Key(key.page(), key.group(), key.groupIndex(), key.setting(),
                         key.settingIndex(), "knob"), toggle.getValue() ? 1f : 0f);
+                // the box swells mid-change and a ring rings out when it turns on
+                float t = f.anim().ease(new Key(key.page(), key.group(), key.groupIndex(), key.setting(),
+                        key.settingIndex(), "pop"), toggle.getValue() ? 1f : 0f, 320f);
+                float pop = 4f * t * (1f - t);
+                float bx = sw.right() - 10f, by = sw.centerY();
+                if (toggle.getValue() && t < 0.999f) {
+                    c.strokeCircle(bx, by, 10f + 12f * t, 1.5f, Argb.withAlpha(p.accent(), 0.5f * (1f - t)));
+                }
+                c.save();
+                c.translate(bx, by);
+                c.scale(1f + 0.24f * pop);
+                c.translate(-bx, -by);
                 PanelPaint.toggle(c, p, sw, on, rowHover ? 1f : 0f, true);
+                c.restore();
             }
             case SLIDER -> drawSlider(f, (SliderSetting) setting, key, right, cy, innerW);
             case RANGE_SLIDER -> drawRange(f, (RangeSliderSetting) setting, key, right, cy, innerW);
             case DROPDOWN -> {
                 DropdownSetting dropdown = (DropdownSetting) setting;
+                if (segmented(dropdown, innerW)) {
+                    drawSegments(f, dropdown, key, right, cy);
+                    return;
+                }
                 float fw = controlWidth(setting, innerW);
                 Rect field = new Rect(right - fw, cy - FIELD_H / 2f, fw, FIELD_H);
                 int index = dropdown.getSelectedIndex();
@@ -582,6 +602,66 @@ final class PanelRows {
     }
 
     // from < 0 draws a single-knob slider filled from the left
+    // a short choice of two to four options shows them all as buttons with a sliding highlight, one click to pick
+    private static boolean segmented(DropdownSetting dropdown, float innerW) {
+        int n = dropdown.getOptions().size();
+        return n >= 2 && n <= 4 && segmentsWidth(dropdown) <= Math.max(220f, innerW * 0.56f);
+    }
+
+    private static float segmentWidth(String option) {
+        return option.length() * 6.9f + 22f;
+    }
+
+    private static float segmentsWidth(DropdownSetting dropdown) {
+        float w = 4f;
+        for (String option : dropdown.getOptions()) w += segmentWidth(option);
+        return w;
+    }
+
+    private void drawSegments(PanelFrame f, DropdownSetting dropdown, Key key, float right, float cy) {
+        GuiCanvas c = f.canvas();
+        Palette p = f.palette();
+        List<String> options = dropdown.getOptions();
+        float width = segmentsWidth(dropdown);
+        Rect box = new Rect(right - width, cy - 15f, width, 30f);
+        c.roundedRect(box, 9f, PanelPaint.fieldFill(p));
+        c.strokeRect(box, 9f, 1f, Argb.withAlpha(p.border(), 0.3f));
+        int selected = dropdown.getSelectedIndex();
+        float x = box.x() + 2f;
+        float selX = x, selW = 0f;
+        float[] lefts = new float[options.size()];
+        for (int i = 0; i < options.size(); i++) {
+            lefts[i] = x;
+            float w = segmentWidth(options.get(i));
+            if (i == selected) {
+                selX = x;
+                selW = w;
+            }
+            x += w;
+        }
+        Key slideX = new Key(key.page(), key.group(), key.groupIndex(), key.setting(), key.settingIndex(), "seg.x");
+        Key slideW = new Key(key.page(), key.group(), key.groupIndex(), key.setting(), key.settingIndex(), "seg.w");
+        float hx = f.anim().spring(slideX, selX);
+        float hw = f.anim().spring(slideW, selW);
+        if (selected >= 0 && selected < options.size()) {
+            Rect highlight = new Rect(hx, box.y() + 2f, hw, box.h() - 4f);
+            c.roundedRect(highlight, 7f, p.accent());
+        }
+        for (int i = 0; i < options.size(); i++) {
+            float w = segmentWidth(options.get(i));
+            Rect seg = new Rect(lefts[i], box.y() + 2f, w, box.h() - 4f);
+            Key segKey = new Key(key.page(), key.group(), key.groupIndex(), key.setting(), key.settingIndex(), "seg" + i);
+            float hover = f.anim().hover(segKey, f.hits().hovered(segKey));
+            boolean on = i == selected;
+            if (!on && hover > 0.01f) c.roundedRect(seg, 7f, Argb.withAlpha(p.text(), 0.07f * hover));
+            int color = on ? p.onAccent() : Argb.mix(p.textMuted(), p.text(), hover);
+            PanelPaint.textCentered(c, on ? SEMIBOLD : MEDIUM, 12f, c.ellipsize(MEDIUM, 12f, options.get(i), w - 10f),
+                    seg.centerX(), seg.centerY(), color);
+            int index = i;
+            f.hits().add(segKey, seg, HitHandler.click(() -> dropdown.setSelectedIndex(index)), Cursor.HAND);
+        }
+    }
+
     // a slider's value box: shows the value, and on a click becomes a field to type a new one into
     private void valueBox(PanelFrame f, Key key, Rect bubble, String shown, String editText,
                           java.util.function.Consumer<String> commit) {
@@ -632,15 +712,22 @@ final class PanelRows {
     private void drawTrack(PanelFrame f, Key key, Rect track, float to, float from) {
         GuiCanvas c = f.canvas();
         Palette p = f.palette();
-        boolean hover = f.hits().hovered(key) || f.hits().active(key);
+        boolean dragging = f.hits().active(key);
+        float hover = f.anim().hover(key, f.hits().hovered(key) || dragging);
+        float grab = f.anim().spring(new Key(key.page(), key.group(), key.groupIndex(), key.setting(),
+                key.settingIndex(), "grab"), dragging ? 1f : 0f);
         c.roundedRect(track, 2f, Argb.withAlpha(p.text(), p.light() ? 0.14f : 0.12f));
         float start = from < 0f ? 0f : from;
         Rect fill = new Rect(track.x() + track.w() * start, track.y(), track.w() * (to - start), track.h());
+        if (hover > 0.01f) c.roundedRect(fill.inset(0f, -2f * hover, 0f, -2f * hover), 4f, Argb.withAlpha(p.accent(), 0.18f * hover));
         c.roundedRect(fill, 2f, p.accent());
-        float knob = hover ? 8f : 7f;
-        knob(c, p, track.x() + track.w() * to, track.centerY(), knob);
-        if (from >= 0f) {
-            knob(c, p, track.x() + track.w() * from, track.centerY(), knob);
+        // the knob grows under the cursor and more while held, with a soft halo
+        float knob = 7f + 1.5f * hover + 1.5f * grab;
+        float[] knobs = from >= 0f ? new float[]{from, to} : new float[]{to};
+        for (float k : knobs) {
+            float kx = track.x() + track.w() * k;
+            if (grab > 0.01f) c.circle(kx, track.centerY(), knob + 6f * grab, Argb.withAlpha(p.accent(), 0.16f * grab));
+            knob(c, p, kx, track.centerY(), knob);
         }
     }
 

@@ -154,14 +154,28 @@ final class PanelOrbit {
         float h = headH + rowsH + footH;
         Rect card = new Rect(top.x(), top.y(), top.w(), h);
         if (!c.isVisible(card)) return h;
+        // the card rises a little under the cursor, its shadow spreading as it lifts
+        float lift = f.anim().hover("orbit.card." + page.id(), under(f, card));
+        c.save();
+        if (lift > 0.01f) c.shadow(card.offset(0f, 4f), 12f, 14f, PanelPaint.shadow(p, 0.5f * lift));
+        c.translate(0f, -3f * lift);
+        drawModuleCardBody(f, page, card, essentials, total, on, headH, footH, lift);
+        c.restore();
+        return h;
+    }
 
+    private void drawModuleCardBody(PanelFrame f, PanelNav.Page page, Rect card, List<Setting> essentials, int total,
+                                    boolean on, float headH, float footH, float lift) {
+        GuiCanvas c = f.canvas();
+        Palette p = f.palette();
+        int more = total - essentials.size();
         String openId = "orbit.open." + page.id();
         float hover = f.anim().hover(openId, f.hits().hovered(openId));
         c.roundedRect(card, 12f, PanelPaint.cardFill(p));
         c.strokeRect(card, 12f, 1f, Argb.mix(PanelPaint.cardBorder(p), p.accent(), on && page.hasToggle() ? 0.35f : 0f));
         Rect head = new Rect(card.x(), card.y(), card.w(), headH);
         if (hover > 0.01f) c.roundedRect(head, 12f, Argb.withAlpha(p.text(), 0.035f * hover));
-        PanelPaint.iconTile(c, p, new Rect(card.x() + 12f, card.y() + 9f, 38f, 38f), page.icon(), 24f, 9f);
+        PanelPaint.iconTile(c, p, new Rect(card.x() + 12f, card.y() + 9f, 38f, 38f), page.icon(), 24f + 4f * lift, 9f);
         float tx = card.x() + 62f;
         float right = card.right() - 14f;
         if (page.hasToggle()) {
@@ -193,7 +207,12 @@ final class PanelOrbit {
             PanelPaint.chevronRight(c, card.x() + 26f + lw + mh * 2f, moreRect.centerY(), 7f, 1.4f, color);
             f.hits().add(moreId, moreRect, HitHandler.click(() -> style.openPage(page.id())), Cursor.HAND);
         }
-        return h;
+    }
+
+    // whether the cursor is over r on this frame's canvas
+    private static boolean under(PanelFrame f, Rect r) {
+        return !f.frozen() && f.canvas().toRoot(r).contains(f.mouseX(), f.mouseY())
+                && f.canvas().rootClip().contains(f.mouseX(), f.mouseY());
     }
 
     static boolean isFailsafe(PanelNav.Page page) {
@@ -246,12 +265,15 @@ final class PanelOrbit {
         boolean hover = f.hits().hovered(id) || f.hits().hovered(lampId);
         if (hover && active) hoveredFailsafe = page.tab().rawName();
         float h = f.anim().hover(id, hover);
+        c.save();
+        if (h > 0.01f) c.shadow(tile.offset(0f, 3f), 10f, 10f, PanelPaint.shadow(p, 0.45f * h));
+        c.translate(0f, -2f * h);
         c.roundedRect(tile, 10f, Argb.mix(PanelPaint.windowFill(p), p.text(), 0.03f + 0.04f * h));
         c.strokeRect(tile, 10f, 1f, Argb.mix(PanelPaint.hairline(p), on ? p.success() : p.border(), on ? 0.45f : 0.2f));
         String item = FAILSAFE_ITEMS.get(page.tab().rawName());
         c.save();
         if (!on) c.alpha(0.5f);
-        PanelPaint.icon(c, dev.aether.ui.gui.Icon.item(item), tile.x() + 20f, tile.y() + 19f, 30f, 0xFFFFFFFF);
+        PanelPaint.icon(c, dev.aether.ui.gui.Icon.item(item), tile.x() + 20f, tile.y() + 19f, 30f + 4f * h, 0xFFFFFFFF);
         c.restore();
         float textX = tile.x() + 40f;
         float lampX = tile.right() - 13f;
@@ -264,6 +286,7 @@ final class PanelOrbit {
             f.hits().add(lampId, new Rect(lampX - 11f, tile.y() + 5f, 22f, 22f), HitHandler.click(page.tab()::toggle), Cursor.HAND);
             f.hits().add(id, tile, HitHandler.click(() -> style.openPage(page.id())), Cursor.HAND);
         }
+        c.restore();
     }
 
     // "Stop · 1.5s" from the failsafe's own Action and Trigger Delay settings
