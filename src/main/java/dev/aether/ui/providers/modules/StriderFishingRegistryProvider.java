@@ -109,15 +109,16 @@ public final class StriderFishingRegistryProvider extends AbstractFishingRegistr
                         })
                         .withDecimals(0).withSuffix("ms")));
 
-        groups.add(SettingGroup.of(
-                        "Soul Whip Fishing",
-                        "Fills a small lava pool with striders and clears it once enough are stuck. "
-                                + "The Sawyer spot always fishes this way with the Soul Whip and ignores this toggle",
+        // always shown, since the sawyer spot pools and whips whatever the toggle says
+        groups.add(SettingGroup.alwaysOn(
+                        "Soul Whip",
+                        "How the pool fills up and what clears it")
+                .add(new ToggleSetting("Soul Whip Fishing",
                         () -> AetherConfig.STRIDER_FISHING_SOUL_WHIP_FISHING.get(),
                         v -> {
                             AetherConfig.STRIDER_FISHING_SOUL_WHIP_FISHING.set(v);
                             AetherConfig.save();
-                        })
+                        }))
                 .add(new SliderSetting("Striders Before Kill", 1, 10,
                         () -> (float) AetherConfig.STRIDER_FISHING_SOUL_WHIP_COUNT.get(),
                         v -> {

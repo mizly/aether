@@ -29,6 +29,8 @@
   "text.aether.cast_delay_max": "Cast Delay Max",
   "text.aether.random_look_around": "Random Look Around",
   "text.aether.move_around_on_block": "Move Around On Block",
+  "text.aether.soul_whip": "Soul Whip",
+  "text.aether.how_the_pool_fills_up_and_what_clears_it": "How the pool fills up and what clears it",
   "text.aether.soul_whip_fishing": "Soul Whip Fishing",
   "text.aether.fills_a_small_lava_pool_with_striders_and_clears_it_once_enough_are_stuck_the_sawyer_spot_always_fishes_this_way_with_the_soul_whip_and_ignores_this_toggle": "Fills a small lava pool with striders and clears it once enough are stuck. The Sawyer spot always fishes this way with the Soul Whip and ignores this toggle",
   "text.aether.striders_before_kill": "Striders Before Kill",

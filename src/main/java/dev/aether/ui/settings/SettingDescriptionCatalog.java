@@ -40,6 +40,7 @@ final class SettingDescriptionCatalog {
             Map.entry("Soul Whip Slot", "Hotbar slot of the Soul Whip. When that slot holds no whip, the macro uses the first Soul Whip it finds in the hotbar."),
             Map.entry("Kill Distance", "How close the macro stays to a catch it kills by hand. Not used at the Sawyer spot, where the Soul Whip clears every catch."),
             Map.entry("Striders Before Kill", "How many striders the pool holds before the macro clears it. Hypixel allows 10 sea creatures at once, so striders a clear leaves alive lower this until they die."),
+            Map.entry("Soul Whip Fishing", "Fills a small lava pool with striders and clears it once enough are stuck. The Sawyer spot always fishes this way with the Soul Whip and ignores this toggle"),
             Map.entry("Use Soul Whip", "Clears the pool with the Soul Whip, swapping to the weapon after each lash. Off kills each strider by hand. The Sawyer spot always uses the whip."),
             Map.entry("Aim At", "What the fishing macro casts into: lava, water, or a nearby fishing hotspot, which it walks over to. With no hotspot around it fishes whichever liquid is closest."),
             Map.entry("Mob Whitelist", "Only catches whose name contains one of these entries are fought. Leave it empty to fight everything that is not blacklisted."),
