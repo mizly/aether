@@ -100,6 +100,7 @@ final class SceneActors implements AutoCloseable {
     private final List<Pest> pests = new ArrayList<>();
     private final List<Crafted> crafted = new ArrayList<>();
     private final SceneParticles particles = new SceneParticles();
+    private final FarmSkits farm = new FarmSkits(particles);
 
     private String focus;
     private float scene;
@@ -165,6 +166,7 @@ final class SceneActors implements AutoCloseable {
         if (resting) sleep(dt, pose);
 
         pests(dt, pestsOn ? clamp(in.pests(), 0, 8) : 0, pose);
+        farm.update(dt, scene, time, focus, in.enabled(), pose);
         if (!pestsOn) vacuum = Math.max(0f, vacuum - dt * 4f);
 
         if (loadout) {
@@ -873,6 +875,7 @@ final class SceneActors implements AutoCloseable {
         Matrix4f toFarm = new Matrix4f(local).invert();
         toFarm.transformPosition(figure.headFrame().transformPosition(-4.4f, 5f, 1.5f, browRight));
         toFarm.transformPosition(figure.headFrame().transformPosition(4.4f, 5f, 1.5f, browLeft));
+        farm.build(local, figure, this::buffer, right, up);
         particles.build(this::buffer, local, right, up);
         List<Draw> out = new ArrayList<>();
         for (Map.Entry<Identifier, SceneClone.Buffer> e : buffers.entrySet()) {
@@ -1080,7 +1083,7 @@ final class SceneActors implements AutoCloseable {
     }
 
     // a quad over corners a, b, c, d (top-left round to bottom-left) showing the top-left u x v of its texture
-    private static void face(SceneClone.Buffer out, Matrix4f m, float ax, float ay, float az, float bx, float by, float bz,
+    static void face(SceneClone.Buffer out, Matrix4f m, float ax, float ay, float az, float bx, float by, float bz,
                              float cx, float cy, float cz, float dx, float dy, float dz, float u, float v, float shade) {
         Vector3f a = m.transformPosition(ax, ay, az, new Vector3f());
         Vector3f b = m.transformPosition(bx, by, bz, new Vector3f());
