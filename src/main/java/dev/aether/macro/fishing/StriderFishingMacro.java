@@ -11,12 +11,10 @@ import dev.aether.modules.routes.EtherwarpLeg;
 import dev.aether.modules.routes.Route;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.projectile.FishingHook;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
@@ -31,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.IntPredicate;
+import java.util.random.RandomGenerator;
 
 // lava fishing for stridersurfers: cast, wait for the marker to flip from ? to !!, reel, kill, walk home
 // every delay here is wall-clock and every decision runs on the client tick, so the macro behaves the same at 10 or 240 fps
@@ -67,20 +66,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private static final long BOBBER_LANDED_MS = 1_200L;
     private static final long REEL_SETTLE_MS = 350L;
 
-    private static final long IDLE_MIN_DELAY_MS = 2_500L;
-    private static final long IDLE_MAX_DELAY_MS = 7_000L;
-    private static final long IDLE_FIRST_MIN_DELAY_MS = 400L;
-    private static final long IDLE_FIRST_MAX_DELAY_MS = 900L;
-    // a flick, not a glide; a half second spent easing across two degrees is what reads as a machine
-    // the rotation manager floors any duration at 100ms, so nothing shorter is worth asking for
-    private static final long IDLE_TURN_MIN_MS = 100L;
-    private static final long IDLE_TURN_MAX_MS = 220L;
-    private static final long IDLE_TAP_MIN_MS = 90L;
-    private static final long IDLE_TAP_MAX_MS = 200L;
-    private static final float IDLE_YAW_DEGREES = 2.5f;
-    private static final float IDLE_PITCH_DEGREES = 1.5f;
-    private static final int IDLE_TAP_ONE_IN = 4;
-
     private static final float AIM_SMOOTHING_MS = 110.0f;
     private static final float AIM_MAX_TURN_SPEED = 520.0f;
     private static final double ATTACK_RANGE_SLACK = 0.85;
@@ -95,7 +80,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private static final double ORIGIN_RADIUS = 0.55;
     private static final double ORIGIN_BELOW = 0.5;
     private static final double ORIGIN_ABOVE = 1.0;
-    private static final double AIM_BOX_RADIUS = 0.18;
 
     // a pool that never empties means a catch slipped out of reach, so the rest is written off and fishing resumes
     private static final long CLEAR_TIMEOUT_MS = 90_000L;
@@ -111,8 +95,6 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     // the whip's swing lands above the crosshair, so aiming at the legs puts it through the body
     private static final double WHIP_AIM_HEIGHT = 0.15;
     private static final int GLANCE_AT_POOL_ONE_IN = 3;
-    private static final float GLANCE_YAW_DEGREES = 5.0f;
-    private static final float GLANCE_PITCH_DEGREES = 3.0f;
 
     private State state = State.AIM_LAVA;
     private BlockPos origin;
@@ -158,10 +140,8 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     // everything loaded when the line was reeled, so a catch is told apart from whatever was already swimming
     private final Set<Integer> preReelEntityIds = new HashSet<>();
 
-    private boolean idleAnchored;
-    private long idleNextAt;
-    private long idleTapUntil;
-    private KeyMapping idleTapKey;
+    private final IdleMotion idle = new IdleMotion(() -> AetherConfig.STRIDER_FISHING_RANDOM_LOOK.get(),
+            () -> AetherConfig.STRIDER_FISHING_BLOCK_SHUFFLE.get(), this::poolGlance);
 
     @Override
     public void onEnable(Minecraft mc) {
@@ -183,7 +163,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         pooledCatchIds.clear();
         clearWhip();
         clearKillPlan();
-        clearIdle();
+        idle.clear();
         changeState(State.AIM_LAVA);
         ClientUtils.sendDebugMessage("[StriderFishing] started at "
                 + origin.getX() + ", " + origin.getY() + ", " + origin.getZ());
@@ -259,7 +239,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         pooledCatchIds.clear();
         clearWhip();
         clearKillPlan();
-        clearIdle();
+        idle.clear();
     }
 
     @Override
@@ -380,7 +360,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         castAimBlock = aimTargetBlock;
         aimTargetBlock = null;
         emptyCatch = false;
-        anchorIdle(now);
+        idle.anchor(now, ThreadLocalRandom.current());
         changeState(State.WAIT_BITE);
     }
 
@@ -401,14 +381,14 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         Entity hookedIn = mc.player.fishing.getHookedIn();
         if (soulWhipFishing() && hookedIn != null && pooledCatchIds.contains(hookedIn.getId())) {
             ClientUtils.sendDebugMessage("[StriderFishing] float hooked a strider, recasting");
-            clearIdle();
+            idle.clear();
             ClientUtils.performUseClick();
             changeState(State.AIM_LAVA);
             return;
         }
 
         if (CatchWatch.hasCatchMarker(mc.level, mc.player.fishing)) {
-            clearIdle();
+            idle.clear();
             clearAimSearch();
             CatchWatch.snapshot(mc.level, preReelEntityIds);
             changeState(State.REEL);
@@ -420,7 +400,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             if (!CatchWatch.floatInLiquid(mc.level, mc.player.fishing, CastSim::isLava)) {
                 ClientUtils.sendDebugMessage("[StriderFishing] float landed out of the lava, recasting");
                 rejectCast();
-                clearIdle();
+                idle.clear();
                 ClientUtils.performUseClick();
                 changeState(State.AIM_LAVA);
                 return;
@@ -433,12 +413,12 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
         if (now - stateEnteredAt > BITE_TIMEOUT_MS) {
             ClientUtils.sendDebugMessage("[StriderFishing] no bite in time, recasting");
-            clearIdle();
+            idle.clear();
             recast(now);
             return;
         }
 
-        tickIdleMotion(mc, now);
+        idle.tick(mc, now, shouldSneak(mc), sneakAllowedHere(mc), isOnOrigin(mc), ThreadLocalRandom.current());
     }
 
     private void tickReel(Minecraft mc) {
@@ -715,7 +695,15 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         return best;
     }
 
-    private Entity randomPooledCatch(Minecraft mc, ThreadLocalRandom random) {
+    // with a pool filling up, the odd glance goes to one of the striders already stuck in it
+    private Vec3 poolGlance(Minecraft mc, RandomGenerator random) {
+        Entity glance = soulWhipFishing() && random.nextInt(GLANCE_AT_POOL_ONE_IN) == 0
+                ? randomPooledCatch(mc, random)
+                : null;
+        return glance == null ? null : aimPoint(glance);
+    }
+
+    private Entity randomPooledCatch(Minecraft mc, RandomGenerator random) {
         List<Entity> alive = new ArrayList<>();
         for (int id : pooledCatchIds) {
             Entity entity = mc.level.getEntity(id);
@@ -838,134 +826,12 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
                 true, 0.35, true, false);
     }
 
-    // small slow camera drift and the occasional short step, so a long wait is not a statue staring at lava
-    private void tickIdleMotion(Minecraft mc, long now) {
-        var options = mc.options;
-        boolean tapping = now < idleTapUntil && idleTapKey != null;
-        if (!tapping && idleTapKey != null) {
-            MacroInput.set(idleTapKey, false);
-            idleTapKey = null;
-        }
-
-        MacroInput.set(options.keyUp, false);
-        MacroInput.set(options.keyDown, false);
-        MacroInput.set(options.keyLeft, false);
-        MacroInput.set(options.keyRight, false);
-        MacroInput.set(options.keySprint, false);
-        MacroInput.set(options.keyJump, false);
-        boolean sneak = shouldSneak(mc) || tapping;
-        MacroInput.set(options.keyShift, sneak);
-        if (tapping) {
-            MacroInput.set(idleTapKey, true);
-        }
-
-        FishingHook hook = mc.player.fishing;
-        if (!idleAnchored || hook == null || now < idleNextAt || RotationManager.isRotating()) {
-            return;
-        }
-
-        ThreadLocalRandom random = ThreadLocalRandom.current();
-        idleNextAt = now + nextIdleDelayMs(random);
-        if (AetherConfig.STRIDER_FISHING_RANDOM_LOOK.get()) {
-            lookAround(mc, hook, random);
-        }
-
-        // a step only happens crouched, so the shuffle cannot carry the player off the start block
-        if (AetherConfig.STRIDER_FISHING_BLOCK_SHUFFLE.get()
-                && sneakAllowedHere(mc) && isOnOrigin(mc) && random.nextInt(IDLE_TAP_ONE_IN) == 0) {
-            idleTapKey = switch (random.nextInt(4)) {
-                case 0 -> options.keyUp;
-                case 1 -> options.keyDown;
-                case 2 -> options.keyLeft;
-                default -> options.keyRight;
-            };
-            idleTapUntil = now + random.nextLong(IDLE_TAP_MIN_MS, IDLE_TAP_MAX_MS + 1);
-        }
-    }
-
-    // drift around the float itself, offset inside a small box so the cursor is never dead centre on it
-    // with a pool filling up, the odd glance goes to one of the striders already stuck in it
-    private void lookAround(Minecraft mc, FishingHook hook, ThreadLocalRandom random) {
-        Entity glance = soulWhipFishing() && random.nextInt(GLANCE_AT_POOL_ONE_IN) == 0
-                ? randomPooledCatch(mc, random)
-                : null;
-        Vec3 aimAt = glance != null ? aimPoint(glance) : hook.position();
-        aimAt = aimAt.add(aimBoxOffset(random));
-        float yawRange = glance != null ? GLANCE_YAW_DEGREES : IDLE_YAW_DEGREES;
-        float pitchRange = glance != null ? GLANCE_PITCH_DEGREES : IDLE_PITCH_DEGREES;
-
-        Vec3 eye = mc.player.getEyePosition();
-        double dx = aimAt.x - eye.x;
-        double dy = aimAt.y - eye.y;
-        double dz = aimAt.z - eye.z;
-        RotationManager.rotateToYawPitch(mc,
-                CastSim.yawTo(dx, dz) + driftDegrees(random, yawRange),
-                CastSim.pitchTo(dx, dy, dz) + driftDegrees(random, pitchRange),
-                nextIdleTurnMs(random));
-    }
-
-    private void anchorIdle(long now) {
-        idleAnchored = true;
-        // settle onto the float shortly after it lands, then drift on the slower cadence
-        idleNextAt = now + nextFirstIdleDelayMs(ThreadLocalRandom.current());
-        idleTapUntil = 0L;
-        idleTapKey = null;
-    }
-
-    private void clearIdle() {
-        idleAnchored = false;
-        idleNextAt = 0L;
-        idleTapUntil = 0L;
-        idleTapKey = null;
-    }
-
-    static long nextIdleDelayMs(ThreadLocalRandom random) {
-        return random.nextLong(IDLE_MIN_DELAY_MS, IDLE_MAX_DELAY_MS + 1);
-    }
-
-    static Vec3 aimBoxOffset(ThreadLocalRandom random) {
-        return new Vec3(
-                random.nextDouble(-AIM_BOX_RADIUS, AIM_BOX_RADIUS),
-                random.nextDouble(-AIM_BOX_RADIUS, AIM_BOX_RADIUS),
-                random.nextDouble(-AIM_BOX_RADIUS, AIM_BOX_RADIUS));
-    }
-
-    static boolean aimBoxOffsetInRange(Vec3 offset) {
-        return Math.abs(offset.x) <= AIM_BOX_RADIUS
-                && Math.abs(offset.y) <= AIM_BOX_RADIUS
-                && Math.abs(offset.z) <= AIM_BOX_RADIUS;
-    }
-
     static long nextReturnRetryDelayMs(ThreadLocalRandom random) {
         return random.nextLong(RETURN_RETRY_MIN_MS, RETURN_RETRY_MAX_MS + 1);
     }
 
     static boolean returnRetryDelayInRange(long delay) {
         return delay >= RETURN_RETRY_MIN_MS && delay <= RETURN_RETRY_MAX_MS;
-    }
-
-    static long nextIdleTurnMs(ThreadLocalRandom random) {
-        return random.nextLong(IDLE_TURN_MIN_MS, IDLE_TURN_MAX_MS + 1);
-    }
-
-    static boolean idleTurnInRange(long turnMs) {
-        return turnMs >= IDLE_TURN_MIN_MS && turnMs <= IDLE_TURN_MAX_MS;
-    }
-
-    static long nextFirstIdleDelayMs(ThreadLocalRandom random) {
-        return random.nextLong(IDLE_FIRST_MIN_DELAY_MS, IDLE_FIRST_MAX_DELAY_MS + 1);
-    }
-
-    static boolean firstIdleDelayInRange(long delay) {
-        return delay >= IDLE_FIRST_MIN_DELAY_MS && delay <= IDLE_FIRST_MAX_DELAY_MS;
-    }
-
-    static float driftDegrees(ThreadLocalRandom random, float range) {
-        return (float) random.nextDouble(-range, range);
-    }
-
-    static boolean idleDelayInRange(long delay) {
-        return delay >= IDLE_MIN_DELAY_MS && delay <= IDLE_MAX_DELAY_MS;
     }
 
     private void changeState(State next) {
@@ -992,7 +858,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         etherwarpUsed = false;
         returnRetryAt = 0L;
         dropReturnWarp(mc);
-        clearIdle();
+        idle.clear();
         releaseAll(mc);
         changeState(State.RETURN);
     }
@@ -1071,7 +937,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
         if (mc == null || mc.options == null) {
             return;
         }
-        idleTapKey = null;
+        idle.dropTap();
         MacroInput.setAttack(mc.options.keyAttack, false);
         MacroInput.releaseMovement(mc);
     }

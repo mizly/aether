@@ -63,18 +63,6 @@ class StriderFishingMacroTest {
     }
 
     @Test
-    void theCursorSitsOffCentreOnTheFloatModel() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        boolean sawOffCentre = false;
-        for (int i = 0; i < 500; i++) {
-            net.minecraft.world.phys.Vec3 offset = StriderFishingMacro.aimBoxOffset(random);
-            assertTrue(StriderFishingMacro.aimBoxOffsetInRange(offset));
-            sawOffCentre |= offset.length() > 0.02;
-        }
-        assertTrue(sawOffCentre);
-    }
-
-    @Test
     void standingOnTheStartBlockNeedsNoRouteBackToIt() {
         assertTrue(StriderFishingMacro.withinOriginBlock(0.0, 0.0, 0.0));
         // the corners and lip of the block itself
@@ -125,35 +113,6 @@ class StriderFishingMacroTest {
         assertFalse(StriderFishingMacro.shouldEtherwarp(0.9, true, true));
         assertTrue(StriderFishingMacro.shouldEtherwarp(1.0, true, true));
         assertTrue(StriderFishingMacro.shouldEtherwarp(2.0, true, true));
-    }
-
-    @Test
-    void theCursorSettlesOntoTheFloatSoonAfterItLands() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            long delay = StriderFishingMacro.nextFirstIdleDelayMs(random);
-            assertTrue(StriderFishingMacro.firstIdleDelayInRange(delay));
-            assertTrue(delay < StriderFishingMacro.nextIdleDelayMs(random));
-        }
-    }
-
-    @Test
-    void theGlanceAtTheFloatIsAFlickRatherThanAGlide() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            long turn = StriderFishingMacro.nextIdleTurnMs(random);
-            assertTrue(StriderFishingMacro.idleTurnInRange(turn));
-            assertTrue(turn >= 100L && turn <= 220L);
-        }
-    }
-
-    @Test
-    void theIdleDriftStaysSmall() {
-        java.util.concurrent.ThreadLocalRandom random = java.util.concurrent.ThreadLocalRandom.current();
-        for (int i = 0; i < 500; i++) {
-            assertTrue(StriderFishingMacro.idleDelayInRange(StriderFishingMacro.nextIdleDelayMs(random)));
-            assertTrue(Math.abs(StriderFishingMacro.driftDegrees(random, 2.5f)) <= 2.5f);
-        }
     }
 
     @Test
