@@ -67,6 +67,7 @@ public final class OrbitScreen extends Screen {
     private long plotNanos;
     private double mouseX = -1;
     private double mouseY = -1;
+    private TravelCinematic cinematic;
 
     public OrbitScreen() {
         super(Component.literal("Aether"));
@@ -91,7 +92,13 @@ public final class OrbitScreen extends Screen {
             yaw0 = player.getYRot();
             pitch0 = player.getXRot();
         }
-        if (!categories.isEmpty()) view.orbitFocus(categories.get(0));
+        OrbitIsland island = OrbitIsland.current();
+        OrbitIsland from = OrbitIsland.arrive(island);
+        if (from != null) cinematic = new TravelCinematic(from, island, dev.aether.renderer.SkinFaceProvider::render);
+        String first = OrbitIsland.initialCategory(MacroCatalog.lastStarted().map(MacroCatalog.Entry::id).orElse(null), island);
+        int firstIndex = Math.max(0, categories.indexOf(first));
+        ring.snap(firstIndex);
+        if (!categories.isEmpty()) view.orbitFocus(categories.get(firstIndex));
         view.orbitPlotHooks(new dev.aether.ui.orbit.panel.PlotHooks() {
             @Override
             public void paintThumbnail(dev.aether.ui.gui.GuiCanvas canvas, dev.aether.ui.settings.PlotSetting setting,
@@ -140,6 +147,10 @@ public final class OrbitScreen extends Screen {
             leanLook[k].step(dt);
         }
         for (OrbitSpring u : unfold) u.step(dt);
+        if (cinematic != null) {
+            cinematic.step(dt);
+            if (!cinematic.revealing()) hold = Math.max(hold, 0.05f);
+        }
 
         if (state == State.OPENING) {
             if (hold > 0) hold -= dt;
@@ -318,6 +329,10 @@ public final class OrbitScreen extends Screen {
                 plotScreen.render(nvg, width, height, (float) mouseX, (float) mouseY, dt, seconds());
                 if (plotScreen.finished()) plotScreen = null;
             }
+            if (cinematic != null) {
+                cinematic.render(nvg, width, height);
+                if (cinematic.finished()) cinematic = null;
+            }
             dev.aether.notification.NotificationRenderer.render(nvg, width, height);
         } finally {
             NanoVGManager.endFrame();
@@ -372,6 +387,12 @@ public final class OrbitScreen extends Screen {
 
     // -- input -------------------------------------------------------------------------------------------------
 
+    private boolean skipCinematic() {
+        if (cinematic == null || cinematic.revealing()) return false;
+        cinematic.skip();
+        return true;
+    }
+
     void spinTo(int index) {
         int base = Math.round(ring.t);
         int cur = Math.floorMod(base, count);
@@ -415,6 +436,7 @@ public final class OrbitScreen extends Screen {
         mouseX = click.x();
         mouseY = click.y();
         if (state == State.CLOSING) return true;
+        if (skipCinematic()) return true;
         if (plotScreen != null) return plotScreen.click(click.x(), click.y(), click.button());
         if (overlay.click(click.x(), click.y(), click.button())) return true;
         OrbitLayout.Placement hit = pick(click.x(), click.y());
@@ -506,6 +528,7 @@ public final class OrbitScreen extends Screen {
     public boolean mouseScrolled(double x, double y, double scrollX, double scrollY) {
         mouseX = x;
         mouseY = y;
+        if (cinematic != null && !cinematic.revealing()) return true;
         if (hasControlDown()) {
             setOverview(scrollY < 0);
             return true;
@@ -527,6 +550,7 @@ public final class OrbitScreen extends Screen {
         int key = event.key();
         KeyInput input = new KeyInput(key, event.scancode(), event.modifiers(), hasControlDown(), hasShiftDown(),
                 hasAltDown());
+        if (skipCinematic()) return true;
         if (plotScreen != null) {
             if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_ENTER) plotScreen.close();
             return true;
@@ -569,7 +593,7 @@ public final class OrbitScreen extends Screen {
 
     @Override
     public boolean charTyped(CharacterEvent event) {
-        if (!event.isAllowedChatCharacter()) return true;
+        if (!event.isAllowedChatCharacter() || cinematic != null && !cinematic.revealing()) return true;
         view.charTyped(Character.toString(event.codepoint()));
         return true;
     }
