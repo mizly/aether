@@ -11,12 +11,14 @@ final class AbilitySwapClicker {
     private static final int HESITATE_ONE_IN = 12;
     private static final long HESITATE_MIN_MS = 30L;
     private static final long HESITATE_MAX_MS = 90L;
+    // the whip's swing animation runs about half a second, and a click inside it reads as a macro
+    static final long SOUL_WHIP_MIN_CLICK_GAP_MS = 550L;
 
     // the hotbar key goes down a beat before the right click, never on the same frame
     record Timing(long drawMinMs, long drawMaxMs, long intervalMinMs, long intervalMaxMs) {
     }
 
-    static final Timing SOUL_WHIP = new Timing(45L, 120L, 350L, 800L);
+    static final Timing SOUL_WHIP = new Timing(45L, 120L, 500L, 800L);
 
     private final Timing timing;
     private final IntConsumer select;
@@ -24,6 +26,7 @@ final class AbilitySwapClicker {
     private long clickAt;
     private long swapAt;
     private long nextAt;
+    private long lastClickAt;
     private int clickTick;
 
     AbilitySwapClicker(Timing timing, IntConsumer select, Runnable click) {
@@ -40,7 +43,7 @@ final class AbilitySwapClicker {
             if (now >= swapAt && tick > clickTick) {
                 select.accept(backSlot);
                 swapAt = 0L;
-                nextAt = now + nextIntervalMs(random, timing);
+                nextAt = nextClickAt(now, lastClickAt, nextIntervalMs(random, timing), SOUL_WHIP_MIN_CLICK_GAP_MS);
             }
             return false;
         }
@@ -51,9 +54,10 @@ final class AbilitySwapClicker {
             }
             click.run();
             clickAt = 0L;
+            lastClickAt = now;
             clickTick = tick;
             if (backSlot < 0) {
-                nextAt = now + nextIntervalMs(random, timing);
+                nextAt = nextClickAt(now, now, nextIntervalMs(random, timing), SOUL_WHIP_MIN_CLICK_GAP_MS);
             } else {
                 swapAt = now + nextSwapDelayMs(random, swapMinMs, swapMaxMs);
             }
@@ -73,10 +77,11 @@ final class AbilitySwapClicker {
         return clickAt != 0L || swapAt != 0L;
     }
 
+    // a new target drops the rhythm but not the floor since the last click
     void reset() {
         clickAt = 0L;
         swapAt = 0L;
-        nextAt = 0L;
+        nextAt = lastClickAt == 0L ? 0L : lastClickAt + SOUL_WHIP_MIN_CLICK_GAP_MS;
     }
 
     // two uniforms averaged make a triangle, so most swaps land mid range and the edges stay rare
@@ -105,6 +110,11 @@ final class AbilitySwapClicker {
 
     static long nextIntervalMs(RandomGenerator random, Timing timing) {
         return between(random, timing.intervalMinMs(), timing.intervalMaxMs());
+    }
+
+    // the interval runs from the key going back, but a quick swap back must not pull the next click in
+    static long nextClickAt(long swapAt, long clickAt, long intervalMs, long minClickGapMs) {
+        return Math.max(swapAt + intervalMs, clickAt + minClickGapMs);
     }
 
     static boolean intervalInRange(long delay, Timing timing) {
