@@ -65,6 +65,7 @@ final class PresetGarden implements SceneClone.Source {
         canes(-34, -3, 15, 36);
         patch(-22, 22, -34, -14);
         path();
+        yard(2, 8, -5, 7);
         barn(-29, 22);
         tree(30, -24);
         tree(-33, -12);
@@ -143,6 +144,31 @@ final class PresetGarden implements SceneClone.Source {
                 set(x, -1, z, path);
             }
         }
+    }
+
+    // a lawn beside the path, hedged on three sides with lantern posts at the corners, where the menu's skits put
+    // their beds, stands and chases instead of on the crops
+    private void yard(int x0, int x1, int z0, int z1) {
+        BlockState hedge = Blocks.OAK_LEAVES.defaultBlockState();
+        BlockState post = Blocks.OAK_LOG.defaultBlockState();
+        BlockState lantern = Blocks.LANTERN.defaultBlockState();
+        for (int x = x0; x <= x1; x++) {
+            for (int z = z0; z <= z1; z++) {
+                clear(x, z);
+                set(x, -1, z, Blocks.GRASS_BLOCK.defaultBlockState());
+                boolean edge = x == x1 || z == z0 || z == z1;
+                boolean corner = (x == x0 || x == x1) && (z == z0 || z == z1);
+                if (corner) {
+                    set(x, 0, z, post);
+                    set(x, 1, z, post);
+                    set(x, 2, z, lantern);
+                } else if (edge) {
+                    set(x, 0, z, hedge);
+                }
+            }
+        }
+        set(x1 - 1, 0, z1 - 1, Blocks.BARREL.defaultBlockState());
+        set(x1 - 1, 0, z0 + 1, Blocks.COMPOSTER.defaultBlockState());
     }
 
     // a dark oak barn with a stepped spruce roof, its long side facing the player
