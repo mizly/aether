@@ -104,9 +104,16 @@ final class PlotDiorama {
                 side, shade(0xFFFFFFFF, SHADE_RIGHT * dim), alpha);
         float[] tl = view.project(x0, height, z0), tr = view.project(x1, height, z0);
         float[] br = view.project(x1, height, z1), bl = view.project(x0, height, z1);
-        int topColor = look != null && look.marked() ? Argb.mix(topTint, accent, 0.28f) : topTint;
-        face(nvg, view, new double[]{x0, height, z0}, new double[]{x1, height, z0}, new double[]{x0, height, z1},
-                top, shade(topColor, SHADE_TOP * dim), alpha);
+        // the plot as it stands in the world when it is loaded, else a stand-in from the plot menu's item
+        int mini = PlotMiniatures.image(nvg, plot);
+        int baseTint = mini > 0 ? 0xFFFFFFFF : topTint;
+        int topColor = look != null && look.marked() ? Argb.mix(baseTint, accent, 0.28f) : baseTint;
+        double[] t0 = {x0, height, z0}, t1 = {x1, height, z0}, t3 = {x0, height, z1};
+        if (mini > 0) {
+            image(nvg, view, t0, t1, t3, mini, PlotMiniatures.SIZE, PlotMiniatures.SIZE, shade(topColor, SHADE_TOP * dim), alpha);
+        } else {
+            face(nvg, view, t0, t1, t3, top, shade(topColor, SHADE_TOP * dim), alpha);
+        }
         float[] polygon = {tl[0], tl[1], tr[0], tr[1], br[0], br[1], bl[0], bl[1]};
 
         if (look != null && look.marked()) {
@@ -117,7 +124,7 @@ final class PlotDiorama {
 
         float[] center = view.project(cx, height, cz);
         float size = view.scale() * 0.34f;
-        if (!barn && cropItem(item)) {
+        if (!barn && mini <= 0 && cropItem(item)) {
             float[] a = view.project(cx - 0.2, height, cz - 0.15);
             float[] b = view.project(cx + 0.2, height, cz + 0.15);
             icon(nvg, item, a[0], a[1] - size * 0.8f, size, alpha);
@@ -152,17 +159,26 @@ final class PlotDiorama {
     private static void face(NVGRenderer nvg, View view, double[] p0, double[] p1, double[] p3, String texture,
                              int tint, float alpha) {
         McTextures.Texture tex = McTextures.get(texture);
+        if (tex.missing()) {
+            image(nvg, view, p0, p1, p3, -1, 1, 1, tint, alpha);
+        } else {
+            image(nvg, view, p0, p1, p3, tex.handle(), tex.width(), Math.min(tex.width(), tex.height()), tint, alpha);
+        }
+    }
+
+    // the top w x h of an image stretched over the parallelogram; a handle of -1 fills it with the tint
+    private static void image(NVGRenderer nvg, View view, double[] p0, double[] p1, double[] p3, int handle, int w,
+                              int h, int tint, float alpha) {
         float[] a = view.project(p0[0], p0[1], p0[2]);
         float[] b = view.project(p1[0], p1[1], p1[2]);
         float[] d = view.project(p3[0], p3[1], p3[2]);
         int color = Argb.multiplyAlpha(tint, alpha);
         nvg.save();
         nvg.transform(b[0] - a[0], b[1] - a[1], d[0] - a[0], d[1] - a[1], a[0], a[1]);
-        if (tex.missing()) {
+        if (handle <= 0) {
             nvg.rect(0f, 0f, 1f, 1f, color);
         } else {
-            nvg.imageRegion(tex.handle(), tex.width(), tex.height(), 0f, 0f, tex.width(), Math.min(tex.width(), tex.height()),
-                    0f, 0f, 1f, 1f, color);
+            nvg.imageRegion(handle, w, h, 0f, 0f, w, h, 0f, 0f, 1f, 1f, color);
         }
         nvg.restore();
     }
