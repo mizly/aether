@@ -2,6 +2,7 @@ package dev.aether.ui.gui;
 
 import dev.aether.renderer.NVGRenderer;
 import dev.aether.ui.MainGUIRegistry;
+import dev.aether.ui.gui.nav.GuiActions;
 import dev.aether.ui.theme.Theme;
 import org.lwjgl.glfw.GLFW;
 
@@ -25,7 +26,8 @@ public final class GuiView {
     private final EditorSlot pageEditors = new EditorSlot();
     private final InputCapture capture = new InputCapture();
     private final PersistenceBatch persistence = new PersistenceBatch();
-    private GuiNavigator navigator = GuiNavigator.NONE;
+    private GuiNavigator navigator;
+    private GuiActions actions;
     private GuiStyle style;
     private Palette palette;
     private GuiFrame lastFrame;
@@ -48,10 +50,18 @@ public final class GuiView {
         this.canvas = new GuiCanvas(headlessMetrics);
         this.hits = new HitRegions(canvas);
         this.focus = new FocusManager(canvas);
+        this.actions = new GuiActions(host, clock, styles, registry);
+        this.navigator = actions;
     }
 
+    // replaces the built-in navigation; frames carry actions only while it is a GuiActions
     public void setNavigator(GuiNavigator navigator) {
         this.navigator = navigator;
+        this.actions = navigator instanceof GuiActions guiActions ? guiActions : null;
+    }
+
+    public GuiActions actions() {
+        return actions;
     }
 
     // null restores the last location of this session
@@ -110,7 +120,7 @@ public final class GuiView {
         focus.begin();
         anim.begin(now, Theme.ANIM_TIME_MS, Theme.ANIM_TIME_MIN_MS);
         GuiFrame frame = new GuiFrame(canvas, palette, hits, focus, anim, overlays, pageEditors, capture, host,
-                canvas.bounds(), mouseX, mouseY, now, textScale);
+                canvas.bounds(), mouseX, mouseY, now, textScale, actions);
         lastFrame = frame;
         try {
             style.render(frame);
