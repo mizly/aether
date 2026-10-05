@@ -137,4 +137,62 @@ class CatchWatchTest {
                 new CatchWatch.Stand(104, new Vec3(0.6, 64.6, 0.5), "!!!"));
         assertNull(CatchWatch.pickPlate(100, mob, stands, List.of()));
     }
+
+    @Test
+    void theSettleDeadlineIsTheFlightPlusAGrace() {
+        assertEquals(60 * 50L + 1_500L, CatchWatch.settleDeadlineMs(60));
+        assertEquals(170 * 50L + 1_500L, CatchWatch.settleDeadlineMs(0));
+        assertEquals(170 * 50L + 1_500L, CatchWatch.settleDeadlineMs(-3));
+    }
+
+    @Test
+    void aFloatHasSettledOnceItRestsOrItsTimeIsUp() {
+        long seen = 10_000L;
+        long deadline = CatchWatch.settleDeadlineMs(60);
+        assertFalse(CatchWatch.settled(false, false, false, seen + deadline - 1, seen, deadline));
+        assertTrue(CatchWatch.settled(false, false, false, seen + deadline, seen, deadline));
+        assertTrue(CatchWatch.settled(true, false, false, seen, seen, deadline));
+        assertTrue(CatchWatch.settled(false, true, false, seen, seen, deadline));
+        assertTrue(CatchWatch.settled(false, false, true, seen, seen, deadline));
+    }
+
+    @Test
+    void aFloatBobbingJustOverTheSurfaceStillCountsAsOnIt() {
+        assertTrue(CatchWatch.withinSurface(63.8, 63.89));
+        assertTrue(CatchWatch.withinSurface(64.1, 63.89));
+        assertFalse(CatchWatch.withinSurface(64.5, 63.89));
+    }
+
+    @Test
+    void theLockedMarkerIsTheTimerNearestOurFloat() {
+        Vec3 hook = new Vec3(0.5, 64.0, 0.5);
+        List<CatchWatch.Stand> stands = List.of(
+                new CatchWatch.Stand(10, new Vec3(1.6, 65.0, 0.5), "2.5"),
+                new CatchWatch.Stand(11, new Vec3(0.6, 65.0, 0.4), "3.0"),
+                new CatchWatch.Stand(12, new Vec3(0.5, 65.0, 0.5), "[Lv12] Squid"),
+                new CatchWatch.Stand(13, new Vec3(0.5, 64.5, 0.5), "HOTSPOT"));
+        assertEquals(11, CatchWatch.nearestMarker(hook, stands));
+    }
+
+    @Test
+    void aBiteMarkerCountsWhileATimerFartherThanABlockAndAHalfDoesNot() {
+        Vec3 hook = new Vec3(0.5, 64.0, 0.5);
+        assertEquals(7, CatchWatch.nearestMarker(hook,
+                List.of(new CatchWatch.Stand(7, new Vec3(1.5, 65.0, 1.0), "!!!"))));
+        assertEquals(8, CatchWatch.nearestMarker(hook,
+                List.of(new CatchWatch.Stand(8, new Vec3(0.5, 65.0, 0.5), "?"))));
+        assertEquals(-1, CatchWatch.nearestMarker(hook,
+                List.of(new CatchWatch.Stand(9, new Vec3(2.1, 65.0, 0.5), "1.5"))));
+        assertEquals(-1, CatchWatch.nearestMarker(hook, List.of()));
+    }
+
+    @Test
+    void onlyNewMobsSurfacingAtOurFloatAreCatches() {
+        Vec3 hook = new Vec3(0.0, 64.0, 0.0);
+        Set<Integer> beforeReel = Set.of(5);
+        assertTrue(CatchWatch.isNewCatch(6, new Vec3(3.0, 64.0, 2.0), hook, 4.0, beforeReel));
+        assertFalse(CatchWatch.isNewCatch(5, new Vec3(1.0, 64.0, 0.0), hook, 4.0, beforeReel));
+        assertFalse(CatchWatch.isNewCatch(7, new Vec3(3.0, 64.0, 3.0), hook, 4.0, beforeReel));
+        assertFalse(CatchWatch.isNewCatch(8, new Vec3(0.0, 68.5, 0.0), hook, 4.0, beforeReel));
+    }
 }

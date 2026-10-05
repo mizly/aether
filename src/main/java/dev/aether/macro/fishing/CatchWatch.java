@@ -14,6 +14,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -38,6 +39,16 @@ final class CatchWatch {
     private static final double HOTSPOT_BUFF_DROP = 1.0;
     private static final double SAME_SPOT = 0.05;
     private static final Pattern HOOK_TIMER = Pattern.compile("\\d+(?:\\.\\d+)?");
+    // a 170 tick throw is about the longest flight the cast sim plans for
+    private static final int SETTLE_FALLBACK_TICKS = 170;
+    private static final long SETTLE_GRACE_MS = 1_500L;
+    // the float's own box is a quarter block tall, so it bobs a little over the surface it rests on
+    private static final double FLOAT_SURFACE_SLACK = 0.25;
+    // our own timer floats right over our float; a neighbour's sits over theirs, at least a block off
+    private static final double MARKER_LOCK_RADIUS = 1.5;
+    private static final double MARKER_LOCK_BELOW = 1.0;
+    private static final double MARKER_LOCK_ABOVE = 3.0;
+    static final double CATCH_RADIUS = 4.0;
 
     private CatchWatch() {
     }
@@ -62,6 +73,101 @@ final class CatchWatch {
             }
         }
         return false;
+    }
+
+    static long settleDeadlineMs(int predictedTicks) {
+        return (predictedTicks > 0 ? predictedTicks : SETTLE_FALLBACK_TICKS) * 50L + SETTLE_GRACE_MS;
+    }
+
+    // where the float came down only means something once it has stopped flying
+    static boolean settled(Level level, FishingHook hook, Predicate<BlockState> liquid, long now, long hookSeenAt,
+                           long deadlineMs) {
+        return settled(hook.getHookedIn() != null, hook.onGround(), floatsOn(level, hook, liquid),
+                now, hookSeenAt, deadlineMs);
+    }
+
+    static boolean settled(boolean hookedIn, boolean onGround, boolean inLiquid, long now, long hookSeenAt,
+                           long deadlineMs) {
+        return hookedIn || onGround || inLiquid || now - hookSeenAt >= deadlineMs;
+    }
+
+    static boolean floatsOn(Level level, FishingHook hook, Predicate<BlockState> liquid) {
+        BlockPos at = BlockPos.containing(hook.position());
+        return floatsOn(level, at, hook.getY(), liquid) || floatsOn(level, at.below(), hook.getY(), liquid);
+    }
+
+    private static boolean floatsOn(Level level, BlockPos pos, double y, Predicate<BlockState> liquid) {
+        BlockState state = level.getBlockState(pos);
+        return liquid.test(state)
+                && withinSurface(y, pos.getY() + state.getFluidState().getHeight(level, pos));
+    }
+
+    static boolean withinSurface(double floatY, double surfaceY) {
+        return floatY <= surfaceY + FLOAT_SURFACE_SLACK;
+    }
+
+    // at a crowded spot every float has a timer, so only the one nearest ours is read for the bite
+    static int lockMarker(Level level, FishingHook hook) {
+        Vec3 at = hook.position();
+        AABB box = new AABB(at.x - MARKER_LOCK_RADIUS, at.y - MARKER_LOCK_BELOW, at.z - MARKER_LOCK_RADIUS,
+                at.x + MARKER_LOCK_RADIUS, at.y + MARKER_LOCK_ABOVE, at.z + MARKER_LOCK_RADIUS);
+        List<Stand> stands = new ArrayList<>();
+        for (ArmorStand stand : level.getEntitiesOfClass(ArmorStand.class, box)) {
+            if (!stand.isRemoved() && stand.getCustomName() != null) {
+                stands.add(new Stand(stand.getId(), stand.position(),
+                        stripFormatting(stand.getCustomName().getString())));
+            }
+        }
+        return nearestMarker(at, stands);
+    }
+
+    static int nearestMarker(Vec3 hook, List<Stand> stands) {
+        Stand best = null;
+        for (Stand stand : stands) {
+            if (!isMarkerName(stand.name())
+                    || horizontalSq(hook, stand.pos()) > MARKER_LOCK_RADIUS * MARKER_LOCK_RADIUS) {
+                continue;
+            }
+            if (best == null || nearer(hook, stand, best)) {
+                best = stand;
+            }
+        }
+        return best == null ? -1 : best.id();
+    }
+
+    // the waiting ? is the same stand that later counts down and flips to !!
+    static boolean isMarkerName(String name) {
+        return isHookTimer(name) || isCatchMarker(name) || "?".equals(name);
+    }
+
+    static boolean isBite(Level level, int lockedId) {
+        if (lockedId < 0) {
+            return false;
+        }
+        Entity entity = level.getEntity(lockedId);
+        return entity instanceof ArmorStand stand && !stand.isRemoved() && stand.getCustomName() != null
+                && isCatchMarker(stripFormatting(stand.getCustomName().getString()));
+    }
+
+    // a catch surfaces at the float, so anything new farther out belongs to somebody else's line
+    static List<Entity> newCatches(Level level, Vec3 hookPos, double radius, Set<Integer> preReelIds) {
+        Minecraft mc = Minecraft.getInstance();
+        List<Entity> found = new ArrayList<>();
+        for (Entity entity : level.getEntitiesOfClass(LivingEntity.class,
+                AABB.ofSize(hookPos, radius * 2, radius * 2, radius * 2))) {
+            if (entity instanceof ArmorStand || !isAlive(entity) || EntityUtils.isRealPlayer(mc, entity)) {
+                continue;
+            }
+            if (isNewCatch(entity.getId(), entity.position(), hookPos, radius, preReelIds)) {
+                found.add(entity);
+            }
+        }
+        found.sort(Comparator.comparingDouble(entity -> entity.position().distanceToSqr(hookPos)));
+        return found;
+    }
+
+    static boolean isNewCatch(int id, Vec3 pos, Vec3 hookPos, double radius, Set<Integer> preReelIds) {
+        return !preReelIds.contains(id) && pos.distanceToSqr(hookPos) <= radius * radius;
     }
 
     static boolean floatInLiquid(Level level, FishingHook hook, Predicate<BlockState> liquid) {
