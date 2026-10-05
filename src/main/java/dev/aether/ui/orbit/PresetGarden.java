@@ -200,28 +200,6 @@ final class PresetGarden implements SceneClone.Source {
         }
     }
 
-    // -- things to point at --------------------------------------------------------------------------------------
-
-    // a clickable part of the farm as a box in the farm's own blocks (max exclusive), what it says and what it opens:
-    // "page:<id>", "category:<id>" or "wave"
-    record Spot(String label, int x0, int y0, int z0, int x1, int y1, int z1, String target) {
-    }
-
-    static final java.util.List<Spot> SPOTS = java.util.List.of(
-            new Spot("Barn · Garden", -29, 0, 22, -18, 10, 31, "category:garden"),
-            new Spot("Composter · Auto Composter", -18, 0, 31, -17, 1, 32, "page:auto-composter"),
-            new Spot("Hay · Auto Visitor", -17, 0, 21, -15, 1, 24, "page:auto-visitor"),
-            new Spot("Wheat · Farming Macro", 3, -1, -8, 35, 1, 14, "page:farming-macro"),
-            new Spot("Carrots · Farming Macro", 3, -1, 15, 35, 1, 37, "page:farming-macro"),
-            new Spot("Potatoes · Farming Macro", -34, -1, -8, -2, 1, 14, "page:farming-macro"),
-            new Spot("Sugar Cane · Farming Macro", -34, -1, 15, -2, 2, 37, "page:farming-macro"),
-            new Spot("Pumpkins & Melons · Pest Manager", -22, -1, -34, 23, 1, -13, "page:pest-manager"));
-
-    // a point in the farm's blocks to the world
-    org.joml.Vector3d toWorld(double lx, double ly, double lz) {
-        return new org.joml.Vector3d(ox + lx * cos - lz * sin, oy + ly, oz + lx * sin + lz * cos);
-    }
-
     // -- storage ----------------------------------------------------------------------------------------------
 
     private void set(int x, int y, int z, BlockState state) {

@@ -269,7 +269,7 @@ final class SettingPreview implements AutoCloseable {
         });
     }
 
-    static void pill(NVGRenderer nvg, float w, float h, String text, int accent) {
+    private static void pill(NVGRenderer nvg, float w, float h, String text, int accent) {
         float size = h * 0.42f;
         float tw = Math.min(w - 30f, nvg.textWidth(Fonts.UI_SEMIBOLD, text, size));
         float bw = tw + 30f;
@@ -281,12 +281,12 @@ final class SettingPreview implements AutoCloseable {
     }
 
     // label pills keep about the same size on screen however far away they hang
-    static double labelWidth(Vector3d at, OrbitLayout.Camera cam) {
+    private static double labelWidth(Vector3d at, OrbitLayout.Camera cam) {
         return Math.max(4.0, at.distance(cam.pos()) * 0.3);
     }
 
     // a quad facing the camera, centred on at, width w and height w * aspect
-    static OrbitWorldRenderer.Quad billboard(Vector3d at, OrbitLayout.Camera cam, double w, double aspect, int texture, float a) {
+    private static OrbitWorldRenderer.Quad billboard(Vector3d at, OrbitLayout.Camera cam, double w, double aspect, int texture, float a) {
         Vector3d right = new Vector3d(cam.right()).mul(w / 2);
         Vector3d up = new Vector3d(cam.up()).mul(w * aspect / 2);
         return new OrbitWorldRenderer.Quad(new Vector3d(at).sub(right).add(up), new Vector3d(at).add(right).add(up),
