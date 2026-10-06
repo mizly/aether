@@ -163,6 +163,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
     private boolean lookUpIssued;
     private float snagYaw = Float.NaN;
     private int failedCasts;
+    private boolean failed;
     private int snagStreak;
     private int markerId = -1;
     private BlockPos whipFloor;
@@ -372,8 +373,8 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
             watchCage(mc);
         }
 
-        // last word on the jump key, since every state above clears it
-        homeKeeper.tickLiquidEscape(mc, System.currentTimeMillis(), ThreadLocalRandom.current());
+        // last word on the jump key, since every state above clears it; a failure this tick already let go of it
+        if (!failed) homeKeeper.tickLiquidEscape(mc, System.currentTimeMillis(), ThreadLocalRandom.current());
     }
 
     private void tickAimLava(Minecraft mc) {
@@ -1469,6 +1470,7 @@ public final class StriderFishingMacro extends AbstractFishingMacro {
 
     // the detail goes on after the lookup, so a count in it never lands in the translation key
     private void fail(String message, String detail) {
+        failed = true;
         ClientUtils.sendMessage("§c" + AetherLang.localize(message) + detail, false);
         MacroStateManager.stopMacro(Minecraft.getInstance(), message + detail, false);
     }
