@@ -1,6 +1,9 @@
 package dev.aether.ui.orbit;
 
+import dev.aether.Aether;
+import dev.aether.config.AetherConfig;
 import dev.aether.macro.MacroState;
+import dev.aether.macro.MacroStateManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.GardenPlots;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientChunkEvents;
@@ -10,7 +13,7 @@ import net.minecraft.client.Minecraft;
 // you, so every chunk that arrives is photographed into its plot's picture and kept; walking or warping round the
 // garden fills them all in over time. reads blocks only
 public final class GardenRecorder {
-    private static final long PLOT_STALE_MS = 8_000L;
+    private static final long PLOT_STALE_MS = 60_000L;
     private static final int PLOTS = 25;
 
     private static int ticks;
@@ -18,6 +21,7 @@ public final class GardenRecorder {
     private static int nextPlot;
     private static final boolean[] dirty = new boolean[PLOTS];
     private static boolean registered;
+    private static boolean warned;
 
     private GardenRecorder() {
     }
@@ -34,6 +38,21 @@ public final class GardenRecorder {
 
     public static void tick(Minecraft client) {
         if (client.level == null || client.player == null) return;
+        // only the 3d menu shows the pictures, and a running macro shouldn't pay for them
+        if (AetherConfig.TRADITIONAL_GUI.get() || !AetherConfig.RECORD_GARDEN_PLOTS.get()
+                || MacroStateManager.getCurrentState() != MacroState.State.OFF) {
+            return;
+        }
+        try {
+            record(client);
+        } catch (RuntimeException e) {
+            // a picture is never worth a crash; the plot is tried again on a later pass
+            if (!warned) Aether.LOGGER.warn("Garden recorder skipped a pass", e);
+            warned = true;
+        }
+    }
+
+    private static void record(Minecraft client) {
         ticks++;
         if (ticks % 60 == 0) garden = ClientUtils.getCurrentLocation() == MacroState.Location.GARDEN;
         if (!garden || ticks % 10 != 0) return;

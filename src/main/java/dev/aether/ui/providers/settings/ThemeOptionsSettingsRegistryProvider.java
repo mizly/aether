@@ -48,7 +48,13 @@ public final class ThemeOptionsSettingsRegistryProvider extends AbstractSettings
                             // swap straight over to the other menu
                             AetherUiActions.openMainGui();
                         })
-                        .describe("Use the classic flat settings window instead of the 3D farm menu")));
+                        .describe("Use the classic flat settings window instead of the 3D farm menu"))
+                .add(new ToggleSetting("Record Garden Plots", AetherConfig.RECORD_GARDEN_PLOTS::get,
+                        value -> {
+                            AetherConfig.RECORD_GARDEN_PLOTS.set(value);
+                            AetherConfig.save();
+                        })
+                        .describe("Photograph your plots and copy your Barn for the 3D menu's plot map")));
         groups.add(SettingGroup.alwaysOn(
                         "Theme Options",
                         "Animation speed and interface scale")

@@ -124,8 +124,10 @@ final class PlotMiniatures {
         loadFor(client, null);
         int[] argb = sample(client, plot, pixels[plot]);
         if (argb == null) return false;
-        pixels[plot] = argb;
         recorded[plot] = System.currentTimeMillis();
+        // an unchanged plot keeps its picture and its file as they are
+        if (java.util.Arrays.equals(argb, pixels[plot])) return true;
+        pixels[plot] = argb;
         versions[plot]++;
         save(client, plot, argb);
         return true;
