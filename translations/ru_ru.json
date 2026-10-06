@@ -985,5 +985,8 @@
   "text.aether.aether_is_the_original_red_on_black": "Aether is the original red on black",
   "text.aether.traditional_gui": "Traditional GUI",
   "text.aether.use_the_classic_flat_settings_window_instead_of_the_3d_farm_menu": "Use the classic flat settings window instead of the 3D farm menu",
-  "text.aether.aether": "Aether"
+  "text.aether.aether": "Aether",
+  "text.aether.server_restart_detected_stopping_the_macro": "Server restart detected. Stopping the macro.",
+  "text.aether.record_garden_plots": "Record Garden Plots",
+  "text.aether.photograph_your_plots_and_copy_your_barn_for_the_3d_menu_s_plot_map": "Photograph your plots and copy your Barn for the 3D menu's plot map"
 }
