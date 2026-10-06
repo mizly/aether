@@ -148,6 +148,12 @@ public final class PestManagerRegistryProvider extends AbstractModulesRegistryPr
                             AetherConfig.PEST_PLOT_TP_FOR_CURRENT_PLOT.set(v);
                             AetherConfig.save();
                         }))
+                .add(new ToggleSetting("Stop Farming On Pest Detect",
+                        AetherConfig.PEST_STOP_FARMING_ON_DETECT::get,
+                        v -> {
+                            AetherConfig.PEST_STOP_FARMING_ON_DETECT.set(v);
+                            AetherConfig.save();
+                        }))
                 .add(new SectionSetting("Targeting", "How pests are selected and reserved during a run"))
                 .add(new ToggleSetting("Leave One Pest Alive",
                         () -> AetherConfig.LEAVE_ONE_PEST_ALIVE.get(),

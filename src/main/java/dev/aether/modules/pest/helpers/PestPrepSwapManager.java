@@ -98,7 +98,7 @@ public class PestPrepSwapManager {
                     // interference regardless of how the two overlap in time.
                     boolean farmingWasActive = FarmingMacroManager.isActive();
                     if (farmingWasActive) {
-                        client.execute(() -> FarmingMacroManager.disable(client));
+                        client.execute(() -> FarmingMacroManager.disable(client, "PestPrepSwapManager.triggerPrepSwap"));
                         if (!MacroWorkerThread.sleep(150)) {
                             return;
                         }
@@ -116,9 +116,9 @@ public class PestPrepSwapManager {
                                 "Sunset Pests: failed to switch garden time to night before prep-swap.");
                     }
 
-                    if (farmingWasActive && !PestManager.isCleaningInProgress()) {
+                    if (farmingWasActive && !isPestCycleActive()) {
                         client.execute(() -> FarmingMacroManager.enable(client,
-                                FarmingMacroManager.createMacroFromConfig()));
+                                FarmingMacroManager.createMacroFromConfig(), "PestPrepSwapManager.triggerPrepSwap"));
                     }
 
                     if (shouldAbortPrepSwap()) {
@@ -164,20 +164,20 @@ public class PestPrepSwapManager {
                 Minecraft client = client();
                 if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()
                         || MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING)
-                        || PestManager.isCleaningInProgress()) {
+                        || isPestCycleActive()) {
                     return;
                 }
 
-                client.execute(() -> dev.aether.macro.farming.FarmingMacroManager.disable(client));
+                client.execute(() -> FarmingMacroManager.disable(client, "PestPrepSwapManager.restoreFarmingLoadout"));
                 MacroWorkerThread.sleep(400);
                 if (!AetherConfig.AUTO_LOADOUT_ENABLED.get()
                         || MacroWorkerThread.shouldAbortTask(client, MacroState.State.FARMING)
-                        || PestManager.isCleaningInProgress()) {
+                        || isPestCycleActive()) {
                     return;
                 }
 
                 if (PestReturnManager.restoreFarmingLoadout(client)
-                        && !PestManager.isCleaningInProgress()) {
+                        && !isPestCycleActive()) {
                     GearManager.finalResume(client);
                 }
             } catch (Exception e) {
@@ -189,6 +189,12 @@ public class PestPrepSwapManager {
                 isPrepSwapping = false;
             }
         });
+    }
+
+    private static boolean isPestCycleActive() {
+        return PestManager.isCleaningInProgress()
+                || PestManager.isPestSpawnPending()
+                || PestLifecycleManager.getStage() != PestLifecycleManager.Stage.IDLE;
     }
 
     private static boolean shouldAbortPrepSwap() {

@@ -278,6 +278,7 @@
   "text.aether.inventory_threshold": "Inventory Threshold",
   "text.aether.estimate_pest_destroyer_completion": "Estimate Pest Destroyer Completion",
   "text.aether.use_pest_tracker_ability": "Use Pest Tracker Ability",
+  "text.aether.stop_farming_on_pest_detect": "Stop Farming On Pest Detect",
   "text.aether.draw_arc": "Draw Arc",
   "text.aether.auto_reconnect": "Auto Reconnect",
   "text.aether.npc_shop_coin_limit_reached_autosell_disabled": "NPC shop coin limit reached. AutoSell disabled.",

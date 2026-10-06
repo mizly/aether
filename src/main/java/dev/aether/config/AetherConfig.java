@@ -369,6 +369,7 @@ public final class AetherConfig {
         public static final BooleanEntry PEST_ON_THE_TRACK_SKIP_JACOB = Config.bool("pestOnTheTrackSkipJacob", true);
         // end: farmhelper ish on track
         public static final BooleanEntry PEST_PLOT_TP_FOR_CURRENT_PLOT = Config.bool("pestPlotTpForCurrentPlot", false);
+        public static final BooleanEntry PEST_STOP_FARMING_ON_DETECT = Config.bool("pestStopFarmingOnDetect", false);
         public static final BooleanEntry ENABLE_PEST_TRAPS = Config.bool("enablePestTraps", false);
         public static final StringEntry PEST_TRAPS_PLOT = Config.string("pestTrapsPlot", "0");
         public static final BooleanEntry AUTO_CLEAR_PEST_TRAPS = Config.bool("autoClearPestTraps", false);

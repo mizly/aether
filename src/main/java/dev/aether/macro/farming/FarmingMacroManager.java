@@ -10,6 +10,7 @@ import dev.aether.modules.gear.GearManager;
 import dev.aether.modules.rewarp.RewarpManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.helpers.AutoPestExchangeManager;
+import dev.aether.modules.pest.helpers.PestLifecycleManager;
 import dev.aether.modules.session.RecoveryManager;
 import dev.aether.modules.session.RestartManager;
 import dev.aether.util.ClientUtils;
@@ -82,9 +83,17 @@ public final class FarmingMacroManager {
         };
     }
 
+    public static void enable(Minecraft mc, AbstractFarmingMacro macro, String caller) {
+        ClientUtils.sendDebugMessage("Farming enable requested by " + caller + ".");
+        enable(mc, macro);
+    }
+
     // main client thread only
     public static void enable(Minecraft mc, AbstractFarmingMacro macro) {
         if (RestartManager.isRestartSequenceActive()) {
+            return;
+        }
+        if (isHeldByPestCycle("enable")) {
             return;
         }
         if (AutoPestExchangeManager.shouldBlockFarmingResume()) {
@@ -132,6 +141,10 @@ public final class FarmingMacroManager {
         if (!ensureFarmingLocation()) {
             return;
         }
+        // deferred and mousemat starts land here late, possibly after a pest cycle took over
+        if (isHeldByPestCycle("deferred start")) {
+            return;
+        }
         if (hasBlockingScreenOrContainer(mc)) {
             deferStartUntilReady(mc, macro);
             return;
@@ -145,6 +158,15 @@ public final class FarmingMacroManager {
         // swap + first click landing on the same tick every resume is fingerprintable
         activeMacro = macro;
         pendingEnableTicks = ConfigHelpers.getRandomizedDelay(START_DELAY_MIN_TICKS, START_DELAY_MAX_TICKS);
+    }
+
+    private static boolean isHeldByPestCycle(String path) {
+        if (!PestLifecycleManager.isHoldingFarming()) {
+            return false;
+        }
+        ClientUtils.sendDebugMessage("Farming " + path + " blocked: pest cycle holds farming (stage="
+                + PestLifecycleManager.getStage() + ").");
+        return true;
     }
 
     private static boolean ensureFarmingLocation() {
@@ -227,6 +249,13 @@ public final class FarmingMacroManager {
         return mc.player.containerMenu != null
                 && mc.player.inventoryMenu != null
                 && mc.player.containerMenu.containerId != mc.player.inventoryMenu.containerId;
+    }
+
+    public static void disable(Minecraft mc, String caller) {
+        if (activeMacro != null) {
+            ClientUtils.sendDebugMessage("Farming disabled by " + caller + ".");
+        }
+        disable(mc);
     }
 
     // main client thread only

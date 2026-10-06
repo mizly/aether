@@ -12,13 +12,13 @@ import net.minecraft.client.Minecraft;
 // shared by automatic and manual pest cleaning
 final class PestPreStage {
 
-    record Result(boolean successful, PestBallsackShredder.Result ballsackResult) {
+    record Result(boolean successful, PestBallsackShredder.Result ballsackResult, String failureReason) {
         static Result success() {
-            return new Result(true, null);
+            return new Result(true, null, null);
         }
 
-        static Result failure() {
-            return new Result(false, null);
+        static Result failure(String reason) {
+            return new Result(false, null, reason);
         }
     }
 
@@ -27,33 +27,43 @@ final class PestPreStage {
 
     static Result run(Minecraft client, String plot, int pestCount, int sessionId) throws InterruptedException {
         if (shouldAbort(client, sessionId)) {
-            return Result.failure();
+            return failure("start", client, sessionId);
         }
 
         if (AetherConfig.SUNSET_PESTS.get()) {
             if (!PestLifecycleManager.prepareSunsetPestsDaytime(client)) {
-                return Result.failure();
+                return failure("sunset daytime switch", client, sessionId);
             }
         }
 
         if (!swapToPestLoadout(client, sessionId)) {
-            return Result.failure();
+            return failure("pest kill loadout swap", client, sessionId);
         }
 
         PestPrepSwapManager.clearCycleState();
         if (!moveToTargetPlot(client, plot, sessionId)) {
-            return Result.failure();
+            return failure("plot teleport", client, sessionId);
         }
 
         boolean ballsackOnPlot = PestManager.isBallsackShredderActiveForCurrentCycle();
         if (ballsackOnPlot) {
             PestBallsackShredder.Result result =
                     PestBallsackShredder.run(client, sessionId, pestCount);
-            return new Result(result.successful(), result);
+            return new Result(result.successful(), result,
+                    result.successful() ? null : "ballsack shredder" + describeAbort(client, sessionId));
         }
         return moveToRoofIfNeeded(client, plot, sessionId)
                 ? Result.success()
-                : Result.failure();
+                : failure("roof AOTV", client, sessionId);
+    }
+
+    private static Result failure(String step, Minecraft client, int sessionId) {
+        return Result.failure(step + describeAbort(client, sessionId));
+    }
+
+    private static String describeAbort(Minecraft client, int sessionId) {
+        String reason = abortReason(client, sessionId);
+        return reason == null ? "" : " (" + reason + ")";
     }
 
     private static boolean moveToTargetPlot(Minecraft client, String plot, int sessionId) {
@@ -157,8 +167,19 @@ final class PestPreStage {
     }
 
     private static boolean shouldAbort(Minecraft client, int sessionId) {
-        return MacroWorkerThread.shouldAbortTask(client)
-                || sessionId != PestManager.getCurrentPestSessionId()
-                || !PestManager.isCleaningInProgress();
+        return abortReason(client, sessionId) != null;
+    }
+
+    private static String abortReason(Minecraft client, int sessionId) {
+        if (MacroWorkerThread.shouldAbortTask(client)) {
+            return "worker cancelled or macro stopped";
+        }
+        if (sessionId != PestManager.getCurrentPestSessionId()) {
+            return "pest session changed";
+        }
+        if (!PestManager.isCleaningInProgress()) {
+            return "cleaning flag cleared";
+        }
+        return null;
     }
 }

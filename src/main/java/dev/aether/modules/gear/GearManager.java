@@ -14,6 +14,7 @@ import net.minecraft.world.item.ItemStack;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.pest.helpers.AutoPestExchangeManager;
+import dev.aether.modules.pest.helpers.PestLifecycleManager;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.component.ItemLore;
@@ -55,13 +56,14 @@ public class GearManager {
         if (!hasAnyGearSwapTasksEnabled()) {
             pendingFinalResumeRetries = 0;
             client.execute(() -> {
-                if (PestManager.isCleaningInProgress())
+                if (skipResumeForPestCycle())
                     return;
                 dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.FARMING);
                 GearManager.swapToFarmingTool(client);
                 ClientUtils.sendDebugMessage("Finalizing gear swap. Restarting farming macro...");
                 dev.aether.macro.farming.FarmingMacroManager.enable(client,
-                        dev.aether.macro.farming.FarmingMacroManager.createMacroFromConfig());
+                        dev.aether.macro.farming.FarmingMacroManager.createMacroFromConfig(),
+                        "GearManager.finalResume");
             });
             return;
         }
@@ -81,13 +83,24 @@ public class GearManager {
             return;
 
         client.execute(() -> {
-            if (PestManager.isCleaningInProgress())
+            if (skipResumeForPestCycle())
                 return;
             dev.aether.macro.MacroStateManager.setCurrentState(dev.aether.macro.MacroState.State.FARMING);
             GearManager.swapToFarmingTool(client);
             ClientUtils.sendDebugMessage("Finalizing gear swap. Restarting farming macro...");
-            dev.aether.macro.farming.FarmingMacroManager.enable(client, dev.aether.macro.farming.FarmingMacroManager.createMacroFromConfig());
+            dev.aether.macro.farming.FarmingMacroManager.enable(client,
+                    dev.aether.macro.farming.FarmingMacroManager.createMacroFromConfig(), "GearManager.finalResume");
         });
+    }
+
+    // re-checked on the client thread since a pest cycle can start while the worker waits on the gui
+    private static boolean skipResumeForPestCycle() {
+        if (!PestLifecycleManager.blocksFarmingResume()) {
+            return false;
+        }
+        ClientUtils.sendDebugMessage("Final resume skipped: pest cycle active (stage="
+                + PestLifecycleManager.getStage() + ").");
+        return true;
     }
 
     public static boolean hasAnyGearSwapTasksEnabled() {

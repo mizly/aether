@@ -32,7 +32,7 @@ public class PestManager {
     private static volatile boolean ballsackShredderActiveForCurrentCycle = false;
     private static volatile Set<String> currentInfestedPlots = Set.of();
     private static volatile int currentPestSessionId = 0;
-    private static final long PEST_REENTRY_COOLDOWN_MS = 30_000;
+    public static final long PEST_REENTRY_COOLDOWN_MS = 30_000;
     private static long lastZeroPestTime = 0;
     private static volatile int predictedAliveCount = 0;
     private static volatile long lastChatSpawnUpdateMs = 0;
@@ -47,6 +47,9 @@ public class PestManager {
     private static volatile long lastCleaningProgressAtMs = 0L;
     private static volatile boolean rewarpTriggerAvailable = false;
     private static volatile long cleaningTriggerClaimedAtMs = 0L;
+    private static volatile long lastSpawnChatAtMs = 0L;
+    // the tab resets the spawn cooldown before its alive count catches up to a fresh spawn
+    private static final long SPAWN_CHAT_PREP_RESTORE_GRACE_MS = 10_000;
     private static final long TAB_SYNC_GRACE_MS = 5000;
     private static final long CLEANING_STALL_TIMEOUT_MS = 30_000;
     private static final long CLEANING_TRIGGER_CLAIM_TIMEOUT_MS = 30_000;
@@ -115,7 +118,11 @@ public class PestManager {
     }
 
     public static void startPestReentryCooldown() {
-        pestReentryCooldownUntilMs = System.currentTimeMillis() + PEST_REENTRY_COOLDOWN_MS;
+        startPestReentryCooldown(PEST_REENTRY_COOLDOWN_MS);
+    }
+
+    public static void startPestReentryCooldown(long cooldownMs) {
+        pestReentryCooldownUntilMs = System.currentTimeMillis() + cooldownMs;
     }
 
     private static synchronized boolean claimCleaningTrigger() {
@@ -129,12 +136,23 @@ public class PestManager {
                 || ManualPestManager.isActive()
                 || PestReturnManager.isFinishingInProgress()
                 || PestReturnManager.isReturnToLocationActive()
-                || LoadoutManager.isSwappingLoadout) {
+                || isLoadoutSwapInFlight()) {
             return false;
         }
         isCleaningTriggerPending = true;
         cleaningTriggerClaimedAtMs = System.currentTimeMillis();
         return true;
+    }
+
+    private static boolean isLoadoutSwapInFlight() {
+        return LoadoutManager.isSwappingLoadout
+                || !LoadoutManager.loadoutGuiCloseComplete
+                || PestPrepSwapManager.isPrepSwapping();
+    }
+
+    public static boolean isPestSpawnPending() {
+        return pendingChatTrigger != null
+                || System.currentTimeMillis() - lastSpawnChatAtMs < SPAWN_CHAT_PREP_RESTORE_GRACE_MS;
     }
 
     public static synchronized void clearCleaningTriggerPending() {
@@ -223,6 +241,7 @@ public class PestManager {
         lastLocalKillUpdateMs = 0;
         isCleaningTriggerPending = false;
         cleaningTriggerClaimedAtMs = 0L;
+        lastSpawnChatAtMs = 0L;
         pestReentryCooldownUntilMs = 0;
         pendingChatTrigger = null;
         pendingChatTriggerWaitsForLoadout = false;
@@ -253,6 +272,7 @@ public class PestManager {
             return;
 
         releaseStuckCleaningTrigger();
+        PestLifecycleManager.tickDetectionHold(client);
 
         if (processPendingChatTrigger(client, currentState)) {
             return;
@@ -283,12 +303,16 @@ public class PestManager {
         // Handle prep swap flag updates based on cooldown
         if (data.cooldownSeconds() != -1) {
             boolean thresholdMet = isThresholdMet(effectiveAlive);
+            // cleaning stays false through the /setspawn wait, and a restore swap there reverts the pest loadout
+            boolean pestCycleActive = isCleaningInProgress
+                    || PestLifecycleManager.getStage() != PestLifecycleManager.Stage.IDLE
+                    || isPestSpawnPending();
             PestPrepSwapManager.updatePrepSwapFlag(
-                    data.cooldownSeconds(), isCleaningInProgress, thresholdMet);
+                    data.cooldownSeconds(), pestCycleActive, thresholdMet);
 
             // Check if prep swap should be triggered
             if (!thresholdMet && PestPrepSwapManager.shouldTriggerPrepSwap(
-                    currentState, data.cooldownSeconds(), isCleaningInProgress,
+                    currentState, data.cooldownSeconds(), pestCycleActive,
                     PestReturnManager.isReturnToLocationActive())) {
                 PestPrepSwapManager.triggerPrepSwap();
             }
@@ -428,9 +452,16 @@ public class PestManager {
     // schedules a chat trigger without blocking the shared worker or farming
     public static synchronized void scheduleChatCleaningTrigger(
             String plot, int spawnedCount, long delayMs, long ballsackDelayMs, boolean spawnedMessage) {
+        if (spawnedMessage) {
+            lastSpawnChatAtMs = System.currentTimeMillis();
+        }
         boolean useBallsackRoute = spawnedMessage && shouldRunBallsackShredderForSpawn(plot);
         boolean useBallsackTriggerFlow = spawnedMessage && shouldUseBallsackShredderForSpawn(plot);
         long selectedDelayMs = useBallsackTriggerFlow ? ballsackDelayMs : delayMs;
+        if (isPestDestroyerEnabled() && !isCleaningInProgress
+                && isThresholdMet(reconcileChatSpawnCount(predictedAliveCount, spawnedCount, -1))) {
+            PestLifecycleManager.holdFarmingForDetectedPests(Minecraft.getInstance(), selectedDelayMs);
+        }
         boolean requestedBallsackLoadout = false;
         if (useBallsackTriggerFlow && AetherConfig.AUTO_LOADOUT_ENABLED.get()) {
             int farmingSlot = AetherConfig.LOADOUT_SLOT_FARMING.get();
@@ -477,6 +508,7 @@ public class PestManager {
                     + " expired after " + PENDING_CHAT_TRIGGER_MAX_AGE_MS
                     + "ms; falling back to the tab-list trigger.");
             clearPendingChatTrigger();
+            PestLifecycleManager.releaseDetectionHold(client, "chat trigger expired");
             return false;
         }
 
@@ -505,17 +537,20 @@ public class PestManager {
                 return false;
             }
             clearPendingChatTrigger();
+            PestLifecycleManager.releaseDetectionHold(client, "left FARMING before trigger");
             return false;
         }
         if (System.currentTimeMillis() < pending.triggerAtMs) {
             return false;
         }
-        if (LoadoutManager.isSwappingLoadout || !MacroStateManager.isMacroRunning()) {
+        if (isLoadoutSwapInFlight() || !MacroStateManager.isMacroRunning()) {
             return false;
         }
         boolean useBallsackFlow = pendingChatTriggerUsesBallsack;
         clearPendingChatTrigger();
-        tryStartCleaningSequenceFromChat(client, pending.plot, pending.spawnedCount, useBallsackFlow);
+        if (!tryStartCleaningSequenceFromChat(client, pending.plot, pending.spawnedCount, useBallsackFlow)) {
+            PestLifecycleManager.waitForTabTrigger("chat trigger did not start a cycle");
+        }
         return true;
     }
 
@@ -565,6 +600,7 @@ public class PestManager {
         if (!claimCleaningTrigger()) {
             return false;
         }
+        ClientUtils.sendDebugMessage("[PestManager] Pest detected: plot=" + plot + ", alive=" + pestCount + ".");
         currentInfestedPlot = plot;
         currentPestSessionId++;
         resetCleaningProgressTracker();
