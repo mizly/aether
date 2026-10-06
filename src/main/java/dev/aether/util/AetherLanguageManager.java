@@ -241,15 +241,24 @@ public final class AetherLanguageManager {
     }
 
     private static void refreshLocalizedUi() {
-        MainGUIRegistry.invalidate();
-        MainGUIRegistry.refresh();
+        // the rebuild swaps every setting object the gui draws, so it runs on the thread that draws them
+        Minecraft client = Minecraft.getInstance();
+        if (client == null || client.isSameThread()) {
+            rebuildRegistry();
+        } else {
+            client.execute(AetherLanguageManager::rebuildRegistry);
+        }
         runOnClientThread(() -> {
-            Minecraft client = Minecraft.getInstance();
             if (client.screen != null) {
                 client.screen.resize(client.getWindow().getGuiScaledWidth(),
                         client.getWindow().getGuiScaledHeight());
             }
         });
+    }
+
+    private static void rebuildRegistry() {
+        MainGUIRegistry.invalidate();
+        MainGUIRegistry.refresh();
     }
 
     private static void runOnClientThread(Runnable action) {

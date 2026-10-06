@@ -18,7 +18,9 @@ import dev.aether.modules.performance.PerformanceModeManager;
 import dev.aether.modules.pest.helpers.PestDestroyer;
 import dev.aether.modules.pest.helpers.VacuumParticleDebug;
 import dev.aether.modules.pest.helpers.PestTrackerAbility;
+import dev.aether.modules.rotation.HumanFlick;
 import dev.aether.modules.rotation.RotationManager;
+import dev.aether.modules.routes.RouteEditor;
 import dev.aether.modules.visuals.FreecamManager;
 import dev.aether.modules.visuals.FreelookManager;
 import dev.aether.modules.visuals.PestEspManager;
@@ -39,6 +41,7 @@ import dev.aether.util.BpsTracker;
 import dev.aether.util.DelayedBlockBreakTracker;
 import dev.aether.util.NickHiderUtils;
 import dev.aether.util.PingTracker;
+import dev.aether.util.PlayerVitals;
 import dev.aether.util.ProgrammaticMovementTracker;
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.KeyMapping;
@@ -155,6 +158,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
             return;
         }
         RotationManager.update();
+        HumanFlick.update(minecraft);
         RotationExecutor.update();
     }
 
@@ -185,7 +189,13 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public boolean shouldSuppressVanillaHud(Screen screen) {
-        return AetherBootstrapHooks.isBootstrapConfigScreen(screen) || screen instanceof MainGUI || screen instanceof HudEditScreen;
+        return AetherBootstrapHooks.isBootstrapConfigScreen(screen) || screen instanceof MainGUI || screen instanceof HudEditScreen
+                || screen instanceof dev.aether.ui.orbit.OrbitScreen;
+    }
+
+    @Override
+    public dev.aether.bootstrap.CameraOverride cameraOverride() {
+        return dev.aether.ui.orbit.OrbitCamera.current();
     }
 
     @Override
@@ -202,7 +212,8 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
     @Override
     public Component transformOverlayMessage(Component component) {
         FailsafeManager.observeGhostBlockOverlayMessage(component);
-        dev.aether.modules.profit.helpers.FarmingXpTracker.onActionBar(component);
+        dev.aether.modules.profit.helpers.SkillXpTracker.onActionBarAll(component);
+        PlayerVitals.onActionBar(component);
         return transformDisplayComponent(component);
     }
 
@@ -284,12 +295,23 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public boolean shouldCancelMouseTurn() {
-        return RotationManager.isRotating() && !FreecamManager.isEnabled() && !FreelookManager.isActive();
+        return (RotationManager.isRotating() || HumanFlick.isActive() || PestDestroyer.isHoldingCamera())
+                && !FreecamManager.isEnabled() && !FreelookManager.isActive();
     }
 
     @Override
     public boolean isMouseUngrabbed() {
         return UngrabMouse.isMouseUngrabbed();
+    }
+
+    @Override
+    public boolean handleRouteEditorMouseButton(Minecraft minecraft, int button, int action) {
+        return RouteEditor.onMouseButton(minecraft, button, action);
+    }
+
+    @Override
+    public boolean handleRouteEditorKey(Minecraft minecraft, int key, int action) {
+        return RouteEditor.onKeyPress(minecraft, key, action);
     }
 
     @Override

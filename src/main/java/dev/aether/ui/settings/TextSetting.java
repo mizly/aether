@@ -5,21 +5,17 @@ import java.util.function.Supplier;
 import dev.aether.util.AetherLang;
 
 // text input backed by a getter/setter
-public class TextSetting implements Setting {
+public class TextSetting extends AbstractSetting<TextSetting> {
 
-    private final String name;
-    private final String rawName;
     private final String placeholder;
     private final Supplier<String> getter;
     private final Consumer<String> setter;
     private boolean multiline = false;
     private int visibleLines = 4;
-    private Supplier<Boolean> visibility = () -> true;
 
     public TextSetting(String name, String placeholder,
                        Supplier<String> getter, Consumer<String> setter) {
-        this.rawName = name;
-        this.name = AetherLang.localize(name);
+        super(name);
         this.placeholder = AetherLang.localize(placeholder);
         this.getter = getter;
         this.setter = setter;
@@ -31,11 +27,6 @@ public class TextSetting implements Setting {
     public boolean isMultiline() { return multiline; }
     public int getVisibleLines() { return visibleLines; }
 
-    public TextSetting visibleWhen(Supplier<Boolean> condition) {
-        this.visibility = condition;
-        return this;
-    }
-
     public TextSetting multiline() {
         return multiline(4);
     }
@@ -46,8 +37,5 @@ public class TextSetting implements Setting {
         return this;
     }
 
-    @Override public String getName() { return name; }
-    @Override public String getRawName() { return rawName; }
     @Override public SettingType getType() { return SettingType.TEXT; }
-    @Override public boolean isVisible() { return visibility.get(); }
 }

@@ -21,6 +21,16 @@ final class FarmingSettingsFactory {
                                                            java.util.function.Supplier<Integer> minGetter,
                                                            java.util.function.Supplier<Integer> maxGetter,
                                                            java.util.function.BiConsumer<Integer, Integer> setter) {
+        return intRangeSetting(name, minBound, maxBound, "ms", minGetter, maxGetter, setter);
+    }
+
+    private static RangeSliderSetting intRangeSetting(String name,
+                                                      float minBound,
+                                                      float maxBound,
+                                                      String suffix,
+                                                      java.util.function.Supplier<Integer> minGetter,
+                                                      java.util.function.Supplier<Integer> maxGetter,
+                                                      java.util.function.BiConsumer<Integer, Integer> setter) {
         return new RangeSliderSetting(name, minBound, maxBound,
                 () -> minGetter.get().floatValue(),
                 () -> maxGetter.get().floatValue(),
@@ -28,7 +38,7 @@ final class FarmingSettingsFactory {
                     setter.accept(Math.round(lower), Math.round(upper));
                     AetherConfig.save();
                 })
-                .withDecimals(0).withSuffix("ms");
+                .withDecimals(0).withSuffix(suffix);
     }
 
     static RangeSliderSetting laneSwitchDelaySetting() {
@@ -210,6 +220,26 @@ final class FarmingSettingsFactory {
                 });
     }
 
+    static RangeSliderSetting micropauseIntervalSetting() {
+        return intRangeSetting("Pause Every", 1f, 60f, " min",
+                () -> AetherConfig.MICROPAUSE_INTERVAL_MIN_MINUTES.get(),
+                () -> AetherConfig.MICROPAUSE_INTERVAL_MAX_MINUTES.get(),
+                (min, max) -> {
+                    AetherConfig.MICROPAUSE_INTERVAL_MIN_MINUTES.set(min);
+                    AetherConfig.MICROPAUSE_INTERVAL_MAX_MINUTES.set(max);
+                });
+    }
+
+    static RangeSliderSetting micropauseDurationSetting() {
+        return intRangeSetting("Pause Length", 1f, 60f, "s",
+                () -> AetherConfig.MICROPAUSE_DURATION_MIN_SECONDS.get(),
+                () -> AetherConfig.MICROPAUSE_DURATION_MAX_SECONDS.get(),
+                (min, max) -> {
+                    AetherConfig.MICROPAUSE_DURATION_MIN_SECONDS.set(min);
+                    AetherConfig.MICROPAUSE_DURATION_MAX_SECONDS.set(max);
+                });
+    }
+
     static SliderSetting farmingPitchRangeSetting() {
         return new SliderSetting("Farming Pitch Range", 0, 10,
                 () -> AetherConfig.MACRO_CUSTOM_PITCH_HUMANIZATION.get(),
@@ -326,5 +356,55 @@ final class FarmingSettingsFactory {
                     AetherConfig.save();
                 })
                 .withDecimals(0).withSuffix("\u00B0");
+    }
+
+    static RangeSliderSetting pestReactionTimeSetting() {
+        return intDelayRangeSetting("Pest Reaction Time", 0f, 1000f,
+                () -> AetherConfig.PEST_REACTION_MIN_MS.get(),
+                () -> AetherConfig.PEST_REACTION_MAX_MS.get(),
+                (min, max) -> {
+                    AetherConfig.PEST_REACTION_MIN_MS.set(min);
+                    AetherConfig.PEST_REACTION_MAX_MS.set(max);
+                });
+    }
+
+    static SliderSetting pestOvershootChanceSetting() {
+        return new SliderSetting("Pest Overshoot Chance", 0, 100,
+                () -> (float) AetherConfig.PEST_OVERSHOOT_CHANCE.get(),
+                v -> {
+                    AetherConfig.PEST_OVERSHOOT_CHANCE.set(Math.round(v));
+                    AetherConfig.save();
+                })
+                .withDecimals(0).withSuffix("%");
+    }
+
+    static SliderSetting pestOvershootMinTurnSetting() {
+        return new SliderSetting("Pest Overshoot Min Turn", 30, 180,
+                () -> AetherConfig.PEST_OVERSHOOT_MIN_ANGLE.get(),
+                v -> {
+                    AetherConfig.PEST_OVERSHOOT_MIN_ANGLE.set((float) Math.round(v));
+                    AetherConfig.save();
+                })
+                .withDecimals(0).withSuffix("\u00B0");
+    }
+
+    static RangeSliderSetting pestOvershootAmountSetting() {
+        return intRangeSetting("Pest Overshoot Amount", 1f, 30f, "%",
+                () -> AetherConfig.PEST_OVERSHOOT_AMOUNT_MIN.get(),
+                () -> AetherConfig.PEST_OVERSHOOT_AMOUNT_MAX.get(),
+                (min, max) -> {
+                    AetherConfig.PEST_OVERSHOOT_AMOUNT_MIN.set(min);
+                    AetherConfig.PEST_OVERSHOOT_AMOUNT_MAX.set(max);
+                });
+    }
+
+    static SliderSetting pestMemoryErrorSetting() {
+        return new SliderSetting("Pest Memory Error", 0, 20,
+                () -> AetherConfig.PEST_MEMORY_ERROR.get(),
+                v -> {
+                    AetherConfig.PEST_MEMORY_ERROR.set(v);
+                    AetherConfig.save();
+                })
+                .withDecimals(1).withSuffix("\u00B0");
     }
 }

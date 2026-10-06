@@ -12,7 +12,7 @@ import java.util.List;
 
 public final class DirtFailsafeRegistryProvider extends AbstractFailsafesRegistryProvider {
     public DirtFailsafeRegistryProvider() {
-        super(5);
+        super(Category.FARMING, 1);
     }
 
     @Override

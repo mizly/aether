@@ -20,7 +20,7 @@ public final class GeneralFailsafesRegistryProvider extends AbstractFailsafesReg
     private static final String SAME_AS_DEFAULT = "Same as Default";
 
     public GeneralFailsafesRegistryProvider() {
-        super(0);
+        super(Category.GENERAL, 0);
     }
 
     @Override
@@ -128,7 +128,7 @@ public final class GeneralFailsafesRegistryProvider extends AbstractFailsafesReg
                         .withDecimals(1).withSuffix("s"));
 
         return MainGUIRegistry.subTab(
-                "General",
+                "Failsafe Settings",
                 "Shared settings for failsafes",
                 List.of(group));
     }

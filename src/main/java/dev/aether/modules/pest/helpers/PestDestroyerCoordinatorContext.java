@@ -140,6 +140,8 @@ final class PestDestroyerCoordinatorContext
 
     @Override
     public void startPathToPest(Minecraft client, Entity pest) {
+        // the path steers the camera from here, a turn still in flight would only fight it
+        runtime.acquisition.reset();
         PestTargetController.startPathToPest(client, pest);
     }
 

@@ -1,5 +1,6 @@
 package dev.aether.config;
 
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -50,7 +51,10 @@ public final class AetherConfig {
 
         public static void save() {
                 Config.save();
-                ConfigProfileManager.syncActiveProfileFromLiveConfig();
+                // a batched gui drag flushes the file and the active profile once, when it ends
+                if (!Config.batching()) {
+                        ConfigProfileManager.syncActiveProfileFromLiveConfig();
+                }
         }
 
         public static void flush() {
@@ -114,7 +118,10 @@ public final class AetherConfig {
                 boolean loaded = Config.loadFromJson(json);
                 if (loaded) {
                         try {
-                                migrateLegacyLoadoutKeys(JsonParser.parseString(json).getAsJsonObject());
+                                JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+                                migrateLegacyLoadoutKeys(root);
+                                migrateStriderRedesign(root);
+                                migrateFishingAimAt(root);
                         } catch (Exception ignored) {
                         }
                         resetRuntimeOnlyEntries();
@@ -264,7 +271,10 @@ public final class AetherConfig {
 
                 try (Reader reader = Files.newBufferedReader(sourceFile.toPath())) {
                         JsonObject root = JsonParser.parseReader(reader).getAsJsonObject();
-                        if (migrateLegacyLoadoutKeys(root)) {
+                        boolean updated = migrateLegacyLoadoutKeys(root);
+                        updated |= migrateStriderRedesign(root);
+                        updated |= migrateFishingAimAt(root);
+                        if (updated) {
                                 save();
                         }
                 } catch (Exception ignored) {
@@ -302,6 +312,31 @@ public final class AetherConfig {
                 }
 
                 return updated;
+        }
+
+        // every config saved before the redesign still holds the old route and pool defaults, so routes off and
+        // the lower pool cap would never reach anyone; the save drops the marker key so this runs once
+        static boolean migrateStriderRedesign(JsonObject root) {
+                if (root == null || !root.has("striderFishingRandomLook")) {
+                        return false;
+                }
+                if (STRIDER_FISHING_SOUL_WHIP_COUNT.get() > 8) {
+                        STRIDER_FISHING_SOUL_WHIP_COUNT.set(8);
+                }
+                return true;
+        }
+
+        // the aim mode setting became a hotspot toggle, the liquid is now picked by itself
+        static boolean migrateFishingAimAt(JsonObject root) {
+                if (root == null || !root.has("fishingMacroAimAt")) {
+                        return false;
+                }
+                if (!root.has("fishingMacroHotspot")) {
+                        JsonElement aimAt = root.get("fishingMacroAimAt");
+                        FISHING_MACRO_HOTSPOT.set(aimAt.isJsonPrimitive()
+                                        && "HOTSPOT".equalsIgnoreCase(aimAt.getAsString()));
+                }
+                return true;
         }
 
         private static boolean migrateLegacyDelayRange(
@@ -416,6 +451,9 @@ public final class AetherConfig {
         public static final BooleanEntry PEST_AOTV_CONFIRM_BETWEEN = Config.bool("pestAotvConfirmBetween", false);
         public static final IntEntry PEST_AOTV_DELAY_MIN = Config.integer("pestAotvDelayMin", 150).range(100, 250);
         public static final IntEntry PEST_AOTV_DELAY_MAX = Config.integer("pestAotvDelayMax", 250).range(100, 250);
+        public static final BooleanEntry PEST_AOTV_BACK_UP = Config.bool("pestAotvBackUp", true);
+        public static final FloatEntry PEST_AOTV_BACK_UP_PITCH = Config.floatVal("pestAotvBackUpPitch", 55.0f)
+                        .range(30.0f, 80.0f);
         public static final FloatEntry PEST_FOV_RANGE = Config.floatVal("pestFovRange", 20.0f).range(0.0f, 90.0f);
         public static final FloatEntry PEST_MAX_TURN_SPEED =
                         Config.floatVal("pestMaxTurnSpeed", 300.0f).range(60.0f, 1200.0f);
@@ -433,6 +471,19 @@ public final class AetherConfig {
                         .range(20.0f, 40.0f);
         public static final FloatEntry PEST_ABOVE_TARGET_PITCH_MAX = Config.floatVal("pestAboveTargetPitchMax", 40.0f)
                         .range(10.0f, 90.0f);
+        public static final BooleanEntry PEST_HUMAN_TARGET_SWITCH = Config.bool("pestHumanTargetSwitch", true);
+        public static final IntEntry PEST_REACTION_MIN_MS = Config.integer("pestReactionMinMs", 60).range(0, 1000);
+        public static final IntEntry PEST_REACTION_MAX_MS = Config.integer("pestReactionMaxMs", 150).range(0, 1000);
+        public static final IntEntry PEST_OVERSHOOT_CHANCE = Config.integer("pestOvershootChance", 40).range(0, 100);
+        public static final FloatEntry PEST_OVERSHOOT_MIN_ANGLE = Config.floatVal("pestOvershootMinAngle", 90.0f)
+                        .range(30.0f, 180.0f);
+        public static final IntEntry PEST_OVERSHOOT_AMOUNT_MIN = Config.integer("pestOvershootAmountMin", 5)
+                        .range(1, 30);
+        public static final IntEntry PEST_OVERSHOOT_AMOUNT_MAX = Config.integer("pestOvershootAmountMax", 12)
+                        .range(1, 30);
+        public static final BooleanEntry PEST_MEMORY_ROTATION = Config.bool("pestMemoryRotation", true);
+        public static final FloatEntry PEST_MEMORY_ERROR = Config.floatVal("pestMemoryError", 6.0f)
+                        .range(0.0f, 20.0f);
 
         // -- PEST HUNTING ----------------------------------------------------------
 
@@ -619,7 +670,7 @@ public final class AetherConfig {
         public static final IntEntry GUI_CLICK_DELAY_MAX = Config.integer("guiClickDelayMax", 250).range(0, 1000);
         public static final IntEntry BAZAAR_DELAY_MIN = Config.integer("bazaarDelayMin", 250).range(0, 1000);
         public static final IntEntry BAZAAR_DELAY_MAX = Config.integer("bazaarDelayMax", 500).range(0, 1000);
-        public static final StringEntry HUMANIZATION_PRESET = Config.string("humanizationPreset", "NORMAL");
+        public static final StringEntry HUMANIZATION_PRESET = Config.string("humanizationPreset", "LEGIT");
         public static final IntEntry ROTATION_TIME = Config.integer("rotationTime", 100).range(0, 5000);
         public static final FloatEntry ROTATION_DYNAMIC_DURATION_MS_PER_DEGREE = Config
                         .floatVal("rotationDynamicDurationMsPerDegree", 2.0f)
@@ -645,6 +696,18 @@ public final class AetherConfig {
         public static final DoubleEntry DAILY_FARM_THRESHOLD_HOURS = Config.doubleVal("dailyFarmThresholdHours", 0.0);
         public static final BooleanEntry CLOSE_GAME_ON_DAILY_THRESHOLD = Config.bool("closeGameOnDailyThreshold",
                         false);
+
+        // -- MICROPAUSES -----------------------------------------------------------
+
+        public static final BooleanEntry MICROPAUSE_ENABLED = Config.bool("micropauseEnabled", false);
+        public static final IntEntry MICROPAUSE_INTERVAL_MIN_MINUTES = Config.integer("micropauseIntervalMinMinutes", 3)
+                        .range(1, 60);
+        public static final IntEntry MICROPAUSE_INTERVAL_MAX_MINUTES = Config.integer("micropauseIntervalMaxMinutes", 10)
+                        .range(1, 60);
+        public static final IntEntry MICROPAUSE_DURATION_MIN_SECONDS = Config.integer("micropauseDurationMinSeconds", 3)
+                        .range(1, 60);
+        public static final IntEntry MICROPAUSE_DURATION_MAX_SECONDS = Config.integer("micropauseDurationMaxSeconds", 12)
+                        .range(1, 60);
 
         // -- REWARP --------------------------------------------------------
         
@@ -698,12 +761,17 @@ public final class AetherConfig {
         public static final BooleanEntry COMPACT_PROFIT_CALCULATOR = Config.bool("compactProfitCalculator", true);
         public static final StringEntry PROFIT_PRICE_SOURCE = Config.string("profitPriceSource", "BAZAAR");
         public static final StringEntry SHARD_PRICE_SOURCE = Config.string("shardPriceSource", "INSTA_SELL");
-        public static final BooleanEntry FARMING_XP_HUD = Config.bool("farmingXpHud", true);
-        public static final BooleanEntry FARMING_HUD_XP_RATE = Config.bool("farmingHudXpRate", true);
-        public static final BooleanEntry FARMING_HUD_ETA_NEXT = Config.bool("farmingHudEtaNext", true);
-        public static final BooleanEntry FARMING_HUD_ETA_MAX = Config.bool("farmingHudEtaMax", true);
+        // the saved keys still say farming so existing configs keep their choices
+        public static final BooleanEntry SKILL_XP_HUD = Config.bool("farmingXpHud", true);
+        public static final BooleanEntry SKILL_HUD_XP_RATE = Config.bool("farmingHudXpRate", true);
+        public static final BooleanEntry SKILL_HUD_ETA_NEXT = Config.bool("farmingHudEtaNext", true);
+        public static final BooleanEntry SKILL_HUD_ETA_MAX = Config.bool("farmingHudEtaMax", true);
+        public static final BooleanEntry PROFIT_MOBS_PER_HOUR = Config.bool("profitMobsPerHour", true);
+        public static final BooleanEntry PROFIT_BLOCKS_PER_HOUR = Config.bool("profitBlocksPerHour", true);
         public static final BooleanEntry HIDE_FILTERED_CHAT = Config.bool("hideFilteredChat", true);
         public static final BooleanEntry GUI_ONLY_IN_GARDEN = Config.bool("guiOnlyInGarden", false);
+        // open the flat settings window instead of the 3d farm menu
+        public static final BooleanEntry TRADITIONAL_GUI = Config.bool("traditionalGui", false);
         public static final BooleanEntry HUD_ONLY_WHILE_MACRO_RUNNING = Config.bool("hudOnlyWhileMacroRunning", false);
 
         // -- PET TRACKER -----------------------------------------------------------
@@ -972,6 +1040,23 @@ public final class AetherConfig {
                         .floatVal("failsafeWorldChangeRecoveryWaitSeconds", 5.0f)
                         .range(0.0f, 30.0f);
 
+        // -- FISHING FAILSAFES -----------------------------------------------------
+        public static final BooleanEntry FAILSAFE_PLAYER_NEARBY = Config.bool("failsafePlayerNearby", false);
+        public static final FloatEntry FAILSAFE_PLAYER_NEARBY_RADIUS = Config
+                        .floatVal("failsafePlayerNearbyRadius", 5.0f).range(1.0f, 10.0f);
+        public static final FloatEntry FAILSAFE_PLAYER_NEARBY_SECONDS = Config
+                        .floatVal("failsafePlayerNearbySeconds", 10.0f).range(0.0f, 120.0f);
+        public static final StringEntry FAILSAFE_PLAYER_NEARBY_ACTION = Config.string("failsafePlayerNearbyAction",
+                        "RESTART");
+        public static final StringEntry FAILSAFE_PLAYER_NEARBY_CUSTOM_REPLAY = Config
+                        .string("failsafePlayerNearbyCustomReplay", "Random");
+        public static final BooleanEntry FAILSAFE_TP_CHECK = Config.bool("failsafeTpCheck", true);
+        public static final FloatEntry FAILSAFE_TP_CHECK_DISTANCE = Config
+                        .floatVal("failsafeTpCheckDistance", 5.0f).range(2.0f, 30.0f);
+        public static final StringEntry FAILSAFE_TP_CHECK_ACTION = Config.string("failsafeTpCheckAction", "STOP");
+        public static final StringEntry FAILSAFE_TP_CHECK_CUSTOM_REPLAY = Config
+                        .string("failsafeTpCheckCustomReplay", "Random");
+
         // -- BPS -------------------------------------------------------------------
         public static final IntEntry BPS_AVERAGE_WINDOW = Config.integer("bpsAverageWindow", 30).range(5, 60);
 
@@ -1088,4 +1173,70 @@ public final class AetherConfig {
         public static final ListEntry<String> AUTO_SUPERCRAFT_ITEMS = Config.list("autoSupercraftItems",
                         DEFAULT_SUPERCRAFT_ITEMS,
                         String.class);
+
+        // -- STRIDER FISHING -------------------------------------------------------
+        // slots are configured 1-9 and converted to 0-based when selected
+        public static final IntEntry STRIDER_FISHING_ROD_SLOT = Config.integer("striderFishingRodSlot", 1).range(1, 9);
+        public static final IntEntry STRIDER_FISHING_WEAPON_SLOT = Config.integer("striderFishingWeaponSlot", 2)
+                        .range(1, 9);
+        public static final BooleanEntry STRIDER_FISHING_ALWAYS_SNEAK = Config.bool("striderFishingAlwaysSneak", false);
+        // off releases sneak while standing in lava or water, so the crouch only happens on solid ground
+        public static final BooleanEntry STRIDER_FISHING_SNEAK_IN_LIQUID = Config
+                        .bool("striderFishingSneakInLiquid", false);
+        public static final BooleanEntry STRIDER_FISHING_ETHERWARP_RETURN = Config
+                        .bool("striderFishingEtherwarpReturn", false);
+        public static final StringEntry STRIDER_FISHING_TARGET_NAME = Config.string("striderFishingTargetName",
+                        "Stridersurfer");
+        public static final FloatEntry STRIDER_FISHING_KILL_DISTANCE = Config
+                        .floatVal("striderFishingKillDistance", 1.5f).range(1.0f, 3.0f);
+        public static final IntEntry STRIDER_FISHING_CAST_DELAY_MIN = Config.integer("striderFishingCastDelayMin", 400)
+                        .range(0, 3000);
+        public static final IntEntry STRIDER_FISHING_CAST_DELAY_MAX = Config.integer("striderFishingCastDelayMax", 900)
+                        .range(0, 3000);
+        // the strider needs a route; one ending on the sawyer spot (-694 120 78) casts up and whips from the stair
+        public static final StringEntry STRIDER_FISHING_RESTART_ROUTE = Config.string("striderFishingRestartRoute",
+                        "sawyer_spot");
+        // soul whip fishing leaves each catch stuck in a small pool and only clears the pool once it holds this many
+        public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP_FISHING = Config
+                        .bool("striderFishingSoulWhipFishing", false);
+        public static final IntEntry STRIDER_FISHING_SOUL_WHIP_COUNT = Config.integer("striderFishingSoulWhipCount", 8)
+                        .range(1, 10);
+        public static final BooleanEntry STRIDER_FISHING_SOUL_WHIP = Config.bool("striderFishingSoulWhip", false);
+        public static final IntEntry STRIDER_FISHING_SOUL_WHIP_SLOT = Config.integer("striderFishingSoulWhipSlot", 3)
+                        .range(1, 9);
+        // right click to weapon key; a practised attribute swap lands one to three ticks after the click
+        public static final IntEntry STRIDER_FISHING_WHIP_SWAP_MIN = Config.integer("striderFishingWhipSwapMin", 40)
+                        .range(0, 250);
+        public static final IntEntry STRIDER_FISHING_WHIP_SWAP_MAX = Config.integer("striderFishingWhipSwapMax", 130)
+                        .range(0, 250);
+
+        // -- FISHING MACRO ---------------------------------------------------------
+        public static final IntEntry FISHING_MACRO_ROD_SLOT = Config.integer("fishingMacroRodSlot", 1).range(1, 9);
+        public static final IntEntry FISHING_MACRO_WEAPON_SLOT = Config.integer("fishingMacroWeaponSlot", 2)
+                        .range(1, 9);
+        public static final BooleanEntry FISHING_MACRO_ALWAYS_SNEAK = Config.bool("fishingMacroAlwaysSneak", false);
+        // off releases sneak while standing in lava or water, so the crouch only happens on solid ground
+        public static final BooleanEntry FISHING_MACRO_SNEAK_IN_LIQUID = Config.bool("fishingMacroSneakInLiquid", false);
+        public static final BooleanEntry FISHING_MACRO_ETHERWARP_RETURN = Config
+                        .bool("fishingMacroEtherwarpReturn", false);
+        public static final BooleanEntry FISHING_MACRO_HOTSPOT = Config.bool("fishingMacroHotspot", false);
+        // CENTRE stands underwater below the hotspot's nametag, anything else casts in from the side
+        public static final StringEntry FISHING_MACRO_HOTSPOT_POSITION = Config.string("fishingMacroHotspotPosition",
+                        "SIDE");
+        public static final BooleanEntry FISHING_MACRO_RANDOM_LOOK = Config.bool("fishingMacroRandomLook", true);
+        public static final BooleanEntry FISHING_MACRO_BLOCK_SHUFFLE = Config.bool("fishingMacroBlockShuffle", true);
+        public static final IntEntry FISHING_MACRO_CAST_DELAY_MIN = Config.integer("fishingMacroCastDelayMin", 400)
+                        .range(0, 3000);
+        public static final IntEntry FISHING_MACRO_CAST_DELAY_MAX = Config.integer("fishingMacroCastDelayMax", 900)
+                        .range(0, 3000);
+        public static final ListEntry<String> FISHING_MACRO_MOB_WHITELIST = Config.list("fishingMacroMobWhitelist",
+                        Collections.emptyList(), String.class);
+        public static final ListEntry<String> FISHING_MACRO_MOB_BLACKLIST = Config.list("fishingMacroMobBlacklist",
+                        Collections.emptyList(), String.class);
+        public static final BooleanEntry FISHING_MACRO_USE_HYPERION = Config.bool("fishingMacroUseHyperion", false);
+        public static final BooleanEntry FISHING_MACRO_USE_WAND = Config.bool("fishingMacroUseWand", false);
+        public static final IntEntry FISHING_MACRO_HEAL_BELOW_PERCENT = Config
+                        .integer("fishingMacroHealBelowPercent", 50).range(10, 90);
+        // blank fishes wherever the macro was started
+        public static final StringEntry FISHING_MACRO_ROUTE = Config.string("fishingMacroRoute", "");
 }

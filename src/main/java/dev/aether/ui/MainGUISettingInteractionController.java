@@ -7,6 +7,7 @@ import dev.aether.ui.settings.DropdownListSetting;
 import dev.aether.ui.settings.MultiDropdownSetting;
 import dev.aether.ui.settings.KeybindSetting;
 import dev.aether.ui.settings.ListSetting;
+import dev.aether.ui.settings.PlotSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.PositionSetting;
 import dev.aether.ui.settings.RangeSliderSetting;
@@ -194,7 +195,8 @@ final class MainGUISettingInteractionController {
         }
     }
 
-    void handleSettingClick(Setting setting, float mx, float my, float x, float y, float w, float h) {
+    void handleSettingClick(Setting shown, float mx, float my, float x, float y, float w, float h) {
+        Setting setting = PlotSetting.asLegacy(shown);
         if (setting.getType() != SettingType.TEXT && setting.getType() != SettingType.LIST
                 && setting.getType() != SettingType.DROPDOWN_LIST) {
             owner.commitText();

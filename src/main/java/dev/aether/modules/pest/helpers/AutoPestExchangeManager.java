@@ -9,6 +9,7 @@ import dev.aether.macro.farming.FarmingMacroManager;
 import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.gear.helpers.LoadoutManager;
 import dev.aether.modules.pest.PestManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.CommandUtils;
 import net.minecraft.client.Minecraft;
@@ -150,7 +151,8 @@ public final class AutoPestExchangeManager {
         MacroState.State state = MacroStateManager.getCurrentState();
         boolean stateAllowsPriority = state == MacroState.State.FARMING
                 || state == MacroState.State.WARDROBE;
-        if (!stateAllowsPriority || !pendingTrigger || !isPendingTriggerReady(now)) {
+        if (!stateAllowsPriority || !pendingTrigger || !isPendingTriggerReady(now)
+                || MicropauseManager.isHoldingTasks()) {
             return false;
         }
 

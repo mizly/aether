@@ -11,6 +11,7 @@ import dev.aether.modules.pest.helpers.AutoSprayonatorManager;
 import dev.aether.modules.pest.helpers.GardenTimeManager;
 import dev.aether.modules.pest.helpers.VinylManager;
 import dev.aether.modules.rotation.RotationManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.TablistUtils;
 import net.minecraft.client.Minecraft;
@@ -245,7 +246,8 @@ public final class DynamicPestsManager {
         String targetKey = targetCrop != null ? targetCrop : "null";
         if (!NOT_APPLIED.equals(appliedCrop) && Objects.equals(targetKey, appliedCrop)) return;
         if (isApplying) return;
-        if (MacroStateManager.getCurrentState() != MacroState.State.FARMING) return;
+        if (MacroStateManager.getCurrentState() != MacroState.State.FARMING
+                || MicropauseManager.isHoldingTasks()) return;
         if (PestManager.isCleaningInProgress()) return;
         if (AutoSprayonatorManager.isRunning()) return;
 

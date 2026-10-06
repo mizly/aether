@@ -2,6 +2,8 @@ package dev.aether.util;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.macro.farming.FarmingMacroManager;
+import dev.aether.modules.profit.helpers.ActivityRateTracker;
+import dev.aether.modules.session.MicropauseManager;
 import java.util.ArrayDeque;
 import java.util.Deque;
 
@@ -14,6 +16,7 @@ public class BpsTracker {
         var active = FarmingMacroManager.getActiveMacro();
         if (active == null || !active.isFarmingState()) return;
 
+        ActivityRateTracker.onBlockBroken();
         synchronized (breakTimes) {
             breakTimes.addLast(farmingClockMs);
             cleanup();
@@ -22,7 +25,7 @@ public class BpsTracker {
 
     // call every tick
     public static void tick() {
-        if (FarmingMacroManager.isActive()) {
+        if (FarmingMacroManager.isActive() && !MicropauseManager.isPaused()) {
             var active = FarmingMacroManager.getActiveMacro();
             if (active != null && active.isFarmingState()) {
                 farmingClockMs += 50; // 20 ticks per second = 50ms per tick

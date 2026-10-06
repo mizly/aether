@@ -116,35 +116,51 @@ public final class ProfitCalculatorRegistryProvider extends AbstractVisualsRegis
                 .add(new ActionSetting("Reset Lifetime Profit", ProfitManager::resetLifetime)));
 
         profitGroups.add(SettingGroup.alwaysOn(
-                        "Farming XP",
-                        "Farming XP stats shown on the Session Profit HUD")
-                .add(new ToggleSetting("Show Farming XP",
-                        () -> AetherConfig.FARMING_XP_HUD.get(),
+                        "Skill XP",
+                        "XP for the skill the running macro levels, shown on the Session Profit HUD")
+                .add(new ToggleSetting("Show XP",
+                        () -> AetherConfig.SKILL_XP_HUD.get(),
                         v -> {
-                            AetherConfig.FARMING_XP_HUD.set(v);
+                            AetherConfig.SKILL_XP_HUD.set(v);
                             AetherConfig.save();
                         }))
-                .add(new ToggleSetting("Farming XP / hr",
-                        () -> AetherConfig.FARMING_HUD_XP_RATE.get(),
+                .add(new ToggleSetting("XP / hr",
+                        () -> AetherConfig.SKILL_HUD_XP_RATE.get(),
                         v -> {
-                            AetherConfig.FARMING_HUD_XP_RATE.set(v);
+                            AetherConfig.SKILL_HUD_XP_RATE.set(v);
                             AetherConfig.save();
                         })
-                        .visibleWhen(() -> AetherConfig.FARMING_XP_HUD.get()))
+                        .visibleWhen(() -> AetherConfig.SKILL_XP_HUD.get()))
                 .add(new ToggleSetting("Time to Next Level",
-                        () -> AetherConfig.FARMING_HUD_ETA_NEXT.get(),
+                        () -> AetherConfig.SKILL_HUD_ETA_NEXT.get(),
                         v -> {
-                            AetherConfig.FARMING_HUD_ETA_NEXT.set(v);
+                            AetherConfig.SKILL_HUD_ETA_NEXT.set(v);
                             AetherConfig.save();
                         })
-                        .visibleWhen(() -> AetherConfig.FARMING_XP_HUD.get()))
-                .add(new ToggleSetting("Time to Farming 60",
-                        () -> AetherConfig.FARMING_HUD_ETA_MAX.get(),
+                        .visibleWhen(() -> AetherConfig.SKILL_XP_HUD.get()))
+                .add(new ToggleSetting("Time to Max Level",
+                        () -> AetherConfig.SKILL_HUD_ETA_MAX.get(),
                         v -> {
-                            AetherConfig.FARMING_HUD_ETA_MAX.set(v);
+                            AetherConfig.SKILL_HUD_ETA_MAX.set(v);
                             AetherConfig.save();
                         })
-                        .visibleWhen(() -> AetherConfig.FARMING_XP_HUD.get())));
+                        .visibleWhen(() -> AetherConfig.SKILL_XP_HUD.get())));
+
+        profitGroups.add(SettingGroup.alwaysOn(
+                        "Hourly Rates",
+                        "Mobs killed and blocks broken per hour on the Session Profit HUD")
+                .add(new ToggleSetting("Mobs Killed / hr",
+                        () -> AetherConfig.PROFIT_MOBS_PER_HOUR.get(),
+                        v -> {
+                            AetherConfig.PROFIT_MOBS_PER_HOUR.set(v);
+                            AetherConfig.save();
+                        }))
+                .add(new ToggleSetting("Blocks Broken / hr",
+                        () -> AetherConfig.PROFIT_BLOCKS_PER_HOUR.get(),
+                        v -> {
+                            AetherConfig.PROFIT_BLOCKS_PER_HOUR.set(v);
+                            AetherConfig.save();
+                        })));
 
         rebuildPetTrackerGroups();
         return profitGroups;

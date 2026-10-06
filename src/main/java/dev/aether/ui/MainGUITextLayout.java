@@ -6,6 +6,7 @@ import dev.aether.ui.settings.DropdownListSetting;
 import dev.aether.ui.settings.InfoSetting;
 import dev.aether.ui.settings.MultiDropdownSetting;
 import dev.aether.ui.settings.ListSetting;
+import dev.aether.ui.settings.PlotSetting;
 import dev.aether.ui.settings.PositionSetting;
 import dev.aether.ui.settings.Setting;
 import dev.aether.ui.settings.SettingType;
@@ -17,7 +18,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 final class MainGUITextLayout {
-    float settingHeight(Setting setting, float rowW) {
+    float settingHeight(Setting shown, float rowW) {
+        Setting setting = PlotSetting.asLegacy(shown);
         float extraLines = Math.max(0, wrappedSettingLabelLineCount(setting, rowW) - 1);
         return switch (setting.getType()) {
             case SECTION -> 46f;
@@ -77,7 +79,8 @@ final class MainGUITextLayout {
         return settingLabelFontSize(setting) + 3f;
     }
 
-    float settingLabelMaxWidth(Setting setting, float rowW) {
+    float settingLabelMaxWidth(Setting shown, float rowW) {
+        Setting setting = PlotSetting.asLegacy(shown);
         float innerWidth = Math.max(0f, rowW - 32f);
         return switch (setting.getType()) {
             case TOGGLE -> Math.max(80f, innerWidth - 50f);

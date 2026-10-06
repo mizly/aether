@@ -2,6 +2,7 @@ package dev.aether.modules.pest.helpers;
 
 import dev.aether.config.AetherConfig;
 import dev.aether.modules.pathfinding.PathfindingManager;
+import dev.aether.modules.pathfinding.execution.FlightMotion;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.macro.MacroWorkerThread;
 import dev.aether.modules.failsafe.FailsafeManager;
@@ -166,6 +167,9 @@ public class PestDestroyer {
         PestHuntingController.clearHunt(client, runtime);
         runtime.navigation.trackerSearch.stopLooking();
         PestTrackerAbility.clear();
+        if (runtime.closeBackoff.holdsKeys() && client != null && client.options != null) {
+            FlightMotion.apply(client, PestCloseRangeBackoff.RELEASED);
+        }
         runtime.stopRun();
         PathfindingManager.stop();
         PestAotvManager.resetState();
@@ -201,11 +205,18 @@ public class PestDestroyer {
 
         if (FailsafeManager.shouldSuppressPestCleanerRotation(client)) {
             RotationManager.cancelRotation();
+            runtime.acquisition.reset();
+        }
+
+        // a back-up cut short by a state change still holds its keys, and the next state may never touch them
+        if (runtime.closeBackoff.takeAbandonedKeys()) {
+            FlightMotion.apply(client, PestCloseRangeBackoff.RELEASED);
         }
 
         if (ClientUtils.isInventoryScreenOpen()) {
             runtime.navigation.trackerSearch.stopLooking();
             ClientUtils.forceReleaseMovementKeys();
+            runtime.acquisition.reset();
             return;
         }
 
@@ -221,6 +232,11 @@ public class PestDestroyer {
         if (tryStartPeriodicRoofAotv(client)) {
             return;
         }
+
+        long now = System.currentTimeMillis();
+        recordSightings(client, now);
+        // before the kill check, so a dead pest's turn is dropped before the next pest's turn begins
+        runtime.acquisition.tick(client, runtime, now);
 
         if (PestTargetController.reconcileTrackedKills(
                 client, runtime, CONTEXT)) {
@@ -312,6 +328,18 @@ public class PestDestroyer {
         }
     }
 
+    private static void recordSightings(Minecraft client, long now) {
+        for (Entity pest : PestTargetTracker.getLoadedPests(client)) {
+            Vec3 eye = pest.position().add(0, pest.getEyeHeight(pest.getPose()), 0);
+            if (PestView.canSee(client, eye)) {
+                runtime.sightings.record(pest.getId(), eye, now);
+            }
+        }
+        if (client.player.tickCount % 20 == 0) {
+            runtime.sightings.prune(now);
+        }
+    }
+
     private static void processState(Minecraft client) {
         switch (runtime.state) {
             case TELEPORT_TO_PLOT -> handleTeleportToPlot(client);
@@ -369,7 +397,8 @@ public class PestDestroyer {
         if (AetherConfig.AOTV_ROOF_PLOTS.get().isEmpty()) {
             return true;
         }
-        return plot != null && AetherConfig.AOTV_ROOF_PLOTS.get().contains(plot);
+        return plot != null && AetherConfig.AOTV_ROOF_PLOTS.get().stream()
+                .anyMatch(roofPlot -> PestPlotId.equals(roofPlot, plot));
     }
 
     private static boolean isPeriodicRoofRescanState(State state) {
@@ -426,9 +455,9 @@ public class PestDestroyer {
         }
 
         if (returnState == State.FLY_TO_PEST && runtime.currentTarget != null) {
-            PestTargetController.startPathToPest(client, runtime.currentTarget);
+            CONTEXT.startPathToPest(client, runtime.currentTarget);
         } else if (returnState == State.APPROACH_PEST && runtime.currentTarget != null) {
-            PestTargetController.startPathToPest(client, runtime.currentTarget);
+            CONTEXT.startPathToPest(client, runtime.currentTarget);
         } else if (returnState == State.FLY_TO_WAYPOINT && runtime.navigation.calculatedWaypoint != null) {
             Vec3 waypoint = runtime.navigation.calculatedWaypoint;
             PathfindingManager.startPathfind(client, (int) waypoint.x, (int) waypoint.y, (int) waypoint.z,
@@ -588,6 +617,9 @@ public class PestDestroyer {
         ClientUtils.setKeyMappingState(client.options.keyUp, false);
         ClientUtils.setKeyMappingState(client.options.keyJump, false);
         ClientUtils.setKeyMappingState(client.options.keyShift, false);
+        if (runtime.closeBackoff.holdsKeys()) {
+            FlightMotion.apply(client, PestCloseRangeBackoff.RELEASED);
+        }
         int killed = runtime.killedEntities.size();
         ClientUtils.sendMessage("\u00A7aPest destroyer finished. Tracked " + killed + " pest(s).", false);
         runtime.resetAll();
@@ -678,6 +710,11 @@ public class PestDestroyer {
 
     public static boolean isCatchInProgress() {
         return runtime.active && runtime.state == State.HUNT_PEST;
+    }
+
+    // the pauses around a turn onto a pest hold the camera as firmly as the turn itself
+    public static boolean isHoldingCamera() {
+        return runtime.active && runtime.acquisition.isHolding();
     }
 
     public static void setAotvStartY(double startY) {

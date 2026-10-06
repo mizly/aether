@@ -11,12 +11,15 @@ if (artifactVersion == project.version) {
     artifactVersion = "${project.version}-${project.minecraft_version}"
 }
 
+// ci passes -beta for the aether-ea repo; unset everywhere else, so local and upstream builds are unchanged
+def fileSuffix = (findProperty('aether_file_suffix') ?: '').toString().trim()
+
 base {
     archivesName = project.archives_base_name
 }
 
 tasks.withType(AbstractArchiveTask).configureEach {
-    archiveVersion = artifactVersion
+    archiveVersion = artifactVersion + fileSuffix
 }
 
 repositories {
@@ -137,6 +140,38 @@ tasks.withType(JavaCompile).configureEach {
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
     inputs.property('aetherTestOpenGl', providers.environmentVariable('AETHER_TEST_OPENGL').orElse('0'))
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform {
+        excludeTags 'gui-preview'
+    }
+}
+
+// renders the new gui to build/reports/gui-preview in its own jvm; needs a display, AETHER_GUI_PREVIEW=1 and,
+// on NixOS, LD_LIBRARY_PATH (see src/test/java/dev/aether/ui/gui/preview/README.md)
+tasks.register('guiPreview', Test) {
+    group = 'verification'
+    description = 'Renders GUI preview PNGs into build/reports/gui-preview.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'gui-preview'
+    }
+    inputs.property('aetherGuiPreview', providers.environmentVariable('AETHER_GUI_PREVIEW').orElse('0'))
+    inputs.property('ldLibraryPath', providers.environmentVariable('LD_LIBRARY_PATH').orElse(''))
+    ['preview.style', 'preview.theme', 'preview.scenario'].each { key ->
+        def value = providers.systemProperty(key).orNull
+        if (value != null) {
+            systemProperty key, value
+        }
+    }
+    systemProperty 'preview.outputDir', layout.buildDirectory.dir('reports/gui-preview').get().asFile.absolutePath
+    systemProperty 'java.awt.headless', 'true'
+    testLogging {
+        showStandardStreams = true
+    }
+    outputs.upToDateWhen { false }
 }
 
 java {

@@ -135,8 +135,8 @@ public final class FailsafeSoundManager {
     private static String requestedSoundFor(FailsafeAction action) {
         String perAction = switch (action) {
             case STOP -> AetherConfig.FAILSAFE_SOUND_FILE_STOP.get();
-            // A CUSTOM replay keeps the macro alive, so it shares the "ignore" cue.
-            case IGNORE, CUSTOM -> AetherConfig.FAILSAFE_SOUND_FILE_IGNORE.get();
+            // A CUSTOM replay or a restart keeps the macro alive, so it shares the "ignore" cue.
+            case IGNORE, CUSTOM, RESTART -> AetherConfig.FAILSAFE_SOUND_FILE_IGNORE.get();
         };
         String sanitized = sanitizeSoundName(perAction);
         if (!sanitized.isBlank()) {

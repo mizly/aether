@@ -22,8 +22,10 @@ import java.util.Map;
 
 public final class HumanizationPresetManager {
     private static final Gson PRESET_GSON = new GsonBuilder().setPrettyPrinting().create();
-    private static final List<String> PRESET_OPTIONS = List.of("Safe", "Normal", "Efficient");
-    private static final List<String> BUNDLED_PRESET_IDS = List.of("safe", "normal", "efficient");
+    private static final List<String> PRESET_OPTIONS = List.of("Extra Legit", "Legit", "Blatant");
+    private static final List<String> BUNDLED_PRESET_IDS = List.of("extra_legit", "legit", "blatant");
+    // configs saved before the rename still name the old presets, which map onto these in order
+    private static final List<String> LEGACY_PRESET_IDS = List.of("safe", "normal", "efficient");
     private static final String RESOURCE_BASE = "assets/aether/humanization-presets/";
     private static final Path PRESET_DIR = FabricLoader.getInstance()
             .getConfigDir()
@@ -52,13 +54,12 @@ public final class HumanizationPresetManager {
             return 1;
         }
 
-        for (int i = 0; i < PRESET_OPTIONS.size(); i++) {
-            if (PRESET_OPTIONS.get(i).equalsIgnoreCase(selectedPreset)) {
-                return i;
-            }
+        String presetId = normalizePresetId(selectedPreset);
+        int index = BUNDLED_PRESET_IDS.indexOf(presetId);
+        if (index < 0) {
+            index = LEGACY_PRESET_IDS.indexOf(presetId);
         }
-
-        return 1;
+        return index < 0 ? 1 : index;
     }
 
     public static void applyPresetByIndex(int index) {
@@ -165,6 +166,7 @@ public final class HumanizationPresetManager {
         addEntry(entries, AetherConfig.AOTV_ROOF_PITCH_HUMANIZATION);
         addEntry(entries, AetherConfig.PEST_FOV_RANGE);
         addEntry(entries, AetherConfig.PEST_MAX_TURN_SPEED);
+        addEntry(entries, AetherConfig.PEST_NEXT_TARGET_TURN_SPEED);
         addEntry(entries, AetherConfig.PEST_TRACKING_SMOOTHING_MS);
         addEntry(entries, AetherConfig.PEST_APPROACH_SPEED);
         addEntry(entries, AetherConfig.PEST_VACUUM_FOLLOW_DISTANCE);
@@ -175,8 +177,24 @@ public final class HumanizationPresetManager {
         addEntry(entries, AetherConfig.PEST_AIM_DRIFT);
         addEntry(entries, AetherConfig.PEST_ABOVE_TARGET_PITCH_MIN);
         addEntry(entries, AetherConfig.PEST_ABOVE_TARGET_PITCH_MAX);
+        addEntry(entries, AetherConfig.PEST_HUMAN_TARGET_SWITCH);
+        addEntry(entries, AetherConfig.PEST_REACTION_MIN_MS);
+        addEntry(entries, AetherConfig.PEST_REACTION_MAX_MS);
+        addEntry(entries, AetherConfig.PEST_OVERSHOOT_CHANCE);
+        addEntry(entries, AetherConfig.PEST_OVERSHOOT_MIN_ANGLE);
+        addEntry(entries, AetherConfig.PEST_OVERSHOOT_AMOUNT_MIN);
+        addEntry(entries, AetherConfig.PEST_OVERSHOOT_AMOUNT_MAX);
+        addEntry(entries, AetherConfig.PEST_MEMORY_ROTATION);
+        addEntry(entries, AetherConfig.PEST_MEMORY_ERROR);
+        addEntry(entries, AetherConfig.PEST_AOTV_BACK_UP);
+        addEntry(entries, AetherConfig.PEST_AOTV_BACK_UP_PITCH);
         addEntry(entries, AetherConfig.VISITOR_FOV_RANGE);
         addEntry(entries, AetherConfig.PEST_EXCHANGE_FOV_RANGE);
+        addEntry(entries, AetherConfig.MICROPAUSE_ENABLED);
+        addEntry(entries, AetherConfig.MICROPAUSE_INTERVAL_MIN_MINUTES);
+        addEntry(entries, AetherConfig.MICROPAUSE_INTERVAL_MAX_MINUTES);
+        addEntry(entries, AetherConfig.MICROPAUSE_DURATION_MIN_SECONDS);
+        addEntry(entries, AetherConfig.MICROPAUSE_DURATION_MAX_SECONDS);
         return entries;
     }
 
@@ -266,7 +284,7 @@ public final class HumanizationPresetManager {
     }
 
     private static String normalizePresetId(String presetName) {
-        return presetName == null ? "normal" : presetName.trim().toLowerCase(Locale.ROOT);
+        return presetName == null ? "legit" : presetName.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
     }
 
     private static boolean isWindows() {

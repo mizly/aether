@@ -12,14 +12,14 @@ import java.util.List;
 
 public final class GuiOpenedFailsafeRegistryProvider extends AbstractFailsafesRegistryProvider {
     public GuiOpenedFailsafeRegistryProvider() {
-        super(3);
+        super(Category.GENERAL, 1);
     }
 
     @Override
     protected ModulesTab.SubTab createSubTab() {
         SettingGroup group = SettingGroup.alwaysOn(
                         "GUI Opened",
-                        "Triggers when an inventory GUI opens during farming or cleaning")
+                        "Triggers when an inventory GUI opens while a macro is running")
                 .add(FailsafeActionSettings.createActionDropdown("Action",
                         () -> AetherConfig.FAILSAFE_UNEXPECTED_INVENTORY_GUI_ACTION.get(),
                         value -> AetherConfig.FAILSAFE_UNEXPECTED_INVENTORY_GUI_ACTION.set(value)))
@@ -35,7 +35,7 @@ public final class GuiOpenedFailsafeRegistryProvider extends AbstractFailsafesRe
 
         return MainGUIRegistry.toggleSubTab(
                 "GUI Opened",
-                "Triggers when an inventory GUI opens during farming or cleaning",
+                "Triggers when an inventory GUI opens while a macro is running",
                 () -> AetherConfig.FAILSAFE_UNEXPECTED_INVENTORY_GUI.get(),
                 v -> {
                     AetherConfig.FAILSAFE_UNEXPECTED_INVENTORY_GUI.set(v);

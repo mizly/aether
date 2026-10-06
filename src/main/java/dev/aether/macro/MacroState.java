@@ -4,6 +4,7 @@ public class MacroState {
     public enum State {
         OFF,
         FARMING,
+        FISHING,
         METAL_DETECTING,
         AUTO_CARNIVAL,
         CLEANING,

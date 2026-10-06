@@ -19,6 +19,10 @@ import java.util.function.Consumer;
 
 public final class AetherBootstrapHooks {
     public interface FeatureHooks {
+        default CameraOverride cameraOverride() {
+            return null;
+        }
+
         default boolean isAttackSuppressed() {
             return false;
         }
@@ -140,6 +144,14 @@ public final class AetherBootstrapHooks {
         }
 
         default boolean shouldCancelMouseTurn() {
+            return false;
+        }
+
+        default boolean handleRouteEditorMouseButton(Minecraft minecraft, int button, int action) {
+            return false;
+        }
+
+        default boolean handleRouteEditorKey(Minecraft minecraft, int key, int action) {
             return false;
         }
 
@@ -365,6 +377,10 @@ public final class AetherBootstrapHooks {
         return hooks.shouldHideFilteredChatMessage(message);
     }
 
+    public static CameraOverride cameraOverride() {
+        return hooks.cameraOverride();
+    }
+
     public static boolean isFreecamEnabled() {
         return hooks.isFreecamEnabled();
     }
@@ -403,6 +419,14 @@ public final class AetherBootstrapHooks {
 
     public static boolean isMouseUngrabbed() {
         return hooks.isMouseUngrabbed();
+    }
+
+    public static boolean handleRouteEditorMouseButton(Minecraft minecraft, int button, int action) {
+        return hooks.handleRouteEditorMouseButton(minecraft, button, action);
+    }
+
+    public static boolean handleRouteEditorKey(Minecraft minecraft, int key, int action) {
+        return hooks.handleRouteEditorKey(minecraft, key, action);
     }
 
     public static boolean hasCustomScreenBackground(Screen screen) {

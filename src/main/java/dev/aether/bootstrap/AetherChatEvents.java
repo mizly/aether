@@ -5,6 +5,7 @@ import dev.aether.config.ConfigHelpers;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.MacroWorkerThread;
+import dev.aether.macro.fishing.FishingMacroManager;
 import dev.aether.modules.CropFeverManager;
 import dev.aether.modules.farming.BedrockPlotMaker;
 import dev.aether.modules.gear.helpers.LoadoutManager;
@@ -72,6 +73,7 @@ public final class AetherChatEvents {
             LoadoutManager.onChatMessage(plainText);
 
             CommandUtils.onChatMessage(plainText);
+            FishingMacroManager.onChat(plainText);
 
             try {
                 isHandlingMessage = true;

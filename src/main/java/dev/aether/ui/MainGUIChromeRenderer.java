@@ -65,6 +65,7 @@ final class MainGUIChromeRenderer {
         float settingsTabY = profileTabY - 44f - MainGUI.SB_SEP_GAP;
         float keybindsTabY = settingsTabY - 44f;
         float hudPositionsTabY = keybindsTabY - 44f;
+        float macrosTabY = hudPositionsTabY - 44f;
         float selectedY = switch (context.navigation.activeMain) {
             case 3 -> keybindsTabY;
             case 4 -> settingsTabY;
@@ -109,8 +110,26 @@ final class MainGUIChromeRenderer {
                     }, context.layout.px, tabY, sbW, 44f, mx, my);
         }
 
-        nvg.rect(context.layout.px + MainGUI.SB_H_PAD, hudPositionsTabY - MainGUI.SB_SEP_GAP,
+        nvg.rect(context.layout.px + MainGUI.SB_H_PAD, macrosTabY - MainGUI.SB_SEP_GAP,
                 sbW - MainGUI.SB_H_PAD * 2f, 1f, Theme.SEPARATOR);
+
+        // icon only on purpose; this one opens the macro start menu rather than switching tab
+        float macrosPillY = macrosTabY + MainGUI.SB_ROW_PAD;
+        boolean macrosHovered = mx >= context.layout.px && mx < context.layout.px + sbW
+                && my >= macrosTabY && my <= macrosTabY + 44f;
+        int macrosColor = macrosHovered ? sidebarHoverColor : Theme.TEXT_MUTED;
+        if (macrosHovered) {
+            nvg.roundedRect(context.layout.px + MainGUI.SB_H_PAD, macrosPillY, MainGUI.SB_PILL, MainGUI.SB_PILL, 8f,
+                    Theme.withAlpha(Theme.TEXT_MUTED, 0x33));
+        }
+        float macrosIconSize = 16f;
+        nvg.renderSVG("/assets/aether/icons/play.svg",
+                context.layout.px + MainGUI.SB_H_PAD + (MainGUI.SB_PILL - macrosIconSize) / 2f,
+                macrosPillY + (MainGUI.SB_PILL - macrosIconSize) / 2f,
+                macrosIconSize, macrosIconSize, macrosColor);
+        owner.offerHoverHelp("sidebar:macros", AetherLang.localize("Macros"),
+                AetherLang.localize("Open the macro start menu."),
+                context.layout.px, macrosTabY, sbW, 44f, mx, my);
 
         float hudPillY = hudPositionsTabY + MainGUI.SB_ROW_PAD;
         boolean hudHovered = mx >= context.layout.px && mx < context.layout.px + sbW

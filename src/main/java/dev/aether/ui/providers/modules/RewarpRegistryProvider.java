@@ -6,6 +6,7 @@ import dev.aether.config.RewarpPointPairs;
 import dev.aether.config.RewarpMode;
 import dev.aether.notification.NotificationManager;
 import dev.aether.ui.MainGUIRegistry;
+import dev.aether.ui.gui.plot.PlotSettings;
 import dev.aether.ui.providers.base.AbstractModulesRegistryProvider;
 import dev.aether.ui.settings.ActionSetting;
 import dev.aether.ui.settings.DropdownSetting;
@@ -80,9 +81,7 @@ public final class RewarpRegistryProvider extends AbstractModulesRegistryProvide
                 REWARP_MODE_OPTIONS,
                 () -> RewarpPointPairs.get(index).rewarpMode.ordinal(),
                 v -> RewarpPointPairs.update(index, p -> p.rewarpMode = RewarpMode.values()[v])));
-        group.add(new TextSetting("Plot Number", "e.g. 5",
-                () -> RewarpPointPairs.get(index).plotTpNumber,
-                v -> RewarpPointPairs.update(index, p -> p.plotTpNumber = sanitizePlotNumber(v)))
+        group.add(PlotSettings.rewarpPlot("Plot Number", index)
                 .visibleWhen(() -> RewarpPointPairs.get(index).rewarpMode == RewarpMode.PLOT_TP));
         group.add(new ToggleSetting("Hold W Until Wall",
                 () -> RewarpPointPairs.get(index).holdWUntilWall,
@@ -107,13 +106,6 @@ public final class RewarpRegistryProvider extends AbstractModulesRegistryProvide
             return "Rewarp " + (index + 1);
         }
         return value.trim();
-    }
-
-    private static String sanitizePlotNumber(String value) {
-        if (value == null || value.trim().isEmpty()) {
-            return "0";
-        }
-        return value.trim().replace(":", "");
     }
 
     private static PositionSetting buildRewarpStartSetting(int index) {

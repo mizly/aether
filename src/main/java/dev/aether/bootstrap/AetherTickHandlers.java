@@ -20,6 +20,9 @@ public final class AetherTickHandlers {
         FreelookManager.register();
         net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK
                 .register(dev.aether.modules.visuals.PestDefeatEffects::tick);
+        net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents.END_CLIENT_TICK
+                .register(dev.aether.ui.orbit.GardenRecorder::tick);
+        dev.aether.ui.orbit.GardenRecorder.register();
     }
 
     public static void setPickingUpStash(boolean pickingUpStash) {

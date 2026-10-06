@@ -210,6 +210,59 @@ class NanoVGManagerTest {
     }
 
     @Test
+    void offscreenFrameDrawsIntoTheBoundFramebufferAndRestoresIt() {
+        int fbo = GL30.glGenFramebuffers();
+        int color = GL11.glGenTextures();
+        int stencil = GL30.glGenRenderbuffers();
+        try {
+            GlStateManager._bindTexture(color);
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGBA8, 32, 32, 0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
+            GlStateManager._bindTexture(0);
+            GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, stencil);
+            GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH24_STENCIL8, 32, 32);
+            GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, fbo);
+            GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, color, 0);
+            GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_STENCIL_ATTACHMENT, GL30.GL_RENDERBUFFER, stencil);
+            assertEquals(GL30.GL_FRAMEBUFFER_COMPLETE, GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER));
+            GL11.glViewport(0, 0, 32, 32);
+            GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+
+            NanoVGManager.beginFrame(16, 16, 2f);
+            try {
+                assertEquals(2f, NanoVGManager.getPxRatio());
+                NanoVGManager.getRenderer().rect(0, 0, 8, 16, 0xFF00FF00);
+            } finally {
+                NanoVGManager.endFrame();
+            }
+
+            assertEquals(fbo, GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING));
+            assertPixel(4, 16, 0, 255, 0);
+            assertPixel(28, 16, 0, 0, 0);
+            assertEquals(GL11.GL_NO_ERROR, GL11.glGetError());
+        } finally {
+            GlStateManager._glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+            GL30.glDeleteFramebuffers(fbo);
+            GL30.glDeleteRenderbuffers(stencil);
+            GL11.glDeleteTextures(color);
+        }
+    }
+
+    @Test
+    void queuedTasksRunInsideTheNextFrameOnlyOnce() {
+        int[] runs = new int[1];
+        boolean[] insideFrame = new boolean[1];
+        NanoVGManager.runInNextFrame(() -> {
+            runs[0]++;
+            insideFrame[0] = NanoVGManager.isDrawing();
+        });
+        assertEquals(0, runs[0]);
+        renderOverlay();
+        renderOverlay();
+        assertEquals(1, runs[0]);
+        assertTrue(insideFrame[0]);
+    }
+
+    @Test
     void keepsMinecraftCacheInSyncAfterRippleComposite() {
         var ripple = new RippleEffect();
         try {
@@ -224,6 +277,27 @@ class NanoVGManagerTest {
         } finally {
             ripple.destroy();
         }
+    }
+
+    @Test
+    void keepsSvgRastersBoundedAndDeletesEvictedOnesOnTheNextFrame() {
+        NanoVGManager.beginFrame(64, 64, 1f);
+        try {
+            for (int width = 1; width <= 300; width++) {
+                NanoVGManager.getRenderer().renderSVG("/assets/aether/icons/settings.svg", 0, 0, width * 2, 4, 0xFFFFFFFF);
+            }
+            assertEquals(256, SVGRenderer.cachedRasters());
+        } finally {
+            NanoVGManager.endFrame();
+        }
+        renderOverlay();
+        NanoVGManager.beginFrame(64, 64, 1f);
+        try {
+            NanoVGManager.getRenderer().renderSVG("/assets/aether/icons/settings.svg", 0, 0, 16, 16, 0xFFFFFFFF);
+        } finally {
+            NanoVGManager.endFrame();
+        }
+        assertEquals(GL11.GL_NO_ERROR, GL11.glGetError());
     }
 
     private static void renderOverlay() {

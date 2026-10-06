@@ -9,6 +9,7 @@ import dev.aether.modules.farming.SqueakyMousematManager;
 import dev.aether.modules.farming.UngrabMouse;
 import dev.aether.mixin.MixinMinecraft;
 import dev.aether.modules.rotation.RotationManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.modules.visuals.FreecamManager;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.ProgrammaticAttackTracker;
@@ -53,6 +54,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
     private boolean continueAttack = true;
     // macro-owned attack edge, kept separate from minecraft's raw key state
     private boolean attackHeldByMacro = false;
+    private boolean micropausedLastTick = false;
 
     // -- Lifecycle -------------------------------------------------------------
 
@@ -126,6 +128,19 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
             interruptAttack();
         }
 
+        // -- Micropause -------------------------------------------------------
+        // keys were released once when the pause began; nothing presses them while the state machine sleeps
+        if (MicropauseManager.isPaused()) {
+            micropausedLastTick = true;
+            return;
+        }
+        if (micropausedLastTick) {
+            micropausedLastTick = false;
+            // re-seed so the first resumed sample cannot count the pause as a stall
+            stateCycles.forEach(cycle -> cycle.movement.clear());
+            FastLaneSwitchManager.onStateChanged(currentState, currentState);
+        }
+
         // -- Initial rotation -------------------------------------------------
         if (!rotated && (yaw.isPresent() || pitch.isPresent())) {
             float targetYaw   = yaw.orElseGet(mc.player::getYRot);
@@ -183,6 +198,14 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
     // drives global behaviour like holding the attack key
     public boolean isFarmingState() {
         return defaultStateKeys(currentState) != null || stateKeys().containsKey(currentState);
+    }
+
+    public boolean canBeginMicropause() {
+        return switch (currentState) {
+            case LEFT, RIGHT, FORWARD, BACKWARD ->
+                    defaultStateCycle == null || !defaultStateCycle.isWaitingAtStateEnd();
+            default -> false;
+        };
     }
 
     private void interruptAttack() {

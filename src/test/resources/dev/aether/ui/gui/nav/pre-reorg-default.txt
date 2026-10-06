@@ -1,0 +1,573 @@
+AOTV Between Distant Pests	TOGGLE	1
+AOTV Between Pests Delay	RANGE_SLIDER	2
+AOTV Roof Plots	LIST	1
+AOTV Start Distance (Blocks)	SLIDER	1
+AOTV Stop Distance (Blocks)	SLIDER	1
+AOTV Warps	SLIDER	1
+AOTV to Roof	GROUP	1
+AOTV to Roof Pitch	RANGE_SLIDER	1
+AOTV/AOTE Align	TOGGLE	1
+Accent	COLOR	1
+Accent 2	COLOR	1
+Account	INFO	1
+Account	SUBTAB	1
+Action	DROPDOWN	8
+Activation Mode	DROPDOWN	1
+Add Pet	ACTION	1
+Add Rewarp	ACTION	1
+Aether	SUBTAB	1
+Aether Cape	GROUP	1
+Aether Keybinds	GROUP	1
+Aim Lookahead	SLIDER	1
+Always Active	TOGGLE	1
+Always Sneak	TOGGLE	1
+Animation Speed	SLIDER	1
+Animation Time	SLIDER	1
+Auto Alt-Tab	TOGGLE	2
+Auto Buy Amount	SLIDER	1
+Auto Buy Material	TOGGLE	1
+Auto Carnival (Shootout)	SUBTAB	1
+Auto Composter	SUBTAB	1
+Auto George Sell	GROUP	1
+Auto Greenhouse	SUBTAB	1
+Auto Loadout	GROUP	1
+Auto Loadout	SUBTAB	1
+Auto Pest Exchange	SUBTAB	1
+Auto Reconnect	TOGGLE	1
+Auto Sell	GROUP	1
+Auto Sell (Passive)	TOGGLE	1
+Auto Sell Items	LIST	1
+Auto Sprayonator	SUBTAB	1
+Auto Supercraft	SUBTAB	1
+Auto Update	GROUP	1
+Auto Update	SUBTAB	1
+Auto Visitor	SUBTAB	1
+Auto Visitor Settings	GROUP	1
+BPS	SUBTAB	1
+BPS Average Window	SLIDER	1
+BPS Failsafe	GROUP	1
+Back Up Past Pitch	SLIDER	1
+Back Up When Too Close	TOGGLE	1
+Bait Amount	SLIDER	1
+Bait Material	DROPDOWN	1
+Ballsack Shredder	GROUP	1
+Ballsack Shredder Plots	LIST	1
+Ballsack Shredder Trigger Delay	RANGE_SLIDER	2
+Bazaar Autosell	TOGGLE	1
+Bazaar GUI Delay	RANGE_SLIDER	1
+Behaviour	GROUP	1
+Bits Offset	TEXT	1
+Blacklist Backpacks	LIST	1
+Blocks Broken / hr	TOGGLE	1
+Book Combine	GROUP	1
+Book Combine Delay	SLIDER	1
+Book Threshold	SLIDER	1
+Bootstrap	GROUP	1
+Bootstrap	SUBTAB	1
+Border	COLOR	1
+Bot Token	TEXT	1
+Boundary Axis	DROPDOWN	1
+Break Blocks Before AOTV	TOGGLE	1
+Break Offset	SLIDER	1
+Break Time	SLIDER	1
+Camera Turn Speed	SLIDER	1
+Cancel	ACTION	1
+Card BG	COLOR	1
+Cast Delay Max	SLIDER	1
+Cast Delay Min	SLIDER	1
+Catch Name	TEXT	1
+Catch Timeout	SLIDER	1
+Change Time Directly Before Pest Spawn	TOGGLE	1
+Channel ID	TEXT	1
+Chat Filtering	GROUP	1
+Chunk Distance	SLIDER	1
+Clear Pest Traps	TOGGLE	1
+Close Game On Daily Threshold	TOGGLE	1
+Coins/Copper Limit	SLIDER	1
+Colour Flash on Failsafe Trigger	TOGGLE	1
+Colour Swap Delay	SLIDER	1
+Combat	SECTION	1
+Command Prefix	TEXT	1
+Compact Profit Calculator	TOGGLE	1
+Composter Position	POSITION	1
+Composter Settings	GROUP	1
+Confirm AOTV Between Pests	TOGGLE	1
+Connect Discord	ACTION	1
+Contest Crop Priority	DROPDOWN_LIST	1
+Continue Sneak In Liquid	TOGGLE	1
+Coop Name Hider	GROUP	1
+Coop Names	LIST	1
+Copper Offset	TEXT	1
+Crop Amount	SLIDER	1
+Crop Material	TEXT	1
+Custom Enchantment Levels	LIST	1
+Custom Item	TEXT	2
+Custom Pitch	TOGGLE	1
+Custom Replay (/aether movement or aether.cat/editor)	DROPDOWN	10
+Custom Scoreboard	GROUP	1
+Custom Server ID	TEXT	1
+Custom Skyblock Level	TOGGLE	1
+Custom UI	TOGGLE	1
+Custom Username	TEXT	2
+Custom Yaw	TOGGLE	1
+D/S+A?	TOGGLE	1
+Daily HUD	TOGGLE	1
+Daily Threshold	SLIDER	1
+Debug HUD	GROUP	1
+Default Failsafe Sound	DROPDOWN	1
+Delays	GROUP	1
+Desktop Notification	TOGGLE	1
+Dirt Check	SUBTAB	1
+Dirt Check Failsafe	GROUP	1
+Disable /setspawn	TOGGLE	1
+Disable Block Breaking Particles	TOGGLE	1
+Disable Compactors during Visitors	TOGGLE	1
+Disable during Jacob's Contests	TOGGLE	1
+Disconnect	ACTION	1
+Discord	GROUP	1
+Discord	SUBTAB	1
+Discord Remote Control	GROUP	1
+Discord Webhook	GROUP	1
+Distance	SLIDER	1
+Dragon Wings	GROUP	1
+Draw Arc	TOGGLE	1
+Drop at Plot TP	TEXT	1
+Dynamic Duration	SLIDER	1
+Dynamic Pest Type	DROPDOWN	1
+Dynamic Pest Type	GROUP	1
+Dynamic Pests	SUBTAB	1
+Dynamic Rest	GROUP	1
+Dynamic Rest	SUBTAB	1
+ESP Mode	DROPDOWN	1
+Ease In Factor	SLIDER	1
+Ease Out Factor	SLIDER	1
+Edit HUD Layout	ACTION	1
+Effect Size	SLIDER	1
+Effect Style	DROPDOWN	1
+Element BG	COLOR	1
+Empty Fungal Tip Jar	TOGGLE	1
+Enable Username Spoof	TOGGLE	1
+Equip Custom Item	TOGGLE	2
+Equip Pet After Trap Open	TOGGLE	1
+Estimate Pest Destroyer Completion	TOGGLE	1
+Etherwarp Directly Near Pests	TOGGLE	1
+Etherwarp Minimum Distance (Blocks)	SLIDER	1
+Etherwarp To Destination	TOGGLE	1
+Exchange Desk	POSITION	1
+Export Theme (Copy)	ACTION	1
+FOV/Rotation	GROUP	1
+Failsafe Additional Random Delay	SLIDER	1
+Failsafe Settings	GROUP	1
+Failsafe Settings	SUBTAB	1
+Failsafe Volume	SLIDER	1
+Failsafes HUD	TOGGLE	1
+Fallback Behavior	GROUP	1
+Fallback Spray	DROPDOWN	1
+Fallback Vinyl	DROPDOWN	1
+Farm Macro Settings	GROUP	1
+Farm Type	DROPDOWN	1
+Farm while calling George	TOGGLE	2
+Farming Loadout Slot	SLIDER	1
+Farming Macro	SUBTAB	1
+Farming Pitch Range	SLIDER	2
+Farming QOL	SUBTAB	1
+Farming XP Offset	TEXT	1
+Farming Yaw Range	SLIDER	2
+Fast Lane Switch (Experimental)	GROUP	1
+Feast Crop Priority	DROPDOWN_LIST	1
+Filled Sides	TOGGLE	1
+First Flash Colour	COLOR	1
+Fishing Rod Slot	SLIDER	1
+Flash Opacity	SLIDER	1
+Flight Braking Lookahead	SLIDER	1
+Follow Distance	SLIDER	1
+Freecam	SUBTAB	1
+Freecam Settings	GROUP	1
+Freecam Teleport To Player	KEYBIND	1
+Freelook	SUBTAB	1
+Freelook (hold)	KEYBIND	1
+Freelook Keybind	KEYBIND	1
+Freelook Settings	GROUP	1
+Fuel Amount	SLIDER	1
+Fuel Material	TEXT	1
+Fun	SUBTAB	1
+Funny Dynamic Rest	GROUP	1
+GUI First Click Delay	RANGE_SLIDER	1
+GUI Opened	GROUP	1
+GUI Opened	SUBTAB	1
+Game Volume	SLIDER	1
+Gear Swap GUI Delay	RANGE_SLIDER	1
+General	SECTION	1
+George Sell Delay Between Pets	RANGE_SLIDER	2
+George Sell Threshold	SLIDER	1
+Ghost Block	SUBTAB	1
+Ghost Block Failsafe	GROUP	1
+Gradient	TOGGLE	2
+Gradient Left	COLOR	2
+Gradient Right	COLOR	2
+Graph Window	SLIDER	1
+Greenhouse Settings	GROUP	1
+Group Active	COLOR	1
+HUD	SUBTAB	1
+HUD Accent	COLOR	1
+HUD Background	COLOR	1
+HUD Bar BG	COLOR	1
+HUD Border	COLOR	1
+HUD Colors	GROUP	1
+HUD Colors	SUBTAB	1
+HUD Error	COLOR	1
+HUD Label	COLOR	1
+HUD Separator	COLOR	1
+HUD Settings	GROUP	1
+HUD Success	COLOR	1
+HUD Themes	MULTI_DROPDOWN	1
+HUD Title	COLOR	1
+HUD Value	COLOR	1
+HUD Visibility	GROUP	1
+HUD Warning	COLOR	1
+Halo	GROUP	1
+Halo Animation Speed	SLIDER	1
+Halo Color	COLOR	1
+Halo Glow	SLIDER	1
+Halo Height	SLIDER	1
+Halo Size	SLIDER	1
+Halo Style	DROPDOWN	1
+Halo Tilt	SLIDER	1
+Harvest Ashwreath	TOGGLE	1
+Harvest Feast Priority	GROUP	1
+Harvest Glasscorn	TOGGLE	1
+Harvest Now	ACTION	1
+Harvest Turtellini	TOGGLE	1
+Hat	GROUP	1
+Hide Pest Drops	TOGGLE	1
+Hide Server ID	GROUP	1
+Hide Skin	TOGGLE	1
+Highlight	TOGGLE	1
+Highlight Color	COLOR	1
+Hold W Until Wall	TOGGLE	1
+Hold W While Farming	TOGGLE	1
+Hotbar Slots	GROUP	1
+Hourly Rates	GROUP	1
+Hover BG	COLOR	1
+Human Target Switch	TOGGLE	1
+Humanization	SUBTAB	1
+Hunting Max Turn Speed	SLIDER	1
+Hunting Tracking Smoothing	SLIDER	1
+Ignore Failsafe Sound	DROPDOWN	1
+Import Theme (Paste)	ACTION	1
+Input BG	COLOR	1
+Intermediaries HUD	TOGGLE	1
+Inventory Full Time	SLIDER	1
+Inventory HUD	GROUP	1
+Inventory HUD	TOGGLE	1
+Inventory Slot Changed	GROUP	1
+Inventory Slot Changed	SUBTAB	1
+Inventory Threshold	SLIDER	1
+Items	LIST	1
+Jacob's Contest Priority	GROUP	1
+Jump Lookahead	SLIDER	1
+Junk Drop Delay	RANGE_SLIDER	2
+Junk Items	LIST	1
+Junk Manager	GROUP	1
+Junk Threshold	SLIDER	1
+Keep Focus	TOGGLE	1
+Kill Distance	SLIDER	1
+Lane Switch Delay	RANGE_SLIDER	1
+Language	DROPDOWN	1
+Language	GROUP	1
+Language	SUBTAB	1
+Leave One Pest Alive	TOGGLE	1
+Leave One Pest Plots	LIST	1
+Left Boundary	TEXT	1
+Level 1 Price	TEXT	1
+Lifetime HUD	TOGGLE	1
+Limit Chunk Distance	TOGGLE	1
+Limit FPS	TOGGLE	1
+Look Down After Warps	TOGGLE	1
+Look Down Time	SLIDER	1
+Macro HUD	TOGGLE	1
+Macro Settings	GROUP	1
+Main Panel BG	COLOR	1
+Main Status HUD	GROUP	1
+Manual Pest Early Finish	KEYBIND	2
+Manual Pest Killing	GROUP	1
+Manual Pest Sound	DROPDOWN	1
+Max Coins/Copper	TOGGLE	1
+Max FPS	SLIDER	1
+Max Lasso Throws	SLIDER	1
+Max Leash Distance	SLIDER	1
+Max Level	DROPDOWN	1
+Max Level Price	TEXT	1
+Max Visitor Purchase	SLIDER	1
+Membrane Glow	TOGGLE	1
+Menu Colors	GROUP	1
+Menu Colors	SUBTAB	1
+Metal Detector	GROUP	1
+Metal Detector	SUBTAB	1
+Micropauses	GROUP	1
+Mid Farming HUD	TOGGLE	1
+Minimum Purse	SLIDER	1
+Miscellaneous	GROUP	3
+Miscellaneous	SUBTAB	1
+Mobs Killed / hr	TOGGLE	1
+Move Around On Block	TOGGLE	1
+Movement Speed	SLIDER	1
+Mute Game	TOGGLE	1
+NPC Autosell	TOGGLE	1
+Navigation	SECTION	1
+Next Pest Turn Speed	SLIDER	1
+Nick Hider	SUBTAB	1
+Offset	SLIDER	1
+On-The-Track Pest	GROUP	1
+Only Accept Rare Drops	TOGGLE	1
+Only Show HUDs In Garden	TOGGLE	1
+Only Show While Macro Running	TOGGLE	1
+Open GUI	KEYBIND	1
+Open Macro Menu	KEYBIND	1
+Open NVG Demo	KEYBIND	1
+Optimized Route Color	COLOR	1
+Optimized Route ESP	TOGGLE	1
+Panel BG	COLOR	1
+Particle Count	SLIDER	1
+Pathfind to Phillip	TOGGLE	1
+Pathfind to Traps	TOGGLE	1
+Pathfinder	GROUP	1
+Pathfinder Max Jump Height	SLIDER	1
+Pathfinder Sprint	TOGGLE	1
+Pause Every	RANGE_SLIDER	1
+Pause Length	RANGE_SLIDER	1
+Performance Mode	GROUP	1
+Persist Session Timer	TOGGLE	1
+Pest Above Aim Pitch	RANGE_SLIDER	2
+Pest Aim Drift	SLIDER	2
+Pest Approach Speed	SLIDER	1
+Pest Cleaner Rotation	GROUP	1
+Pest Cleaner Rotation Failsafe Delay	SLIDER	1
+Pest Defeat Effects	GROUP	1
+Pest Destroyer	GROUP	1
+Pest Destroyer Trigger Delay	RANGE_SLIDER	2
+Pest Detection Delay Time	SLIDER	1
+Pest Detection FOV	SLIDER	1
+Pest ESP	GROUP	1
+Pest Exchange	GROUP	1
+Pest Exchange Delay	RANGE_SLIDER	1
+Pest FOV Range	SLIDER	2
+Pest Hunting	GROUP	1
+Pest Kill Loadout Slot	SLIDER	1
+Pest Loadout Swap Time (~170s for eq swap, ~5s for no eq swap)	SLIDER	1
+Pest Manager	SUBTAB	1
+Pest Memory Error	SLIDER	2
+Pest Overshoot Amount	RANGE_SLIDER	2
+Pest Overshoot Chance	SLIDER	2
+Pest Overshoot Min Turn	SLIDER	2
+Pest Reaction Time	RANGE_SLIDER	2
+Pest Rotation Action	DROPDOWN	1
+Pest Spawn Loadout Slot	SLIDER	1
+Pest Target HUD	GROUP	1
+Pest Threshold	SLIDER	1
+Pest Tracking Smoothing	SLIDER	1
+Pest Traps	GROUP	1
+Pest Traps Plot	TEXT	1
+Pest Turn Speed Limit	SLIDER	2
+Pet Name	TEXT	1
+Pet XP Tracker	GROUP	1
+Phillip FOV Range	SLIDER	2
+PiP	SUBTAB	1
+PiP Settings	GROUP	1
+Pick Up Stash Delay	RANGE_SLIDER	2
+Pitch	SLIDER	1
+Pitch Threshold	SLIDER	1
+Play Failsafe Sound	TOGGLE	1
+Player Nearby	SUBTAB	1
+Player Nearby Failsafe	GROUP	1
+Plot Number	TEXT	1
+Plot TP for Current Plot	TOGGLE	1
+Plots	LIST	1
+Pre-equip Mosquito for Pest Traps	TOGGLE	1
+Preset	DROPDOWN	2
+Preset Name	TEXT	1
+Presets	GROUP	2
+Preview Effect	ACTION	1
+Price Source	DROPDOWN	1
+Profit HUD	GROUP	1
+Profit Tracker	SUBTAB	1
+Purse Offset	TEXT	1
+Pyramid Height	SLIDER	1
+Radius	SLIDER	1
+Random Look Around	TOGGLE	1
+Rarity	DROPDOWN	1
+Raycast Jump Detection	TOGGLE	1
+Recovery Wait	SLIDER	1
+Refill Pest Traps	TOGGLE	1
+Refresh Language Packs	ACTION	1
+Remember Pest Positions	TOGGLE	1
+Remove Pet	ACTION	1
+Remove Rewarp	ACTION	1
+Render In First Person	TOGGLE	1
+Reset Daily Timer	ACTION	1
+Reset Lifetime Profit	ACTION	1
+Reset Scoreboard Layout	ACTION	1
+Reset Session	ACTION	1
+Reset Target HUD Position	ACTION	1
+Reset Theme	ACTION	1
+Respect Vacuum True Range	TOGGLE	1
+Restart	GROUP	1
+Restart Route	ACTION	1
+Reverse Direction After Rewarp	TOGGLE	1
+Rewarp	SUBTAB	1
+Rewarp 1	GROUP	1
+Rewarp Delay	GROUP	1
+Rewarp Delay	RANGE_SLIDER	1
+Rewarp End	POSITION	1
+Rewarp Mode	DROPDOWN	1
+Rewarp Name	TEXT	1
+Rewarp Start	POSITION	1
+Right Boundary	TEXT	1
+Rod Swap Delay	RANGE_SLIDER	1
+Rolling Profit Graph	TOGGLE	1
+Rotation	SUBTAB	1
+Rotation Action	DROPDOWN	1
+Rotation Ease In	TOGGLE	1
+Rotation Ease Out	TOGGLE	1
+Rotation Failsafe	GROUP	1
+Rotation Settings	GROUP	1
+Rotation Time	SLIDER	1
+Run Interval	SLIDER	3
+Run Now	ACTION	2
+Save Preset	ACTION	1
+Sawdust Offset	TEXT	1
+Scoreboard Server Line Text	TEXT	1
+Scoreboard Title Text	TEXT	1
+Scripting Offset	SLIDER	1
+Scripting Time	SLIDER	1
+Second Flash Colour	COLOR	1
+Selected Route	INFO	1
+Sell Before Pest Traps	TOGGLE	1
+Sell Before Visitors	TOGGLE	1
+Separator	COLOR	1
+Server ID	TEXT	1
+Session Profit HUD	TOGGLE	1
+Shader	DROPDOWN	1
+Shard Price Source	DROPDOWN	1
+Show Armor	TOGGLE	1
+Show FPS	TOGGLE	1
+Show Logo	TOGGLE	1
+Show Macro Status	TOGGLE	1
+Show Name	TOGGLE	1
+Show Ping	TOGGLE	1
+Show Player Model	TOGGLE	1
+Show Task HUDs Outside Garden	TOGGLE	1
+Show Time	TOGGLE	1
+Show Username	TOGGLE	1
+Show XP	TOGGLE	1
+Sidebar BG	COLOR	1
+Skill XP	GROUP	1
+Skip during Jacob's Contests	TOGGLE	1
+Skip while Crop Fever Active	TOGGLE	1
+Sky Brightness	SLIDER	1
+Sky Shader	GROUP	1
+SkyBlock Level Override	TEXT	1
+Skybox	SUBTAB	1
+Smart AOTV Routing	TOGGLE	1
+Soul Whip	GROUP	1
+Soul Whip Slot	SLIDER	1
+Source Mode	DROPDOWN	1
+Spoof Values	GROUP	1
+Spray Material	DROPDOWN	1
+Sprayonator Settings	GROUP	1
+Squeaky Mousemat	TOGGLE	1
+Start Floating	TOGGLE	1
+Stash Manager	GROUP	1
+Status	INFO	2
+Stop Failsafe Sound	DROPDOWN	1
+Streamer Mode	GROUP	1
+Strider Fishing	SUBTAB	1
+Strider Fishing Macro	KEYBIND	1
+Striders Before Kill	SLIDER	1
+Stuck Recovery Delay	SLIDER	1
+Stuck Timeout	SLIDER	1
+Sunset Pests	TOGGLE	1
+Supercraft Settings	GROUP	1
+Switch to Vacuum When Start	TOGGLE	1
+TP Check	SUBTAB	1
+TP Check Failsafe	GROUP	1
+Target Switching	SECTION	1
+Targeting	SECTION	1
+Teleport Distance	SLIDER	1
+Teleport To Player Keybind	KEYBIND	1
+Text	COLOR	1
+Text Dim	COLOR	1
+Text Label	COLOR	1
+Text Muted	COLOR	1
+Text Scale	SLIDER	1
+Text Value	COLOR	1
+Theme Options	GROUP	1
+Theme Options	SUBTAB	1
+Threshold	SLIDER	1
+Time Nearby	SLIDER	1
+Time to Max Level	TOGGLE	1
+Time to Next Level	TOGGLE	1
+Toggle Freecam	KEYBIND	1
+Toggle Keybind	KEYBIND	3
+Toggle Macro	KEYBIND	1
+Toggle PiP	KEYBIND	1
+Toggle Ungrab Mouse	KEYBIND	1
+Tracer	TOGGLE	1
+Tracer Color	COLOR	1
+Tracking Noise Max	SLIDER	1
+Tracking Noise Min	SLIDER	1
+Trap Open Pet	TEXT	1
+Traps Position	POSITION	1
+Trigger	INFO	1
+Trigger Delay	SLIDER	6
+Trigger During Pest Cleaner	TOGGLE	1
+Trigger Only After Rewarp	TOGGLE	1
+UI Scale	SLIDER	1
+Unfly Mode	DROPDOWN	1
+Ungrab Mouse	SUBTAB	1
+Ungrab Mouse	TOGGLE	1
+Ungrab Mouse Settings	GROUP	1
+Unsprayed Plot Detect Time	SLIDER	1
+Update Interval	SLIDER	1
+Update Notifications	GROUP	1
+Use Abiphone	TOGGLE	1
+Use Pest Tracker Ability	TOGGLE	1
+Use Soul Whip	TOGGLE	1
+Username	GROUP	1
+Vacuum Follow Distance	SLIDER	1
+Vacuum Pest Blacklist	MULTI_DROPDOWN	1
+Vacuum Stun Before Lasso	TOGGLE	1
+Vertices	SLIDER	1
+Visitor Delay	RANGE_SLIDER	2
+Visitor FOV Range	SLIDER	2
+Visitor Ignored	LIST	1
+Visitor Loadout Slot	SLIDER	1
+Visitor Reject	LIST	1
+Visitor Threshold	SLIDER	1
+Walk Mode	TOGGLE	1
+Warp Grace Period	SLIDER	1
+Watermark	GROUP	1
+Weapon Slot	SLIDER	1
+Weapon Swap Delay Max	SLIDER	1
+Weapon Swap Delay Min	SLIDER	1
+Webhook URL	TEXT	1
+Window	SLIDER	2
+Window Decorations	TOGGLE	1
+Window Height	SLIDER	1
+Window Width	SLIDER	1
+Wing Accent	COLOR	1
+Wing Animation Speed	SLIDER	1
+Wingspan	SLIDER	1
+Wireframe	TOGGLE	1
+World Change	SUBTAB	1
+World Change Failsafe	GROUP	1
+XP / hr	TOGGLE	1
+Y Offset	SLIDER	1
+Yaw	SLIDER	1
+Yaw Threshold	SLIDER	1
+[Action] BG	COLOR	1
+[Action] Hover	COLOR	1
+[Dropdown] BG	COLOR	1
+[Slider] Left	COLOR	1
+[Toggle] Knob	COLOR	1
+[Toggle] Track	COLOR	1

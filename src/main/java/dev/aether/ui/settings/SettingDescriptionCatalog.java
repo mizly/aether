@@ -15,7 +15,7 @@ final class SettingDescriptionCatalog {
             Map.entry("AOTV Between Distant Pests", "Uses AOTV between distant pests."),
             Map.entry("Etherwarp Directly Near Pests", "Etherwarp to land on a safe block beside a distant pest."),
             Map.entry("Etherwarp Minimum Distance (Blocks)", "Minimum distance before Pest Destroyer considers a direct etherwarp to the target pest."),
-            Map.entry("Next Pest Turn Speed", "Controls how quickly the camera turns when handing off to the next pest or aiming etherwarp."),
+            Map.entry("Next Pest Turn Speed", "Peak camera speed when turning onto a new pest or aiming AOTV and etherwarp. With Human Target Switch on, each turn onto a new pest peaks somewhere between 70% and 100% of it."),
             Map.entry("Smart AOTV Routing", "Chooses AOTV using horizontal and vertical travel cost, line of sight, and the configured start and stop distances."),
             Map.entry("AOTV Start Distance (Blocks)", "Minimum travel distance at which Smart AOTV Routing begins considering AOTV."),
             Map.entry("AOTV Stop Distance (Blocks)", "Distance from the target where Smart AOTV Routing stops chaining teleports."),
@@ -35,7 +35,31 @@ final class SettingDescriptionCatalog {
             Map.entry("Webhook URL", "Sets the notification webhook destination."),
             Map.entry("Bot Token", "Sets the integration token. Keep this value private."),
             Map.entry("Pathfinder Max Jump Height", "Sets the maximum jump height for pathfinder."),
-            Map.entry("Warp Grace Period", "Allows position checks to settle briefly after a warp.")
+            Map.entry("Warp Grace Period", "Allows position checks to settle briefly after a warp."),
+            Map.entry("Restart Route", "Opens the routes area, where the warp and walk to the fishing spot are recorded."),
+            Map.entry("Soul Whip Slot", "Hotbar slot of the Soul Whip. When that slot holds no whip, the macro uses the first Soul Whip it finds in the hotbar."),
+            Map.entry("Kill Distance", "How close the macro stays to a catch it kills by hand. Not used at the Sawyer spot, where the Soul Whip clears every catch."),
+            Map.entry("Striders Before Kill", "How many striders the pool holds before the macro clears it. Hypixel allows 10 sea creatures at once, so striders a clear leaves alive lower this until they die."),
+            Map.entry("Soul Whip Fishing", "Fills a small lava pool with striders and clears it once enough are stuck. The Sawyer spot always fishes this way with the Soul Whip and ignores this toggle"),
+            Map.entry("Use Soul Whip", "Clears the pool with the Soul Whip, swapping to the weapon after each lash. Off kills each strider by hand. The Sawyer spot always uses the whip."),
+            Map.entry("Hotspot Position", "Side casts into the hotspot from a nearby bank block. Centre stands underwater on the floor right below the hotspot's nametag and casts straight up; lava hotspots always use the side."),
+            Map.entry("Mob Whitelist", "Only catches whose name contains one of these entries are fought. Leave it empty to fight everything that is not blacklisted."),
+            Map.entry("Mob Blacklist", "Catches whose name contains one of these entries are left alone and named in chat. Checked before the whitelist."),
+            Map.entry("Heal Below", "Uses the healing wand once health falls below this share of max health, read from the action bar."),
+            Map.entry("Time Nearby", "How long a player has to stay within the distance before the failsafe triggers."),
+            Map.entry("Teleport Distance", "How far a single jump in position has to be to count as a teleport."),
+            Map.entry("Pest Aim Drift", "How much of the pest's body the aim wanders over instead of sitting on its centre. 1 roams most of it, 0 keeps the aim on the centre."),
+            Map.entry("Human Target Switch", "Turns onto each new pest the way a player does: a short reaction, a quick flick that can stop short or swing past, then a correction. Off keeps the smooth tracking turn."),
+            Map.entry("Pest Reaction Time", "Pause after a pest dies or a new one is picked before the camera starts turning. A quarter shorter when the next pest is already near the crosshair. Set it to 0 to turn at once. Pests you are already flying to or just landed next to are turned to at once either way."),
+            Map.entry("Pest Overshoot Chance", "Chance that a big turn onto a new pest swings past it before correcting back."),
+            Map.entry("Pest Overshoot Min Turn", "Turns of at least this many degrees can overshoot at the full chance. Below that the chance fades out, reaching zero at half this size, where turns only land a little short or long."),
+            Map.entry("Pest Overshoot Amount", "How far an overshoot swings past the pest, as a share of the turn. Lower turn speeds swing less far."),
+            Map.entry("Remember Pest Positions", "When the next pest is out of sight, swings toward where it was last seen, then looks again and corrects onto the real pest. Off turns straight onto the pest even when it is out of sight."),
+            Map.entry("Pest Memory Error", "How far off, in degrees, a swing toward a remembered pest typically lands. It grows the longer ago the pest was seen, to twice this after 8 seconds, and a pest never seen gets a rougher direction. Up and down stay within a few degrees."),
+            Map.entry("Pause Every", "Farming time between micropauses. Time spent killing pests, on visitors or other tasks does not count."),
+            Map.entry("Pause Length", "How long each micropause lasts. All keys are released and the camera stays still while paused."),
+            Map.entry("Back Up When Too Close", "After an AOTV or etherwarp lands too close above or below a pest to keep it on screen, flies straight back until it can be seen instead of spinning around to face it. A pest left behind is turned to first."),
+            Map.entry("Back Up Past Pitch", "Backs up when the pest would sit more than this many degrees below eye level once hovering over it. Never more than your FOV and Pest Above Aim Pitch allow, so the pest stays on screen.")
 
     );
 
@@ -46,9 +70,17 @@ final class SettingDescriptionCatalog {
         if (setting == null) {
             return "";
         }
-        String raw = setting.getRawName() == null ? setting.getName() : setting.getRawName();
-        String explicit = EXPLICIT.get(raw);
-        return AetherLang.localize(explicit != null ? explicit : fallback(setting.getType(), raw));
+        String explicit = setting.explicitDescription();
+        return explicit != null ? explicit : AetherLang.localize(fallback(setting.getType(), rawName(setting)));
+    }
+
+    static String explicit(Setting setting) {
+        String explicit = EXPLICIT.get(rawName(setting));
+        return explicit == null ? null : AetherLang.localize(explicit);
+    }
+
+    private static String rawName(Setting setting) {
+        return setting.getRawName() == null ? setting.getName() : setting.getRawName();
     }
 
     private static String fallback(SettingType type, String raw) {
@@ -68,13 +100,7 @@ final class SettingDescriptionCatalog {
             case ACTION -> "Runs the “" + subject + "” action immediately.";
             case INFO -> "Displays current information for " + subject + ".";
             case SECTION -> "Groups settings related to " + subject + ".";
+            case PLOT -> "Picks the garden plots used for " + subject + ".";
         };
-    }
-
-    private static String lowerFirst(String value) {
-        if (value == null || value.isEmpty()) {
-            return "this setting";
-        }
-        return Character.toLowerCase(value.charAt(0)) + value.substring(1);
     }
 }

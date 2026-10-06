@@ -47,6 +47,7 @@ public final class PathExecutor {
     private boolean strictGoalCompletion;
     private double stickySneakDistance = -1.0;
     private boolean sneakLatched;
+    private boolean sneakWhileCentering = true;
     private double preciseGoalTolerance = 0.5;
     private Runnable onFinished;
     private int jumpCooldown;
@@ -84,6 +85,7 @@ public final class PathExecutor {
         this.strictGoalCompletion = false;
         this.stickySneakDistance = -1.0;
         this.sneakLatched = false;
+        this.sneakWhileCentering = true;
         this.preciseGoalTolerance = 0.5;
         this.onFinished = onFinished;
         this.jumpCooldown = 0;
@@ -115,6 +117,7 @@ public final class PathExecutor {
     public void setStrictGoalCompletion(boolean strictGoalCompletion) { this.strictGoalCompletion = strictGoalCompletion; }
     public void setStickySneakDistance(double distance) { stickySneakDistance = distance; }
     public void setSneakLatched(boolean sneakLatched) { this.sneakLatched = sneakLatched; }
+    public void setSneakWhileCentering(boolean sneakWhileCentering) { this.sneakWhileCentering = sneakWhileCentering; }
     public void setGoalCenterOffsets(double x, double z) {
         goalCenterX = x;
         goalCenterZ = z;
@@ -228,7 +231,7 @@ public final class PathExecutor {
                 && goalDistance > 2.5 && !approachingRise && !sharpTurn;
         ClientUtils.setKeyMappingState(mc.options.keySprint, sprint);
         if (!sprint) mc.player.setSprinting(false);
-        if (centering) ClientUtils.setKeyMappingState(mc.options.keyShift, true);
+        if (centering && sneakWhileCentering) ClientUtils.setKeyMappingState(mc.options.keyShift, true);
 
         if (allowJumps && !centering) {
             handleJumps(mc, waypoint, playerPos, motionStale > timeout / 2);

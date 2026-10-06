@@ -3,6 +3,7 @@ package dev.aether.modules.pest.helpers;
 import dev.aether.config.AetherConfig;
 import dev.aether.modules.pathfinding.execution.FlightMotion;
 import dev.aether.modules.pathfinding.execution.FlightPathClearance;
+import dev.aether.modules.pathfinding.execution.WalkingMotion;
 import dev.aether.modules.rotation.RotationManager;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
@@ -10,17 +11,20 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 
 final class PestFlightController {
+    private static final double WALK_REAPPROACH_BUFFER = 0.75;
     private int targetId = -1;
     private int lastTick;
     private Vec3 lastPosition;
     private Vec3 targetVelocity = Vec3.ZERO;
     private double approachRange = 12.0;
+    private boolean walkingApproach;
 
     void reset() {
         targetId = -1;
         lastPosition = null;
         targetVelocity = Vec3.ZERO;
         approachRange = 12.0;
+        walkingApproach = false;
     }
 
     Vec3 sampleVelocity(int id, Vec3 position, int tick) {
@@ -28,6 +32,7 @@ final class PestFlightController {
         if (id != targetId || lastPosition == null || elapsed < 0 || elapsed > 5
                 || position.distanceToSqr(lastPosition) > 9.0) {
             targetVelocity = Vec3.ZERO;
+            walkingApproach = false;
         } else if (elapsed == 0) {
             return targetVelocity;
         } else {
@@ -61,12 +66,23 @@ final class PestFlightController {
         return FlightPathClearance.isClear(client, client.player.position(), destination);
     }
 
-    void update(Minecraft client, Entity target, double vacuumRange, boolean canTranslate) {
+    void update(Minecraft client, Entity target, double vacuumRange, boolean canTranslate, boolean aimCamera) {
         Vec3 velocity = client.player.getDeltaMovement();
         Vec3 pestVelocity = sampleVelocity(target.getId(), target.position(), client.player.tickCount);
         Vec3 offset = target.position().subtract(client.player.position());
         double followHeight = client.player.getAbilities().flying ? 3.0 : offset.y;
         double follow = followDistance(AetherConfig.PEST_VACUUM_FOLLOW_DISTANCE.get(), vacuumRange, followHeight);
+        if (AetherConfig.PEST_DESTROYER_WALK_MODE.get()) {
+            WalkingMotion.apply(client, walkingInput(offset, client.player.getYRot(), follow, canTranslate));
+            ClientUtils.setKeyMappingState(client.options.keySprint, false);
+            ClientUtils.setKeyMappingState(client.options.keyJump, false);
+            ClientUtils.setKeyMappingState(client.options.keyShift, false);
+            if (aimCamera) {
+                trackAim(client, target);
+            }
+            return;
+        }
+        walkingApproach = false;
         Vec3 desired = canTranslate
                 ? FlightMotion.approachVelocity(offset, pestVelocity, follow,
                         AetherConfig.PEST_APPROACH_SPEED.get(), AetherConfig.FLY_BRAKING_LOOKAHEAD_TICKS.get())
@@ -80,8 +96,27 @@ final class PestFlightController {
                 ? FlightMotion.verticalInput(offset.y + 3.0, velocity.y, 0.5) : 0;
         ClientUtils.setKeyMappingState(client.options.keyJump, vertical > 0);
         ClientUtils.setKeyMappingState(client.options.keyShift, vertical < 0);
+        if (aimCamera) {
+            trackAim(client, target);
+        }
+    }
+
+    // not even read while a turn owns the camera, since reading the aim advances its lead and body spot
+    private static void trackAim(Minecraft client, Entity target) {
         RotationManager.trackRotation(client, PestAimTracker.trackingAim(client, target),
                 AetherConfig.PEST_TRACKING_SMOOTHING_MS.get(), AetherConfig.PEST_MAX_TURN_SPEED.get());
+    }
+
+    WalkingMotion.Input walkingInput(Vec3 offset, float yaw, double follow, boolean canTranslate) {
+        if (!canTranslate || !facesTarget(offset, yaw)) {
+            walkingApproach = false;
+            return new WalkingMotion.Input(0, 0);
+        }
+        double horizontal = offset.horizontalDistance();
+        walkingApproach = horizontal > follow + (walkingApproach ? 0.0 : WALK_REAPPROACH_BUFFER);
+        return walkingApproach
+                ? WalkingMotion.horizontalInput(offset, yaw, 0.0)
+                : new WalkingMotion.Input(0, 0);
     }
 
     static double followDistance(double configured, double range, double heightDifference) {

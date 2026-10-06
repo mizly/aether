@@ -165,7 +165,7 @@ public class DynamicRestManager {
 
         switch (restSequenceStage) {
             case 0: {
-                if (!isFarming) {
+                if (!isFarming || MicropauseManager.isHoldingTasks()) {
                     return;
                 }
 

@@ -3,6 +3,7 @@ package dev.aether.modules.failsafe;
 import dev.aether.config.AetherConfig;
 import dev.aether.macro.farming.FarmingMacroManager;
 import dev.aether.modules.pest.helpers.PestOnTheTrackManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.notification.NotificationManager;
@@ -168,6 +169,11 @@ final class BpsFailsafe {
         		return false;
         }
         
+        // freezes the farming clock too, so the breaks from before the pause stay in the window
+        if (MicropauseManager.isPaused()) {
+            return false;
+        }
+
         var activeMacro = FarmingMacroManager.getActiveMacro();
         return activeMacro != null && activeMacro.isFarmingState();
     }

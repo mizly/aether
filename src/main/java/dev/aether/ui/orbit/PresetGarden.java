@@ -1,0 +1,348 @@
+package dev.aether.ui.orbit;
+
+import net.minecraft.client.color.block.BlockTintSource;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.GrassColor;
+import net.minecraft.world.level.block.AttachedStemBlock;
+import net.minecraft.world.level.block.BarrelBlock;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CropBlock;
+import net.minecraft.world.level.block.FarmlandBlock;
+import net.minecraft.world.level.block.Rotation;
+import net.minecraft.world.level.block.StemBlock;
+import net.minecraft.world.level.block.state.BlockState;
+
+// the menu's own little garden, built from real blocks around the player: a path at your feet, crop fields split by
+// water lanes on both sides, a pumpkin and melon patch behind, a barn and a few trees. always complete, never loaded
+final class PresetGarden implements SceneClone.Source {
+    private static final int RADIUS = 40;
+    private static final int LOW = -2;
+    private static final int HIGH = 10;
+
+    private final int ox, oy, oz;
+    private final int cos, sin;
+    private final Rotation rotation;
+    private final int size = RADIUS * 2 + 1;
+    private final BlockState[][] columns = new BlockState[size * size][];
+    private final int[] tops = new int[size * size];
+
+    // yaw is snapped to quarter turns, so the farm's +z (ahead of the player) lines up with the ring's front
+    PresetGarden(int ox, int oy, int oz, float yaw) {
+        this.ox = ox;
+        this.oy = oy;
+        this.oz = oz;
+        int quarter = Math.floorMod(Math.round(yaw / 90f), 4);
+        this.cos = new int[]{1, 0, -1, 0}[quarter];
+        this.sin = new int[]{0, 1, 0, -1}[quarter];
+        // the layout is drawn facing south; facing blocks turn with it
+        this.rotation = new Rotation[]{Rotation.NONE, Rotation.CLOCKWISE_90, Rotation.CLOCKWISE_180,
+                Rotation.COUNTERCLOCKWISE_90}[quarter];
+        for (int i = 0; i < columns.length; i++) columns[i] = new BlockState[HIGH - LOW + 1];
+        build();
+        for (int i = 0; i < columns.length; i++) {
+            tops[i] = Integer.MIN_VALUE;
+            for (int y = HIGH; y >= LOW; y--) {
+                BlockState s = columns[i][y - LOW];
+                if (s != null && !s.isAir()) {
+                    tops[i] = oy + y;
+                    break;
+                }
+            }
+        }
+    }
+
+    // -- the layout, in blocks around the player's feet: +z ahead, ground at y -1 --------------------------------
+
+    private void build() {
+        BlockState grass = Blocks.GRASS_BLOCK.defaultBlockState();
+        BlockState dirt = Blocks.DIRT.defaultBlockState();
+        for (int x = -RADIUS; x <= RADIUS; x++) {
+            for (int z = -RADIUS; z <= RADIUS; z++) {
+                set(x, -2, z, dirt);
+                set(x, -1, z, grass);
+                // a little meadow on the untouched grass
+                float h = hash(x, z);
+                if (h < 0.06f) set(x, 0, z, Blocks.SHORT_GRASS.defaultBlockState());
+                else if (h < 0.07f) set(x, 0, z, Blocks.POPPY.defaultBlockState());
+                else if (h < 0.08f) set(x, 0, z, Blocks.DANDELION.defaultBlockState());
+            }
+        }
+        field(3, 34, -8, 13, crop(Blocks.WHEAT));
+        field(3, 34, 15, 36, crop(Blocks.CARROTS));
+        field(-34, -3, -8, 13, crop(Blocks.POTATOES));
+        canes(-34, -3, 15, 36);
+        patch(-22, 22, -34, -14);
+        path();
+        yard(2, 8, -5, 7, true, Integer.MIN_VALUE);
+        yard(-8, -2, -5, 7, false, -7);
+        // the fishing skit's pond, at the back of the lawn where the menu camera sees it clear of the panel
+        for (int x = 6; x <= 7; x++) {
+            for (int z = 3; z <= 4; z++) set(x, -1, z, Blocks.WATER.defaultBlockState());
+        }
+        barn(-29, 22);
+        tree(30, -24);
+        tree(-33, -12);
+        tree(36, 6);
+        tree(-14, 37);
+        tree(18, 38);
+        hay(-17, 21);
+        hay(-17, 23);
+        hay(-16, 22);
+        lawn(-18, 31);
+        set(-18, 0, 31, Blocks.COMPOSTER.defaultBlockState());
+        moisten();
+    }
+
+    private static BlockState crop(Block block) {
+        return block instanceof CropBlock crop ? crop.getStateForAge(crop.getMaxAge()) : block.defaultBlockState();
+    }
+
+    // farmland rows of one crop, with a water lane every nine blocks the way garden farms are laid out
+    private void field(int x0, int x1, int z0, int z1, BlockState crop) {
+        BlockState soil = farmland();
+        for (int x = x0; x <= x1; x++) {
+            boolean lane = Math.floorMod(Math.abs(x) - 3, 9) == 4;
+            for (int z = z0; z <= z1; z++) {
+                clear(x, z);
+                if (lane) {
+                    set(x, -1, z, Blocks.WATER.defaultBlockState());
+                } else {
+                    set(x, -1, z, soil);
+                    set(x, 0, z, crop);
+                }
+            }
+        }
+    }
+
+    // cane only grows on sand beside water, so every other pair of rows has a lane between them
+    private void canes(int x0, int x1, int z0, int z1) {
+        for (int x = x0; x <= x1; x++) {
+            boolean lane = Math.floorMod(x, 3) == 0;
+            for (int z = z0; z <= z1; z++) {
+                clear(x, z);
+                if (lane) {
+                    set(x, -1, z, Blocks.WATER.defaultBlockState());
+                } else {
+                    set(x, -1, z, Blocks.SAND.defaultBlockState());
+                    set(x, 0, z, Blocks.SUGAR_CANE.defaultBlockState());
+                    if (hash(x, z + 99) > 0.3f) set(x, 1, z, Blocks.SUGAR_CANE.defaultBlockState());
+                }
+            }
+        }
+    }
+
+    // rows of pumpkins and melons, each with a stem either side attached to it, the way they grow
+    private void patch(int x0, int x1, int z0, int z1) {
+        BlockState soil = farmland();
+        for (int x = x0; x <= x1; x++) {
+            for (int z = z0; z <= z1; z++) {
+                clear(x, z);
+                set(x, -1, z, soil);
+            }
+        }
+        for (int x = x0; x <= x1; x++) {
+            for (int z = z0; z <= z1; z++) {
+                if (Math.floorMod(z, 3) != 1) continue;
+                float h = hash(x * 3, z);
+                Block fruit = h < 0.45f ? Blocks.PUMPKIN : h < 0.85f ? Blocks.MELON : null;
+                if (fruit != null) set(x, 0, z, fruit.defaultBlockState());
+                stem(x, z - 1, fruit, Direction.SOUTH, h);
+                stem(x, z + 1, fruit, Direction.NORTH, h);
+            }
+        }
+    }
+
+    private void stem(int x, int z, Block fruit, Direction toward, float h) {
+        if (fruit == null) {
+            Block stem = h < 0.92f ? Blocks.PUMPKIN_STEM : Blocks.MELON_STEM;
+            set(x, 0, z, stem.defaultBlockState().setValue(StemBlock.AGE, Math.floorMod(x + z, 8)));
+            return;
+        }
+        Block attached = fruit == Blocks.PUMPKIN ? Blocks.ATTACHED_PUMPKIN_STEM : Blocks.ATTACHED_MELON_STEM;
+        set(x, 0, z, attached.defaultBlockState().setValue(AttachedStemBlock.FACING, toward));
+    }
+
+    // a dirt path you stand on, running ahead to the fields and across between them
+    private void path() {
+        BlockState path = Blocks.DIRT_PATH.defaultBlockState();
+        for (int z = -12; z <= 38; z++) {
+            for (int x = -1; x <= 1; x++) {
+                clear(x, z);
+                set(x, -1, z, path);
+            }
+        }
+        for (int x = -38; x <= 38; x++) {
+            for (int z = 13; z <= 15; z++) {
+                clear(x, z);
+                set(x, -1, z, path);
+            }
+        }
+    }
+
+    // a lawn beside the path, hedged on three sides with lantern posts at the corners, where the menu's skits put
+    // their beds, stands and chases instead of on the crops
+    // open is the side toward the path; canal is a column left as water
+    private void yard(int x0, int x1, int z0, int z1, boolean openLow, int canal) {
+        int outer = openLow ? x1 : x0;
+        BlockState hedge = Blocks.OAK_LEAVES.defaultBlockState();
+        BlockState post = Blocks.OAK_LOG.defaultBlockState();
+        BlockState lantern = Blocks.LANTERN.defaultBlockState();
+        for (int x = x0; x <= x1; x++) {
+            for (int z = z0; z <= z1; z++) {
+                clear(x, z);
+                if (x == canal) {
+                    set(x, -1, z, Blocks.WATER.defaultBlockState());
+                    continue;
+                }
+                set(x, -1, z, Blocks.GRASS_BLOCK.defaultBlockState());
+                boolean edge = x == outer || z == z0 || z == z1;
+                boolean corner = (x == x0 || x == x1) && (z == z0 || z == z1);
+                if (corner) {
+                    set(x, 0, z, post);
+                    set(x, 1, z, post);
+                    set(x, 2, z, lantern);
+                } else if (edge) {
+                    set(x, 0, z, hedge);
+                }
+            }
+        }
+        int inner = openLow ? x1 - 1 : x0 + 1;
+        if (inner == canal) inner += openLow ? -1 : 1;
+        set(inner, 0, z1 - 1, Blocks.BARREL.defaultBlockState().setValue(BarrelBlock.FACING, Direction.UP));
+        set(inner, 0, z0 + 1, Blocks.COMPOSTER.defaultBlockState());
+    }
+
+    // a dark oak barn with a stepped spruce roof, its long side facing the player
+    private void barn(int x0, int z0) {
+        int w = 11, d = 9;
+        BlockState wall = Blocks.DARK_OAK_PLANKS.defaultBlockState();
+        BlockState post = Blocks.SPRUCE_LOG.defaultBlockState();
+        BlockState roof = Blocks.SPRUCE_PLANKS.defaultBlockState();
+        for (int x = x0; x < x0 + w; x++) {
+            for (int z = z0; z < z0 + d; z++) {
+                clear(x, z);
+                set(x, -1, z, Blocks.DIRT_PATH.defaultBlockState());
+                boolean edge = x == x0 || x == x0 + w - 1 || z == z0 || z == z0 + d - 1;
+                if (!edge) continue;
+                boolean corner = (x == x0 || x == x0 + w - 1) && (z == z0 || z == z0 + d - 1);
+                boolean door = z == z0 && Math.abs(x - (x0 + w / 2)) <= 1;
+                for (int y = 0; y <= 4; y++) {
+                    if (door && y <= 2) continue;
+                    set(x, y, z, corner ? post : wall);
+                }
+            }
+        }
+        for (int k = 0; k <= 4; k++) {
+            for (int x = x0 - 1 + k; x <= x0 + w - k; x++) {
+                for (int z = z0 - 1; z <= z0 + d; z++) set(x, 5 + k, z, roof);
+            }
+        }
+    }
+
+    private void tree(int x, int z) {
+        BlockState log = Blocks.OAK_LOG.defaultBlockState();
+        BlockState leaves = Blocks.OAK_LEAVES.defaultBlockState();
+        for (int y = 3; y <= 6; y++) {
+            int r = y >= 6 ? 1 : 2;
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    if (Math.abs(dx) == r && Math.abs(dz) == r && (y == 6 || hash(x + dx, z + dz + y) < 0.5f)) continue;
+                    set(x + dx, y, z + dz, leaves);
+                }
+            }
+        }
+        for (int y = 0; y <= 4; y++) set(x, y, z, log);
+    }
+
+    private void hay(int x, int z) {
+        lawn(x, z);
+        set(x, 0, z, Blocks.HAY_BLOCK.defaultBlockState());
+    }
+
+    // a patch of plain grass for something to stand on, in place of whatever field was there
+    private void lawn(int x, int z) {
+        clear(x, z);
+        set(x, -1, z, Blocks.GRASS_BLOCK.defaultBlockState());
+    }
+
+    // farmland is wet only within four blocks of water, as in game, and dry everywhere else
+    private void moisten() {
+        for (int x = -RADIUS; x <= RADIUS; x++) {
+            for (int z = -RADIUS; z <= RADIUS; z++) {
+                BlockState s = columns[(z + RADIUS) * size + x + RADIUS][-1 - LOW];
+                if (s == null || !s.is(Blocks.FARMLAND)) continue;
+                set(x, -1, z, s.setValue(FarmlandBlock.MOISTURE, nearWater(x, z) ? 7 : 0));
+            }
+        }
+    }
+
+    private boolean nearWater(int x, int z) {
+        for (int dx = -4; dx <= 4; dx++) {
+            for (int dz = -4; dz <= 4; dz++) {
+                int nx = x + dx, nz = z + dz;
+                if (Math.abs(nx) > RADIUS || Math.abs(nz) > RADIUS) continue;
+                BlockState s = columns[(nz + RADIUS) * size + nx + RADIUS][-1 - LOW];
+                if (s != null && s.is(Blocks.WATER)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static BlockState farmland() {
+        BlockState soil = Blocks.FARMLAND.defaultBlockState();
+        try {
+            return soil.setValue(FarmlandBlock.MOISTURE, 7);
+        } catch (IllegalArgumentException e) {
+            return soil;
+        }
+    }
+
+    // -- storage ----------------------------------------------------------------------------------------------
+
+    private void set(int x, int y, int z, BlockState state) {
+        if (Math.abs(x) > RADIUS || Math.abs(z) > RADIUS || y < LOW || y > HIGH) return;
+        columns[(z + RADIUS) * size + x + RADIUS][y - LOW] = state;
+    }
+
+    // drops anything standing on the ground, so a field or path never keeps the meadow's flowers
+    private void clear(int x, int z) {
+        if (Math.abs(x) > RADIUS || Math.abs(z) > RADIUS) return;
+        BlockState[] column = columns[(z + RADIUS) * size + x + RADIUS];
+        for (int y = 0; y <= HIGH; y++) column[y - LOW] = null;
+    }
+
+    private static float hash(int x, int z) {
+        long h = x * 73856093L ^ z * 19349663L;
+        h = (h ^ (h >>> 13)) * 0x5bd1e995L;
+        return ((h ^ (h >>> 15)) & 0xFFFF) / 65535f;
+    }
+
+    // -- source -----------------------------------------------------------------------------------------------
+
+    @Override
+    public int top(int x, int z) {
+        int wx = x - ox, wz = z - oz;
+        int dx = wx * cos + wz * sin, dz = -wx * sin + wz * cos;
+        if (Math.abs(dx) > RADIUS || Math.abs(dz) > RADIUS) return Integer.MIN_VALUE;
+        return tops[(dz + RADIUS) * size + dx + RADIUS];
+    }
+
+    @Override
+    public BlockState state(int x, int y, int z) {
+        int wx = x - ox, wz = z - oz, ly = y - oy;
+        int dx = wx * cos + wz * sin, dz = -wx * sin + wz * cos;
+        if (Math.abs(dx) > RADIUS || Math.abs(dz) > RADIUS || ly < LOW) return Blocks.DIRT.defaultBlockState();
+        if (ly > HIGH) return Blocks.AIR.defaultBlockState();
+        BlockState s = columns[(dz + RADIUS) * size + dx + RADIUS][ly - LOW];
+        return s == null ? Blocks.AIR.defaultBlockState() : s.rotate(rotation);
+    }
+
+    @Override
+    public int tint(BlockTintSource tint, BlockState state, BlockPos pos) {
+        // with no biome to ask, cane's tint comes back white, so it takes the grass green it gets in plains
+        if (state.is(Blocks.SUGAR_CANE)) return GrassColor.getDefaultColor();
+        return tint.color(state);
+    }
+}

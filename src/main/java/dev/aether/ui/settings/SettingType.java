@@ -14,5 +14,6 @@ public enum SettingType {
     ACTION,
     COLOR,
     POSITION,
-    KEYBIND
+    KEYBIND,
+    PLOT
 }

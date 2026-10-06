@@ -1,13 +1,16 @@
 package dev.aether.util;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.decoration.ArmorStand;
+import net.minecraft.world.entity.player.Player;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 
 public final class EntityUtils {
 
@@ -112,6 +115,21 @@ public final class EntityUtils {
         }
 
         return lines;
+    }
+
+    // hypixel npcs, watchdog bots and player-shaped mobs are fake profiles, so a real account needs a version 4
+    // uuid and a tab list entry, which also rules out the leftover fakes that still carry a random uuid
+    public static boolean isRealPlayer(Minecraft client, Entity entity) {
+        if (!(entity instanceof Player player)) {
+            return false;
+        }
+        ClientPacketListener connection = client.getConnection();
+        return isRealPlayer(player.getUUID(),
+                connection == null || connection.getPlayerInfo(player.getUUID()) != null);
+    }
+
+    static boolean isRealPlayer(UUID uuid, boolean onTabList) {
+        return uuid != null && uuid.version() == 4 && onTabList;
     }
 
     private static int getEntityMatchScore(Entity entity, String target) {

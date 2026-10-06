@@ -6,6 +6,7 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.List;
+import java.util.stream.Stream;
 
 // named config profiles under config/aether/profiles
 // loading applies the snapshot to memory and writes the main config file
@@ -21,11 +22,19 @@ public final class ConfigProfileManager {
 
     private ConfigProfileManager() {}
 
+    // the loaded profile's name, null before any profile was saved or loaded this session
+    public static String activeName() {
+        Path path = activeProfilePath;
+        if (path == null) return null;
+        String name = path.getFileName().toString();
+        return name.endsWith(".json") ? name.substring(0, name.length() - 5) : name;
+    }
+
     // -- CRUD ------------------------------------------------------------------
 
     public static List<String> list() {
-        try {
-            return Files.list(DIR)
+        try (Stream<Path> files = Files.list(DIR)) {
+            return files
                     .filter(p -> p.toString().endsWith(".json"))
                     .map(p -> p.getFileName().toString().replace(".json", ""))
                     .sorted()
@@ -33,6 +42,11 @@ public final class ConfigProfileManager {
         } catch (IOException e) {
             return List.of();
         }
+    }
+
+    public static boolean exists(String name) {
+        String sanitized = sanitize(name);
+        return !sanitized.isBlank() && Files.exists(DIR.resolve(sanitized + ".json"));
     }
 
     public static void save(String name) {
@@ -49,8 +63,13 @@ public final class ConfigProfileManager {
     public static boolean load(String name) {
         Path src = DIR.resolve(sanitize(name) + ".json");
         if (!Files.exists(src)) return false;
+        // loadFrom may save while migrating, which must not sync the incoming values into the outgoing profile
+        Path previous = activeProfilePath;
+        activeProfilePath = null;
         boolean loaded = AetherConfig.loadFrom(src.toFile());
-        if (loaded) {
+        if (!loaded) {
+            activeProfilePath = previous;
+        } else {
             activeProfilePath = src;
             AetherBootstrapHooks.onConfigProfileLoaded(src.toFile());
             AetherConfig.flush();

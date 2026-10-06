@@ -5,12 +5,15 @@ import dev.aether.util.AetherResources;
 import dev.aether.macro.MacroState;
 import dev.aether.macro.MacroStateManager;
 import dev.aether.macro.ReconnectScheduler;
+import dev.aether.macro.fishing.FishingMacroManager;
 import dev.aether.modules.failsafe.FailsafeAction;
 import dev.aether.modules.failsafe.FailsafeCustomReplayManager;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.session.RecoveryManager;
 import dev.aether.modules.session.RestartManager;
 import dev.aether.notification.NotificationManager;
+import dev.aether.util.AetherLang;
+import dev.aether.util.ClientUtils;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -70,7 +73,7 @@ public final class AetherWorldChangeTickHandler {
             return false;
         }
 
-        if (RestartManager.isRestartPending()) {
+        if (RestartManager.isRestartPending() || FishingMacroManager.isRestarting()) {
             return false;
         }
 
@@ -93,14 +96,27 @@ public final class AetherWorldChangeTickHandler {
             return;
         }
 
+        boolean fishing = MacroStateManager.getCurrentState() == MacroState.State.FISHING;
+        // read before anything stops the macro, since the reason comes from the running macro's route
+        String blocked = fishing && action != FailsafeAction.CUSTOM ? FishingMacroManager.restartBlockedReason() : null;
         FailsafeManager.handleConfiguredAction(
                 client,
                 action,
                 FailsafeCustomReplayManager.FailsafeReplayType.WORLD_CHANGE,
                 details,
                 debugReason,
-                "Macro stopped and world change recovery started.");
+                worldChangeActionDone(fishing, blocked));
         if (action == FailsafeAction.CUSTOM) {
+            return;
+        }
+        // garden recovery would walk a fishing macro to the wrong island, so fishing walks its restart route
+        if (fishing) {
+            if (blocked == null && FishingMacroManager.restartAfterLeavingIsland(client)) {
+                return;
+            }
+            String reason = blocked != null ? blocked : "No restart route selected, macro stopped.";
+            ClientUtils.sendMessage("\u00A7cWorld changed: " + AetherLang.localize(reason), false);
+            MacroStateManager.stopMacro(client, "World changed while fishing: " + reason, false);
             return;
         }
         if (savedPosition == null) {
@@ -110,6 +126,13 @@ public final class AetherWorldChangeTickHandler {
 
         MacroStateManager.stopMacro(client, "World change detected; starting recovery path", false);
         RecoveryManager.beginWorldChangeRecovery(savedPosition);
+    }
+
+    static String worldChangeActionDone(boolean fishing, String restartBlocked) {
+        if (!fishing) {
+            return "Macro stopped and world change recovery started.";
+        }
+        return restartBlocked == null ? "Restart route started." : "Macro stopped.";
     }
 
 }

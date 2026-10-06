@@ -18,11 +18,14 @@ import dev.aether.modules.pest.helpers.PestTrackerAbility;
 import dev.aether.modules.performance.MuteManager;
 import dev.aether.modules.performance.PerformanceModeManager;
 import dev.aether.modules.profit.ProfitManager;
+import dev.aether.modules.routes.RouteEditor;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.modules.visuals.StreamerModeManager;
 import dev.aether.modules.visuals.PestEspManager;
 import dev.aether.notification.NotificationManager;
 import dev.aether.renderer.FunRenderer;
 import dev.aether.renderer.CosmeticWorldRenderer;
+import dev.aether.renderer.McTextures;
 import dev.aether.renderer.PositionHighlighter;
 import dev.aether.telemetry.AetherAuthService;
 import dev.aether.telemetry.AetherTelemetryService;
@@ -59,13 +62,18 @@ public final class ClientFeatureBootstrap {
         AutoCarnivalManager.syncFromConfig(Minecraft.getInstance());
         ReconnectScheduler.clearState();
         HudRegistry.register();
+        RouteEditor.registerHud();
         MacroWorkerThread.getInstance().start();
         AetherAuthService.initialize();
         IrcManager.initialize();
         PlaySessionTracker.register();
         PathVisualizer.register();
+        McTextures.registerReloadListener();
+        dev.aether.ui.gui.GuiCanvas.installItemPainter((nvg, id, x, y, size, tint) ->
+                nvg.mcIcon(dev.aether.renderer.McIcons.of(id), x, y, size, tint));
 
         LevelRenderEvents.END_MAIN.register(ctx -> {
+            dev.aether.ui.orbit.OrbitScreen.renderWorldIfOpen();
             if (StreamerModeManager.isEnabled()) {
                 return;
             }
@@ -75,7 +83,9 @@ public final class ClientFeatureBootstrap {
             boolean drawPestEsp = PestEspManager.hasVisibleHighlights();
             boolean drawPestTracker = PestTrackerAbility.hasVisibleArc();
             boolean drawFunEffects = FunRenderer.hasVisibleEffects();
-            if (!drawPathVisualizer && !drawPositionHighlights && !drawPestEsp && !drawPestTracker && !drawFunEffects) {
+            boolean drawRouteEditor = RouteEditor.isActive();
+            if (!drawPathVisualizer && !drawPositionHighlights && !drawPestEsp && !drawPestTracker && !drawFunEffects
+                    && !drawRouteEditor) {
                 return;
             }
             if (drawPathVisualizer) {
@@ -92,6 +102,9 @@ public final class ClientFeatureBootstrap {
             }
             if (drawFunEffects) {
                 FunRenderer.renderWorld(ctx);
+            }
+            if (drawRouteEditor) {
+                RouteEditor.renderWorld(ctx);
             }
         });
 
@@ -113,6 +126,8 @@ public final class ClientFeatureBootstrap {
         // until the game closes never fires onMacroStop(), so this prevents the day's
         // un-committed time from being lost on exit.
         dev.aether.modules.session.DailyFarmTimeTracker.persistNow();
+        // Profit totals are saved in batches; write whatever is still pending before exit.
+        dev.aether.modules.profit.ProfitManager.flush();
         AetherTelemetryService.shutdown();
         AetherBanService.shutdown();
         IrcManager.shutdown();
@@ -135,6 +150,7 @@ public final class ClientFeatureBootstrap {
         MacroStateManager.syncFromConfig();
         IrcManager.syncFromConfig();
         AutoCarnivalManager.syncFromConfig(Minecraft.getInstance());
+        MicropauseManager.syncFromConfig();
 
         Minecraft client = Minecraft.getInstance();
         PerformanceModeManager.stop(client);

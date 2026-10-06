@@ -7,7 +7,12 @@ import dev.aether.ui.settings.ActionSetting;
 import dev.aether.ui.settings.ModulesTab;
 import dev.aether.ui.settings.SettingGroup;
 import dev.aether.ui.settings.SliderSetting;
+import dev.aether.bootstrap.AetherUiActions;
+import dev.aether.config.AetherConfig;
+import dev.aether.ui.settings.DropdownSetting;
+import dev.aether.ui.settings.ToggleSetting;
 import dev.aether.ui.theme.Theme;
+import dev.aether.ui.theme.ThemePreset;
 import net.minecraft.client.Minecraft;
 
 import java.util.ArrayList;
@@ -21,6 +26,29 @@ public final class ThemeOptionsSettingsRegistryProvider extends AbstractSettings
     @Override
     protected ModulesTab.SubTab createSubTab() {
         List<SettingGroup> groups = new ArrayList<>();
+        List<String> themes = new ArrayList<>();
+        for (ThemePreset preset : ThemePreset.values()) themes.add(preset.label());
+        themes.add("Custom");
+        groups.add(SettingGroup.alwaysOn("Look", "Colour theme and which menu opens")
+                .add(new DropdownSetting("Theme", themes,
+                        () -> {
+                            ThemePreset current = ThemePreset.current();
+                            return current == null ? ThemePreset.values().length : current.ordinal();
+                        },
+                        index -> {
+                            if (index < 0 || index >= ThemePreset.values().length) return;
+                            ThemePreset.values()[index].apply();
+                            Theme.saveTheme();
+                        })
+                        .describe("Aether is the original red on black"))
+                .add(new ToggleSetting("Traditional GUI", AetherConfig.TRADITIONAL_GUI::get,
+                        value -> {
+                            AetherConfig.TRADITIONAL_GUI.set(value);
+                            AetherConfig.save();
+                            // swap straight over to the other menu
+                            AetherUiActions.openMainGui();
+                        })
+                        .describe("Use the classic flat settings window instead of the 3D farm menu")));
         groups.add(SettingGroup.alwaysOn(
                         "Theme Options",
                         "Animation speed and interface scale")

@@ -17,22 +17,35 @@ import java.io.InputStream;
 import java.io.StringReader;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.xml.parsers.DocumentBuilderFactory;
 
-// rasterized at physical resolution and cached per "path@physWxphysH", so high-dpi stays crisp
-// tinting works on any fill, white included, by overriding the paint's colors after nvgImagePattern
+// rasterized at device resolution (canvas transform included) and cached per "path@physWxphysH", so high-dpi and
+// scaled canvases stay crisp; tinting works on any fill, white included, by overriding the paint's colors
 final class SVGRenderer {
 
     private static final Pattern SVG_LENGTH_PATTERN = Pattern.compile(
             "^\\s*([+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[eE][+-]?\\d+)?)\\s*([a-zA-Z%]*)\\s*$"
     );
 
-    private static final Map<String, Integer> imageCache = new HashMap<>();
+    // every distinct size is a raster and a gl texture, so scale animations would otherwise grow the cache forever
+    private static final int MAX_RASTERS = 256;
+
+    // failed loads stay cached as 0 so a missing file is not re-read every frame
+    private static final Map<String, Integer> imageCache = new LinkedHashMap<>(64, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Integer> eldest) {
+            if (size() <= MAX_RASTERS) return false;
+            retire(eldest.getValue());
+            return true;
+        }
+    };
+
+    private static final float[] transform = new float[6];
 
     private SVGRenderer() {}
 
@@ -43,13 +56,14 @@ final class SVGRenderer {
                        float x, float y, float width, float height,
                        int argbColor, NVGPaint paintScratch) {
 
-        float px  = NanoVGManager.getPxRatio();
-        int   physW = Math.max(1, (int) Math.ceil(width  * px));
-        int   physH = Math.max(1, (int) Math.ceil(height * px));
+        NanoVG.nvgCurrentTransform(vg, transform);
+        float px = NanoVGManager.getPxRatio();
+        int physW = bucket(width * (float) Math.hypot(transform[0], transform[1]) * px);
+        int physH = bucket(height * (float) Math.hypot(transform[2], transform[3]) * px);
 
         String cacheKey = resourcePath + "@" + physW + "x" + physH;
         int imgHandle = getOrLoad(vg, cacheKey, resourcePath, physW, physH);
-        if (imgHandle == -1) return;
+        if (imgHandle <= 0) return;
 
         float alpha = ((argbColor >> 24) & 0xFF) / 255f;
         float r     = ((argbColor >> 16) & 0xFF) / 255f;
@@ -76,15 +90,28 @@ final class SVGRenderer {
 
     // -- Cache -----------------------------------------------------------------
 
+    // device sizes round up to even pixels, so fractional ui scales and scale animations share a few rasters
+    static int bucket(float devicePixels) {
+        int pixels = Math.max(1, (int) Math.ceil(devicePixels - 1e-3f));
+        return (pixels + 1) & ~1;
+    }
+
+    static int cachedRasters() {
+        return imageCache.size();
+    }
+
     private static int getOrLoad(long vg, String cacheKey, String resourcePath, int width, int height) {
         Integer cached = imageCache.get(cacheKey);
         if (cached != null) return cached;
 
-        int handle = loadSVG(vg, resourcePath, width, height);
-        if (handle != -1) {
-            imageCache.put(cacheKey, handle);
-        }
+        int handle = Math.max(0, loadSVG(vg, resourcePath, width, height));
+        imageCache.put(cacheKey, handle);
         return handle;
+    }
+
+    // nanovg only draws at nvgEndFrame, so an image evicted mid-frame may still be sampled by this frame's fills
+    private static void retire(int handle) {
+        if (handle > 0) NanoVGManager.runInNextFrame(() -> NanoVG.nvgDeleteImage(NanoVGManager.getVg(), handle));
     }
 
     private static int loadSVG(long vg, String resourcePath, int width, int height) {
@@ -141,8 +168,10 @@ final class SVGRenderer {
         int nvgId = NanoVG.nvgCreateImageRGBA(vg, rW, rH, 0, pixels);
         MemoryUtil.memFree(pixels);
 
-        if (nvgId == -1) {
+        // nanovg returns 0 when it cannot create the image
+        if (nvgId <= 0) {
             System.err.println("[Aether] NanoVG image creation failed: " + resourcePath);
+            return -1;
         }
         return nvgId;
     }
@@ -216,7 +245,7 @@ final class SVGRenderer {
     // call when destroying the nanovg context
     static void destroy(long vg) {
         for (int handle : imageCache.values()) {
-            NanoVG.nvgDeleteImage(vg, handle);
+            if (handle > 0) NanoVG.nvgDeleteImage(vg, handle);
         }
         imageCache.clear();
     }

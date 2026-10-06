@@ -10,6 +10,7 @@ import dev.aether.macro.MacroWorkerThread;
 import dev.aether.macro.farming.FarmingMacroManager;
 import dev.aether.modules.failsafe.FailsafeManager;
 import dev.aether.modules.pest.PestManager;
+import dev.aether.modules.session.MicropauseManager;
 import dev.aether.util.BazaarUtils;
 import dev.aether.util.ClientUtils;
 import dev.aether.util.ProgrammaticAttackTracker;
@@ -93,7 +94,8 @@ public final class AutoSprayonatorManager {
         if (client == null || client.player == null || client.getConnection() == null) return;
         if (!AetherConfig.AUTO_SPRAYONATOR.get()) return;
         if (running) return;
-        if (MacroStateManager.getCurrentState() != MacroState.State.FARMING) return;
+        if (MacroStateManager.getCurrentState() != MacroState.State.FARMING
+                || MicropauseManager.isHoldingTasks()) return;
 
         long now = System.currentTimeMillis();
         if (now - lastRunMs < RUN_COOLDOWN_MS) return;
