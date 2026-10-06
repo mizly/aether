@@ -232,6 +232,12 @@ public final class PanelView {
         return handled;
     }
 
+    // the press was taken over by something else, like the plot picker, so its release never comes back here
+    public void pointerCancelled() {
+        hits.cancelCapture();
+        batch.end();
+    }
+
     public boolean pointerDragged(PointerInput in) {
         return hits.drag(in);
     }

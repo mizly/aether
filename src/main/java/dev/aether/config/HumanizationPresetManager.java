@@ -24,8 +24,9 @@ public final class HumanizationPresetManager {
     private static final Gson PRESET_GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final List<String> PRESET_OPTIONS = List.of("Extra Legit", "Legit", "Blatant");
     private static final List<String> BUNDLED_PRESET_IDS = List.of("extra_legit", "legit", "blatant");
-    // configs saved before the rename still name the old presets, which map onto these in order
-    private static final List<String> LEGACY_PRESET_IDS = List.of("safe", "normal", "efficient");
+    // configs saved before the rename still name the old presets; the old efficient ran safe's slow delays, so it
+    // lands on legit rather than on blatant's aggressive ones
+    private static final Map<String, Integer> LEGACY_PRESET_INDEX = Map.of("safe", 0, "normal", 1, "efficient", 1);
     private static final String RESOURCE_BASE = "assets/aether/humanization-presets/";
     private static final Path PRESET_DIR = FabricLoader.getInstance()
             .getConfigDir()
@@ -57,7 +58,7 @@ public final class HumanizationPresetManager {
         String presetId = normalizePresetId(selectedPreset);
         int index = BUNDLED_PRESET_IDS.indexOf(presetId);
         if (index < 0) {
-            index = LEGACY_PRESET_IDS.indexOf(presetId);
+            index = LEGACY_PRESET_INDEX.getOrDefault(presetId, -1);
         }
         return index < 0 ? 1 : index;
     }

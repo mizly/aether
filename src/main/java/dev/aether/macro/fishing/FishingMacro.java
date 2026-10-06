@@ -160,6 +160,7 @@ public final class FishingMacro extends AbstractFishingMacro {
     // standing on the floor under a hotspot's nametag, where the float is thrown straight up; this stays true
     // after the hotspot closes, since that is still the spot the player is sunk on
     private boolean castUp;
+    private boolean failed;
 
     @Override
     public void onEnable(Minecraft mc) {
@@ -230,8 +231,8 @@ public final class FishingMacro extends AbstractFishingMacro {
             }
         }
 
-        // last word on the jump key, since every state above clears it
-        homeKeeper.tickLiquidEscape(mc, System.currentTimeMillis(), ThreadLocalRandom.current());
+        // last word on the jump key, since every state above clears it; a failure this tick already let go of it
+        if (!failed) homeKeeper.tickLiquidEscape(mc, System.currentTimeMillis(), ThreadLocalRandom.current());
     }
 
     private void tickAim(Minecraft mc) {
@@ -924,6 +925,7 @@ public final class FishingMacro extends AbstractFishingMacro {
     }
 
     private void fail(String message, String detail) {
+        failed = true;
         // localised before the colour code goes on, which would otherwise end up in the lookup key
         ClientUtils.sendMessage("§c" + AetherLang.localize(message) + detail, false);
         MacroStateManager.stopMacro(Minecraft.getInstance(), message + detail, false);

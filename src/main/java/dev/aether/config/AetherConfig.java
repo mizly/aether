@@ -772,6 +772,8 @@ public final class AetherConfig {
         public static final BooleanEntry GUI_ONLY_IN_GARDEN = Config.bool("guiOnlyInGarden", false);
         // open the flat settings window instead of the 3d farm menu
         public static final BooleanEntry TRADITIONAL_GUI = Config.bool("traditionalGui", false);
+        // photograph garden plots and copy the barn for the 3d menu's plot map, which is the only thing that shows them
+        public static final BooleanEntry RECORD_GARDEN_PLOTS = Config.bool("recordGardenPlots", true);
         public static final BooleanEntry HUD_ONLY_WHILE_MACRO_RUNNING = Config.bool("hudOnlyWhileMacroRunning", false);
 
         // -- PET TRACKER -----------------------------------------------------------

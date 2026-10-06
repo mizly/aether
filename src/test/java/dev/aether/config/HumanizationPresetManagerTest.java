@@ -81,7 +81,7 @@ class HumanizationPresetManagerTest {
     void presetsSavedUnderTheOldNamesStillShowTheMatchingPreset() {
         String saved = AetherConfig.HUMANIZATION_PRESET.get();
         try {
-            String[][] cases = {{"SAFE", "0"}, {"NORMAL", "1"}, {"EFFICIENT", "2"}, {"EXTRA_LEGIT", "0"},
+            String[][] cases = {{"SAFE", "0"}, {"NORMAL", "1"}, {"EFFICIENT", "1"}, {"EXTRA_LEGIT", "0"},
                     {"LEGIT", "1"}, {"BLATANT", "2"}, {"something else", "1"}};
             for (String[] c : cases) {
                 AetherConfig.HUMANIZATION_PRESET.set(c[0]);
