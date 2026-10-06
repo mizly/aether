@@ -66,6 +66,9 @@ public final class ProfitPricing {
             "Melon Juice", "Cactus Flower", "Designer Coffee Beans", "Feastfungus",
             "Botroot", "Salted Sunflower Seeds", "Crystalized Moonlight", "Floral Gelatin",
             "Seasoning");
+    // drops the npc really buys at the TRACKED_ITEMS price; other entries there are only estimates
+    private static final Set<String> NPC_SELLABLE_DROPS = Set.of(
+            "Cropie", "Squash", "Fermento", "Tool EXP Capsule", "Vinyl");
     private static final Set<String> SEARCH_BACKED_BAZAAR_ITEMS = buildSearchBackedBazaarItems();
 
     private static final Map<String, Double> TRACKED_ITEMS = Map.ofEntries(
@@ -377,6 +380,10 @@ public final class ProfitPricing {
         };
     }
 
+    private static boolean isNpcSellable(String lookupKey) {
+        return CROPS_SET.contains(lookupKey) || NPC_SELLABLE_DROPS.contains(lookupKey);
+    }
+
     public boolean isCrop(String name) {
         return CROPS_SET.contains(sanitizeName(name));
     }
@@ -509,6 +516,10 @@ public final class ProfitPricing {
         ProfitPriceSource source = ProfitPriceSource.fromConfig(AetherConfig.PROFIT_PRICE_SOURCE.get());
         if (source == ProfitPriceSource.BAZAAR) {
             double marketPrice = bazaarPrices.getOrDefault(lookupKey, 0.0);
+            // autosell npc-sells first, so raw crops often fetch more there than bazaar insta-sell
+            if (isNpcSellable(lookupKey)) {
+                return Math.max(marketPrice, TRACKED_ITEMS.getOrDefault(lookupKey, 0.0));
+            }
             if (marketPrice > 0.0) {
                 return marketPrice;
             }
