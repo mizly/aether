@@ -373,6 +373,11 @@ public final class OrbitScreen extends Screen {
         float[] a = projectLocal(active, area.x(), area.y());
         float[] b = projectLocal(active, area.right(), area.bottom());
         float[] rect = {Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1])};
+        // the picker takes the release of the press that opened it, which would leave config saving paused
+        if (pressedPanel) {
+            pressedPanel = false;
+            view.pointerCancelled();
+        }
         plotScreen = new OrbitPlotScreen(setting, rect, OrbitPlotScreen.thumbYaw(seconds()));
         plotNanos = System.nanoTime();
     }
