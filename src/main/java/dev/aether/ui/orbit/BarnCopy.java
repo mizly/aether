@@ -105,10 +105,12 @@ final class BarnCopy {
         int x1 = Math.min(w - 1, x0 + MAX_SIDE - 1), z1 = Math.min(d - 1, z0 + MAX_SIDE - 1);
         // shrink the window to what actually stands in it, with a block of floor round the edge
         int bx0 = x1, bz0 = z1, bx1 = x0, bz1 = z0, peak = ground;
+        boolean found = false;
         for (int z = z0; z <= z1; z++) {
             for (int x = x0; x <= x1; x++) {
                 int top = tops[z * w + x];
                 if (top == Integer.MIN_VALUE || top - ground < TALL) continue;
+                found = true;
                 bx0 = Math.min(bx0, x);
                 bz0 = Math.min(bz0, z);
                 bx1 = Math.max(bx1, x);
@@ -116,6 +118,8 @@ final class BarnCopy {
                 peak = Math.max(peak, top);
             }
         }
+        // two buildings far apart can pull the middle onto open ground, leaving nothing in the window to copy
+        if (!found) return null;
         bx0 = Math.max(x0, bx0 - 1);
         bz0 = Math.max(z0, bz0 - 1);
         bx1 = Math.min(x1, bx1 + 1);
