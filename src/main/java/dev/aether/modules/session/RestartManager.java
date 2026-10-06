@@ -88,11 +88,25 @@ public class RestartManager {
         return state == MacroState.State.FARMING;
     }
 
+    // the abort, /hub and recovery below lead back to the garden to farm, so any other macro just stops instead
+    private static boolean stopIfNotFarming(Minecraft client) {
+        MacroState.State state = MacroStateManager.getCurrentState();
+        if (state != MacroState.State.FISHING && state != MacroState.State.METAL_DETECTING
+                && state != MacroState.State.AUTO_CARNIVAL) {
+            return false;
+        }
+        ClientUtils.sendMessage("\u00A7c" + dev.aether.util.AetherLang.localize(
+                "Server restart detected. Stopping the macro."), false);
+        MacroStateManager.stopMacro(client, "Server restart while running " + state, false);
+        return true;
+    }
+
     public static void handleRestartMessage(Minecraft client, boolean isImmediate) {
         if (MacroStateManager.getCurrentState() != MacroState.State.OFF
                 && MacroStateManager.getCurrentState() != MacroState.State.RECOVERING
                 && !isRestartPending
                 && !isProxyRestartPending) {
+            if (stopIfNotFarming(client)) return;
             long contestMs = isImmediate ? 0 : ClientUtils.getJacobsContestRemainingMs();
             if (contestMs > 0) {
                 restartDelaySeconds = ThreadLocalRandom.current()
@@ -128,6 +142,7 @@ public class RestartManager {
                 || isProxyRestartPending) {
             return;
         }
+        if (stopIfNotFarming(client)) return;
 
         proxyRestartDelaySeconds = ThreadLocalRandom.current()
                 .nextLong(PROXY_RESTART_MIN_DELAY_SECONDS, PROXY_RESTART_MAX_DELAY_SECONDS + 1);
