@@ -19,22 +19,14 @@ import static dev.aether.ui.orbit.panel.PanelPaint.MEDIUM;
 import static dev.aether.ui.orbit.panel.PanelPaint.REGULAR;
 import static dev.aether.ui.orbit.panel.PanelPaint.SEMIBOLD;
 
-// settings you pick with minecraft items instead of a field: farm type as a fan of crops, pest threshold as a
-// stack of silverfish eggs and the humanization preset as three chestplates
+// settings you pick with minecraft items instead of a field: pest threshold as a stack of silverfish eggs and the
+// humanization preset as three chestplates
 final class PanelItems {
-    enum Kind { FARM, STACK, TIERS }
+    enum Kind { STACK, TIERS }
 
     private record Choice(String label, String item, String hint) {
     }
 
-    private static final List<Choice> FARM = List.of(
-            new Choice("S-Shape", "wheat", "Wheat · Carrot · Potato"),
-            new Choice("S-Shape (Cane)", "sugar_cane", "Sugar Cane"),
-            new Choice("SDS (Mushroom)", "red_mushroom", "Mushroom"),
-            new Choice("Cocoa Beans", "cocoa_beans", "Cocoa Beans"),
-            new Choice("A/D", "carrot", "Melon · Pumpkin · Carrot"),
-            new Choice("W/S", "nether_wart", "Nether Wart · Cactus"),
-            new Choice("Custom", "compass", "Your own lane keys"));
     private static final List<Choice> TIERS = List.of(
             new Choice("Extra Legit", "diamond_chestplate", "Slowest, most human"),
             new Choice("Legit", "iron_chestplate", "Balanced"),
@@ -43,9 +35,7 @@ final class PanelItems {
     private static final float EGG_STEP = 20f;
 
     static final float WIDE = 470f;
-    private static final float FAN_H = 112f;
     private static final float TIERS_H = 74f;
-    private static final float FLIGHT_MS = 420f;
 
     private PanelItems() {
     }
@@ -53,7 +43,6 @@ final class PanelItems {
     static Kind kind(Setting setting) {
         if (setting instanceof DropdownSetting dropdown) {
             List<String> options = dropdown.getOptions();
-            if (labels(FARM).equals(options)) return Kind.FARM;
             if (labels(TIERS).equals(options)) return Kind.TIERS;
         }
         if (setting instanceof SliderSetting && setting.getRawName().equals("Pest Threshold")) return Kind.STACK;
@@ -71,12 +60,11 @@ final class PanelItems {
     }
 
     static float blockHeight(Kind kind) {
-        return kind == Kind.FARM ? FAN_H : TIERS_H;
+        return TIERS_H;
     }
 
     static float inlineWidth(Kind kind) {
         return switch (kind) {
-            case FARM -> FARM.size() * 26f - 2f;
             case STACK -> 36f + 10f + 8 * EGG_STEP + 6f;
             case TIERS -> 3 * 92f;
         };
@@ -85,109 +73,16 @@ final class PanelItems {
     // -- drawing ----------------------------------------------------------------------------------------------
 
     static void drawBlock(PanelFrame f, Kind kind, Setting setting, String key, Rect area) {
-        if (kind == Kind.FARM) fan(f, (DropdownSetting) setting, key, area);
-        else tiers(f, (DropdownSetting) setting, key, area);
+        tiers(f, (DropdownSetting) setting, key, area);
     }
 
     static void drawInline(PanelFrame f, Kind kind, Setting setting, String key, float right, float cy) {
         switch (kind) {
-            case FARM -> miniFan(f, (DropdownSetting) setting, key, right, cy);
             case STACK -> stack(f, (SliderSetting) setting, key, right, cy);
             case TIERS -> miniTiers(f, (DropdownSetting) setting, key, right, cy);
         }
     }
 
-    // the selected crop sits in a slot; the others float on an arc and fly into the slot when picked
-    private static void fan(PanelFrame f, DropdownSetting setting, String key, Rect area) {
-        GuiCanvas c = f.canvas();
-        Palette p = f.palette();
-        int selected = setting.getSelectedIndex();
-        float slotSize = 50f;
-        Rect slot = new Rect(area.x() + 14f, area.y() + 8f, slotSize, slotSize);
-        mcSlot(c, slot);
-        Choice current = choice(FARM, selected);
-        PanelPaint.textCentered(c, SEMIBOLD, 12.5f, AetherLang.localize(current.label()), slot.centerX(), slot.bottom() + 14f, p.text());
-
-        float arcX = slot.right() + 46f;
-        float arcW = area.right() - arcX - 26f;
-        float time = f.seconds();
-        int n = FARM.size();
-        c.save();
-        c.beginPath();
-        for (int s = 0; s <= 24; s++) {
-            float u = s / 24f;
-            float x = arcX - 10f + (arcW + 20f) * u;
-            float k = u * 2f - 1f;
-            if (s == 0) c.moveTo(x, area.y() + 20f + k * k * 28f);
-            else c.lineTo(x, area.y() + 20f + k * k * 28f);
-        }
-        c.strokePath(1.2f, Argb.withAlpha(p.border(), 0.4f));
-        c.restore();
-        float[] ghost = spot(arcX, arcW, area.y(), selected, n);
-        c.strokeCircle(ghost[0], ghost[1], 15f, 1.2f, Argb.withAlpha(p.border(), 0.55f));
-
-        int hovered = -1;
-        for (int i = 0; i < n; i++) {
-            Choice choice = FARM.get(i);
-            String itemKey = key + "/fan/" + i;
-            boolean picked = i == selected;
-            float t = f.anim().ease(itemKey + "/sel", picked ? 1f : 0f, FLIGHT_MS);
-            float k = picked ? backOut(t) : 1f - backOut(1f - t);
-            float[] from = spot(arcX, arcW, area.y(), i, n);
-            float x = from[0] + (slot.centerX() - from[0]) * k;
-            float y = from[1] + (slot.centerY() - from[1]) * k;
-            boolean hover = f.hits().hovered(itemKey);
-            float lift = f.anim().hover(itemKey, hover);
-            if (hover) hovered = i;
-            float bob = (float) Math.sin(time * 2.2f + i * 0.9f) * 2.5f * (1f - k * 0.7f);
-            float size = 30f + 6f * k + 5f * lift + pop(t, picked) * 8f;
-            if (lift > 0.01f && !picked) {
-                c.circle(x, y + bob - lift * 6f, 19f, Argb.withAlpha(p.accent(), 0.12f * lift));
-            }
-            PanelPaint.icon(c, Icon.item(choice.item()), x, y + bob - lift * 6f, size, 0xFFFFFFFF);
-            Rect hit = new Rect(x - 18f, y - 18f, 36f, 36f);
-            int index = i;
-            f.hits().add(itemKey, hit, HitHandler.click(() -> setting.setSelectedIndex(index)), Cursor.HAND);
-        }
-        Choice shown = hovered >= 0 ? FARM.get(hovered) : current;
-        String hint = AetherLang.localize(shown.label()) + " · " + AetherLang.localize(shown.hint());
-        c.text(REGULAR, 11f, hint, arcX - 10f, area.bottom() - 18f, p.textMuted());
-    }
-
-    private static float[] spot(float arcX, float arcW, float top, int i, int n) {
-        float u = n <= 1 ? 0.5f : (float) i / (n - 1);
-        float k = u * 2f - 1f;
-        return new float[]{arcX + arcW * u, top + 20f + k * k * 28f};
-    }
-
-    private static void miniFan(PanelFrame f, DropdownSetting setting, String key, float right, float cy) {
-        GuiCanvas c = f.canvas();
-        Palette p = f.palette();
-        int selected = setting.getSelectedIndex();
-        float x = right - inlineWidth(Kind.FARM);
-        for (int i = 0; i < FARM.size(); i++) {
-            String itemKey = key + "/mini/" + i;
-            Rect tile = new Rect(x + i * 26f, cy - 12f, 24f, 24f);
-            boolean picked = i == selected;
-            float on = f.anim().ease(itemKey + "/sel", picked ? 1f : 0f, 260f);
-            float hover = f.anim().hover(itemKey, f.hits().hovered(itemKey));
-            if (on > 0.01f) {
-                c.roundedRect(tile, 6f, Argb.withAlpha(p.accent(), 0.22f * on));
-                c.strokeRect(tile, 6f, 1f, Argb.withAlpha(p.accent(), 0.7f * on));
-            } else if (hover > 0.01f) {
-                c.roundedRect(tile, 6f, Argb.withAlpha(p.text(), 0.07f * hover));
-            }
-            c.save();
-            if (!picked) c.alpha(0.55f + 0.45f * hover);
-            PanelPaint.icon(c, Icon.item(FARM.get(i).item()), tile.centerX(), tile.centerY() - hover * 1.5f,
-                    18f + pop(on, picked) * 5f, 0xFFFFFFFF);
-            c.restore();
-            int index = i;
-            f.hits().add(itemKey, tile, HitHandler.click(() -> setting.setSelectedIndex(index)), Cursor.HAND);
-        }
-    }
-
-    // pest threshold: one egg per pest, the lit ones are the threshold; click, drag or scroll across them
     private static void stack(PanelFrame f, SliderSetting setting, String key, float right, float cy) {
         GuiCanvas c = f.canvas();
         int min = Math.round(setting.getMin());
@@ -320,11 +215,5 @@ final class PanelItems {
     // a quick swell while something becomes picked, zero once it settles
     private static float pop(float t, boolean rising) {
         return rising && t < 1f ? (float) Math.sin(Math.PI * t) : 0f;
-    }
-
-    private static float backOut(float t) {
-        float s = 1.70158f;
-        float u = t - 1f;
-        return 1f + u * u * ((s + 1f) * u + s);
     }
 }
