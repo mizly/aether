@@ -243,6 +243,11 @@ public class PestDestroyer {
             return;
         }
 
+        if (PestLeaveOneController.tryHandleLostReservedPest(
+                client, runtime, CONTEXT)) {
+            return;
+        }
+
         if (PestDestroyerProgressController.tick(
                 client, runtime, STUCK_TIMEOUT_MS, CONTEXT)) {
             return;
