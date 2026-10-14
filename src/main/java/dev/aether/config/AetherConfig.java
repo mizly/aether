@@ -911,6 +911,7 @@ public final class AetherConfig {
         public static final StringEntry FARMING_MACRO_PRESET = Config.string("farmingMacroPreset", "");
         public static final StringEntry FARM_TYPE = Config.string("farmType", FarmType.S_SHAPE.name());
         public static final BooleanEntry MACRO_UNGRAB_MOUSE = Config.bool("macroUngrabMouse", true);
+        public static final BooleanEntry SMART_UNGRAB_MOUSE = Config.bool("smartUngrabMouse", false);
         public static final BooleanEntry AUTO_RECONNECT = Config.bool("autoReconnect", true);
         public static final BooleanEntry MACRO_USE_CUSTOM_PITCH = Config.bool("macroUseCustomPitch", false);
         // -90 looks straight up, 90 straight down

@@ -25,6 +25,7 @@ import dev.aether.modules.movement.MovementPlaybackManager;
 import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.performance.MuteManager;
 import dev.aether.modules.performance.PerformanceModeManager;
+import dev.aether.modules.visuals.UngrabMouseManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.modules.pest.helpers.AutoPestExchangeManager;
 import dev.aether.modules.pest.helpers.AutoSprayonatorManager;
@@ -218,12 +219,18 @@ public class MacroStateManager {
                 if (AetherConfig.MACRO_UNGRAB_MOUSE.get()) {
                     UngrabMouse.requestMacroUngrab();
                 }
+                if (prevState == MacroState.State.OFF) {
+                    UngrabMouseManager.onMacroStarted();
+                }
                 PerformanceModeManager.start(client);
                 MuteManager.start(client);
             });
         } else {
             runOnClientThread(client, () -> {
                 UngrabMouse.clearMacroUngrab();
+                if (prevState != MacroState.State.OFF) {
+                    UngrabMouseManager.onMacroStopped();
+                }
                 PerformanceModeManager.stop(client);
                 MuteManager.stop(client);
             });
