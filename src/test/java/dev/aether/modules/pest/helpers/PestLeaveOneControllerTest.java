@@ -22,6 +22,7 @@ class PestLeaveOneControllerTest {
         assertEquals(5, PestLeaveOneController.killBudgetForCount(6));
         assertEquals(4, PestLeaveOneController.consumeKillBudget(5));
         assertEquals(0, PestLeaveOneController.consumeKillBudget(0));
+        assertEquals(0, PestLeaveOneController.consumeKillBudget(1));
         assertEquals(2, PestLeaveOneController.remainingKillBudget(4, 1));
         assertEquals(2, PestTargetTracker.mostIsolatedIndex(List.of(
                 new Vec3(0, 0, 0),

@@ -5,6 +5,8 @@ import dev.aether.modules.pathfinding.PathfindingManager;
 import dev.aether.modules.pest.PestManager;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.LivingEntity;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -117,6 +119,53 @@ final class PestLeaveOneController {
     static boolean isTrackingPlot(PestDestroyerRuntime runtime, String plot) {
         return runtime.navigation.leaveOneRemainingKills >= 0
                 && PestPlotId.equals(runtime.navigation.leaveOneTrackedPlot, plot);
+    }
+
+    // The pest we picked to spare can still be caught by the vacuum aimed at a neighbor.
+    // When it dies, an extra pest left the plot the kill budget never counted, so spend one
+    // budgeted kill to keep the final count at one and drop the reservation for a fresh pick.
+    static boolean tryHandleLostReservedPest(
+            Minecraft client,
+            PestDestroyerRuntime runtime,
+            Context context) {
+        if (!AetherConfig.LEAVE_ONE_PEST_ALIVE.get()) {
+            return false;
+        }
+        String currentPlot = context.getEffectivePlot(client);
+        if (!isTrackingPlot(runtime, currentPlot)) {
+            return false;
+        }
+        int reservedId = runtime.navigation.leaveOneReservedEntityId;
+        if (reservedId == -1 || !isReservedPestDead(client, runtime, reservedId)) {
+            return false;
+        }
+        runtime.navigation.leaveOneReservedEntityId = -1;
+        if (runtime.navigation.leaveOneRemainingKills <= 0) {
+            return false;
+        }
+        runtime.navigation.leaveOneRemainingKills =
+                consumeKillBudget(runtime.navigation.leaveOneRemainingKills);
+        ClientUtils.sendDebugMessage(
+                "PestDestroyer: reserved pest died early; leave-one kill budget reduced to "
+                        + runtime.navigation.leaveOneRemainingKills
+                        + ".");
+        return runtime.navigation.leaveOneRemainingKills == 0
+                && finishCurrentPlot(client, runtime, context, currentPlot);
+    }
+
+    private static boolean isReservedPestDead(
+            Minecraft client,
+            PestDestroyerRuntime runtime,
+            int reservedId) {
+        for (Entity killed : runtime.killedEntities) {
+            if (killed.getId() == reservedId) {
+                return true;
+            }
+        }
+        Entity reserved = client.level == null ? null : client.level.getEntity(reservedId);
+        return reserved == null
+                || reserved.isRemoved()
+                || (reserved instanceof LivingEntity living && living.isDeadOrDying());
     }
 
     static Set<String> filterSkippedPlots(
