@@ -28,6 +28,7 @@ final class SettingDescriptionCatalog {
             Map.entry("Text Scale", "Changes text size without changing the full menu scale."),
             Map.entry("Limit FPS", "Caps Minecraft's frame rate while macro is active."),
             Map.entry("Auto Reconnect", "Automatically attempts to reconnect after disconnects."),
+            Map.entry("Smart Ungrab Mouse", "Turns Ungrab Mouse off when the macro stops so the cursor stays grabbed between runs, then turns it back on when the macro starts again."),
             Map.entry("Edit HUD Layout", "Opens the HUD editor so Aether overlays can be moved and resized."),
             Map.entry("Language", "Chooses the language used by the Aether interface."),
             Map.entry("Save Preset", "Saves the current values as a reusable preset."),
