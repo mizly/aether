@@ -61,7 +61,7 @@ public class HudEditScreen extends Screen {
 
     private void renderQueued(boolean background) {
         if (dev.aether.modules.visuals.StreamerModeManager.isEnabled()) return;
-        if (Minecraft.getInstance().screen != this) {
+        if (Minecraft.getInstance().gui.screen() != this) {
             return;
         }
         if (!NanoVGManager.isInitialized()) NanoVGManager.init();

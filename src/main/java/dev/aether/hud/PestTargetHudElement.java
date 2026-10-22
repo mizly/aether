@@ -53,7 +53,7 @@ public final class PestTargetHudElement extends HudElement {
     @Override public float getHeight() { return layout().height(); }
     @Override public boolean isEnabled() { return AetherConfig.SHOW_PEST_TARGET_HUD.get(); }
     @Override public boolean isVisible() {
-        return isEnabled() && Minecraft.getInstance().screen == null
+        return isEnabled() && Minecraft.getInstance().gui.screen() == null
                 && ClientUtils.getCurrentLocation() == MacroState.Location.GARDEN && !pests().isEmpty();
     }
     @Override public String getName() { return "Pest Target HUD"; }

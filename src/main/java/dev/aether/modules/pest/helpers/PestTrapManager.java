@@ -229,7 +229,7 @@ public class PestTrapManager {
                 if (guiOpened) {
                     MacroWorkerThread.sleep(500);
                     int releaseSlot = PestClientThread.call(client, () -> {
-                        if (client.screen instanceof AbstractContainerScreen<?> screen) {
+                        if (client.gui.screen() instanceof AbstractContainerScreen<?> screen) {
                             return findReleasePestsSlot(screen);
                         }
                         return -1;
@@ -337,7 +337,7 @@ public class PestTrapManager {
                     MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(true));
                     boolean success = false;
                     int[] baitSlots = PestClientThread.call(client, () -> {
-                        if (client.screen instanceof AbstractContainerScreen<?> screen) {
+                        if (client.gui.screen() instanceof AbstractContainerScreen<?> screen) {
                             return new int[] { findBaitInInventory(screen, baitMaterial), findBaitSlot(screen) };
                         }
                         return new int[] { -1, -1 };
@@ -506,7 +506,7 @@ public class PestTrapManager {
             long deadline = System.currentTimeMillis() + 1_500L;
             while (System.currentTimeMillis() < deadline && isRunning && !shouldAbort()) {
                 boolean open = PestClientThread.call(client,
-                        () -> client.screen instanceof AbstractContainerScreen<?> screen
+                        () -> client.gui.screen() instanceof AbstractContainerScreen<?> screen
                                 && screen.getTitle().getString().toLowerCase().contains("trap"),
                         false);
                 if (open) {
@@ -558,7 +558,7 @@ public class PestTrapManager {
 
     private static void clickCurrentScreenSlot(Minecraft client, int slot) {
         PestClientThread.run(client, () -> {
-            if (client.screen instanceof AbstractContainerScreen<?> screen) {
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> screen) {
                 ClientUtils.performSlotClick(screen, slot, 0, ContainerInput.PICKUP);
             }
         });
@@ -673,7 +673,7 @@ public class PestTrapManager {
         long deadline = System.currentTimeMillis() + 1000;
         while (System.currentTimeMillis() < deadline && isRunning && !shouldAbort()) {
             boolean trapScreenOpen = PestClientThread.call(client,
-                    () -> client.screen instanceof AbstractContainerScreen<?> screen
+                    () -> client.gui.screen() instanceof AbstractContainerScreen<?> screen
                             && screen.getTitle().getString().toLowerCase().contains("trap"),
                     false);
             if (!trapScreenOpen) {
@@ -689,7 +689,7 @@ public class PestTrapManager {
             return;
         }
         boolean closed = PestClientThread.call(client, () -> {
-            if (client.player != null && client.screen != null) {
+            if (client.player != null && client.gui.screen() != null) {
                 client.player.closeContainer();
                 return true;
             }

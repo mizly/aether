@@ -252,7 +252,7 @@ public class ClientUtils {
 
     public static boolean isInventoryScreenOpen() {
         Minecraft client = Minecraft.getInstance();
-        return client != null && client.screen instanceof AbstractContainerScreen<?>;
+        return client != null && client.gui.screen() instanceof AbstractContainerScreen<?>;
     }
 
     // keeps closing any gui that reappears for the full stabilization window, so callers can rely on it not returning before the next action is safe
@@ -266,16 +266,16 @@ public class ClientUtils {
         Screen screenBeingClosed = null;
         while (true) {
             long remaining = deadline - System.currentTimeMillis();
-            Screen currentScreen = client.screen;
+            Screen currentScreen = client.gui.screen();
             if (currentScreen == null) {
                 screenBeingClosed = null;
             } else if (currentScreen != screenBeingClosed) {
                 screenBeingClosed = currentScreen;
                 Runnable closeAction = () -> {
-                    if (client.player != null && client.screen != null) {
+                    if (client.player != null && client.gui.screen() != null) {
                         client.player.closeContainer();
-                    } else if (client.screen != null) {
-                        client.setScreen(null);
+                    } else if (client.gui.screen() != null) {
+                        client.gui.setScreen(null);
                     }
                 };
 
@@ -562,7 +562,7 @@ public class ClientUtils {
             }
 
             long guiStart = System.currentTimeMillis();
-            while (client.screen != null && System.currentTimeMillis() - guiStart < 5000) {
+            while (client.gui.screen() != null && System.currentTimeMillis() - guiStart < 5000) {
                 Thread.sleep(50);
             }
 
@@ -782,7 +782,7 @@ public class ClientUtils {
             return;
         }
 
-        if (UngrabMouse.isMouseUngrabbed() && client.screen == null) {
+        if (UngrabMouse.isMouseUngrabbed() && client.gui.screen() == null) {
             client.execute(() -> {
                 if (client.player == null) {
                     return;

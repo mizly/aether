@@ -37,7 +37,7 @@ public final class BudgetAutopetManager {
         long deadline = System.currentTimeMillis() + 3000;
         AbstractContainerScreen<?> petsScreen = null;
         while (System.currentTimeMillis() < deadline && !MacroWorkerThread.shouldAbortTask(client)) {
-            if (client.screen instanceof AbstractContainerScreen<?> screen) {
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> screen) {
                 String title = screen.getTitle().getString().toLowerCase();
                 if (title.contains("pets")) {
                     petsScreen = screen;
@@ -120,7 +120,7 @@ public final class BudgetAutopetManager {
         while (System.currentTimeMillis() < deadline && !MacroWorkerThread.shouldAbortTask(client)) {
             if (!LoadoutManager.isSwappingLoadout
                     && LoadoutManager.loadoutCleanupTicks <= 0
-                    && client.screen == null
+                    && client.gui.screen() == null
                     && !hasServerContainerOpen(client)) {
                 if (waited) {
                     ClientUtils.sendDebugMessage("BudgetAutopet: gear menu cleanup finished after "

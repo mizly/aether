@@ -91,7 +91,7 @@ public final class AetherProxyScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal(AetherLang.localize("Use")), button -> useCurrent())
                 .bounds(listX + 72, panelY + 4, 64, 20)
                 .build());
-        addRenderableWidget(Button.builder(Component.literal(AetherLang.localize("Back")), button -> minecraft.setScreen(parent))
+        addRenderableWidget(Button.builder(Component.literal(AetherLang.localize("Back")), button -> minecraft.gui.setScreen(parent))
                 .bounds(panelX + PANEL_W - 72, panelY + 4, 72, 20)
                 .build());
     }
@@ -275,7 +275,7 @@ public final class AetherProxyScreen extends Screen {
 
     @Override
     public void onClose() {
-        minecraft.setScreen(parent);
+        minecraft.gui.setScreen(parent);
     }
 
     @Override

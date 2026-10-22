@@ -45,7 +45,7 @@ public class InventoryHudElement extends HudElement {
     @Override public boolean isEnabled() { return AetherConfig.SHOW_INVENTORY_HUD.get(); }
     @Override public boolean isVisible() {
         if (!isEnabled()) return false;
-        net.minecraft.client.gui.screens.Screen screen = Minecraft.getInstance().screen;
+        net.minecraft.client.gui.screens.Screen screen = Minecraft.getInstance().gui.screen();
         return screen == null || screen instanceof HudEditScreen;
     }
     @Override public String getName() { return "Inventory HUD"; }

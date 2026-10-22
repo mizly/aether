@@ -212,10 +212,10 @@ public class ForgeManager {
             ClientUtils.performUseClick();
             for (int i = 0; i < 5; i++) {
                 Thread.sleep(100);
-                if (client.screen instanceof AbstractContainerScreen) return true;
+                if (client.gui.screen() instanceof AbstractContainerScreen) return true;
                 if (!isRunning) return false;
             }
         }
-        return client.screen instanceof AbstractContainerScreen;
+        return client.gui.screen() instanceof AbstractContainerScreen;
     }
 }

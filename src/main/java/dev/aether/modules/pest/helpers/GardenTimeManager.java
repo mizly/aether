@@ -118,7 +118,7 @@ public final class GardenTimeManager {
 
         while (System.currentTimeMillis() < deadline) {
             boolean closed = PestClientThread.call(client,
-                    () -> !(client.screen instanceof AbstractContainerScreen<?>),
+                    () -> !(client.gui.screen() instanceof AbstractContainerScreen<?>),
                     true);
             if (closed) {
                 return true;
@@ -138,7 +138,7 @@ public final class GardenTimeManager {
 
         while (System.currentTimeMillis() < deadline) {
             boolean open = PestClientThread.call(client,
-                    () -> client.screen instanceof AbstractContainerScreen<?> screen
+                    () -> client.gui.screen() instanceof AbstractContainerScreen<?> screen
                             && screen.getTitle().getString().toLowerCase().contains(expected),
                     false);
             if (open) {
@@ -177,7 +177,7 @@ public final class GardenTimeManager {
     }
 
     private static boolean clickSlotOnClientThread(Minecraft client, int slotId) {
-        if (client.screen instanceof AbstractContainerScreen<?> screen
+        if (client.gui.screen() instanceof AbstractContainerScreen<?> screen
                 && slotId >= 0
                 && slotId < screen.getMenu().slots.size()) {
             ClientUtils.performSlotClick(screen, slotId, 0, ContainerInput.PICKUP);

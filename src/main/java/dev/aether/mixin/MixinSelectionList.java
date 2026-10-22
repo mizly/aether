@@ -15,7 +15,7 @@ public class MixinSelectionList {
 
     @Inject(method = "extractListBackground", at = @At("HEAD"), cancellable = true)
     private void onRenderListBackground(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
-        Screen screen = Minecraft.getInstance().screen;
+        Screen screen = Minecraft.getInstance().gui.screen();
         if (screen != null && AetherBootstrapHooks.hasCustomScreenBackground(screen)) {
             ci.cancel();
         }

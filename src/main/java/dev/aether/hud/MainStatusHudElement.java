@@ -67,7 +67,7 @@ public class MainStatusHudElement extends HudElement {
     public boolean isVisible() {
         if ((AetherConfig.HUD_THEME.get() & 0x1) == 0) return false;
         Minecraft mc = Minecraft.getInstance();
-        return mc == null || mc.screen == null || mc.screen instanceof HudEditScreen;
+        return mc == null || mc.gui.screen() == null || mc.gui.screen() instanceof HudEditScreen;
     }
     @Override public String  getName()         { return "Main Status"; }
     @Override public void    savePosition()    { AetherConfig.save(); }

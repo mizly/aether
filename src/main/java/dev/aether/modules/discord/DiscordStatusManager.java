@@ -77,7 +77,7 @@ public class DiscordStatusManager {
     private static void requestScreenshot(Minecraft client) {
         isTakingScreenshot = true;
         screenshotRequestTime = System.currentTimeMillis();
-        client.execute(() -> Screenshot.grab(client.gameDirectory, client.getMainRenderTarget(), (msg) -> {
+        client.execute(() -> Screenshot.grab(client.gameDirectory, client.gameRenderer.mainRenderTarget(), (msg) -> {
             // Ignore the message
         }));
 

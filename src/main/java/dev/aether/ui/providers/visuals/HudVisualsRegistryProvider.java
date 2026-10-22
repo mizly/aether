@@ -37,7 +37,7 @@ public final class HudVisualsRegistryProvider extends AbstractVisualsRegistryPro
                             AetherConfig.HUD_THEME.set(i);
                             AetherConfig.save();
                         }))
-                .add(new ActionSetting("Edit HUD Layout", () -> Minecraft.getInstance().setScreen(new HudEditScreen()))));
+                .add(new ActionSetting("Edit HUD Layout", () -> Minecraft.getInstance().gui.setScreen(new HudEditScreen()))));
 
         groups.add(SettingGroup.alwaysOn(
                         "HUD Visibility",

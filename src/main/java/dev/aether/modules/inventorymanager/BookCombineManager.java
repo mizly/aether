@@ -173,7 +173,7 @@ public class BookCombineManager {
             }
 
             // If GUI closed but we were supposed to be combining and still have pairs
-            if (client.screen == null) {
+            if (client.gui.screen() == null) {
                 long now = System.currentTimeMillis();
                 if (now - interactionTime > 1500) {
                     finishCombining(client);
@@ -236,7 +236,7 @@ public class BookCombineManager {
         if (!automaticSession)
             return;
 
-        if (client.player != null && client.screen != null) {
+        if (client.player != null && client.gui.screen() != null) {
             client.execute(() -> client.player.closeContainer());
         }
 
@@ -250,7 +250,7 @@ public class BookCombineManager {
                     return;
                 // Wait for GUI to fully close
                 long guiWait = System.currentTimeMillis();
-                while (client.screen != null && System.currentTimeMillis() - guiWait < 3000)
+                while (client.gui.screen() != null && System.currentTimeMillis() - guiWait < 3000)
                     MacroWorkerThread.sleep(50);
                 MacroWorkerThread.sleep(300);
                 if (MacroWorkerThread.shouldAbortTask(client, dev.aether.macro.MacroState.State.FARMING))

@@ -58,8 +58,8 @@ public final class FailsafeTestManager {
 
     static void reset() {
         Minecraft client = Minecraft.getInstance();
-        if (client.screen == activeGuiFlashScreen) {
-            client.setScreen(null);
+        if (client.gui.screen() == activeGuiFlashScreen) {
+            client.gui.setScreen(null);
         }
         pendingTest = null;
         activeGuiFlashTicksRemaining = 0;
@@ -102,7 +102,7 @@ public final class FailsafeTestManager {
             return;
         }
 
-        if (client == null || client.player == null || client.screen != activeGuiFlashScreen) {
+        if (client == null || client.player == null || client.gui.screen() != activeGuiFlashScreen) {
             activeGuiFlashScreen = null;
             activeGuiFlashTicksRemaining = 0;
             return;
@@ -110,7 +110,7 @@ public final class FailsafeTestManager {
 
         activeGuiFlashTicksRemaining--;
         if (activeGuiFlashTicksRemaining <= 0) {
-            client.setScreen(null);
+            client.gui.setScreen(null);
             activeGuiFlashScreen = null;
         }
     }
@@ -139,7 +139,7 @@ public final class FailsafeTestManager {
         InvisibleContainerScreen screen = new InvisibleContainerScreen(menu, inventory);
         activeGuiFlashScreen = screen;
         activeGuiFlashTicksRemaining = Math.max(1, durationTicks);
-        client.setScreen(screen);
+        client.gui.setScreen(screen);
         ClientUtils.sendMessage("\u00A7eOpened invisible GUI test for " + durationTicks + " ticks.", false);
     }
 
@@ -219,7 +219,7 @@ public final class FailsafeTestManager {
 
         @Override
         public void onClose() {
-            Minecraft.getInstance().setScreen(null);
+            Minecraft.getInstance().gui.setScreen(null);
         }
 
         @Override
