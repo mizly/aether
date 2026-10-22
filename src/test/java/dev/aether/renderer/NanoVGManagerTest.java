@@ -90,8 +90,8 @@ class NanoVGManagerTest {
         GlStateManager._disableCull();
         GlStateManager._enableDepthTest();
         GlStateManager._disableDepthTest();
-        GlStateManager._disableBlend();
-        GlStateManager._enableBlend();
+        GlStateManager._disableBlend(0);
+        GlStateManager._enableBlend(0);
         GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
         GL20.glBlendEquationSeparate(GL14.GL_FUNC_ADD, GL14.GL_FUNC_ADD);
         GlStateManager._depthMask(false);
@@ -133,7 +133,7 @@ class NanoVGManagerTest {
         GlStateManager._scissorBox(16, 16, 32, 32);
         for (int frame = 0; frame < 3; frame++) {
             renderOverlay();
-            GlStateManager._enableBlend();
+            GlStateManager._enableBlend(0);
             GlStateManager._blendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
             GlStateManager._enableScissorTest();
             drawVanilla(0, 0.5f);
@@ -157,7 +157,7 @@ class NanoVGManagerTest {
             GlStateManager._activeTexture(GL13.GL_TEXTURE3);
             GL11.glViewport(3, 4, 48, 52);
             GlStateManager._colorMask(5);
-            GlStateManager._disableBlend();
+            GlStateManager._disableBlend(0);
             GL20.glBlendEquationSeparate(GL14.GL_FUNC_SUBTRACT, GL14.GL_FUNC_REVERSE_SUBTRACT);
             renderOverlay();
 

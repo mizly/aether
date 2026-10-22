@@ -1,5 +1,6 @@
 package dev.aether.hud;
 
+import net.minecraft.network.chat.TextColor;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FontDescription;
@@ -25,7 +26,7 @@ class ScoreboardTextTest {
         var footer = Component.literal("www.hypixel.net").withStyle(ChatFormatting.YELLOW).getVisualOrderText();
         var runs = ScoreboardText.split(ScoreboardText.customize(footer, false, "Title", "My\nServer"));
         assertEquals("My Server", runs.getFirst().text());
-        assertEquals(ChatFormatting.YELLOW.getColor(), runs.getFirst().style().getColor().getValue());
+        assertEquals(TextColor.YELLOW.getValue(), runs.getFirst().style().getColor().getValue());
         var row = Component.literal("Wave 10").getVisualOrderText();
         assertSame(row, ScoreboardText.customize(row, false, "Title", "My Server"));
         assertSame(footer, ScoreboardText.customize(footer, false, "Title", ""));
@@ -52,7 +53,7 @@ class ScoreboardTextTest {
         assertEquals("Purse: ", runs.get(0).text());
         assertEquals("12,126,571", runs.get(1).text());
         assertTrue(runs.get(1).style().isBold());
-        assertEquals(ChatFormatting.GOLD.getColor(), runs.get(1).style().getColor().getValue());
+        assertEquals(TextColor.GOLD.getValue(), runs.get(1).style().getColor().getValue());
         assertFalse(runs.get(1).nativeGlyph());
     }
 
