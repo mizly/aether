@@ -74,8 +74,7 @@ public final class ClientFeatureBootstrap {
             boolean drawPositionHighlights = PositionHighlighter.hasVisibleHighlights();
             boolean drawPestEsp = PestEspManager.hasVisibleHighlights();
             boolean drawPestTracker = PestTrackerAbility.hasVisibleArc();
-            boolean drawFunEffects = FunRenderer.hasVisibleEffects();
-            if (!drawPathVisualizer && !drawPositionHighlights && !drawPestEsp && !drawPestTracker && !drawFunEffects) {
+            if (!drawPathVisualizer && !drawPositionHighlights && !drawPestEsp && !drawPestTracker) {
                 return;
             }
             if (drawPathVisualizer) {
@@ -90,7 +89,17 @@ public final class ClientFeatureBootstrap {
             if (drawPestTracker) {
                 PestTrackerAbility.renderWorld();
             }
-            if (drawFunEffects) {
+        });
+
+        // 26.2 only takes vertices and text while submits are being collected
+        LevelRenderEvents.COLLECT_SUBMITS.register(ctx -> {
+            if (StreamerModeManager.isEnabled()) {
+                return;
+            }
+            if (PositionHighlighter.hasVisibleHighlights()) {
+                PositionHighlighter.collectLabels(ctx);
+            }
+            if (FunRenderer.hasVisibleEffects()) {
                 FunRenderer.renderWorld(ctx);
             }
         });

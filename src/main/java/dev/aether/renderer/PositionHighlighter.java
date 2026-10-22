@@ -13,7 +13,8 @@ import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.network.chat.Component;
 import net.minecraft.gizmos.GizmoStyle;
 import net.minecraft.gizmos.Gizmos;
 import net.minecraft.world.phys.AABB;
@@ -100,6 +101,18 @@ public final class PositionHighlighter {
         return false;
     }
 
+    // 26.2 only accepts text during COLLECT_SUBMITS, gizmo boxes still go through END_MAIN
+    private static boolean labelsPass = false;
+
+    public static void collectLabels(LevelRenderContext ctx) {
+        labelsPass = true;
+        try {
+            renderWorld(ctx);
+        } finally {
+            labelsPass = false;
+        }
+    }
+
     public static void renderWorld(LevelRenderContext ctx) {
         Minecraft mc = Minecraft.getInstance();
         if (StreamerModeManager.isEnabled()) return;
@@ -108,9 +121,7 @@ public final class PositionHighlighter {
         boolean inGarden = ClientUtils.getCurrentLocation() == MacroState.Location.GARDEN;
 
         if (inGarden) {
-            MultiBufferSource.BufferSource textBuffer = ctx.bufferSource() instanceof MultiBufferSource.BufferSource bufferSource
-                    ? bufferSource
-                    : null;
+            SubmitNodeCollector textBuffer = labelsPass ? ctx.submitNodeCollector() : null;
 
             // Desk Position (Block highlight)
             if (showDeskHighlight()) {
@@ -202,14 +213,14 @@ public final class PositionHighlighter {
 
             dev.aether.modules.farming.FastLaneSwitchManager.renderWorld();
             renderFarmWaypoints(ctx, mc, textBuffer);
-            dev.aether.modules.farming.BedrockPlotMaker.renderWorld();
+            if (!labelsPass) dev.aether.modules.farming.BedrockPlotMaker.renderWorld();
         }
 
-        dev.aether.modules.metaldetector.MetalDetectorSolver.renderWorld();
+        if (!labelsPass) dev.aether.modules.metaldetector.MetalDetectorSolver.renderWorld();
     }
 
     private static void renderRewarpPair(LevelRenderContext ctx, Minecraft mc,
-                                         MultiBufferSource.BufferSource textBuffer,
+                                         SubmitNodeCollector textBuffer,
                                          RewarpPointPair pair) {
         if (pair.highlightStart && pair.hasStart()) {
             renderRewarpPoint(ctx, mc, textBuffer, pair.startX, pair.startY, pair.startZ,
@@ -226,7 +237,7 @@ public final class PositionHighlighter {
     }
 
     private static void renderFarmWaypoints(LevelRenderContext ctx, Minecraft mc,
-                                            MultiBufferSource.BufferSource textBuffer) {
+                                            SubmitNodeCollector textBuffer) {
         if (!hasVisibleFarmWaypoints()) {
             return;
         }
@@ -250,7 +261,7 @@ public final class PositionHighlighter {
     }
 
     private static void renderRewarpPoint(LevelRenderContext ctx, Minecraft mc,
-                                          MultiBufferSource.BufferSource textBuffer,
+                                          SubmitNodeCollector textBuffer,
                                           double x, double y, double z,
                                           String label, int strokeColor, int fillColor) {
         int ix = (int) Math.floor(x);
@@ -266,12 +277,14 @@ public final class PositionHighlighter {
     }
 
     private static void renderBlockHighlight(LevelRenderContext ctx, Minecraft mc,
-                                             MultiBufferSource.BufferSource textBuffer,
+                                             SubmitNodeCollector textBuffer,
                                              AABB box, String label, int strokeColor,
                                              int fillColor, float lineWidth) {
-        GizmoStyle style = GizmoStyle.strokeAndFill(strokeColor, lineWidth, fillColor);
-        var props = Gizmos.cuboid(box, style);
-        props.setAlwaysOnTop();
+        if (!labelsPass) {
+            GizmoStyle style = GizmoStyle.strokeAndFill(strokeColor, lineWidth, fillColor);
+            var props = Gizmos.cuboid(box, style);
+            props.setAlwaysOnTop();
+        }
 
         if (label != null && !label.isBlank()) {
             renderBillboardText(ctx, mc, textBuffer, label,
@@ -282,27 +295,25 @@ public final class PositionHighlighter {
     }
 
     private static void renderBillboardText(LevelRenderContext ctx, Minecraft mc,
-                                            MultiBufferSource.BufferSource textBuffer,
+                                            SubmitNodeCollector textBuffer,
                                             String text, double x, double y, double z) {
         if (ctx == null || ctx.poseStack() == null || textBuffer == null) {
             return;
         }
 
-        Camera camera = mc.gameRenderer.getMainCamera();
+        Camera camera = mc.gameRenderer.mainCamera();
         PoseStack poseStack = ctx.poseStack();
         Vec3 cameraPos = camera.position();
         Font font = mc.font;
         float scale = 0.025f;
 
         poseStack.pushPose();
-        Matrix4f matrix = poseStack.last().pose();
-        matrix.translate((float) x, (float) y, (float) z)
-                .translate((float) -cameraPos.x, (float) -cameraPos.y, (float) -cameraPos.z)
-                .rotate(camera.rotation())
-                .scale(scale, -scale, scale);
+        poseStack.translate((float) (x - cameraPos.x), (float) (y - cameraPos.y), (float) (z - cameraPos.z));
+        poseStack.mulPose(camera.rotation());
+        poseStack.scale(scale, -scale, scale);
         float textX = -font.width(text) / 2.0f;
-        font.drawInBatch(text, textX, 0.0f, 0xFFFFFFFF, true, matrix, textBuffer,
-                Font.DisplayMode.SEE_THROUGH, 0, 0x00F000F0);
+        textBuffer.submitText(poseStack, textX, 0.0f, Component.literal(text).getVisualOrderText(), true,
+                Font.DisplayMode.SEE_THROUGH, 0x00F000F0, 0xFFFFFFFF, 0, 0);
         poseStack.popPose();
     }
 }
