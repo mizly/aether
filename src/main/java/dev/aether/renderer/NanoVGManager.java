@@ -120,12 +120,12 @@ public final class NanoVGManager {
         saveFrameState();
         float computedRatio = 1f;
         try {
-            var rt = Minecraft.getInstance().getMainRenderTarget();
+            var rt = Minecraft.getInstance().gameRenderer.mainRenderTarget();
             // Bind MC's main render target so NVG draws into the same buffer as the rest of
             // the game. Without this bind the title screen is invisible (NVG writes to FBO=0
             // which is the window framebuffer, but MC blits from the RT's FBO).
 
-            int mcFbo = ((GlTexture) rt.getColorTexture()).getFbo(resolveDirectStateAccess(), null);
+            int mcFbo = GlFramebuffers.fbo(rt.getColorTexture(), null);
             mainRtFbo = mcFbo;
             int targetFbo = overrideTargetFbo >= 0 ? overrideTargetFbo : mcFbo;
             overrideTargetFbo = -1;
