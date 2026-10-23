@@ -1,8 +1,8 @@
 package dev.aether.renderer;
 
 import com.mojang.blaze3d.opengl.GlTexture;
+import com.mojang.blaze3d.GpuFormat;
 import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.textures.TextureFormat;
 import net.minecraft.client.gui.font.glyphs.BakedSheetGlyph;
 import net.minecraft.network.chat.Style;
 import org.junit.jupiter.api.AfterAll;
@@ -61,15 +61,15 @@ class MinecraftTextRendererTest {
 
     @Test
     void drawsMonochromeCoverageAndRestoresMinecraftTextureState() {
-        renderAndCheck(TextureFormat.RED8, GL33.GL_R8, GL11.GL_RED, new byte[]{-1}, 0xFF12AB34, 0xFF12AB34);
+        renderAndCheck(GpuFormat.R8_UNORM, GL33.GL_R8, GL11.GL_RED, new byte[]{-1}, 0xFF12AB34, 0xFF12AB34);
     }
 
     @Test
     void retainsColoredResourcePackIconPixels() {
-        renderAndCheck(TextureFormat.RGBA8, GL11.GL_RGBA8, GL11.GL_RGBA, new byte[]{33, 117, -25, -1}, -1, 0xFF2175E7);
+        renderAndCheck(GpuFormat.RGBA8_UNORM, GL11.GL_RGBA8, GL11.GL_RGBA, new byte[]{33, 117, -25, -1}, -1, 0xFF2175E7);
     }
 
-    private void renderAndCheck(TextureFormat format, int internalFormat, int pixelFormat, byte[] pixel, int tint, int expected) {
+    private void renderAndCheck(GpuFormat format, int internalFormat, int pixelFormat, byte[] pixel, int tint, int expected) {
         int textureId = GL11.glGenTextures();
         try (MemoryStack stack = MemoryStack.stackPush(); NVGPaint paint = NVGPaint.malloc()) {
             GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureId);
@@ -127,8 +127,8 @@ class MinecraftTextRendererTest {
     }
 
     private static final class TestTexture extends GlTexture {
-        TestTexture(int id, TextureFormat format) {
-            super(USAGE_TEXTURE_BINDING, "Test font", format, 4, 4, 1, 1, id);
+        TestTexture(int id, GpuFormat format) {
+            super(USAGE_TEXTURE_BINDING, "Test font", format, 4, 4, 1, 1, id, null);
         }
         @Override public void close() { closed = true; }
     }

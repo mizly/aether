@@ -38,7 +38,7 @@ public class MixinMouseHandler {
         }
         // Swallow all physical mouse buttons while freecam is on (no screen open) so they
         // never touch key states or click counts - only the macro's programmatic input acts.
-        if (AetherBootstrapHooks.isFreecamEnabled() && Minecraft.getInstance().screen == null) {
+        if (AetherBootstrapHooks.isFreecamEnabled() && Minecraft.getInstance().gui.screen() == null) {
             dev.aether.util.ClientUtils.sendDebugMessage("[FC] swallowed button "
                     + mouseButtonInfo.button() + " action=" + i);
             ci.cancel();
@@ -46,7 +46,7 @@ public class MixinMouseHandler {
         }
         if (mouseButtonInfo.button() == 0 && i == 1) {
             Minecraft mc = Minecraft.getInstance();
-            Screen screen = mc.screen;
+            Screen screen = mc.gui.screen();
             if (screen != null && AetherBootstrapHooks.hasCustomScreenBackground(screen)) {
                 double mouseX = mc.mouseHandler.xpos() * (double) mc.getWindow().getGuiScaledWidth() / (double) mc.getWindow().getWidth();
                 double mouseY = mc.mouseHandler.ypos() * (double) mc.getWindow().getGuiScaledHeight() / (double) mc.getWindow().getHeight();

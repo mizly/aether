@@ -47,6 +47,7 @@
         "MixinParticleEngine",
         "ChatHudMixin",
         "MixinGui",
+        "MixinHud",
         "MixinGuiRenderer",
         "MixinScreen",
         "MixinSelectionList",

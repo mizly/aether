@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-Aether is a client-side Fabric mod for Hypixel SkyBlock, targeting Minecraft 26.1.2 and Java 25.
+Aether is a client-side Fabric mod for Hypixel SkyBlock, targeting Minecraft 26.2 and Java 25.
 
 - `src/main/java/dev/aether/`: Java source. Feature logic lives in `modules/` and `macro/`; UI and rendering in `ui/`, `hud/`, and `renderer/`; Minecraft hooks in `mixin/`.
 - `src/main/resources/`: Fabric metadata, mixin configuration, and `assets/aether/` fonts, icons, shaders, sounds, and presets.

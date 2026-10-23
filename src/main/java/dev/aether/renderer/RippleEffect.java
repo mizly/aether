@@ -182,7 +182,7 @@ public final class RippleEffect {
         GL33C.glBindSampler(0, 0);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, sceneColorTex);
 
-        GlStateManager._disableBlend();
+        GlStateManager._disableBlend(0);
         GlStateManager._disableDepthTest();
         GL11.glDisable(GL11.GL_STENCIL_TEST);
 
@@ -194,7 +194,7 @@ public final class RippleEffect {
         GL33C.glBindSampler(0, prevSampler);
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
         GlStateManager._glUseProgram(prevProgram);
-        GlStateManager._enableBlend();
+        GlStateManager._enableBlend(0);
         GlStateManager._blendFuncSeparate(770, 771, 1, 0);
         GlStateManager._activeTexture(GL13.GL_TEXTURE0);
         GlStateManager._bindTexture(0);
@@ -243,4 +243,3 @@ public final class RippleEffect {
         }
     }
 }
-

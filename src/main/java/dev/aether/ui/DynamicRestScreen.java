@@ -78,7 +78,7 @@ public class DynamicRestScreen extends NVGScreen {
                 .onPress(() -> {
                     ReconnectScheduler.cancel();
                     if (minecraft != null) {
-                        minecraft.setScreen(new TitleScreen());
+                        minecraft.gui.setScreen(new TitleScreen());
                     }
                 })
                 .build());

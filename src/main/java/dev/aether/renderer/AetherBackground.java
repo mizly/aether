@@ -121,7 +121,7 @@ public final class AetherBackground {
         }
 
         // --- Normal NanoVG render ---------------------------------------------------
-        var rt   = Minecraft.getInstance().getMainRenderTarget();
+        var rt   = Minecraft.getInstance().gameRenderer.mainRenderTarget();
         int rtW  = rt.width, rtH = rt.height;
         boolean hasRipples = rippleCount > 0;
 

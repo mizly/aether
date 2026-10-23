@@ -59,7 +59,7 @@ public final class PestEspManager {
     public static void renderTracerOverlay() {
         Minecraft client = Minecraft.getInstance();
         if (client == null || client.level == null || client.player == null
-                || client.screen != null
+                || client.gui.screen() != null
                 || StreamerModeManager.isEnabled()
                 || !AetherConfig.PEST_ESP_ENABLED.get()
                 || ClientUtils.getCurrentLocation() != MacroState.Location.GARDEN
@@ -81,7 +81,7 @@ public final class PestEspManager {
             return;
         }
 
-        Camera camera = client.gameRenderer.getMainCamera();
+        Camera camera = client.gameRenderer.mainCamera();
         Vec3 cameraPosition = camera.position();
         Matrix4f viewProjection = camera.getViewRotationProjectionMatrix(new Matrix4f());
         float width = client.getWindow().getGuiScaledWidth();

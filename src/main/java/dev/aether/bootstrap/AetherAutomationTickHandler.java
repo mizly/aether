@@ -63,9 +63,9 @@ public final class AetherAutomationTickHandler {
                 return;
             }
 
-            boolean automationStopScreen = client.screen instanceof PauseScreen
-                    || client.screen instanceof ChatScreen
-                    || AetherBootstrapHooks.isBootstrapConfigScreen(client.screen);
+            boolean automationStopScreen = client.gui.screen() instanceof PauseScreen
+                    || client.gui.screen() instanceof ChatScreen
+                    || AetherBootstrapHooks.isBootstrapConfigScreen(client.gui.screen());
             if (automationStopScreen) {
                 if (MacroStateManager.isAutomationRunning() && !ManualPestManager.isActive()) {
                     MacroStateManager.stopMacro(client, "Automation interrupted by screen", false);
@@ -96,30 +96,30 @@ public final class AetherAutomationTickHandler {
     }
 
     private static void handleContainerMenus(Minecraft client) {
-        if (!(client.screen instanceof AbstractContainerScreen<?> currentScreen)) {
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> currentScreen)) {
             return;
         }
 
         GearManager.handleLoadoutMenu(client, currentScreen);
-        if (client.screen == currentScreen) {
+        if (client.gui.screen() == currentScreen) {
             GeorgeManager.handleGeorgeMenu(client, currentScreen);
         }
-        if (client.screen == currentScreen) {
+        if (client.gui.screen() == currentScreen) {
             AutoSellManager.handleMenu(client, currentScreen);
         }
-        if (client.screen == currentScreen) {
+        if (client.gui.screen() == currentScreen) {
             BoosterCookieManager.handleBoosterCookieMenu(client, currentScreen);
         }
-        if (client.screen == currentScreen) {
+        if (client.gui.screen() == currentScreen) {
             BookCombineManager.handleAnvilMenu(client, currentScreen);
         }
-        if (client.screen == currentScreen) {
+        if (client.gui.screen() == currentScreen) {
             JunkManager.handleInventoryMenu(client, currentScreen);
         }
-        if (client.screen == currentScreen) {
+        if (client.gui.screen() == currentScreen) {
             MetalDetectorSolver.handleContainerMenu(client, currentScreen);
         }
-        if (client.screen == currentScreen) {
+        if (client.gui.screen() == currentScreen) {
             SupercraftManager.handleRecipeGui(currentScreen);
         }
     }
@@ -182,7 +182,7 @@ public final class AetherAutomationTickHandler {
         }
 
         MacroState.State stashState = MacroStateManager.getCurrentState();
-        if (client.screen != null
+        if (client.gui.screen() != null
                 || stashState == MacroState.State.VISITING
                 || stashState == MacroState.State.CLEANING
                 || stashState == MacroState.State.SPRAYING) {

@@ -1,7 +1,7 @@
 package dev.aether.renderer;
 
 import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.textures.TextureFormat;
+import com.mojang.blaze3d.GpuFormat;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.font.TextRenderable;
 import org.joml.Matrix4f;
@@ -94,7 +94,7 @@ final class MinecraftTextRenderer implements Font.GlyphVisitor {
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL33.GL_CLAMP_TO_EDGE);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL33.GL_CLAMP_TO_EDGE);
-            if (texture.getFormat() == TextureFormat.RED8) {
+            if (texture.getFormat() == GpuFormat.R8_UNORM) {
                 // Minecraft stores monochrome coverage in red; NanoVG image paints sample alpha.
                 // Restore the shared texture only after NanoVG flushes its deferred draws.
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL33.GL_TEXTURE_SWIZZLE_R, GL11.GL_ONE);

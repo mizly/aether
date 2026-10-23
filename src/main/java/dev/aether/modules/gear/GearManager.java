@@ -128,7 +128,7 @@ public class GearManager {
                 return false;
             }
 
-            boolean hasScreenOpen = client.screen != null;
+            boolean hasScreenOpen = client.gui.screen() != null;
             boolean hasServerContainerOpen = client.player.containerMenu != null
                     && client.player.inventoryMenu != null
                     && client.player.containerMenu.containerId != client.player.inventoryMenu.containerId;
@@ -140,10 +140,10 @@ public class GearManager {
             if (hasServerContainerOpen && System.currentTimeMillis() - lastForceCloseAttempt >= 250) {
                 int containerId = client.player.containerMenu.containerId;
                 client.execute(() -> {
-                    if (client.screen != null) {
-                        client.screen.onClose();
+                    if (client.gui.screen() != null) {
+                        client.gui.screen().onClose();
                     } else {
-                        client.setScreen(null);
+                        client.gui.setScreen(null);
                     }
                 });
                 lastForceCloseAttempt = System.currentTimeMillis();

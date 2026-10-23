@@ -101,7 +101,7 @@ public class AetherTitleScreen extends NVGScreen {
     }
 
     private void renderQueued(int mx, int my, long elapsed) {
-        if (Minecraft.getInstance().screen != this) {
+        if (Minecraft.getInstance().gui.screen() != this) {
             return;
         }
         AetherBackground.INSTANCE.render(width, height, mx, my);
@@ -228,7 +228,7 @@ public class AetherTitleScreen extends NVGScreen {
         }
         float proxyX = cx - PROXY_W / 2f;
         if (mx >= proxyX && mx <= proxyX + PROXY_W && my >= proxyY && my <= proxyY + PROXY_H) {
-            Minecraft.getInstance().setScreen(new AetherProxyScreen(this));
+            Minecraft.getInstance().gui.setScreen(new AetherProxyScreen(this));
             return true;
         }
         return true;
@@ -238,8 +238,8 @@ public class AetherTitleScreen extends NVGScreen {
     private void handleClick(int i) {
         Minecraft mc = Minecraft.getInstance();
         switch (i) {
-            case 0 -> mc.setScreen(new SelectWorldScreen(this));
-            case 1 -> mc.setScreen(new JoinMultiplayerScreen(this));
+            case 0 -> mc.gui.setScreen(new SelectWorldScreen(this));
+            case 1 -> mc.gui.setScreen(new JoinMultiplayerScreen(this));
             case 2 -> {
                 if (mc.allowsMultiplayer()) {
                     String address = "mc.hypixel.net";
@@ -247,7 +247,7 @@ public class AetherTitleScreen extends NVGScreen {
                             new ServerData("Hypixel", address, ServerData.Type.OTHER), false, null);
                 }
             }
-            case 3 -> mc.setScreen(new OptionsScreen(this, mc.options, false));
+            case 3 -> mc.gui.setScreen(new OptionsScreen(this, mc.options, false));
             case 4 -> mc.stop();
         }
     }

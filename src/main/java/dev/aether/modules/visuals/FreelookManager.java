@@ -107,7 +107,7 @@ public final class FreelookManager {
     }
 
     private static boolean isAvailable(Minecraft client) {
-        if (client.player == null || client.level == null || client.screen != null) {
+        if (client.player == null || client.level == null || client.gui.screen() != null) {
             return false;
         }
         if (FreecamManager.isEnabled() || StreamerModeManager.isEnabled()) {

@@ -252,7 +252,7 @@ public class GeorgeManager {
                 return;
             }
 
-            if (client.screen == null) {
+            if (client.gui.screen() == null) {
                 resumeFarmingAfterGeorgeWait(client, "George GUI closed. Resuming farming until next re-call.");
 
                 if (interactionStage > 0) {
@@ -305,7 +305,7 @@ public class GeorgeManager {
     }
 
     private static void finishSelling(Minecraft client) {
-        if (client.player != null && client.screen != null) {
+        if (client.player != null && client.gui.screen() != null) {
             client.player.closeContainer();
         }
         isSelling = false;

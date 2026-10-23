@@ -40,11 +40,11 @@ public final class CosmeticWorldRenderer {
 
     private void draw(Minecraft client) {
         if (shader.isFailed()) return;
-        var target = client.getMainRenderTarget();
+        var target = client.gameRenderer.mainRenderTarget();
         if (!(target.getColorTexture() instanceof GlTexture color)
                 || !(target.getDepthTexture() instanceof GlTexture)) return;
         long now = System.nanoTime();
-        var camera = client.gameRenderer.getMainCamera();
+        var camera = client.gameRenderer.mainCamera();
         var position = camera.position();
         camera.getViewRotationProjectionMatrix(projection);
         frustum.set(projection);
@@ -76,7 +76,7 @@ public final class CosmeticWorldRenderer {
         if (mesh.size() == 0) return;
         var access = ((AccessorGlDevice) ((AccessorGpuDevice) RenderSystem.getDevice()).aether$getBackend())
                 .aether$directStateAccess();
-        shader.draw(mesh, projection, color.getFbo(access, target.getDepthTexture()), target.width, target.height, wingVertices);
+        shader.draw(mesh, projection, RenderTargetFbo.get(target, access), target.width, target.height, wingVertices);
     }
 
     public static void close() {

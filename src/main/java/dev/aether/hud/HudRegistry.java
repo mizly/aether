@@ -75,10 +75,10 @@ public class HudRegistry {
             }
 
             // Let the edit screen render its own elements
-            if (mc.screen instanceof HudEditScreen) return;
+            if (mc.gui.screen() instanceof HudEditScreen) return;
 
             // MainGUI renders HUD elements itself (Gui.render() is suppressed while it's open)
-            if (mc.screen instanceof MainGUI) return;
+            if (mc.gui.screen() instanceof MainGUI) return;
             if (StreamerModeManager.isEnabled()) {
                 hudAlpha = 0f;
                 return;

@@ -66,17 +66,17 @@ public final class MetalDetectorBackpackManager {
         switch (phase) {
             case IDLE -> handleIdle(client);
             case WAITING_STORAGE_MENU -> {
-                if (client.screen == null && isTimedOut()) {
+                if (client.gui.screen() == null && isTimedOut()) {
                     openStorageMenu(client);
                 }
             }
             case WAITING_BACKPACK_MENU -> {
-                if (client.screen == null && isTimedOut()) {
+                if (client.gui.screen() == null && isTimedOut()) {
                     openCurrentBackpack(client);
                 }
             }
             case FILLING_BACKPACK -> {
-                if (client.screen == null) {
+                if (client.gui.screen() == null) {
                     phase = Phase.IDLE;
                     phaseStartedAt = 0L;
                 }
@@ -133,7 +133,7 @@ public final class MetalDetectorBackpackManager {
     }
 
     private static void handleIdle(Minecraft client) {
-        if (client.screen != null || getScavengedToolCount(client) < 4) {
+        if (client.gui.screen() != null || getScavengedToolCount(client) < 4) {
             return;
         }
 

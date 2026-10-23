@@ -408,7 +408,7 @@ public class MainGUI extends NVGScreen {
         // Resolve pixel ratio from the live render target so panel dimensions
         // are expressed in physical pixels, not GUI-scaled logical pixels.
         try {
-            var rt = client.getMainRenderTarget();
+            var rt = client.gameRenderer.mainRenderTarget();
             pr = (float) rt.width / this.width;
         } catch (Exception ignored) {
             pr = 1f;
@@ -812,7 +812,7 @@ public class MainGUI extends NVGScreen {
     }
 
     private void renderQueuedFrame() {
-        if (Minecraft.getInstance().screen != this) {
+        if (Minecraft.getInstance().gui.screen() != this) {
             frameStatePrepared = false;
             return;
         }
@@ -838,7 +838,7 @@ public class MainGUI extends NVGScreen {
         // Resolve pixel ratio so all coordinates are in physical pixels.
         // We do this before beginFrame so hover detection uses the right scale.
         try {
-            var rt = Minecraft.getInstance().getMainRenderTarget();
+            var rt = Minecraft.getInstance().gameRenderer.mainRenderTarget();
             pr = (float) rt.width / this.width;
         } catch (Exception ignored) { pr = 1f; }
         syncFrameLayoutForWindowSize(prevPhysW, prevPhysH);
@@ -2760,7 +2760,7 @@ public class MainGUI extends NVGScreen {
     private void openOptionalHudEditor(Minecraft minecraft) {
         net.minecraft.client.gui.screens.Screen screen = AetherBootstrapHooks.maybeCreateHudEditScreen();
         if (screen != null) {
-            minecraft.setScreen(screen);
+            minecraft.gui.setScreen(screen);
         }
     }
 

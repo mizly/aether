@@ -221,7 +221,7 @@ public final class FreecamManager {
 
     // rising-edge poll straight off the physical key state, because consumeClick() never fires when the mapping ends up in the detached fallback path
     private static void pollKeybinds(Minecraft client) {
-        if (client == null || client.player == null || client.level == null || client.screen != null) {
+        if (client == null || client.player == null || client.level == null || client.gui.screen() != null) {
             toggleKeyWasDown = false;
             teleportKeyWasDown = false;
             return;
@@ -286,7 +286,7 @@ public final class FreecamManager {
         }
         context.levelState().entityRenderStates.add(renderState);
         if (renderState.appearsGlowing()) {
-            context.levelState().haveGlowingEntities = true;
+            context.levelState().shouldShowEntityOutlines = true;
         }
     }
 

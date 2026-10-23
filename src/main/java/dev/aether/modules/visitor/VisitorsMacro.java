@@ -810,7 +810,7 @@ public class VisitorsMacro {
 
         long deadline = System.currentTimeMillis() + 15000;
         while (PathfindingManager.isNavigating() && System.currentTimeMillis() < deadline && !shouldStop) {
-            if (client.screen instanceof AbstractContainerScreen<?> screen && isVisitorScreen(screen)) {
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> screen && isVisitorScreen(screen)) {
                 ClientUtils.sendDebugMessage("[VisitorsMacro] Closing visitor GUI opened during pathing.");
                 closeScreen(client);
                 MacroWorkerThread.sleep(250);
@@ -1013,7 +1013,7 @@ public class VisitorsMacro {
             // Wait up to 500ms, checking for GUI every 100ms
             for (int i = 0; i < 5; i++) {
                 MacroWorkerThread.sleep(100);
-                if (client.screen instanceof AbstractContainerScreen<?> screen) {
+                if (client.gui.screen() instanceof AbstractContainerScreen<?> screen) {
                     if (isWrongVisitorScreen(screen, visitorName)) {
                         ClientUtils.sendDebugMessage("[VisitorsMacro] Closing wrong visitor GUI while targeting " + visitorName + ".");
                         closeScreen(client);
@@ -1049,11 +1049,11 @@ public class VisitorsMacro {
                     return false;
             }
         }
-        if (client.screen instanceof AbstractContainerScreen<?> screen && isWrongVisitorScreen(screen, visitorName)) {
+        if (client.gui.screen() instanceof AbstractContainerScreen<?> screen && isWrongVisitorScreen(screen, visitorName)) {
             closeScreen(client);
             return false;
         }
-        return client.screen instanceof AbstractContainerScreen;
+        return client.gui.screen() instanceof AbstractContainerScreen;
     }
 
     // -- GUI Interaction --
@@ -1081,7 +1081,7 @@ public class VisitorsMacro {
     }
 
     private static VisitorOffer readOffer(Minecraft client) {
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen))
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> screen))
             return null;
 
         if (ACCEPT_OFFER_SLOT >= screen.getMenu().slots.size())
@@ -1156,7 +1156,7 @@ public class VisitorsMacro {
     }
 
     private static boolean checkHasItems(Minecraft client) {
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen))
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> screen))
             return false;
         if (ACCEPT_OFFER_SLOT >= screen.getMenu().slots.size())
             return false;
@@ -1180,7 +1180,7 @@ public class VisitorsMacro {
     }
 
     private static boolean clickAcceptOffer(Minecraft client) {
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen))
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> screen))
             return false;
         if (ACCEPT_OFFER_SLOT >= screen.getMenu().slots.size())
             return false;
@@ -1194,7 +1194,7 @@ public class VisitorsMacro {
             return false;
 
         client.execute(() -> {
-            if (client.screen instanceof AbstractContainerScreen<?> s) {
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> s) {
                 ClientUtils.performSlotClick(s, ACCEPT_OFFER_SLOT, 0, ContainerInput.PICKUP);
             }
         });
@@ -1202,7 +1202,7 @@ public class VisitorsMacro {
     }
 
     private static boolean clickRejectOffer(Minecraft client) {
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen))
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> screen))
             return false;
         if (REJECT_OFFER_SLOT >= screen.getMenu().slots.size())
             return false;
@@ -1216,7 +1216,7 @@ public class VisitorsMacro {
             return false;
 
         client.execute(() -> {
-            if (client.screen instanceof AbstractContainerScreen<?> s) {
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> s) {
                 ClientUtils.performSlotClick(s, REJECT_OFFER_SLOT, 0, ContainerInput.PICKUP);
             }
         });
@@ -1250,7 +1250,7 @@ public class VisitorsMacro {
     private static boolean waitForContainer(Minecraft client, long timeoutMs, boolean ignoreStop) {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline && (ignoreStop || !shouldStop)) {
-            if (client.screen instanceof AbstractContainerScreen)
+            if (client.gui.screen() instanceof AbstractContainerScreen)
                 return true;
             MacroWorkerThread.sleep(100);
         }
@@ -1259,7 +1259,7 @@ public class VisitorsMacro {
 
     private static void closeScreen(Minecraft client) {
         client.execute(() -> {
-            if (client.player != null && client.screen != null) {
+            if (client.player != null && client.gui.screen() != null) {
                 client.player.closeContainer();
             }
         });
@@ -1405,7 +1405,7 @@ public class VisitorsMacro {
             return false;
         }
 
-        AbstractContainerScreen<?> statusScreen = (AbstractContainerScreen<?>) client.screen;
+        AbstractContainerScreen<?> statusScreen = (AbstractContainerScreen<?>) client.gui.screen();
         Slot statusSlot = statusScreen.getMenu().slots.get(statusSlotIndex);
         Boolean currentEnabled = readCompactorEnabled(client, statusSlot.getItem());
         if (currentEnabled == null) {
@@ -1422,7 +1422,7 @@ public class VisitorsMacro {
         ClientUtils.sendDebugMessage("VisitorsMacro: " + (enabled ? "enabling" : "disabling") + " compactor in hotbar slot "
                         + (hotbarSlot + 1));
         client.execute(() -> {
-            if (client.screen instanceof AbstractContainerScreen<?> screen) {
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> screen) {
                 ClientUtils.performSlotClick(screen, statusSlotIndex, 0, ContainerInput.PICKUP);
             }
         });
@@ -1434,7 +1434,7 @@ public class VisitorsMacro {
     private static int waitForCompactorStatusSlot(Minecraft client, long timeoutMs) {
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {
-            if (client.screen instanceof AbstractContainerScreen<?> screen && isCompactorScreen(screen)) {
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> screen && isCompactorScreen(screen)) {
                 for (int i = 0; i < screen.getMenu().slots.size(); i++) {
                     Slot slot = screen.getMenu().slots.get(i);
                     if (!slot.hasItem()) {

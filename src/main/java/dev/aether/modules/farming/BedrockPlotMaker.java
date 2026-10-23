@@ -288,8 +288,8 @@ public final class BedrockPlotMaker {
     private static void prepareRun(Minecraft client) {
         if (client != null) {
             Runnable closeConfigScreen = () -> {
-                if (AetherBootstrapHooks.isBootstrapConfigScreen(client.screen)) {
-                    client.setScreen(null);
+                if (AetherBootstrapHooks.isBootstrapConfigScreen(client.gui.screen())) {
+                    client.gui.setScreen(null);
                 }
             };
             if (client.isSameThread()) {

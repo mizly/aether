@@ -39,19 +39,19 @@ public final class SkyboxRenderer {
 
     private boolean draw(Minecraft client) {
         if (shader.isFailed()) return false;
-        var target = client.getMainRenderTarget();
+        var target = client.gameRenderer.mainRenderTarget();
         if (!(target.getColorTexture() instanceof GlTexture color)) return false;
         long now = System.nanoTime();
         if (lastFrameNanos != 0 && !client.isPaused()) {
             animationSeconds += Math.min((now - lastFrameNanos) / 1e9, 0.1) * AetherConfig.SKYBOX_SPEED.get();
         }
         lastFrameNanos = now;
-        client.gameRenderer.getMainCamera().getViewRotationProjectionMatrix(inverseViewProjection);
+        client.gameRenderer.mainCamera().getViewRotationProjectionMatrix(inverseViewProjection);
         inverseViewProjection.invert();
         var access = ((AccessorGlDevice) ((AccessorGpuDevice) RenderSystem.getDevice()).aether$getBackend())
                 .aether$directStateAccess();
         return shader.draw(inverseViewProjection, Skybox.preset(), (float) animationSeconds,
-                AetherConfig.SKYBOX_BRIGHTNESS.get(), color.getFbo(access, target.getDepthTexture()),
+                AetherConfig.SKYBOX_BRIGHTNESS.get(), RenderTargetFbo.get(target, access),
                 target.width, target.height);
     }
 

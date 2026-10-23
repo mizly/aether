@@ -47,7 +47,7 @@ public class MixinManageServerScreen {
             return;
         }
         ci.cancel();
-        Minecraft.getInstance().setScreen(replacement);
+        Minecraft.getInstance().gui.setScreen(replacement);
     }
 
     @Inject(method = "setInitialFocus", at = @At("HEAD"), cancellable = true)

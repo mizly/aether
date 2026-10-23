@@ -1,7 +1,6 @@
 package dev.aether.renderer;
 
 import com.mojang.blaze3d.opengl.DirectStateAccess;
-import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.aether.mixin.AccessorGlDevice;
 import dev.aether.mixin.AccessorGpuDevice;
@@ -35,7 +34,7 @@ public final class FailsafeColourFlashRenderer {
         }
 
         Minecraft client = Minecraft.getInstance();
-        var target = client.getMainRenderTarget();
+        var target = client.gameRenderer.mainRenderTarget();
         if (target == null || target.width <= 0 || target.height <= 0) {
             return;
         }
@@ -59,7 +58,7 @@ public final class FailsafeColourFlashRenderer {
         int blendEquationAlpha = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_ALPHA);
 
         try {
-            int targetFbo = ((GlTexture) target.getColorTexture()).getFbo(resolveDirectStateAccess(), null);
+            int targetFbo = RenderTargetFbo.get(target, resolveDirectStateAccess());
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, targetFbo);
             GL11.glViewport(0, 0, target.width, target.height);
 

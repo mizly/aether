@@ -42,9 +42,9 @@ class ServerIdHiderTest {
         assertEquals("09/05/26 private", plain(hidden));
         var styles = new ArrayList<Style>();
         hidden.accept((index, style, codePoint) -> { styles.add(style); return true; });
-        assertEquals(ChatFormatting.GRAY.getColor(), styles.getFirst().getColor().getValue());
+        assertEquals(0xAAAAAA, styles.getFirst().getColor().getValue());
         assertTrue(styles.getLast().isBold());
-        assertEquals(ChatFormatting.DARK_GRAY.getColor(), styles.getLast().getColor().getValue());
+        assertEquals(0x555555, styles.getLast().getColor().getValue());
     }
 
     @Test

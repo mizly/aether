@@ -2,7 +2,6 @@ package dev.aether.renderer;
 
 import com.mojang.blaze3d.opengl.DirectStateAccess;
 import com.mojang.blaze3d.opengl.GlStateManager;
-import com.mojang.blaze3d.opengl.GlTexture;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.aether.mixin.AccessorGlDevice;
 import dev.aether.mixin.AccessorGpuDevice;
@@ -120,12 +119,12 @@ public final class NanoVGManager {
         saveFrameState();
         float computedRatio = 1f;
         try {
-            var rt = Minecraft.getInstance().getMainRenderTarget();
+            var rt = Minecraft.getInstance().gameRenderer.mainRenderTarget();
             // Bind MC's main render target so NVG draws into the same buffer as the rest of
             // the game. Without this bind the title screen is invisible (NVG writes to FBO=0
             // which is the window framebuffer, but MC blits from the RT's FBO).
 
-            int mcFbo = ((GlTexture) rt.getColorTexture()).getFbo(resolveDirectStateAccess(), null);
+            int mcFbo = RenderTargetFbo.get(rt, resolveDirectStateAccess());
             mainRtFbo = mcFbo;
             int targetFbo = overrideTargetFbo >= 0 ? overrideTargetFbo : mcFbo;
             overrideTargetFbo = -1;
