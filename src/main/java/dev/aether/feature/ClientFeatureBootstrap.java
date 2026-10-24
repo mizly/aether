@@ -74,7 +74,8 @@ public final class ClientFeatureBootstrap {
             boolean drawPositionHighlights = PositionHighlighter.hasVisibleHighlights();
             boolean drawPestEsp = PestEspManager.hasVisibleHighlights();
             boolean drawPestTracker = PestTrackerAbility.hasVisibleArc();
-            if (!drawPathVisualizer && !drawPositionHighlights && !drawPestEsp && !drawPestTracker) {
+            boolean drawFunEffects = FunRenderer.hasVisibleEffects();
+            if (!drawPathVisualizer && !drawPositionHighlights && !drawPestEsp && !drawPestTracker && !drawFunEffects) {
                 return;
             }
             if (drawPathVisualizer) {
@@ -89,6 +90,9 @@ public final class ClientFeatureBootstrap {
             if (drawPestTracker) {
                 PestTrackerAbility.renderWorld();
             }
+            if (drawFunEffects) {
+                FunRenderer.renderAfterMain();
+            }
         });
 
         // 26.2 only takes vertices and text while submits are being collected
@@ -99,9 +103,7 @@ public final class ClientFeatureBootstrap {
             if (PositionHighlighter.hasVisibleHighlights()) {
                 PositionHighlighter.collectLabels(ctx);
             }
-            if (FunRenderer.hasVisibleEffects()) {
-                FunRenderer.renderWorld(ctx);
-            }
+            FunRenderer.collectSubmits(ctx);
         });
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(PerformanceModeManager::stop);
