@@ -5,7 +5,6 @@ import dev.aether.config.AetherConfig;
 import dev.aether.mixin.GuiAccessor;
 import dev.aether.modules.visuals.StreamerModeManager;
 import dev.aether.renderer.AetherRenderQueue;
-import dev.aether.renderer.GraphicsBackend;
 import dev.aether.renderer.NVGRenderer;
 import dev.aether.renderer.NanoVGManager;
 import net.minecraft.ChatFormatting;
@@ -63,7 +62,7 @@ public final class ScoreboardHudElement extends HudElement {
     }
 
     public void extract(GuiGraphicsExtractor graphics, Consumer<GuiGraphicsExtractor> vanilla) {
-        if (graphics instanceof ScoreboardGraphicsExtractor || !isVisible() || !GraphicsBackend.isOpenGl()) {
+        if (graphics instanceof ScoreboardGraphicsExtractor || !isVisible()) {
             vanilla.accept(graphics);
             return;
         }
