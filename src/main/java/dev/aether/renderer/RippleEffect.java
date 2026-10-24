@@ -1,246 +1,97 @@
 package dev.aether.renderer;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
-import dev.aether.util.AetherResources;
-import org.lwjgl.opengl.*;
-import org.lwjgl.system.MemoryUtil;
+import com.mojang.blaze3d.GpuFormat;
+import com.mojang.blaze3d.buffers.GpuBuffer;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.buffers.Std140Builder;
+import com.mojang.blaze3d.buffers.Std140SizeCalculator;
+import com.mojang.blaze3d.systems.GpuDevice;
+import com.mojang.blaze3d.systems.RenderPass;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.FilterMode;
+import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import net.minecraft.client.renderer.MappableRingBuffer;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.FloatBuffer;
-import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 
-// per frame: ensureReady, point NanoVGManager at getSceneFbo(), render and endFrame, then composite into NanoVGManager.getMainRtFbo()
-public final class RippleEffect {
+// copies the finished frame aside, then redraws it through the ripple shader
+public final class RippleEffect implements AutoCloseable {
+    private static final int MAX_RIPPLES = 4;
+    private static final int UBO_SIZE = new Std140SizeCalculator()
+            .putVec4().putVec4().putVec4().putVec4()
+            .putVec4()
+            .putInt()
+            .putFloat()
+            .get();
 
-    // -- GL objects ------------------------------------------------------------
+    private GpuTexture scene;
+    private GpuTextureView sceneView;
+    private MappableRingBuffer ubo;
 
-    private int sceneFbo      = 0;
-    // sampled by the ripple shader
-    private int sceneColorTex = 0;
-    // NVG_STENCIL_STROKES needs it
-    private int sceneStencil  = 0;
-
-    private int program = 0;
-    private int quadVao = 0;
-    private int quadVbo = 0;
-
-    private int texW = 0, texH = 0;
-
-    // -- Uniform locations -----------------------------------------------------
-
-    private int uScene, uNumRipples, uCenters, uRadii, uThicknesses, uStrengths, uAspect;
-
-    // -- Lifecycle -------------------------------------------------------------
-
-    // safe every frame - no-op when already the right size
-    public void ensureReady(int w, int h) {
-        if (sceneFbo != 0 && w == texW && h == texH) return;
-
-        destroyFbo();
-        texW = w;
-        texH = h;
-
-        // -- Color texture -----------------------------------------------------
-        sceneColorTex = GL11.glGenTextures();
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, sceneColorTex);
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, 0x8058 /* GL_RGBA8 */, w, h, 0,
-                GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, (java.nio.ByteBuffer) null);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_EDGE);
-        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_EDGE);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
-
-        // -- Stencil renderbuffer - required for NVG_STENCIL_STROKES -----------
-        sceneStencil = GL30.glGenRenderbuffers();
-        GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, sceneStencil);
-        GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_STENCIL_INDEX8, w, h);
-        GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, 0);
-
-        // -- Framebuffer -------------------------------------------------------
-        int prevFbo = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-        sceneFbo = GL30.glGenFramebuffers();
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, sceneFbo);
-        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
-                GL11.GL_TEXTURE_2D, sceneColorTex, 0);
-        GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_STENCIL_ATTACHMENT,
-                GL30.GL_RENDERBUFFER, sceneStencil);
-
-        // Clear stencil so stale state from a previous use doesn't leak.
-        GL11.glClear(GL11.GL_STENCIL_BUFFER_BIT);
-
-        // Restore using a direct GL call - ensureReady uses direct calls
-        // throughout, so GlStateManager's cache is unaffected; we must use
-        // a direct call to actually restore the FBO.
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
-
-        if (program == 0) initShaderAndQuad();
-    }
-
-    private void initShaderAndQuad() {
-        int v = compile(GL20.GL_VERTEX_SHADER,   load("/assets/aether/shaders/ripple.vsh"));
-        int f = compile(GL20.GL_FRAGMENT_SHADER, load("/assets/aether/shaders/ripple.fsh"));
-
-        program = GL20.glCreateProgram();
-        GL20.glAttachShader(program, v);
-        GL20.glAttachShader(program, f);
-        GL20.glBindAttribLocation(program, 0, "Position");
-        GL20.glBindAttribLocation(program, 1, "UV");
-        GL20.glLinkProgram(program);
-        if (GL20.glGetProgrami(program, GL20.GL_LINK_STATUS) == GL11.GL_FALSE)
-            throw new RuntimeException("[Aether] RippleEffect link: " + GL20.glGetProgramInfoLog(program));
-
-        GL20.glDeleteShader(v);
-        GL20.glDeleteShader(f);
-
-        uScene       = GL20.glGetUniformLocation(program, "Scene");
-        uNumRipples  = GL20.glGetUniformLocation(program, "NumRipples");
-        uCenters     = GL20.glGetUniformLocation(program, "Centers[0]");
-        uRadii       = GL20.glGetUniformLocation(program, "Radii[0]");
-        uThicknesses = GL20.glGetUniformLocation(program, "Thicknesses[0]");
-        uStrengths   = GL20.glGetUniformLocation(program, "Strengths[0]");
-        uAspect      = GL20.glGetUniformLocation(program, "Aspect");
-
-        // Screen-space quad (NDC triangle strip): pos.xy  uv.xy
-        FloatBuffer buf = MemoryUtil.memAllocFloat(16);
-        buf.put(new float[]{
-            -1f,  1f,   0f, 1f,
-            -1f, -1f,   0f, 0f,
-             1f,  1f,   1f, 1f,
-             1f, -1f,   1f, 0f,
-        }).flip();
-
-        quadVao = GL30.glGenVertexArrays();
-        GL30.glBindVertexArray(quadVao);
-        quadVbo = GL15.glGenBuffers();
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, quadVbo);
-        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, buf, GL15.GL_STATIC_DRAW);
-        MemoryUtil.memFree(buf);
-
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glVertexAttribPointer(0, 2, GL11.GL_FLOAT, false, 16, 0L);
-        GL20.glEnableVertexAttribArray(1);
-        GL20.glVertexAttribPointer(1, 2, GL11.GL_FLOAT, false, 16, 8L);
-
-        GL30.glBindVertexArray(0);
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, 0);
-    }
-
-    // -- Composite -------------------------------------------------------------
-
-    // displayFbo must be NanoVGManager.getMainRtFbo(), the one mc actually displays
     // coords are logical pixels from the top left; lToP is the logical->physical scale
-    public void composite(int displayFbo, int w, int h,
-                          float[] cx, float[] cy, float[] radius,
-                          float[] thickness, float[] strength,
-                          int count, float lToP) {
-        if (sceneFbo == 0 || program == 0) return;
-        count = Math.min(count, 4);
+    public void composite(GpuTextureView target, float[] cx, float[] cy, float[] radius,
+                          float[] thickness, float[] strength, int count, float lToP) {
+        if (target == null || count <= 0 || !EffectPipelines.usable(EffectPipelines.RIPPLE)) return;
+        count = Math.min(count, MAX_RIPPLES);
+        int w = target.getWidth(0);
+        int h = target.getHeight(0);
+        ensureScene(target.texture(), w, h);
 
-        float[] centers     = new float[8];
-        float[] radii       = new float[4];
-        float[] thicknesses = new float[4];
-        float[] strengths   = new float[count];
-
-        float scaleY = 1f / h;
-        for (int i = 0; i < count; i++) {
-            float physCx = cx[i] * lToP;
-            float physCy = cy[i] * lToP;
-            centers[i * 2]     = physCx / w;
-            centers[i * 2 + 1] = 1f - physCy / h;
-            radii[i]           = radius[i]    * lToP * scaleY;
-            thicknesses[i]     = thickness[i] * lToP * scaleY;
-            strengths[i]       = strength[i];
+        if (ubo == null) {
+            ubo = new MappableRingBuffer(() -> "Aether ripple", GpuBuffer.USAGE_UNIFORM | GpuBuffer.USAGE_MAP_WRITE, UBO_SIZE);
+        }
+        float[] strengths = new float[MAX_RIPPLES];
+        try (GpuBufferSlice.MappedView view = ubo.currentBuffer().map(false, true)) {
+            Std140Builder builder = Std140Builder.intoBuffer(view.data());
+            for (int i = 0; i < MAX_RIPPLES; i++) {
+                if (i < count) {
+                    // the shader works in uv with y up, distances measured in screen heights
+                    builder.putVec4(cx[i] * lToP / w, 1f - cy[i] * lToP / h, radius[i] * lToP / h, thickness[i] * lToP / h);
+                    strengths[i] = strength[i];
+                } else {
+                    builder.putVec4(0f, 0f, 0f, 0f);
+                }
+            }
+            builder.putVec4(strengths[0], strengths[1], strengths[2], strengths[3])
+                    .putInt(count)
+                    .putFloat((float) w / h);
         }
 
-        int prevProgram = GL11.glGetInteger(0x8B8D /* GL_CURRENT_PROGRAM */);
-        int prevVao     = GL11.glGetInteger(GL30.GL_VERTEX_ARRAY_BINDING);
-        int prevFbo     = GL11.glGetInteger(GL30.GL_FRAMEBUFFER_BINDING);
-
-        // Bind the display FBO directly - GlStateManager's cache may disagree
-        // about what is current, so we use a direct GL call to ensure the bind
-        // actually executes (confirmed correct by GuiGraphicsExtractor test).
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, displayFbo);
-        GL11.glViewport(0, 0, w, h);
-        GL20.glUseProgram(program);
-
-        GL20.glUniform1i(uScene, 0);
-        GL20.glUniform1i(uNumRipples, count);
-        GL20.glUniform2fv(uCenters, centers);
-        GL20.glUniform1fv(uRadii, radii);
-        GL20.glUniform1fv(uThicknesses, thicknesses);
-        GL20.glUniform1fv(uStrengths, strengths);
-        GL20.glUniform1f(uAspect, (float) w / h);
-
-        // Scene texture: the color attachment of our offscreen FBO - NVG
-        // rendered the title screen directly into this texture.
-        // Unbind any sampler on unit 0 - MC's sampler may have compare-mode set
-        // (shadow maps), which would override the texture read and return black.
-        GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        int prevSampler = GL33C.glGetInteger(GL33C.GL_SAMPLER_BINDING);
-        GL33C.glBindSampler(0, 0);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, sceneColorTex);
-
-        GlStateManager._disableBlend(0);
-        GlStateManager._disableDepthTest();
-        GL11.glDisable(GL11.GL_STENCIL_TEST);
-
-        GL30.glBindVertexArray(quadVao);
-        GL11.glDrawArrays(GL11.GL_TRIANGLE_STRIP, 0, 4);
-        GL30.glBindVertexArray(prevVao);
-
-        // Restore state Minecraft expects.
-        GL33C.glBindSampler(0, prevSampler);
-        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, prevFbo);
-        GlStateManager._glUseProgram(prevProgram);
-        GlStateManager._enableBlend(0);
-        GlStateManager._blendFuncSeparate(770, 771, 1, 0);
-        GlStateManager._activeTexture(GL13.GL_TEXTURE0);
-        GlStateManager._bindTexture(0);
+        GpuDevice device = RenderSystem.getDevice();
+        device.createCommandEncoder().copyTextureToTexture(target.texture(), scene, 0, 0, 0, 0, 0, w, h);
+        try (RenderPass pass = device.createCommandEncoder().createRenderPass(() -> "Aether ripple", target, Optional.empty())) {
+            pass.setPipeline(EffectPipelines.RIPPLE);
+            pass.setUniform("RippleInfo", ubo.currentBuffer());
+            pass.bindTexture("Scene", sceneView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+            pass.draw(3, 1, 0, 0);
+        }
+        ubo.rotate();
     }
 
-    // -- Accessors -------------------------------------------------------------
-
-    public int getSceneFbo() { return sceneFbo; }
-
-    // sampled by the ripple shader
-    public int getSceneColorTex() { return sceneColorTex; }
-
-    // -- Cleanup ---------------------------------------------------------------
-
-    private void destroyFbo() {
-        if (sceneFbo      != 0) { GL30.glDeleteFramebuffers(sceneFbo);      sceneFbo = 0; }
-        if (sceneColorTex != 0) { GL11.glDeleteTextures(sceneColorTex);     sceneColorTex = 0; }
-        if (sceneStencil  != 0) { GL30.glDeleteRenderbuffers(sceneStencil); sceneStencil = 0; }
+    private void ensureScene(GpuTexture source, int w, int h) {
+        if (scene != null && scene.getWidth(0) == w && scene.getHeight(0) == h && scene.getFormat() == source.getFormat()) return;
+        closeScene();
+        GpuDevice device = RenderSystem.getDevice();
+        GpuFormat format = source.getFormat();
+        scene = device.createTexture(() -> "Aether ripple scene", GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST,
+                format, w, h, 1, 1);
+        sceneView = device.createTextureView(scene);
     }
 
-    // call from Screen.removed()
-    public void destroy() {
-        destroyFbo();
-        if (quadVao != 0) { GL30.glDeleteVertexArrays(quadVao); quadVao = 0; }
-        if (quadVbo != 0) { GL15.glDeleteBuffers(quadVbo);      quadVbo = 0; }
-        if (program != 0) { GL20.glDeleteProgram(program);      program = 0; }
+    private void closeScene() {
+        if (sceneView != null) sceneView.close();
+        if (scene != null) scene.close();
+        sceneView = null;
+        scene = null;
     }
 
-    // -- Helpers ---------------------------------------------------------------
-
-    private static int compile(int type, String src) {
-        int shader = GL20.glCreateShader(type);
-        GL20.glShaderSource(shader, src);
-        GL20.glCompileShader(shader);
-        if (GL20.glGetShaderi(shader, GL20.GL_COMPILE_STATUS) == GL11.GL_FALSE)
-            throw new RuntimeException("[Aether] RippleEffect compile: " + GL20.glGetShaderInfoLog(shader));
-        return shader;
-    }
-
-    private static String load(String path) {
-        try (InputStream in = AetherResources.open(path)) {
-            if (in == null) throw new RuntimeException("[Aether] RippleEffect: missing " + path);
-            return new String(in.readAllBytes(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new RuntimeException("[Aether] RippleEffect: failed to read " + path, e);
+    @Override
+    public void close() {
+        closeScene();
+        if (ubo != null) {
+            ubo.close();
+            ubo = null;
         }
     }
 }
-

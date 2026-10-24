@@ -1,10 +1,6 @@
 package dev.aether.renderer;
 
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
 import dev.aether.config.AetherConfig;
-import dev.aether.mixin.AccessorGlDevice;
-import dev.aether.mixin.AccessorGpuDevice;
 import dev.aether.modules.visuals.Skybox;
 import net.minecraft.client.Minecraft;
 import org.joml.Matrix4f;
@@ -25,7 +21,7 @@ public final class SkyboxRenderer {
     }
 
     public static boolean render() {
-        if (!Skybox.isEnabled() || !GraphicsBackend.isOpenGl()) return false;
+        if (!Skybox.isEnabled()) return false;
         Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.getWindow() == null) return false;
         if (instance == null) instance = new SkyboxRenderer();
@@ -38,9 +34,8 @@ public final class SkyboxRenderer {
     }
 
     private boolean draw(Minecraft client) {
-        if (shader.isFailed()) return false;
         var target = client.gameRenderer.mainRenderTarget();
-        if (!(target.getColorTexture() instanceof GlTexture color)) return false;
+        if (target == null) return false;
         long now = System.nanoTime();
         if (lastFrameNanos != 0 && !client.isPaused()) {
             animationSeconds += Math.min((now - lastFrameNanos) / 1e9, 0.1) * AetherConfig.SKYBOX_SPEED.get();
@@ -48,11 +43,8 @@ public final class SkyboxRenderer {
         lastFrameNanos = now;
         client.gameRenderer.mainCamera().getViewRotationProjectionMatrix(inverseViewProjection);
         inverseViewProjection.invert();
-        var access = ((AccessorGlDevice) ((AccessorGpuDevice) RenderSystem.getDevice()).aether$getBackend())
-                .aether$directStateAccess();
         return shader.draw(inverseViewProjection, Skybox.preset(), (float) animationSeconds,
-                AetherConfig.SKYBOX_BRIGHTNESS.get(), GlFramebuffers.fbo(color, target.getDepthTexture()),
-                target.width, target.height);
+                AetherConfig.SKYBOX_BRIGHTNESS.get(), target.getColorTextureView());
     }
 
     public static void close() {

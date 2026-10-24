@@ -1,9 +1,13 @@
-#version 330 core
-layout(location = 0) in vec3 Position;
-layout(location = 1) in vec2 UV;
-layout(location = 2) in vec4 Color;
-layout(location = 3) in vec3 Effect;
-uniform mat4 ViewProjection;
+#version 330
+
+layout(std140) uniform CosmeticInfo {
+    mat4 ViewProjection;
+};
+
+in vec3 Position;
+in vec2 UV;
+in vec4 Color;
+in vec3 Effect;
 out vec2 uv;
 out vec4 color;
 flat out int material;

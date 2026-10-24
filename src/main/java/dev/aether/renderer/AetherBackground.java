@@ -1,9 +1,6 @@
 package dev.aether.renderer;
 
-import com.mojang.blaze3d.opengl.GlStateManager;
 import dev.aether.ui.theme.Theme;
-import net.minecraft.client.Minecraft;
-import org.lwjgl.nanovg.NanoVG;
 
 import java.util.ArrayDeque;
 import java.util.Random;
@@ -120,22 +117,11 @@ public final class AetherBackground {
             }
         }
 
-        // --- Normal NanoVG render ---------------------------------------------------
-        var rt   = Minecraft.getInstance().gameRenderer.mainRenderTarget();
-        int rtW  = rt.width, rtH = rt.height;
-        boolean hasRipples = rippleCount > 0;
-
-        // Disable any active scissor so the full-screen background isn't clipped
-        // (e.g. SelectWorldScreen enables scissor for its list widget).
-        GlStateManager._disableScissorTest();
-
         NanoVGManager.beginFrame(width, height);
         NVGRenderer nvg = NanoVGManager.getRenderer();
         try {
-            // Background color
             nvg.rect(0, 0, width, height, BG);
 
-            // Particles
             int accent = Theme.ACCENT_PRIMARY;
             for (int i = 0; i < N; i++) {
                 int col = pstar[i]
@@ -147,25 +133,9 @@ public final class AetherBackground {
             NanoVGManager.endFrame();
         }
 
-        // --- Post-process ripples ---------------------------------------------------
-        if (hasRipples) {
-            int mcFbo = NanoVGManager.getMainRtFbo();
-            GlStateManager._activeTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0);
-            GlStateManager._bindTexture(0);
-            rippleEffect.ensureReady(rtW, rtH);
-
-            GlStateManager._disableScissorTest();
-
-            // Copy scene to offscreen texture
-            int prevReadFbo = org.lwjgl.opengl.GL11.glGetInteger(org.lwjgl.opengl.GL30.GL_READ_FRAMEBUFFER_BINDING);
-            org.lwjgl.opengl.GL30.glBindFramebuffer(org.lwjgl.opengl.GL30.GL_READ_FRAMEBUFFER, mcFbo);
-            org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, rippleEffect.getSceneColorTex());
-            org.lwjgl.opengl.GL11.glCopyTexSubImage2D(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0, 0, 0, 0, 0, rtW, rtH);
-            org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, 0);
-            org.lwjgl.opengl.GL30.glBindFramebuffer(org.lwjgl.opengl.GL30.GL_READ_FRAMEBUFFER, prevReadFbo);
-
-            // Shader composite back to main FBO
-            rippleEffect.composite(mcFbo, rtW, rtH, rCx, rCy, rRad, rThi, rStr, rippleCount, (float) rtW / width);
+        if (rippleCount > 0) {
+            rippleEffect.composite(NanoVGManager.mainTarget(), rCx, rCy, rRad, rThi, rStr, rippleCount,
+                    NanoVGManager.getPxRatio());
         }
     }
 
