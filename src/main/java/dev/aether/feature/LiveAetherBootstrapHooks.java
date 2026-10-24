@@ -25,6 +25,7 @@ import dev.aether.modules.visuals.PestEspManager;
 import dev.aether.modules.visuals.StreamerModeManager;
 import dev.aether.renderer.AetherBackground;
 import dev.aether.renderer.AetherBackgroundScreens;
+import dev.aether.renderer.GraphicsBackend;
 import dev.aether.renderer.NVGRenderer;
 import dev.aether.telemetry.ban.AetherBanService;
 import dev.aether.telemetry.ban.BanDisconnectContext;
@@ -106,7 +107,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public Screen maybeCreateConfirmScreen(BooleanConsumer callback, Component title, Component message) {
-        if (StreamerModeManager.isEnabled() || !AetherConfig.CUSTOM_UI_ENABLED.get()) {
+        if (StreamerModeManager.isEnabled() || !AetherConfig.CUSTOM_UI_ENABLED.get() || !GraphicsBackend.isOpenGl()) {
             return null;
         }
         return new AetherConfirmScreen(callback, title, message);
@@ -114,7 +115,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public Screen maybeCreateDirectJoinScreen(Screen lastScreen, BooleanConsumer callback, ServerData serverData) {
-        if (StreamerModeManager.isEnabled() || !AetherConfig.CUSTOM_UI_ENABLED.get()) {
+        if (StreamerModeManager.isEnabled() || !AetherConfig.CUSTOM_UI_ENABLED.get() || !GraphicsBackend.isOpenGl()) {
             return null;
         }
         return new AetherDirectJoinScreen(lastScreen, callback, serverData);
@@ -122,7 +123,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public Screen maybeCreateMultiplayerScreen(Screen lastScreen) {
-        if (StreamerModeManager.isEnabled() || !AetherConfig.CUSTOM_UI_ENABLED.get()) {
+        if (StreamerModeManager.isEnabled() || !AetherConfig.CUSTOM_UI_ENABLED.get() || !GraphicsBackend.isOpenGl()) {
             return null;
         }
         return new AetherMultiplayerScreen(lastScreen);
@@ -130,7 +131,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public Screen maybeCreateManageServerScreen(Screen lastScreen, Component title, BooleanConsumer callback, ServerData serverData) {
-        if (StreamerModeManager.isEnabled() || !AetherConfig.CUSTOM_UI_ENABLED.get()) {
+        if (StreamerModeManager.isEnabled() || !AetherConfig.CUSTOM_UI_ENABLED.get() || !GraphicsBackend.isOpenGl()) {
             return null;
         }
         return new AetherManageServerScreen(lastScreen, title, callback, serverData);
@@ -138,7 +139,7 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
 
     @Override
     public Screen maybeCreateTitleScreen() {
-        if (StreamerModeManager.isEnabled() || !AetherConfig.CUSTOM_UI_ENABLED.get()) {
+        if (StreamerModeManager.isEnabled() || !AetherConfig.CUSTOM_UI_ENABLED.get() || !GraphicsBackend.isOpenGl()) {
             return null;
         }
         return new AetherTitleScreen();

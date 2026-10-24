@@ -19,7 +19,7 @@ public final class AetherRenderQueue {
     }
 
     private static void enqueue(List<Runnable> queue, Runnable task) {
-        if (task == null) {
+        if (task == null || !GraphicsBackend.isOpenGl()) {
             return;
         }
         synchronized (queue) {

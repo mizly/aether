@@ -1,6 +1,7 @@
 package dev.aether.bootstrap;
 
 import dev.aether.Aether;
+import dev.aether.renderer.GraphicsBackend;
 import dev.aether.ui.MainGUI;
 import dev.aether.ui.MainGUIRegistry;
 import dev.aether.util.ClientUtils;
@@ -22,6 +23,10 @@ public final class AetherUiActions {
     public static void openMainGui() {
         Minecraft client = Minecraft.getInstance();
         if (client == null) {
+            return;
+        }
+        if (!GraphicsBackend.isOpenGl()) {
+            ClientUtils.sendMessage("\u00A7cThe Aether GUI needs the OpenGL graphics backend. Switch it in Video Settings and restart.", false);
             return;
         }
 

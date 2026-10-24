@@ -86,9 +86,7 @@ public final class PestEspManager {
         Matrix4f viewProjection = camera.getViewRotationProjectionMatrix(new Matrix4f());
         float width = client.getWindow().getGuiScaledWidth();
         float height = client.getWindow().getGuiScaledHeight();
-        if (!NanoVGManager.isInitialized()) {
-            NanoVGManager.init();
-        }
+        if (!NanoVGManager.ensureInitialized()) return;
         NanoVGManager.beginFrame(width, height);
         NVGRenderer renderer = NanoVGManager.getRenderer();
         try {

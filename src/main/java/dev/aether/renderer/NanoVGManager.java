@@ -77,6 +77,13 @@ public final class NanoVGManager {
 
     // -- Lifecycle -------------------------------------------------------------
 
+    public static boolean ensureInitialized() {
+        if (initialized) return true;
+        if (!GraphicsBackend.isOpenGl()) return false;
+        init();
+        return true;
+    }
+
     // main render thread, once, before any nvg rendering
     public static void init() {
         if (initialized) return;

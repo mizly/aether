@@ -33,7 +33,8 @@ public final class CosmeticWorldRenderer {
 
     public static void render() {
         Minecraft client = Minecraft.getInstance();
-        if (client.player == null || client.level == null || !hasVisibleEffects()) return;
+        if (client.player == null || client.level == null || !hasVisibleEffects()
+                || !GraphicsBackend.isOpenGl()) return;
         if (instance == null) instance = new CosmeticWorldRenderer();
         instance.draw(client);
     }

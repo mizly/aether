@@ -26,7 +26,7 @@ public final class FailsafeColourFlashRenderer {
     }
 
     public static void render(int argb, float opacity) {
-        if (initializationFailed || opacity <= 0.0f) {
+        if (initializationFailed || opacity <= 0.0f || !GraphicsBackend.isOpenGl()) {
             return;
         }
 

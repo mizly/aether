@@ -25,7 +25,7 @@ public final class SkyboxRenderer {
     }
 
     public static boolean render() {
-        if (!Skybox.isEnabled()) return false;
+        if (!Skybox.isEnabled() || !GraphicsBackend.isOpenGl()) return false;
         Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.getWindow() == null) return false;
         if (instance == null) instance = new SkyboxRenderer();
