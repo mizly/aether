@@ -32,7 +32,7 @@ public abstract class MixinJoinMultiplayerScreen extends Screen {
             return;
         }
         ci.cancel();
-        Minecraft.getInstance().setScreen(replacement);
+        Minecraft.getInstance().gui.setScreen(replacement);
     }
 
     @Inject(method = "init", at = @At("TAIL"))
@@ -43,7 +43,7 @@ public abstract class MixinJoinMultiplayerScreen extends Screen {
 
         this.addRenderableWidget(Button.builder(
                         Component.literal(AetherProxyManager.selectedStatus()),
-                        button -> Minecraft.getInstance().setScreen(new AetherProxyScreen(this)))
+                        button -> Minecraft.getInstance().gui.setScreen(new AetherProxyScreen(this)))
                 .bounds(this.width - 185, 6, 180, 20)
                 .build());
     }
@@ -58,7 +58,7 @@ public abstract class MixinJoinMultiplayerScreen extends Screen {
         var replacement = aether$getReplacement();
         if (replacement != null) {
             ci.cancel();
-            Minecraft.getInstance().setScreen(replacement);
+            Minecraft.getInstance().gui.setScreen(replacement);
             return;
         }
         if (serverSelectionList == null) ci.cancel();

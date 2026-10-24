@@ -406,7 +406,7 @@ public final class DiscordRemoteControlManager implements WebSocket.Listener {
         Minecraft client = Minecraft.getInstance();
         client.execute(() -> {
             final Path[] tempRef = new Path[1];
-            Screenshot.takeScreenshot(client.getMainRenderTarget(), image -> {
+            Screenshot.takeScreenshot(client.gameRenderer.mainRenderTarget(), image -> {
                 try (NativeImage captured = image) {
                     tempRef[0] = Files.createTempFile("aether-status-", ".png");
                     captured.writeToFile(tempRef[0]);

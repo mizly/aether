@@ -1,32 +1,32 @@
 package dev.aether.renderer;
 
-import dev.aether.ui.util.Fonts;
+import com.mojang.blaze3d.GpuFormat;
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.textures.GpuTexture;
+import com.mojang.blaze3d.textures.GpuTextureView;
+import dev.aether.renderer.canvas.Canvas;
+import dev.aether.renderer.canvas.Canvas.Paint;
 import dev.aether.util.AetherLang;
-import org.lwjgl.nanovg.NVGColor;
-import org.lwjgl.nanovg.NVGPaint;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.font.TextRenderable;
 
-import java.awt.*;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import static org.lwjgl.nanovg.NanoVG.*;
-
 // only safe to call between NanoVGManager.beginFrame and endFrame; get it from NanoVGManager.getRenderer()
-// coords are logical pixels, colors are 0xAARRGGBB ints, and the NVGColor/NVGPaint scratch objects are reused each frame
+// coords are logical pixels and colors are 0xAARRGGBB ints; it draws through Canvas, so vulkan works too
 public class NVGRenderer {
 
-    private final long vg;
+    private final Canvas canvas;
+    private final Font.GlyphVisitor minecraftText;
+    private final Map<Integer, Image> images = new HashMap<>();
+    private int nextImage = 1;
 
-    // Pre-allocated NanoVG structs - never GC'd, reused every draw call
-    private final NVGColor c1   = NVGColor.malloc();
-    private final NVGColor c2   = NVGColor.malloc();
-    private final NVGPaint paint = NVGPaint.malloc();
-    private final MinecraftTextRenderer minecraftText;
-
-    // Font measurement scratch buffer
-    private final float[] fontBounds = new float[4];
+    private record Image(GpuTexture texture, GpuTextureView view) {}
 
     // Scissor stack for nested clipping
     private ScissorRegion scissorStack = null;
@@ -43,41 +43,38 @@ public class NVGRenderer {
 
     private float textScale = 1f;
 
-    NVGRenderer(long vg) {
-        this.vg = vg;
-        this.minecraftText = new MinecraftTextRenderer(vg, paint);
+    NVGRenderer(Canvas canvas) {
+        this.canvas = canvas;
+        this.minecraftText = new Font.GlyphVisitor() {
+            @Override public void acceptGlyph(TextRenderable.Styled glyph) { canvas.minecraftGlyph(glyph); }
+            @Override public void acceptEffect(TextRenderable effect) { canvas.minecraftGlyph(effect); }
+        };
     }
 
-    void beginMinecraftTextFrame() { minecraftText.beginFrame(); }
-    void endMinecraftTextFrame() { minecraftText.endFrame(); }
+    Canvas canvas() { return canvas; }
 
-    public void minecraftText(net.minecraft.client.gui.Font.PreparedText text) {
+    void beginFrame() {
+        scissorStack = null;
+    }
+
+    public void minecraftText(Font.PreparedText text) {
         text.visit(minecraftText);
     }
 
     // -- Basic shapes ----------------------------------------------------------
 
     public void rect(float x, float y, float w, float h, int color) {
-        nvgBeginPath(vg);
-        nvgRect(vg, x, y, w, h);
-        color(color, c1);
-        nvgFillColor(vg, c1);
-        nvgFill(vg);
+        canvas.fill(canvas.path().rect(x, y, w, h), Paint.solid(color));
     }
 
     public void roundedRect(float x, float y, float w, float h, float radius, int color) {
-        nvgBeginPath(vg);
-        nvgRoundedRect(vg, x, y, w, h, radius);
-        color(color, c1);
-        nvgFillColor(vg, c1);
-        nvgFill(vg);
+        canvas.fill(canvas.path().roundedRect(x, y, w, h, radius), Paint.solid(color));
     }
 
 
     public void rectOutline(float x, float y, float w, float h, float radius, float thickness, int color) {
         float half = thickness / 2f;
         float r = Math.min(radius, Math.min(w, h) / 2f);
-        color(color, c1);
 
         if (r < 0.5f) {
             // Sharp corners: four non-overlapping filled rects
@@ -88,27 +85,38 @@ public class NVGRenderer {
             return;
         }
 
-        // Single open stroke path tracing the full outline - tangent-continuous at every
-        // arc-to-line transition (no joins), so alpha is uniform at any opacity.
-        // NVG_STENCIL_STROKES ensures the open endpoint at the top-edge midpoint is fine.
-        nvgStrokeWidth(vg, thickness);
-        nvgLineCap(vg, NVG_BUTT);
-        nvgStrokeColor(vg, c1);
-        nvgBeginPath(vg);
-        nvgMoveTo(vg, x + w / 2f, y);
-        nvgLineTo(vg, x + w - r,  y);
-        nvgArc(vg, x + w - r, y + r,     r, HALF_PI * 3, HALF_PI * 4, NVG_CW); // top-right
-        nvgLineTo(vg, x + w,      y + h - r);
-        nvgArc(vg, x + w - r, y + h - r, r, 0,           HALF_PI,     NVG_CW); // bottom-right
-        nvgLineTo(vg, x + r,      y + h);
-        nvgArc(vg, x + r,     y + h - r, r, HALF_PI,     HALF_PI * 2, NVG_CW); // bottom-left
-        nvgLineTo(vg, x,          y + r);
-        nvgArc(vg, x + r,     y + r,     r, HALF_PI * 2, HALF_PI * 3, NVG_CW); // top-left
-        nvgLineTo(vg, x + w / 2f, y);
-        nvgStroke(vg);
+        // one open path from the top midpoint, tangent-continuous at every arc join so alpha stays uniform
+        canvas.stroke(fullOutline(x, y, w, h, r), Paint.solid(color), thickness);
     }
 
-    // bakes alpha into rgb premultiplied against black so the stroke is fully opaque, which dodges nanovg's semi-transparent stroke artefacts but assumes a dark background
+    private Canvas.Path fullOutline(float x, float y, float w, float h, float r) {
+        return canvas.path()
+                .moveTo(x + w / 2f, y)
+                .lineTo(x + w - r, y)
+                .arc(x + w - r, y + r, r, HALF_PI * 3, HALF_PI * 4, true)
+                .lineTo(x + w, y + h - r)
+                .arc(x + w - r, y + h - r, r, 0, HALF_PI, true)
+                .lineTo(x + r, y + h)
+                .arc(x + r, y + h - r, r, HALF_PI, HALF_PI * 2, true)
+                .lineTo(x, y + r)
+                .arc(x + r, y + r, r, HALF_PI * 2, HALF_PI * 3, true)
+                .lineTo(x + w / 2f, y);
+    }
+
+    // corners and verticals only, as two open subpaths
+    private Canvas.Path sideOutline(float x, float y, float w, float h, float r) {
+        return canvas.path()
+                .moveTo(x + r, y)
+                .arc(x + r, y + r, r, HALF_PI * 3, HALF_PI * 2, false)
+                .lineTo(x, y + h - r)
+                .arc(x + r, y + h - r, r, HALF_PI * 2, HALF_PI, false)
+                .moveTo(x + w - r, y)
+                .arc(x + w - r, y + r, r, HALF_PI * 3, HALF_PI * 4, true)
+                .lineTo(x + w, y + h - r)
+                .arc(x + w - r, y + h - r, r, 0, HALF_PI, true);
+    }
+
+    // bakes alpha into rgb premultiplied against black so the stroke is fully opaque, which assumes a dark background
     public void rectOutlineSolid(float x, float y, float w, float h, float radius, float thickness, int color) {
         rectOutline(x, y, w, h, radius, thickness, opaqueFromAlpha(color));
     }
@@ -125,40 +133,21 @@ public class NVGRenderer {
         int   c    = opaqueFromAlpha(color);
 
         if (ratio <= 0.4f) {
-            // Phase 1: scissor shrinks from h/2 down to half, revealing verticals + corners.
-            // Scissor stops at y+half so the horizontal stroke (centred on y) stays clipped.
+            // the scissor stops at y+half so the horizontal stroke centred on y stays clipped
             float pad = h / 2f - (ratio / 0.4f) * (h / 2f - half);
-            nvgSave(vg);
-            nvgIntersectScissor(vg, x - half, y + pad, w + thickness, h - pad * 2f);
+            canvas.save();
+            canvas.intersectScissor(x - half, y + pad, w + thickness, h - pad * 2f);
             rectOutlineSolid(x, y, w, h, radius, thickness, color);
-            nvgRestore(vg);
+            canvas.restore();
         } else {
-            // Phase 2: no scissor. Draw corners + verticals as a stroke path (no horizontal
-            // segments), then grow horizontal rects from each corner toward the centre.
-            // Using an explicit arc path avoids any scissor clipping at the corner endpoints.
-            // Colors are fully opaque here so arc stroke artefacts are not an issue.
-            color(c, c1);
-            nvgStrokeWidth(vg, thickness);
-            nvgLineCap(vg, NVG_BUTT);
-            nvgStrokeColor(vg, c1);
-            nvgBeginPath(vg);
-            // Left side: top-left arc → left straight → bottom-left arc
-            nvgMoveTo(vg, x + r,         y);
-            nvgArc(vg,   x + r,         y + r,         r, HALF_PI * 3, HALF_PI * 2, NVG_CCW);
-            nvgLineTo(vg, x,             y + h - r);
-            nvgArc(vg,   x + r,         y + h - r,     r, HALF_PI * 2, HALF_PI,     NVG_CCW);
-            // Right side: top-right arc → right straight → bottom-right arc
-            nvgMoveTo(vg, x + w - r,     y);
-            nvgArc(vg,   x + w - r,     y + r,         r, HALF_PI * 3, HALF_PI * 4, NVG_CW);
-            nvgLineTo(vg, x + w,         y + h - r);
-            nvgArc(vg,   x + w - r,     y + h - r,     r, 0,           HALF_PI,     NVG_CW);
-            nvgStroke(vg);
+            // corners and verticals as a stroke, then horizontal rects growing from each corner
+            canvas.stroke(sideOutline(x, y, w, h, r), Paint.solid(c), thickness);
 
             float segLen = ((ratio - 0.4f) / 0.6f) * (w / 2f - r);
-            rect(x + r,              y - half, segLen, thickness, c);  // top-left  →
-            rect(x + w - r - segLen, y - half, segLen, thickness, c);  // top-right ←
-            rect(x + r,              y + h - half, segLen, thickness, c);  // bot-left  →
-            rect(x + w - r - segLen, y + h - half, segLen, thickness, c);  // bot-right ←
+            rect(x + r,              y - half, segLen, thickness, c);
+            rect(x + w - r - segLen, y - half, segLen, thickness, c);
+            rect(x + r,              y + h - half, segLen, thickness, c);
+            rect(x + w - r - segLen, y + h - half, segLen, thickness, c);
         }
     }
 
@@ -166,67 +155,26 @@ public class NVGRenderer {
     public void rectOutlineVerticalSidesGradient(float x, float y, float w, float h, float radius,
                                                    float thickness, int colorTL, int colorBR, float ratio) {
         if (ratio <= 0f) return;
-        int c1c = opaqueFromAlpha(colorTL);
-        int c2c = opaqueFromAlpha(colorBR);
-        color(c1c, c1);
-        color(c2c, c2);
-        nvgLinearGradient(vg, x, y, x + w, y + h, c1, c2, paint);
+        Paint paint = Paint.linear(x, y, x + w, y + h, opaqueFromAlpha(colorTL), opaqueFromAlpha(colorBR));
         float r    = Math.min(radius, Math.min(w, h) / 2f);
         float half = thickness / 2f;
-        nvgStrokeWidth(vg, thickness);
-        nvgLineCap(vg, NVG_BUTT);
-        nvgStrokePaint(vg, paint);
 
         if (ratio >= 1f) {
-            nvgBeginPath(vg);
-            nvgMoveTo(vg, x + w / 2f, y);
-            nvgLineTo(vg, x + w - r,  y);
-            nvgArc(vg, x + w - r, y + r,     r, HALF_PI * 3, HALF_PI * 4, NVG_CW);
-            nvgLineTo(vg, x + w,      y + h - r);
-            nvgArc(vg, x + w - r, y + h - r, r, 0,           HALF_PI,     NVG_CW);
-            nvgLineTo(vg, x + r,      y + h);
-            nvgArc(vg, x + r,     y + h - r, r, HALF_PI,     HALF_PI * 2, NVG_CW);
-            nvgLineTo(vg, x,          y + r);
-            nvgArc(vg, x + r,     y + r,     r, HALF_PI * 2, HALF_PI * 3, NVG_CW);
-            nvgLineTo(vg, x + w / 2f, y);
-            nvgStroke(vg);
+            canvas.stroke(fullOutline(x, y, w, h, r), paint, thickness);
         } else if (ratio <= 0.4f) {
             float pad = h / 2f - (ratio / 0.4f) * (h / 2f - half);
-            nvgSave(vg);
-            nvgIntersectScissor(vg, x - half, y + pad, w + thickness, h - pad * 2f);
-            nvgBeginPath(vg);
-            nvgMoveTo(vg, x + w / 2f, y);
-            nvgLineTo(vg, x + w - r,  y);
-            nvgArc(vg, x + w - r, y + r,     r, HALF_PI * 3, HALF_PI * 4, NVG_CW);
-            nvgLineTo(vg, x + w,      y + h - r);
-            nvgArc(vg, x + w - r, y + h - r, r, 0,           HALF_PI,     NVG_CW);
-            nvgLineTo(vg, x + r,      y + h);
-            nvgArc(vg, x + r,     y + h - r, r, HALF_PI,     HALF_PI * 2, NVG_CW);
-            nvgLineTo(vg, x,          y + r);
-            nvgArc(vg, x + r,     y + r,     r, HALF_PI * 2, HALF_PI * 3, NVG_CW);
-            nvgLineTo(vg, x + w / 2f, y);
-            nvgStroke(vg);
-            nvgRestore(vg);
+            canvas.save();
+            canvas.intersectScissor(x - half, y + pad, w + thickness, h - pad * 2f);
+            canvas.stroke(fullOutline(x, y, w, h, r), paint, thickness);
+            canvas.restore();
         } else {
-            // Phase 2: corners + verticals stroke, then gradient-filled horizontal rects
-            nvgBeginPath(vg);
-            nvgMoveTo(vg, x + r,     y);
-            nvgArc(vg,   x + r,     y + r,     r, HALF_PI * 3, HALF_PI * 2, NVG_CCW);
-            nvgLineTo(vg, x,         y + h - r);
-            nvgArc(vg,   x + r,     y + h - r, r, HALF_PI * 2, HALF_PI,     NVG_CCW);
-            nvgMoveTo(vg, x + w - r, y);
-            nvgArc(vg,   x + w - r, y + r,     r, HALF_PI * 3, HALF_PI * 4, NVG_CW);
-            nvgLineTo(vg, x + w,     y + h - r);
-            nvgArc(vg,   x + w - r, y + h - r, r, 0,           HALF_PI,     NVG_CW);
-            nvgStroke(vg);
+            canvas.stroke(sideOutline(x, y, w, h, r), paint, thickness);
             float segLen = ((ratio - 0.4f) / 0.6f) * (w / 2f - r);
-            nvgFillPaint(vg, paint);
-            nvgBeginPath(vg);
-            nvgRect(vg, x + r,              y - half,     segLen, thickness);
-            nvgRect(vg, x + w - r - segLen, y - half,     segLen, thickness);
-            nvgRect(vg, x + r,              y + h - half, segLen, thickness);
-            nvgRect(vg, x + w - r - segLen, y + h - half, segLen, thickness);
-            nvgFill(vg);
+            canvas.fill(canvas.path()
+                    .rect(x + r,              y - half,     segLen, thickness)
+                    .rect(x + w - r - segLen, y - half,     segLen, thickness)
+                    .rect(x + r,              y + h - half, segLen, thickness)
+                    .rect(x + w - r - segLen, y + h - half, segLen, thickness), paint);
         }
     }
 
@@ -243,69 +191,38 @@ public class NVGRenderer {
     }
 
     public void circle(float cx, float cy, float radius, int color) {
-        nvgBeginPath(vg);
-        nvgCircle(vg, cx, cy, radius);
-        color(color, c1);
-        nvgFillColor(vg, c1);
-        nvgFill(vg);
+        canvas.fill(canvas.path().circle(cx, cy, radius), Paint.solid(color));
     }
 
     public void line(float x1, float y1, float x2, float y2, float thickness, int color) {
-        nvgBeginPath(vg);
-        nvgMoveTo(vg, x1, y1);
-        nvgLineTo(vg, x2, y2);
-        nvgStrokeWidth(vg, thickness);
-        color(color, c1);
-        nvgStrokeColor(vg, c1);
-        nvgStroke(vg);
+        canvas.stroke(canvas.path().moveTo(x1, y1).lineTo(x2, y2), Paint.solid(color), thickness);
     }
 
     public void polyline(float[] points, int count, float thickness, int color) {
         if (count < 2) return;
-        nvgBeginPath(vg);
-        nvgMoveTo(vg, points[0], points[1]);
-        for (int i = 1; i < count; i++) nvgLineTo(vg, points[i * 2], points[i * 2 + 1]);
-        nvgStrokeWidth(vg, thickness);
-        color(color, c1);
-        nvgStrokeColor(vg, c1);
-        nvgStroke(vg);
+        Canvas.Path path = canvas.path().moveTo(points[0], points[1]);
+        for (int i = 1; i < count; i++) path.lineTo(points[i * 2], points[i * 2 + 1]);
+        canvas.stroke(path, Paint.solid(color), thickness);
     }
 
     // -- Gradients -------------------------------------------------------------
 
     public void linearGradient(float x, float y, float w, float h, float radius,
                                 int colorTop, int colorBottom) {
-        color(colorTop,    c1);
-        color(colorBottom, c2);
-        nvgLinearGradient(vg, x, y, x, y + h, c1, c2, paint);
-        nvgBeginPath(vg);
-        nvgRoundedRect(vg, x, y, w, h, radius);
-        nvgFillPaint(vg, paint);
-        nvgFill(vg);
+        canvas.fill(canvas.path().roundedRect(x, y, w, h, radius), Paint.linear(x, y, x, y + h, colorTop, colorBottom));
     }
 
     public void horizontalGradient(float x, float y, float w, float h, float radius,
                                     int colorLeft, int colorRight) {
-        color(colorLeft,  c1);
-        color(colorRight, c2);
-        nvgLinearGradient(vg, x, y, x + w, y, c1, c2, paint);
-        nvgBeginPath(vg);
-        nvgRoundedRect(vg, x, y, w, h, radius);
-        nvgFillPaint(vg, paint);
-        nvgFill(vg);
+        canvas.fill(canvas.path().roundedRect(x, y, w, h, radius), Paint.linear(x, y, x + w, y, colorLeft, colorRight));
     }
 
     // -- Shadow / Glow ---------------------------------------------------------
 
     // draw this before the element it belongs to so it lands underneath
     public void shadow(float x, float y, float w, float h, float radius, float blur, int color) {
-        color(color, c1);
-        color(color & 0x00FFFFFF, c2); // same RGB, zero alpha
-        nvgBoxGradient(vg, x, y + blur * 0.5f, w, h, radius + blur * 0.5f, blur, c1, c2, paint);
-        nvgBeginPath(vg);
-        nvgRect(vg, x - blur, y - blur * 0.5f, w + blur * 2, h + blur * 2);
-        nvgFillPaint(vg, paint);
-        nvgFill(vg);
+        canvas.fillBoxGradient(canvas.path().rect(x - blur, y - blur * 0.5f, w + blur * 2, h + blur * 2),
+                x, y + blur * 0.5f, w, h, radius + blur * 0.5f, blur, color, color & 0x00FFFFFF);
     }
 
     // layered box gradients; intensity in [0.2, 1.0] goes from subtle to strong
@@ -320,13 +237,8 @@ public class NVGRenderer {
             int layerAlpha = (int) (baseAlpha * (1f - (float) i / layers) * intensity);
             if (layerAlpha < 2) continue;
 
-            color((layerAlpha << 24) | (color & 0x00FFFFFF), c1);
-            color(color & 0x00FFFFFF, c2);
-            nvgBoxGradient(vg, x, y, w, h, radius, feather, c1, c2, paint);
-            nvgBeginPath(vg);
-            nvgRect(vg, x - spread, y - spread, w + spread * 2, h + spread * 2);
-            nvgFillPaint(vg, paint);
-            nvgFill(vg);
+            canvas.fillBoxGradient(canvas.path().rect(x - spread, y - spread, w + spread * 2, h + spread * 2),
+                    x, y, w, h, radius, feather, (layerAlpha << 24) | (color & 0x00FFFFFF), color & 0x00FFFFFF);
         }
     }
 
@@ -340,72 +252,49 @@ public class NVGRenderer {
             int layerAlpha = (int) (baseAlpha * (1f - (float) i / layers) * intensity);
             if (layerAlpha < 2) continue;
 
-            color((layerAlpha << 24) | (color & 0x00FFFFFF), c1);
-            color(color & 0x00FFFFFF, c2);
-            nvgRadialGradient(vg, cx, cy, radius * 0.5f, radius + spread, c1, c2, paint);
-            nvgBeginPath(vg);
-            nvgCircle(vg, cx, cy, radius + spread);
-            nvgFillPaint(vg, paint);
-            nvgFill(vg);
+            canvas.fillRadialGradient(cx, cy, radius * 0.5f, radius + spread,
+                    (layerAlpha << 24) | (color & 0x00FFFFFF), color & 0x00FFFFFF);
         }
 
-        // Draw filled centre circle
         circle(cx, cy, radius, color);
     }
 
     // an approximation, not a real gaussian - it composites a semi-transparent overlay that suggests frosting
-    // for a true two-pass blur see BlurFramebuffer
 
     public void blur(float x, float y, float w, float h, float blurRadius) {
         float clampedBlur = Math.min(blurRadius, 30f);
-        // Dark semi-transparent base
         rect(x, y, w, h, 0x40000000);
-        // Radial vignette for depth
         shadow(x, y, w, h, 0f, clampedBlur, 0x28000000);
-        // Frost tint
         rect(x, y, w, h, 0x0CFFFFFF);
     }
 
-    // everything is clipped to the rounded shape, so no scissor is needed and nothing bleeds past the corners
+    // everything is clipped to the rounded shape, so nothing bleeds past the corners
     public void blur(float x, float y, float w, float h, float radius, float blurRadius) {
         float clampedBlur = Math.min(blurRadius, 30f);
-        // Dark semi-transparent base
         roundedRect(x, y, w, h, radius, 0x40000000);
-        // Vignette for depth, filled inside the rounded shape only
-        color(0x28000000, c1);
-        color(0x00000000, c2);
-        nvgBoxGradient(vg, x, y + clampedBlur * 0.5f, w, h, radius + clampedBlur * 0.5f, clampedBlur, c1, c2, paint);
-        nvgBeginPath(vg);
-        nvgRoundedRect(vg, x, y, w, h, radius);
-        nvgFillPaint(vg, paint);
-        nvgFill(vg);
-        // Frost tint
+        canvas.fillBoxGradient(canvas.path().roundedRect(x, y, w, h, radius),
+                x, y + clampedBlur * 0.5f, w, h, radius + clampedBlur * 0.5f, clampedBlur, 0x28000000, 0x00000000);
         roundedRect(x, y, w, h, radius, 0x0CFFFFFF);
     }
 
 
     // same approximation as blur(), circular
     public void blurCircle(float cx, float cy, float radius, float blurRadius) {
-        // Limit "weight" to keep it tasteful & avoid overdraw spikes
+        // keep the weight capped so overdraw stays cheap
         float b = Math.min(Math.max(blurRadius, 0f), 30f);
 
-        // 1) Dark semi-transparent base (matches 0x40000000 used in rect blur)
         circle(cx, cy, radius, 0x40000000);
 
-        // 2) Radial vignette: layer a few outward circles with fading alpha.
-        //    This approximates the soft edge from shadow(...).
-        final int STEPS = 5;                  // 4-6 looks good, low cost
-        final int MAX_A = 0x28;               // 0x28000000 used in rect blur's shadow
+        // outward circles with fading alpha stand in for the soft edge of shadow()
+        final int STEPS = 5;
+        final int MAX_A = 0x28;
         for (int i = 1; i <= STEPS; i++) {
-            float t  = i / (float) STEPS;     // 0..1
-            float rr = radius + t * b;        // grow radius outward
-            int a    = Math.round(MAX_A * (1f - t)); // fade alpha
-            // black with 'a' alpha -> ARGB
-            int argb = ((a & 0xFF) << 24);
-            circle(cx, cy, rr, argb);
+            float t  = i / (float) STEPS;
+            float rr = radius + t * b;
+            int a    = Math.round(MAX_A * (1f - t));
+            circle(cx, cy, rr, (a & 0xFF) << 24);
         }
 
-        // 3) Frost tint (very light) - matches 0x0CFFFFFF from the rect blur
         circle(cx, cy, radius, 0x0CFFFFFF);
     }
 
@@ -413,55 +302,60 @@ public class NVGRenderer {
     public void blurRingApprox(float cx, float cy, float radius, float blurRadius, float alpha) {
         float b = Math.min(Math.max(blurRadius, 0f), 30f);
         final int STEPS = 5;
-        int maxA = Math.round(Math.max(0f, Math.min(alpha, 1f)) * 0x28); // scale peak alpha
+        int maxA = Math.round(Math.max(0f, Math.min(alpha, 1f)) * 0x28);
 
-        // No base fill - only outward halo
         for (int i = 1; i <= STEPS; i++) {
             float t  = i / (float) STEPS;
             float rr = radius + t * b;
             int a    = Math.round(maxA * (1f - t));
-            int argb = ((a & 0xFF) << 24);
-            circle(cx, cy, rr, argb);
+            circle(cx, cy, rr, (a & 0xFF) << 24);
         }
-
-        // Optional: an ultra-thin faint rim to help readability at very low alpha
-        // circle(cx, cy, radius, 0x10FFFFFF);
     }
 
     public void circleOutline(float cx, float cy, float radius, float strokeWidth, int color) {
-        nvgBeginPath(vg);
-        nvgCircle   (vg, cx, cy, Math.max(0.5f, radius));
-        nvgStrokeWidth (vg, Math.max(0.5f, strokeWidth));
-        color(color, c1);
-        nvgStrokeColor (vg, c1);
-        nvgStroke(vg);
+        canvas.stroke(canvas.path().circle(cx, cy, Math.max(0.5f, radius)), Paint.solid(color), Math.max(0.5f, strokeWidth));
     }
 
 
     // -- SVG rendering ---------------------------------------------------------
 
-    // svgs are parsed, rasterized and cached as nvg images on first use; color 0 means no tint
+    // svgs are parsed, rasterized into the ui atlas on first use; color 0 means no tint
     public void renderSVG(String resourcePath, float x, float y, float width, float height, int color) {
-        SVGRenderer.render(vg, resourcePath, x, y, width, height, color, paint);
+        SVGRenderer.render(canvas, resourcePath, x, y, width, height, color);
     }
 
-    public int createImageRGBA(int width, int height, java.nio.ByteBuffer pixels) {
-        return nvgCreateImageRGBA(vg, width, height, 0, pixels);
+    public int createImageRGBA(int width, int height, ByteBuffer pixels) {
+        if (width <= 0 || height <= 0) return -1;
+        var device = RenderSystem.getDevice();
+        GpuTexture texture = device.createTexture(() -> "Aether image", GpuTexture.USAGE_TEXTURE_BINDING | GpuTexture.USAGE_COPY_DST,
+                GpuFormat.RGBA8_UNORM, width, height, 1, 1);
+        device.createCommandEncoder().writeToTexture(texture, pixels, 0, 0, 0, 0, width, height);
+        int handle = nextImage++;
+        images.put(handle, new Image(texture, device.createTextureView(texture)));
+        return handle;
     }
 
     public void deleteImage(int handle) {
-        if (handle != -1) nvgDeleteImage(vg, handle);
+        Image image = images.remove(handle);
+        if (image != null) {
+            image.view.close();
+            image.texture.close();
+        }
+    }
+
+    void deleteAllImages() {
+        for (Image image : images.values()) {
+            image.view.close();
+            image.texture.close();
+        }
+        images.clear();
     }
 
     public void image(int handle, float x, float y, float width, float height, float radius, float alpha) {
-        if (handle == -1) return;
-        nvgSave(vg);
-        nvgBeginPath(vg);
-        nvgRoundedRect(vg, x, y, width, height, radius);
-        nvgImagePattern(vg, x, y, width, height, 0f, handle, alpha, paint);
-        nvgFillPaint(vg, paint);
-        nvgFill(vg);
-        nvgRestore(vg);
+        Image image = images.get(handle);
+        if (image == null) return;
+        int a = Math.round(Math.max(0f, Math.min(1f, alpha)) * 255f);
+        canvas.image(image.view, x, y, width, height, radius, (a << 24) | 0x00FFFFFF);
     }
 
     // -- Text ------------------------------------------------------------------
@@ -472,13 +366,9 @@ public class NVGRenderer {
 
     // Server text must not be localized or inherit the settings menu's text scale.
     public void textLiteral(String fontName, String text, float x, float y, float size, int color) {
-        int fontId = NanoVGManager.getFontId(fontName);
+        int fontId = canvas.fontId(fontName);
         if (fontId == -1) return;
-        nvgFontFaceId(vg, fontId);
-        nvgFontSize(vg, size);
-        color(color, c1);
-        nvgFillColor(vg, c1);
-        nvgText(vg, x, y + 0.5f, text);
+        canvas.text(fontId, text, x, y + 0.5f, size, color);
     }
 
     public void textCentered(String fontName, String text, float x, float y, float w, float h,
@@ -506,11 +396,9 @@ public class NVGRenderer {
         if (key.equals(lastTextKey)) {
             return textWidthCache.getOrDefault(key, 0f);
         }
-        int fontId = NanoVGManager.getFontId(fontName);
+        int fontId = canvas.fontId(fontName);
         if (fontId == -1) return 0f;
-        nvgFontFaceId(vg, fontId);
-        nvgFontSize(vg, size);
-        float w = nvgTextBounds(vg, 0, 0, text, fontBounds);
+        float w = canvas.textWidth(fontId, text, size);
         textWidthCache.put(key, w);
         lastTextKey = key;
         return w;
@@ -579,40 +467,40 @@ public class NVGRenderer {
     // nested regions intersect automatically; always pair with popScissor()
     public void pushScissor(float x, float y, float w, float h) {
         scissorStack = new ScissorRegion(scissorStack, x, y, x + w, y + h);
-        scissorStack.apply(vg);
+        scissorStack.apply(canvas);
     }
 
     // resets the scissor entirely when the stack empties
     public void popScissor() {
-        nvgResetScissor(vg);
+        canvas.resetScissor();
         scissorStack = scissorStack != null ? scissorStack.parent : null;
-        if (scissorStack != null) scissorStack.apply(vg);
+        if (scissorStack != null) scissorStack.apply(canvas);
     }
 
     // single-level clip that skips the stack; clear it with resetScissor()
     public void scissor(float x, float y, float w, float h) {
-        nvgScissor(vg, x, y, w, h);
+        canvas.scissor(x, y, w, h);
     }
 
     public void resetScissor() {
-        nvgResetScissor(vg);
+        canvas.resetScissor();
     }
 
     // -- Transform state -------------------------------------------------------
 
     // pair with restore()
-    public void save() { nvgSave(vg); }
+    public void save() { canvas.save(); }
 
-    public void restore() { nvgRestore(vg); }
+    public void restore() { canvas.restore(); }
 
-    public void translate(float dx, float dy) { nvgTranslate(vg, dx, dy); }
+    public void translate(float dx, float dy) { canvas.translate(dx, dy); }
 
-    public void scale(float sx, float sy) { nvgScale(vg, sx, sy); }
+    public void scale(float sx, float sy) { canvas.scale(sx, sy); }
 
-    public void skewX(float radians) { nvgSkewX(vg, radians); }
+    public void skewX(float radians) { canvas.skewX(radians); }
 
     // alpha is clamped to [0, 1]
-    public void globalAlpha(float alpha) { nvgGlobalAlpha(vg, Math.max(0f, Math.min(1f, alpha))); }
+    public void globalAlpha(float alpha) { canvas.globalAlpha(Math.max(0f, Math.min(1f, alpha))); }
 
     public void setTextScale(float s) {
         if (this.textScale != s) {
@@ -620,19 +508,6 @@ public class NVGRenderer {
             textWidthCache.clear();
             lastTextKey = null;
         }
-    }
-
-    // -- Internal --------------------------------------------------------------
-
-    // only valid until the next call using the same slot
-    static void color(int argb, NVGColor out) {
-        nvgRGBA(
-                (byte) ((argb >> 16) & 0xFF),
-                (byte) ((argb >>  8) & 0xFF),
-                (byte) ( argb        & 0xFF),
-                (byte) ((argb >> 24) & 0xFF),
-                out
-        );
     }
 
     // -- Nested scissor helper -------------------------------------------------
@@ -643,7 +518,6 @@ public class NVGRenderer {
 
         ScissorRegion(ScissorRegion parent, float x1, float y1, float x2, float y2) {
             this.parent = parent;
-            // Intersect with parent region if present
             if (parent != null) {
                 this.x1 = Math.max(x1, parent.x1);
                 this.y1 = Math.max(y1, parent.y1);
@@ -655,10 +529,10 @@ public class NVGRenderer {
             }
         }
 
-        void apply(long vg) {
+        void apply(Canvas canvas) {
             float w = Math.max(0f, x2 - x1);
             float h = Math.max(0f, y2 - y1);
-            nvgScissor(vg, x1, y1, w, h);
+            canvas.scissor(x1, y1, w, h);
         }
     }
 }

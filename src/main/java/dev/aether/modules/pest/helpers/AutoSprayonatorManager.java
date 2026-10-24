@@ -370,7 +370,7 @@ public final class AutoSprayonatorManager {
             if (shouldAbort()) return false;
 
             boolean open = PestClientThread.call(client,
-                    () -> client.screen instanceof AbstractContainerScreen<?> screen
+                    () -> client.gui.screen() instanceof AbstractContainerScreen<?> screen
                             && TablistUtils.stripColors(screen.getTitle().getString())
                                     .toLowerCase().contains("sprayonator"),
                     false);
@@ -387,7 +387,7 @@ public final class AutoSprayonatorManager {
         if (!client.isSameThread()) {
             return PestClientThread.call(client, () -> clickMaterialSlot(client, target), false);
         }
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen)) {
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> screen)) {
             return false;
         }
 
@@ -443,7 +443,7 @@ public final class AutoSprayonatorManager {
 
     private static void clickSlot(Minecraft client, int slotIndex) {
         PestClientThread.run(client, () -> {
-            if (client.screen instanceof AbstractContainerScreen<?> screen) {
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> screen) {
                 ClientUtils.performSlotClick(screen, slotIndex, 0, ContainerInput.PICKUP);
             }
         });
@@ -455,7 +455,7 @@ public final class AutoSprayonatorManager {
         }
 
         PestClientThread.run(client, () -> {
-            if (client.player != null && client.screen != null) {
+            if (client.player != null && client.gui.screen() != null) {
                 client.player.closeContainer();
             }
         });

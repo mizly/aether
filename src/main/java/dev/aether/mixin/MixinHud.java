@@ -5,7 +5,7 @@ import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import dev.aether.bootstrap.AetherBootstrapHooks;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.scores.Objective;
@@ -15,9 +15,10 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyVariable;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+// 26.2 moved hud drawing, the scoreboard sidebar and the actionbar from Gui to Hud
 // hides the vanilla hud while the nanovg screens are open; the hud editor redraws the elements itself inside the nvg frame
-@Mixin(Gui.class)
-public class MixinGui {
+@Mixin(Hud.class)
+public class MixinHud {
 
     @WrapMethod(method = "displayScoreboardSidebar")
     private void aether$extractScoreboardSidebar(GuiGraphicsExtractor graphics, Objective objective, Operation<Void> original) {
@@ -28,7 +29,7 @@ public class MixinGui {
     private void suppressHudForNvgScreens(GuiGraphicsExtractor guiGraphics,
                                           DeltaTracker deltaTracker,
                                           CallbackInfo ci) {
-        net.minecraft.client.gui.screens.Screen screen = Minecraft.getInstance().screen;
+        net.minecraft.client.gui.screens.Screen screen = Minecraft.getInstance().gui.screen();
         if (AetherBootstrapHooks.shouldSuppressVanillaHud(screen)) {
             ci.cancel();
         }

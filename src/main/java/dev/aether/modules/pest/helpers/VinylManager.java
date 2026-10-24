@@ -60,7 +60,7 @@ public final class VinylManager {
         boolean result = handleStereoGui(client, targetVinyl, guiDelay);
 
         client.execute(() -> {
-            if (client.screen != null && client.player != null) {
+            if (client.gui.screen() != null && client.player != null) {
                 client.player.closeContainer();
             }
         });
@@ -109,7 +109,7 @@ public final class VinylManager {
             return false;
         }
         PestClientThread.run(client, () -> {
-            if (client.screen instanceof AbstractContainerScreen<?> screen) {
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> screen) {
                 ClientUtils.performSlotClick(screen, selection.slot(), 0, ContainerInput.PICKUP);
             }
         });
@@ -121,7 +121,7 @@ public final class VinylManager {
         if (!client.isSameThread()) {
             return PestClientThread.call(client, () -> isStereoGuiOpen(client), false);
         }
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen)) return false;
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> screen)) return false;
         return TablistUtils.stripColors(screen.getTitle().getString()).toLowerCase().contains("stereo");
     }
 
@@ -164,7 +164,7 @@ public final class VinylManager {
     }
 
     private static StereoSelection inspectStereoGui(Minecraft client, String targetVinyl) {
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen)) {
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> screen)) {
             return StereoSelection.NOT_FOUND;
         }
         String targetLower = targetVinyl.toLowerCase();

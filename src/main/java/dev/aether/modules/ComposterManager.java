@@ -349,7 +349,7 @@ public final class ComposterManager {
         if (client == null) {
             return;
         }
-        if (!(client.screen instanceof AbstractContainerScreen<?>)) {
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?>)) {
             return;
         }
 
@@ -426,7 +426,7 @@ public final class ComposterManager {
         if (client == null) {
             return;
         }
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen)) {
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> screen)) {
             return;
         }
 
@@ -442,7 +442,7 @@ public final class ComposterManager {
 
             int finalSlotId = slotId;
             client.execute(() -> {
-                if (client.screen instanceof AbstractContainerScreen<?> currentScreen) {
+                if (client.gui.screen() instanceof AbstractContainerScreen<?> currentScreen) {
                     ClientUtils.performSlotClick(currentScreen, finalSlotId, 0, ContainerInput.PICKUP);
                 }
             });
@@ -462,7 +462,7 @@ public final class ComposterManager {
             return;
         }
         client.execute(() -> {
-            if (client.screen instanceof AbstractContainerScreen<?> screen
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> screen
                     && slotId >= 0
                     && slotId < screen.getMenu().slots.size()) {
                 ClientUtils.performSlotClick(screen, slotId, 0, ContainerInput.PICKUP);
@@ -493,7 +493,7 @@ public final class ComposterManager {
         }
         long deadline = System.currentTimeMillis() + timeoutMs;
         while (System.currentTimeMillis() < deadline) {
-            if (client.screen instanceof AbstractContainerScreen<?> screen) {
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> screen) {
                 String title = TablistUtils.stripColors(screen.getTitle().getString()).toLowerCase();
                 if (title.contains("composter")) {
                     return true;
@@ -539,7 +539,7 @@ public final class ComposterManager {
     }
 
     private static void ensureScreenClosed(Minecraft client) {
-        if (client == null || client.screen == null) {
+        if (client == null || client.gui.screen() == null) {
             return;
         }
         client.execute(() -> {

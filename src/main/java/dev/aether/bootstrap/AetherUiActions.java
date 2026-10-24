@@ -12,8 +12,8 @@ public final class AetherUiActions {
 
     public static void toggleMainGui() {
         Minecraft client = Minecraft.getInstance();
-        if (client.screen instanceof MainGUI) {
-            client.setScreen(null);
+        if (client.gui.screen() instanceof MainGUI) {
+            client.gui.setScreen(null);
         } else {
             openMainGui();
         }
@@ -29,7 +29,7 @@ public final class AetherUiActions {
             MainGUIRegistry.refresh();
             client.execute(() -> {
                 try {
-                    client.setScreen(new MainGUI());
+                    client.gui.setScreen(new MainGUI());
                 } catch (RuntimeException | LinkageError e) {
                     Aether.LOGGER.error("Failed to open Aether GUI from queued client task", e);
                     ClientUtils.sendMessage("\u00A7cFailed to open the Aether GUI. Check the client log.", false);

@@ -40,7 +40,7 @@ public class MixinDirectJoinServerScreen {
             return;
         }
         ci.cancel();
-        Minecraft.getInstance().setScreen(replacement);
+        Minecraft.getInstance().gui.setScreen(replacement);
     }
 
     @Inject(method = "removed", at = @At("HEAD"), cancellable = true)

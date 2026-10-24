@@ -91,7 +91,7 @@ public class ProfitHudElement extends HudElement {
     @Override public boolean isVisible() {
         if (!AetherConfig.PROFIT_HUD_ENABLED.get()) return false;
         Minecraft mc = Minecraft.getInstance();
-        if (mc.screen != null && !(mc.screen instanceof HudEditScreen)) return false;
+        if (mc.gui.screen() != null && !(mc.gui.screen() instanceof HudEditScreen)) return false;
         return switch (mode) {
             case "lifetime" -> AetherConfig.SHOW_LIFETIME_HUD.get();
             case "daily"    -> AetherConfig.SHOW_DAILY_HUD.get();

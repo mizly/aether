@@ -1,4 +1,4 @@
-#version 330 core
+#version 330
 in vec2 uv;
 in vec4 color;
 flat in int material;

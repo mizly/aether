@@ -24,9 +24,9 @@ public final class AetherReconnectTickHandler {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.level == null || client.getConnection() == null) {
                 hasCheckedPersistenceOnJoin = false;
-                if (!(client.screen instanceof TitleScreen)
-                        && !(client.screen instanceof DisconnectedScreen)
-                        && !(client.screen instanceof DynamicRestScreen)) {
+                if (!(client.gui.screen() instanceof TitleScreen)
+                        && !(client.gui.screen() instanceof DisconnectedScreen)
+                        && !(client.gui.screen() instanceof DynamicRestScreen)) {
                     return;
                 }
 
@@ -41,8 +41,8 @@ public final class AetherReconnectTickHandler {
                 if (remaining <= 0) {
                     if (!ReconnectScheduler.isPending()) {
                         ReconnectScheduler.scheduleReconnect(10, ReconnectScheduler.shouldResume(), reconnectMode);
-                        if (client.screen instanceof DisconnectedScreen) {
-                            client.execute(() -> client.setScreen(createReconnectScreen(
+                        if (client.gui.screen() instanceof DisconnectedScreen) {
+                            client.execute(() -> client.gui.setScreen(createReconnectScreen(
                                     reconnectMode,
                                     Instant.now().getEpochSecond() * 1000 + 10000,
                                     10000)));
@@ -50,8 +50,8 @@ public final class AetherReconnectTickHandler {
                     }
                 } else if (!ReconnectScheduler.isPending()) {
                     ReconnectScheduler.scheduleReconnect(remaining, ReconnectScheduler.shouldResume(), reconnectMode);
-                    if (client.screen instanceof DisconnectedScreen) {
-                        client.execute(() -> client.setScreen(createReconnectScreen(
+                    if (client.gui.screen() instanceof DisconnectedScreen) {
+                        client.execute(() -> client.gui.setScreen(createReconnectScreen(
                                 reconnectMode,
                                 reconnectAt * 1000,
                                 remaining * 1000)));

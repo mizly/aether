@@ -45,7 +45,7 @@ public final class ScoreboardHudElement extends HudElement {
     public boolean isVisible() {
         Minecraft mc = Minecraft.getInstance();
         return isEnabled() && !renderingFailed && mc.player != null && mc.level != null
-                && !mc.options.hideGui && !StreamerModeManager.isEnabled() && HudRegistry.canRenderInGameplay(mc);
+                && !mc.gui.hud.isHidden() && !StreamerModeManager.isEnabled() && HudRegistry.canRenderInGameplay(mc);
     }
 
     public static void setEnabled(boolean enabled) {
@@ -115,7 +115,7 @@ public final class ScoreboardHudElement extends HudElement {
         Minecraft mc = Minecraft.getInstance();
         ScoreboardGraphicsExtractor capture = new ScoreboardGraphicsExtractor(mc, graphics.guiWidth(), graphics.guiHeight());
         if (mc.level != null && mc.player != null) {
-            ((GuiAccessor) mc.gui).aether$extractScoreboardSidebar(capture, mc.getDeltaTracker());
+            ((GuiAccessor) mc.gui.hud).aether$extractScoreboardSidebar(capture, mc.getDeltaTracker());
         }
         if (capture.drawList().isEmpty()) {
             Component title = Component.literal("Scoreboard").withStyle(ChatFormatting.YELLOW, ChatFormatting.BOLD);

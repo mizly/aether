@@ -3,8 +3,10 @@ package dev.aether.modules.pest.helpers;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EntityTypes;
 import net.minecraft.world.entity.Interaction;
+import net.minecraft.world.level.Level;
+import net.minecraft.client.multiplayer.ClientLevel;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -80,17 +82,37 @@ class PestDisplayTrackerTest {
         }
     }
 
+    private static int nextId = 1;
+
     private static TestEntity entity(double x, double y, double z) {
         TestEntity entity = new TestEntity();
+        entity.setId(nextId++);
         entity.setPos(x, y, z);
         return entity;
+    }
+
+    // 26.2 entities pull their id from the level, so null no longer works; an unconstructed
+    // ClientLevel just returns 0 from getNextEntityId and the test assigns real ids itself
+    private static Level stubLevel;
+
+    private static Level stubLevel() {
+        if (stubLevel != null) return stubLevel;
+        try {
+            java.lang.reflect.Field f = sun.misc.Unsafe.class.getDeclaredField("theUnsafe");
+            f.setAccessible(true);
+            sun.misc.Unsafe unsafe = (sun.misc.Unsafe) f.get(null);
+            stubLevel = (Level) unsafe.allocateInstance(ClientLevel.class);
+            return stubLevel;
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static final class TestEntity extends Interaction {
         private Entity vehicle;
 
         private TestEntity() {
-            super(EntityType.INTERACTION, null);
+            super(EntityTypes.INTERACTION, stubLevel());
         }
 
         @Override

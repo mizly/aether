@@ -245,8 +245,8 @@ public final class AetherLanguageManager {
         MainGUIRegistry.refresh();
         runOnClientThread(() -> {
             Minecraft client = Minecraft.getInstance();
-            if (client.screen != null) {
-                client.screen.resize(client.getWindow().getGuiScaledWidth(),
+            if (client.gui.screen() != null) {
+                client.gui.screen().resize(client.getWindow().getGuiScaledWidth(),
                         client.getWindow().getGuiScaledHeight());
             }
         });

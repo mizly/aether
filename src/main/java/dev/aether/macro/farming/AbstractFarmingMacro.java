@@ -122,7 +122,7 @@ public abstract class AbstractFarmingMacro extends AbstractMacro {
             return;
         }
 
-        if (mc.screen != null && isFarmingState()) {
+        if (mc.gui.screen() != null && isFarmingState()) {
             interruptAttack();
         }
 

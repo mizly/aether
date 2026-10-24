@@ -126,7 +126,7 @@ public class RecoveryManager {
 
     private static boolean isClientReady(Minecraft client) {
         return client != null && client.player != null && client.level != null && client.getConnection() != null
-                && client.screen == null && client.player.isAlive()
+                && client.gui.screen() == null && client.player.isAlive()
                 && client.level.hasChunkAt(client.player.blockPosition());
     }
 

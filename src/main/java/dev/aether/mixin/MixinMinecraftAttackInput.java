@@ -57,7 +57,7 @@ public class MixinMinecraftAttackInput {
     private boolean aether$useLatchedAttackKey(KeyMapping mapping) {
         Minecraft client = (Minecraft) (Object) this;
         return mapping.isDown()
-                || (client.screen == null
+                || (client.gui.screen() == null
                 && client.options != null
                 && mapping == client.options.keyAttack
                 && ProgrammaticAttackTracker.isHeld(mapping));

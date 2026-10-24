@@ -93,7 +93,7 @@ public class AetherDirectJoinScreen extends Screen {
     }
 
     private void renderQueued(int mx, int my) {
-        if (Minecraft.getInstance().screen != this) {
+        if (Minecraft.getInstance().gui.screen() != this) {
             return;
         }
         if (!NanoVGManager.isInitialized()) {

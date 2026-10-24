@@ -25,7 +25,7 @@ public final class UngrabMouse {
                 && !isSuspended()
                 && mc.player != null
                 && mc.level != null
-                && mc.screen == null;
+                && mc.gui.screen() == null;
     }
 
     public static boolean isVisualUngrabEnabled() {
@@ -97,7 +97,7 @@ public final class UngrabMouse {
         }
         Minecraft mc = Minecraft.getInstance();
         mc.execute(() -> {
-            if (!mc.mouseHandler.isMouseGrabbed() && mc.screen == null) {
+            if (!mc.mouseHandler.isMouseGrabbed() && mc.gui.screen() == null) {
                 mc.mouseHandler.grabMouse();
                 ClientUtils.reapplyProgrammaticKeyStates(mc);
             }
@@ -141,7 +141,7 @@ public final class UngrabMouse {
                 return;
             }
 
-            if (!mc.mouseHandler.isMouseGrabbed() && mc.screen == null) {
+            if (!mc.mouseHandler.isMouseGrabbed() && mc.gui.screen() == null) {
                 mc.mouseHandler.grabMouse();
                 ClientUtils.reapplyProgrammaticKeyStates(mc);
             }

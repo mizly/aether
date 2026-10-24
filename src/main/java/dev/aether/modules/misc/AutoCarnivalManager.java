@@ -143,7 +143,7 @@ public final class AutoCarnivalManager {
             return;
         }
 
-        if (client.screen != null) {
+        if (client.gui.screen() != null) {
             resetAimState();
             return;
         }
@@ -641,7 +641,7 @@ public final class AutoCarnivalManager {
             if (client.player == null || client.getConnection() == null) {
                 return;
             }
-            AccessorScreen.aether$defaultHandleGameClickEvent(clickEvent, client, client.screen);
+            AccessorScreen.aether$defaultHandleGameClickEvent(clickEvent, client, client.gui.screen());
         });
 
         ClientUtils.sendDebugMessage("AutoCarnival: clicked cached Carnival Cowboy confirmation ("

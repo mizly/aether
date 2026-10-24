@@ -8,7 +8,8 @@ import dev.aether.modules.visuals.StreamerModeManager;
 import dev.aether.ui.theme.Theme;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.SubmitNodeCollector;
+import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.world.phys.Vec3;
 
@@ -43,7 +44,7 @@ public final class HatRenderer {
         double baseY = playerPos.y + mc.player.getBbHeight() + yOffset;
         Vec3 center = new Vec3(playerPos.x, baseY, playerPos.z);
         Vec3 apex = center.add(0.0, height, 0.0);
-        Vec3 cameraPos = mc.gameRenderer.getMainCamera().position();
+        Vec3 cameraPos = mc.gameRenderer.mainCamera().position();
         float time = (System.currentTimeMillis() % 10_000L) / 10_000.0f;
 
         Vec3 firstPoint = null;
@@ -73,9 +74,6 @@ public final class HatRenderer {
     }
 
     private static void drawLine(LevelRenderContext ctx, Vec3 cameraPos, Vec3 from, Vec3 to, float time, float offset) {
-        MultiBufferSource consumers = ctx.bufferSource();
-        if (consumers == null) return;
-
         int color = Theme.getRainbowColor(time, offset, LINE_ALPHA);
         Vec3 fromRelative = from.subtract(cameraPos);
         Vec3 toRelative = to.subtract(cameraPos);
@@ -85,9 +83,10 @@ public final class HatRenderer {
         float normalY = length > 1.0E-6 ? (float) (direction.y / length) : 1.0f;
         float normalZ = length > 1.0E-6 ? (float) (direction.z / length) : 0.0f;
 
-        VertexConsumer buffer = consumers.getBuffer(RenderTypes.lines());
-        addColoredLineVertex(buffer, fromRelative, color, normalX, normalY, normalZ);
-        addColoredLineVertex(buffer, toRelative, color, normalX, normalY, normalZ);
+        submit(ctx, RenderTypes.lines(), buffer -> {
+            addColoredLineVertex(buffer, fromRelative, color, normalX, normalY, normalZ);
+            addColoredLineVertex(buffer, toRelative, color, normalX, normalY, normalZ);
+        });
     }
 
     private static void drawFace(LevelRenderContext ctx, Vec3 cameraPos, Vec3 apex, Vec3 left, Vec3 right, float time,
@@ -95,13 +94,22 @@ public final class HatRenderer {
         if (!AetherConfig.HAT_FILLED.get()) return;
 
         int color = Theme.getRainbowColor(time, offset, FILL_ALPHA);
-        MultiBufferSource consumers = ctx.bufferSource();
-        if (consumers == null) return;
+        Vec3 a = apex.subtract(cameraPos);
+        Vec3 l = left.subtract(cameraPos);
+        Vec3 r = right.subtract(cameraPos);
+        submit(ctx, RenderTypes.debugTriangleFan(), buffer -> {
+            addColoredVertex(buffer, a, color);
+            addColoredVertex(buffer, l, color);
+            addColoredVertex(buffer, r, color);
+        });
+    }
 
-        VertexConsumer buffer = consumers.getBuffer(RenderTypes.debugTriangleFan());
-        addColoredVertex(buffer, apex.subtract(cameraPos), color);
-        addColoredVertex(buffer, left.subtract(cameraPos), color);
-        addColoredVertex(buffer, right.subtract(cameraPos), color);
+    // 26.2 removed MultiBufferSource from the level render context; geometry is now queued
+    // through the SubmitNodeCollector and drawn by the feature dispatcher.
+    private static void submit(LevelRenderContext ctx, RenderType type, java.util.function.Consumer<VertexConsumer> writer) {
+        SubmitNodeCollector collector = ctx.submitNodeCollector();
+        if (collector == null || ctx.poseStack() == null) return;
+        collector.submitCustomGeometry(ctx.poseStack(), type, (pose, buffer) -> writer.accept(buffer));
     }
 
     private static boolean shouldRender(Minecraft mc) {
