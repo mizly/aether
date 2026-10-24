@@ -10,8 +10,6 @@
         "GuiAccessor",
         "AccessorAbstractContainerScreen",
         "AccessorEntity",
-        "AccessorGlDevice",
-        "AccessorGpuDevice",
         "AccessorKeyMapping",
         "AccessorMouseHandler",
         "AccessorScreen",
