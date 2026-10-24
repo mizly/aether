@@ -120,13 +120,13 @@ public final class Canvas implements AutoCloseable {
             for (Batch batch : batches) {
                 StagedVertexBuffer.ExecuteInfo info = vertexBuffer.getExecuteInfo(batch.draw);
                 if (info == null) continue;
-                pass.setPipeline(batch.pipeline);
-                pass.setVertexBuffer(0, info.vertexBuffer().slice());
                 if (batch.scissor != null) {
-                    applyScissor(pass, batch.scissor, targetWidth, targetHeight);
+                    if (!applyScissor(pass, batch.scissor, targetWidth, targetHeight)) continue;
                 } else {
                     pass.disableScissor();
                 }
+                pass.setPipeline(batch.pipeline);
+                pass.setVertexBuffer(0, info.vertexBuffer().slice());
                 TextureSetup t = batch.textures;
                 if (t.texure0() != null) pass.bindTexture("Sampler0", t.texure0(), t.sampler0());
                 if (t.texure1() != null) pass.bindTexture("Sampler1", t.texure1(), t.sampler1());
@@ -140,14 +140,17 @@ public final class Canvas implements AutoCloseable {
     }
 
     // render pass scissors are in framebuffer pixels with a bottom-left origin, like GuiRenderer's
-    private void applyScissor(RenderPass pass, Scissor s, int targetWidth, int targetHeight) {
+    // sub-pixel clips round to zero, which RenderPass rejects, so those batches are skipped instead
+    private boolean applyScissor(RenderPass pass, Scissor s, int targetWidth, int targetHeight) {
         float sx = targetWidth / frameWidth;
         float sy = targetHeight / frameHeight;
         int left = Math.max(0, Math.round(s.x0 * sx));
         int top = Math.max(0, Math.round(s.y0 * sy));
         int right = Math.min(targetWidth, Math.round(s.x1 * sx));
         int bottom = Math.min(targetHeight, Math.round(s.y1 * sy));
-        pass.enableScissor(left, targetHeight - bottom, Math.max(0, right - left), Math.max(0, bottom - top));
+        if (right <= left || bottom <= top) return false;
+        pass.enableScissor(left, targetHeight - bottom, right - left, bottom - top);
+        return true;
     }
 
     @Override
