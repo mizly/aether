@@ -200,6 +200,13 @@ public final class AetherBootstrapHooks {
         default void onParticlePacket(Minecraft minecraft, ClientboundLevelParticlesPacket packet) {
         }
 
+        default void onPlayerPositionPacket(Minecraft minecraft,
+                net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket packet) {
+        }
+
+        default void onTeleportCommand(String command) {
+        }
+
         default void onStatsPacketReceived() {
         }
     }
@@ -467,6 +474,15 @@ public final class AetherBootstrapHooks {
 
     public static void onParticlePacket(Minecraft minecraft, ClientboundLevelParticlesPacket packet) {
         hooks.onParticlePacket(minecraft, packet);
+    }
+
+    public static void onPlayerPositionPacket(Minecraft minecraft,
+            net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket packet) {
+        hooks.onPlayerPositionPacket(minecraft, packet);
+    }
+
+    public static void onTeleportCommand(String command) {
+        hooks.onTeleportCommand(command);
     }
 
     public static void onStatsPacketReceived() {

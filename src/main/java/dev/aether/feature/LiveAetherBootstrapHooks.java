@@ -391,6 +391,17 @@ public final class LiveAetherBootstrapHooks implements AetherBootstrapHooks.Feat
     }
 
     @Override
+    public void onPlayerPositionPacket(Minecraft minecraft,
+            net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket packet) {
+        FailsafeManager.onPlayerPositionPacket(minecraft, packet);
+    }
+
+    @Override
+    public void onTeleportCommand(String command) {
+        FailsafeManager.onTeleportCommand(command);
+    }
+
+    @Override
     public void onStatsPacketReceived() {
         PingTracker.onStatsReceived();
     }

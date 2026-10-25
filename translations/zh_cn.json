@@ -768,5 +768,13 @@
   "text.aether.your_aether_logo_cape_with_vanilla_movement": "Your Aether logo cape with vanilla movement",
   "text.aether.matcha": "Matcha",
   "text.aether.reverse_direction_after_rewarp": "Reverse Direction After Rewarp",
-  "text.aether.walk_mode": "Walk Mode"
+  "text.aether.walk_mode": "Walk Mode",
+  "text.aether.teleport": "传送检测",
+  "text.aether.teleport_failsafe": "异常传送保护",
+  "text.aether.teleport_action": "传送触发动作",
+  "text.aether.horizontal_ignore_limit": "水平忽略上限",
+  "text.aether.vertical_ignore_limit": "竖直忽略上限",
+  "text.aether.teleport_settle_time": "传送后抑制时间",
+  "text.aether.only_during_farming": "仅在种田期间检测",
+  "text.aether.detects_unexpected_server_position_changes_during_macro_operation_ignores_requested_teleports": "检测宏运行期间的服务器异常位移，排除主动请求的传送"
 }

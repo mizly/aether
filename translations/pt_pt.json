@@ -768,5 +768,13 @@
   "text.aether.your_aether_logo_cape_with_vanilla_movement": "Your Aether logo cape with vanilla movement",
   "text.aether.matcha": "Matcha",
   "text.aether.reverse_direction_after_rewarp": "Reverse Direction After Rewarp",
-  "text.aether.walk_mode": "Walk Mode"
+  "text.aether.walk_mode": "Walk Mode",
+  "text.aether.teleport": "Teleport",
+  "text.aether.teleport_failsafe": "Teleport Failsafe",
+  "text.aether.teleport_action": "Teleport Action",
+  "text.aether.horizontal_ignore_limit": "Horizontal Ignore Limit",
+  "text.aether.vertical_ignore_limit": "Vertical Ignore Limit",
+  "text.aether.teleport_settle_time": "Teleport Settle Time",
+  "text.aether.only_during_farming": "Only During Farming",
+  "text.aether.detects_unexpected_server_position_changes_during_macro_operation_ignores_requested_teleports": "Detects unexpected server position changes during macro operation; ignores requested teleports"
 }
