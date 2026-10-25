@@ -101,7 +101,7 @@ public final class TablistSetupManager {
             finish(client, false, "Tablist setup stopped because a macro started.");
             return;
         }
-        if (now < nextActionAt || !(client.screen instanceof AbstractContainerScreen<?> screen)) {
+        if (now < nextActionAt || !(client.gui.screen() instanceof AbstractContainerScreen<?> screen)) {
             return;
         }
 
@@ -130,10 +130,10 @@ public final class TablistSetupManager {
         }
         if (automaticStartAt == 0L) {
             automaticStartAt = now + AUTO_START_DELAY_MS;
-            client.gui.setTimes(10, 60, 10);
-            client.gui.setTitle(Component.literal("running necessary setup")
+            client.gui.hud.setTimes(10, 60, 10);
+            client.gui.hud.setTitle(Component.literal("running necessary setup")
                     .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
-            client.gui.setSubtitle(Component.literal("please wait")
+            client.gui.hud.setSubtitle(Component.literal("please wait")
                     .withStyle(ChatFormatting.RED, ChatFormatting.BOLD));
             return;
         }

@@ -102,7 +102,7 @@ public final class PestDefeatEffects {
         AetherConfig.PEST_DEFEAT_EFFECTS.set(true);
         AetherConfig.save();
         if (level != client.level) { clear(); level = client.level; }
-        client.setScreen(null);
+        client.gui.setScreen(null);
         spawn(UUID.randomUUID(), client.player.getEyePosition().add(client.player.getViewVector(1f).scale(3)));
     }
 

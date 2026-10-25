@@ -257,7 +257,7 @@ public final class PestOnTheTrackManager {
 	private boolean canStartOTT(Minecraft client) {
 		return AetherConfig.PEST_ON_TRACK_ENABLED.get() 
 			&& this.canRemainActive(client) 
-			&& client.screen == null
+			&& client.gui.screen() == null
 			&& client.player.containerMenu == client.player.inventoryMenu // invopen
 			&& ClientUtils.getCurrentLocation() == MacroState.Location.GARDEN 
 			&& !PathfindingManager.isNavigating() 

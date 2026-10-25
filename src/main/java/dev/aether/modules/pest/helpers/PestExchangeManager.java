@@ -81,7 +81,7 @@ public class PestExchangeManager {
 
     private static boolean runExchange(Minecraft client) {
         // Step 1: Close any open screen
-        if (PestClientThread.call(client, () -> client.screen != null, false)) {
+        if (PestClientThread.call(client, () -> client.gui.screen() != null, false)) {
             PestClientThread.run(client, () -> {
                 if (client.player != null) client.player.closeContainer();
             });
@@ -277,7 +277,7 @@ public class PestExchangeManager {
         if (!client.isSameThread()) {
             return PestClientThread.call(client, () -> isPesthunterGuiOpen(client), false);
         }
-        if (client.screen instanceof AbstractContainerScreen<?> screen) {
+        if (client.gui.screen() instanceof AbstractContainerScreen<?> screen) {
             String title = screen.getTitle().getString().toLowerCase();
             return title.contains("pesthunter") || title.contains("phillip");
         }
@@ -293,7 +293,7 @@ public class PestExchangeManager {
         MacroWorkerThread.sleep(1500);
 
         client.execute(() -> {
-            if (client.screen != null && client.player != null) {
+            if (client.gui.screen() != null && client.player != null) {
                 client.player.closeContainer();
             }
         });
@@ -310,7 +310,7 @@ public class PestExchangeManager {
     }
 
     private static boolean emptyVacuumBag(Minecraft client) {
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen) || client.player == null) {
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> screen) || client.player == null) {
             return false;
         }
 

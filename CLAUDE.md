@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Overview
 
 Aether is a Fabric client-side mod for Hypixel Skyblock (farming QoL: auto farming,
-pest handling, failsafes, visual spoofers). It targets **Minecraft 26.1.2** and
+pest handling, failsafes, visual spoofers). It targets **Minecraft 26.2** and
 **Java 25**. A JUnit 5 suite covers the logic that can be pulled away from Minecraft's
 singletons; anything touching rendering or live game state is still verified in-game.
 

@@ -90,7 +90,7 @@ public class AetherConfirmScreen extends Screen {
     }
 
     private void renderQueued(int mx, int my, boolean enabled) {
-        if (Minecraft.getInstance().screen != this) {
+        if (Minecraft.getInstance().gui.screen() != this) {
             return;
         }
         AetherBackground.INSTANCE.render(width, height, mx, my);

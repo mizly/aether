@@ -220,7 +220,7 @@ public final class FarmingMacroManager {
             }
         }
 
-        if (mc.screen != null) {
+        if (mc.gui.screen() != null) {
             return true;
         }
 

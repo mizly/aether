@@ -36,7 +36,7 @@ public abstract class NVGScreen extends Screen {
     }
 
     private void renderQueued() {
-        if (net.minecraft.client.Minecraft.getInstance().screen != this) {
+        if (net.minecraft.client.Minecraft.getInstance().gui.screen() != this) {
             return;
         }
         if (!NanoVGManager.isInitialized()) NanoVGManager.init();

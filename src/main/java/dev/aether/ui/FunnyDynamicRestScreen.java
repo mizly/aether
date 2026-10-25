@@ -32,8 +32,8 @@ public class FunnyDynamicRestScreen extends DisconnectedScreen {
     @Override
     public void tick() {
         long remainingSeconds = remainingSeconds(restEndTimeMs);
-        if (remainingSeconds != lastRemainingSeconds && minecraft != null && minecraft.screen == this) {
-            minecraft.setScreen(new FunnyDynamicRestScreen(restEndTimeMs));
+        if (remainingSeconds != lastRemainingSeconds && minecraft != null && minecraft.gui.screen() == this) {
+            minecraft.gui.setScreen(new FunnyDynamicRestScreen(restEndTimeMs));
         }
     }
 
@@ -93,7 +93,7 @@ public class FunnyDynamicRestScreen extends DisconnectedScreen {
         protected void init() {
             ReconnectScheduler.cancel();
             if (minecraft != null) {
-                minecraft.setScreen(new TitleScreen());
+                minecraft.gui.setScreen(new TitleScreen());
             }
         }
 

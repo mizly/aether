@@ -226,7 +226,7 @@ public class AutoSellManager {
 
             thresholdMetStartTime = 0;
 
-            if (isSelling && client.screen == null) {
+            if (isSelling && client.gui.screen() == null) {
                 long now = System.currentTimeMillis();
                 long elapsed = now - interactionTime;
                 if (elapsed > 2500 && elapsed < 2700) {

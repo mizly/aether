@@ -1,5 +1,6 @@
 package dev.aether.util;
 
+import net.minecraft.network.chat.TextColor;
 import dev.aether.config.AetherConfig;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.ChatFormatting;
@@ -42,9 +43,9 @@ class ServerIdHiderTest {
         assertEquals("09/05/26 private", plain(hidden));
         var styles = new ArrayList<Style>();
         hidden.accept((index, style, codePoint) -> { styles.add(style); return true; });
-        assertEquals(ChatFormatting.GRAY.getColor(), styles.getFirst().getColor().getValue());
+        assertEquals(TextColor.GRAY.getValue(), styles.getFirst().getColor().getValue());
         assertTrue(styles.getLast().isBold());
-        assertEquals(ChatFormatting.DARK_GRAY.getColor(), styles.getLast().getColor().getValue());
+        assertEquals(TextColor.DARK_GRAY.getValue(), styles.getLast().getColor().getValue());
     }
 
     @Test

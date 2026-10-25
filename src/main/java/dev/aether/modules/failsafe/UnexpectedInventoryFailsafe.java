@@ -158,7 +158,7 @@ final class UnexpectedInventoryFailsafe {
     }
 
     private static boolean isPestTrapGuiOpen() {
-        if (!(Minecraft.getInstance().screen instanceof AbstractContainerScreen<?> screen)) {
+        if (!(Minecraft.getInstance().gui.screen() instanceof AbstractContainerScreen<?> screen)) {
             return false;
         }
 

@@ -248,8 +248,8 @@ public class MacroStateManager {
         SqueakyMousematManager.clearReapplyAttempt();
         if (client != null) {
             client.execute(() -> {
-                if (closeScreen && client.screen != null) {
-                    client.setScreen(null);
+                if (closeScreen && client.gui.screen() != null) {
+                    client.gui.setScreen(null);
                 }
                 UngrabMouse.clearMacroUngrab();
             });

@@ -91,8 +91,19 @@ public final class ClientFeatureBootstrap {
                 PestTrackerAbility.renderWorld();
             }
             if (drawFunEffects) {
-                FunRenderer.renderWorld(ctx);
+                FunRenderer.renderAfterMain();
             }
+        });
+
+        // 26.2 only takes vertices and text while submits are being collected
+        LevelRenderEvents.COLLECT_SUBMITS.register(ctx -> {
+            if (StreamerModeManager.isEnabled()) {
+                return;
+            }
+            if (PositionHighlighter.hasVisibleHighlights()) {
+                PositionHighlighter.collectLabels(ctx);
+            }
+            FunRenderer.collectSubmits(ctx);
         });
 
         ClientLifecycleEvents.CLIENT_STOPPING.register(PerformanceModeManager::stop);

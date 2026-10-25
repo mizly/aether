@@ -41,7 +41,7 @@ public class PerformanceModeManager {
             }
             
             if (mc.levelRenderer != null) {
-                mc.levelRenderer.allChanged();
+                mc.levelExtractor.allChanged();
             }
         }
     }
@@ -70,7 +70,7 @@ public class PerformanceModeManager {
             changedParticles = false;
             
             if (mc.levelRenderer != null) {
-                mc.levelRenderer.allChanged();
+                mc.levelExtractor.allChanged();
             }
         }
     }

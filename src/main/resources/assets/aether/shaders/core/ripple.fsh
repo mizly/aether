@@ -1,14 +1,16 @@
-#version 150 core
+#version 330
 
 uniform sampler2D Scene;
-uniform int   NumRipples;
-uniform vec2  Centers[4];      // UV [0,1] x [0,1], Y-up (OpenGL convention)
-uniform float Radii[4];        // ring radius  / screen height
-uniform float Thicknesses[4];  // ring halfwidth / screen height
-uniform float Strengths[4];    // [0, 1]
-uniform float Aspect;          // width / height
 
-in  vec2 vUV;
+// per ripple: xy centre in uv (y up), z radius and w half-width, both over screen height
+layout(std140) uniform RippleInfo {
+    vec4 Rings[4];
+    vec4 Strengths;
+    int NumRipples;
+    float Aspect;
+};
+
+in vec2 texCoord;
 out vec4 outColor;
 
 // Blur kernel size relative to screen height. Scales with effect strength.
@@ -34,14 +36,14 @@ vec4 radialBlur(vec2 uv, vec2 dir, float amount) {
 }
 
 void main() {
-    vec4  result      = texture(Scene, vUV);
+    vec4  result      = texture(Scene, texCoord);
     float usedStrength = 0.0;
 
     for (int r = 0; r < 4; r++) {
         if (r >= NumRipples) break;
 
         // Aspect-correct distance so the ring is circular (not oval).
-        vec2  d    = vUV - Centers[r];
+        vec2  d    = texCoord - Rings[r].xy;
         d.x *= Aspect;
         float dist = length(d);
 
@@ -52,14 +54,14 @@ void main() {
         // Fill the entire interior: full effect inside the ring, soft outer falloff.
         // Removing abs() means pixels inside (dist < radius) clamp to 1.0,
         // so blur covers the whole disk rather than just the ring edge.
-        float t = clamp(1.0 - (dist - Radii[r]) / max(Thicknesses[r], 1e-5), 0.0, 1.0);
+        float t = clamp(1.0 - (dist - Rings[r].z) / max(Rings[r].w, 1e-5), 0.0, 1.0);
         t = t * t * (3.0 - 2.0 * t); // smoothstep for softer outer edge
 
         float effect = t * Strengths[r] * (1.0 - usedStrength);
         if (effect < 0.004) continue;
 
         // Outward lens displacement (very subtle).
-        vec2  displaced = vUV + radialDir * (effect * DISP_SCALE);
+        vec2  displaced = texCoord + radialDir * (effect * DISP_SCALE);
 
         // Gaussian blur along the radial axis.
         vec4  blurred = radialBlur(displaced, radialDir, effect * BLUR_SCALE);

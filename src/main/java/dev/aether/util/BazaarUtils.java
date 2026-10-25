@@ -136,10 +136,10 @@ public final class BazaarUtils {
         // Step 0: Wait for any existing screen to close
         ClientUtils.sendDebugMessage("[BazaarUtils] Waiting for screen to close...");
         long screenCloseDeadline = System.currentTimeMillis() + 3000;
-        while (!MacroWorkerThread.getInstance().isCancelled() && client.screen != null && System.currentTimeMillis() < screenCloseDeadline) {
+        while (!MacroWorkerThread.getInstance().isCancelled() && client.gui.screen() != null && System.currentTimeMillis() < screenCloseDeadline) {
             MacroWorkerThread.sleep(100);
         }
-        if (client.screen != null) {
+        if (client.gui.screen() != null) {
             ClientUtils.sendDebugMessage("[BazaarUtils] Screen still open after 3s, forcing close");
             closeScreen(client);
             MacroWorkerThread.sleep(fastDelay);
@@ -248,7 +248,7 @@ public final class BazaarUtils {
                     return true;
                 }
                 ClientUtils.sendDebugMessage("[BazaarUtils] Failed to open Sell Inventory menu (timeout). Current: "
-                                + (client.screen != null ? client.screen.getTitle().getString() : "null"));
+                                + (client.gui.screen() != null ? client.gui.screen().getTitle().getString() : "null"));
                 closeScreen(client);
                 return false;
             }
@@ -296,7 +296,7 @@ public final class BazaarUtils {
         long deadline = System.currentTimeMillis() + timeoutMs;
         long closedSince = -1L;
         while (!MacroWorkerThread.getInstance().isCancelled() && System.currentTimeMillis() < deadline) {
-            if (client.screen instanceof AbstractContainerScreen<?>) {
+            if (client.gui.screen() instanceof AbstractContainerScreen<?>) {
                 ClientUtils.sendDebugMessage("[BazaarUtils] Container reopened after the sale, closing it again.");
                 closedSince = -1L;
                 closeScreen(client);
@@ -310,7 +310,7 @@ public final class BazaarUtils {
             }
             MacroWorkerThread.sleep(TICK_MS);
         }
-        if (client.screen instanceof AbstractContainerScreen<?>) {
+        if (client.gui.screen() instanceof AbstractContainerScreen<?>) {
             ClientUtils.sendDebugMessage("[BazaarUtils] Container still open after the sell settle timeout.");
         }
     }
@@ -363,7 +363,7 @@ public final class BazaarUtils {
     }
 
     private static boolean pollPurchaseConfirmation(Minecraft client, BazaarBuySession purchase, long guiDelay) {
-        if (purchase.completed() || !(client.screen instanceof AbstractContainerScreen<?> screen)) return false;
+        if (purchase.completed() || !(client.gui.screen() instanceof AbstractContainerScreen<?> screen)) return false;
         var items = new java.util.ArrayList<BazaarBuySession.MenuItem>();
         for (Slot slot : screen.getMenu().slots) {
             if (client.player == null || slot.container == client.player.getInventory() || !slot.hasItem()) continue;
@@ -385,7 +385,7 @@ public final class BazaarUtils {
     // -- Helpers --
 
     private static boolean clickMatchingSlot(Minecraft client, String target) {
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen))
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> screen))
             return false;
 
         for (int slotIdx = SEARCH_SLOT_START; slotIdx <= SEARCH_SLOT_END; slotIdx++) {
@@ -404,7 +404,7 @@ public final class BazaarUtils {
                 int finalSlotIdx = slotIdx;
                 int containerId = screen.getMenu().containerId;
                 MacroWorkerThread.runOnClient(client, () -> {
-                    if (client.screen instanceof AbstractContainerScreen<?> s
+                    if (client.gui.screen() instanceof AbstractContainerScreen<?> s
                             && s.getMenu().containerId == containerId
                             && slotNameMatches(s, finalSlotIdx, candidate -> candidate.equals(target))) {
                         ClientUtils.performSlotClick(s, finalSlotIdx, 0, ContainerInput.PICKUP);
@@ -418,7 +418,7 @@ public final class BazaarUtils {
     }
 
     private static boolean clickMatchingSlotInAny(Minecraft client, String targetName) {
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen))
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> screen))
             return false;
         String target = stripColors(targetName).toLowerCase();
 
@@ -431,7 +431,7 @@ public final class BazaarUtils {
                 int slotIdx = slot.index;
                 ClientUtils.sendDebugMessage("[BazaarUtils] Found '" + targetName + "' at slot " + slotIdx);
                 MacroWorkerThread.runOnClient(client, () -> {
-                    if (client.screen instanceof AbstractContainerScreen<?> s) {
+                    if (client.gui.screen() instanceof AbstractContainerScreen<?> s) {
                         ClientUtils.performSlotClick(s, slotIdx, 0, ContainerInput.PICKUP);
                     }
                 });
@@ -442,13 +442,13 @@ public final class BazaarUtils {
     }
 
     private static boolean clickNamedSlot(Minecraft client, int slotIdx, Predicate<String> expectedName) {
-        if (!(client.screen instanceof AbstractContainerScreen<?> screen)
+        if (!(client.gui.screen() instanceof AbstractContainerScreen<?> screen)
                 || !slotNameMatches(screen, slotIdx, expectedName)) {
             return false;
         }
         int containerId = screen.getMenu().containerId;
         MacroWorkerThread.runOnClient(client, () -> {
-            if (client.screen instanceof AbstractContainerScreen<?> current
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> current
                     && current.getMenu().containerId == containerId
                     && slotNameMatches(current, slotIdx, expectedName)) {
                 ClientUtils.performSlotClick(current, slotIdx, 0, ContainerInput.PICKUP);
@@ -476,7 +476,7 @@ public final class BazaarUtils {
         String lastTitle = "";
         int iterations = 0;
         while (!MacroWorkerThread.getInstance().isCancelled() && System.currentTimeMillis() < deadline) {
-            if (client.screen instanceof AbstractContainerScreen<?> screen) {
+            if (client.gui.screen() instanceof AbstractContainerScreen<?> screen) {
                 String title = stripColors(screen.getTitle().getString()).toLowerCase();
                 if (!title.equals(lastTitle)) {
                     ClientUtils.sendDebugMessage("[BazaarUtils] Current screen: '" + title + "' (waiting for '" + target + "')");
@@ -500,26 +500,26 @@ public final class BazaarUtils {
     }
 
     private static String currentContainerTitle(Minecraft client) {
-        return client.screen instanceof AbstractContainerScreen<?> screen ? screen.getTitle().getString() : null;
+        return client.gui.screen() instanceof AbstractContainerScreen<?> screen ? screen.getTitle().getString() : null;
     }
 
     private static boolean isSignScreen(Minecraft client) {
-        return client.screen instanceof AbstractSignEditScreen;
+        return client.gui.screen() instanceof AbstractSignEditScreen;
     }
 
     private static boolean isQuantityScreen(Minecraft client) {
-        return client.screen instanceof AbstractContainerScreen<?> screen
+        return client.gui.screen() instanceof AbstractContainerScreen<?> screen
                 && slotNameMatches(screen, SLOT_QTY_CUSTOM,
                 name -> name.contains("custom") || name.contains("amount") || name.contains("sign"));
     }
 
     private static boolean isBuyInstantlyStage(Minecraft client) {
-        return client.screen instanceof AbstractContainerScreen<?> screen
+        return client.gui.screen() instanceof AbstractContainerScreen<?> screen
                 && slotNameMatches(screen, SLOT_BUY_INSTANTLY, name -> name.contains("buy instantly"));
     }
 
     private static boolean isPurchaseDialogOpen(Minecraft client) {
-        return client.screen instanceof AbstractContainerScreen<?> screen
+        return client.gui.screen() instanceof AbstractContainerScreen<?> screen
                 && BazaarBuySession.isPurchaseDialog(screen.getTitle().getString());
     }
 
@@ -532,7 +532,7 @@ public final class BazaarUtils {
     private static void submitSignAmount(Minecraft client, int amount) {
         String text = String.valueOf(amount);
         MacroWorkerThread.runOnClient(client, () -> {
-            if (!(client.screen instanceof AbstractSignEditScreen signScreen)) {
+            if (!(client.gui.screen() instanceof AbstractSignEditScreen signScreen)) {
                 msg(client, "\u00A7cSign screen not found for amount input!");
                 return;
             }
@@ -554,7 +554,7 @@ public final class BazaarUtils {
                         AetherConfig.BAZAAR_DELAY_MIN.get(),
                         AetherConfig.BAZAAR_DELAY_MAX.get()) / 2L));
         MacroWorkerThread.runOnClient(client, () -> {
-            if (client.screen instanceof AbstractSignEditScreen signScreen) {
+            if (client.gui.screen() instanceof AbstractSignEditScreen signScreen) {
                 signScreen.onClose();
             }
         });

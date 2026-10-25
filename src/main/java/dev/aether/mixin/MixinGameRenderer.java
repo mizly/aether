@@ -28,7 +28,7 @@ public class MixinGameRenderer {
     private void afterRender(DeltaTracker deltaTracker, boolean tick, CallbackInfo ci) {
         AetherRenderQueue.flushBeforeGui();
         AetherRenderQueue.flush();
-        if (Minecraft.getInstance().screen instanceof MainGUI mainGUI) {
+        if (Minecraft.getInstance().gui.screen() instanceof MainGUI mainGUI) {
             mainGUI.renderAfterGameRenderer(deltaTracker.getGameTimeDeltaTicks());
         }
         AetherBootstrapHooks.renderPestEspTracerOverlay();

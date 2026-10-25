@@ -114,7 +114,7 @@ public class AetherMultiplayerScreen extends Screen {
     }
 
     private void renderQueued(int mx, int my, long elapsed) {
-        if (Minecraft.getInstance().screen != this) {
+        if (Minecraft.getInstance().gui.screen() != this) {
             return;
         }
         if (!NanoVGManager.isInitialized()) {
@@ -272,7 +272,7 @@ public class AetherMultiplayerScreen extends Screen {
         double mx = click.x(), my = click.y();
 
         if (mx >= proxyX && mx <= proxyX + PROXY_W && my >= proxyY && my <= proxyY + PROXY_H) {
-            minecraft.setScreen(new AetherProxyScreen(this));
+            minecraft.gui.setScreen(new AetherProxyScreen(this));
             return true;
         }
 
@@ -330,7 +330,7 @@ public class AetherMultiplayerScreen extends Screen {
         switch (i) {
             case 0 -> doEdit();
             case 1 -> doDelete();
-            case 2 -> minecraft.setScreen(lastScreen);
+            case 2 -> minecraft.gui.setScreen(lastScreen);
         }
     }
 
@@ -343,11 +343,11 @@ public class AetherMultiplayerScreen extends Screen {
 
     private void doAdd() {
         ServerData blank = new ServerData("", "", ServerData.Type.OTHER);
-        minecraft.setScreen(new ManageServerScreen(this,
+        minecraft.gui.setScreen(new ManageServerScreen(this,
                 Component.translatable("addServer.title"),
                 accepted -> {
                     if (accepted) { servers.add(blank, false); servers.save(); }
-                    minecraft.setScreen(this);
+                    minecraft.gui.setScreen(this);
                     init();
                 }, blank));
     }
@@ -355,11 +355,11 @@ public class AetherMultiplayerScreen extends Screen {
     private void doEdit() {
         if (selectedIndex < 0 || selectedIndex >= servers.size()) return;
         ServerData s = servers.get(selectedIndex);
-        minecraft.setScreen(new ManageServerScreen(this,
+        minecraft.gui.setScreen(new ManageServerScreen(this,
                 Component.translatable("editServer.title"),
                 accepted -> {
                     if (accepted) servers.save();
-                    minecraft.setScreen(this);
+                    minecraft.gui.setScreen(this);
                     init();
                 }, s));
     }
@@ -367,14 +367,14 @@ public class AetherMultiplayerScreen extends Screen {
     private void doDelete() {
         if (selectedIndex < 0 || selectedIndex >= servers.size()) return;
         ServerData s = servers.get(selectedIndex);
-        minecraft.setScreen(new ConfirmScreen(
+        minecraft.gui.setScreen(new ConfirmScreen(
                 accepted -> {
                     if (accepted) {
                         servers.remove(s);
                         servers.save();
                         selectedIndex = -1;
                     }
-                    minecraft.setScreen(this);
+                    minecraft.gui.setScreen(this);
                     init();
                 },
                 Component.translatable("selectServer.deleteQuestion"),
@@ -383,13 +383,13 @@ public class AetherMultiplayerScreen extends Screen {
 
     private void doDirectConnect() {
         ServerData tmp = new ServerData("", "", ServerData.Type.OTHER);
-        minecraft.setScreen(new DirectJoinServerScreen(this,
+        minecraft.gui.setScreen(new DirectJoinServerScreen(this,
                 accepted -> {
                     if (accepted)
                         ConnectScreen.startConnecting(this, minecraft,
                                 ServerAddress.parseString(tmp.ip), tmp, false, null);
                     else
-                        minecraft.setScreen(this);
+                        minecraft.gui.setScreen(this);
                 }, tmp));
     }
 

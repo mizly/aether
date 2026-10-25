@@ -189,7 +189,7 @@ public final class AetherProxyManager {
         if (minecraft == null) {
             return;
         }
-        refreshProxyStatusButtons(minecraft.screen);
+        refreshProxyStatusButtons(minecraft.gui.screen());
     }
 
     public static void refreshProxyStatusButtons(Screen screen) {

@@ -37,7 +37,7 @@ public abstract class MixinTitleScreen extends Screen {
             return;
         }
         ci.cancel();
-        Minecraft.getInstance().setScreen(replacement);
+        Minecraft.getInstance().gui.setScreen(replacement);
     }
 
     @Inject(method = "extractRenderState", at = @At("HEAD"), cancellable = true)
@@ -47,7 +47,7 @@ public abstract class MixinTitleScreen extends Screen {
             return;
         }
         ci.cancel();
-        Minecraft.getInstance().setScreen(replacement);
+        Minecraft.getInstance().gui.setScreen(replacement);
     }
 
     @Inject(method = "init", at = @At("TAIL"))
@@ -56,7 +56,7 @@ public abstract class MixinTitleScreen extends Screen {
         int buttonY = aether$nextInjectedButtonY();
         this.addRenderableWidget(Button.builder(
                         Component.literal(AetherProxyManager.selectedStatus()),
-                        button -> Minecraft.getInstance().setScreen(new AetherProxyScreen(this)))
+                        button -> Minecraft.getInstance().gui.setScreen(new AetherProxyScreen(this)))
                 .bounds(buttonX, buttonY, AETHER_BUTTON_WIDTH, AETHER_BUTTON_HEIGHT)
                 .build());
     }

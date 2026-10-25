@@ -1,12 +1,9 @@
 package dev.aether.renderer;
 
+import dev.aether.renderer.canvas.Canvas;
 import dev.aether.util.AetherResources;
-import org.lwjgl.nanovg.NVGColor;
 import org.lwjgl.nanovg.NSVGImage;
-import org.lwjgl.nanovg.NVGPaint;
-import org.lwjgl.nanovg.NanoVG;
 import org.lwjgl.nanovg.NanoSVG;
-import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -25,87 +22,54 @@ import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilderFactory;
 
 // rasterized at physical resolution and cached per "path@physWxphysH", so high-dpi stays crisp
-// tinting works on any fill, white included, by overriding the paint's colors after nvgImagePattern
+// nanosvg only rasterizes on the cpu, so it works on vulkan; the tint multiplies every texel
 final class SVGRenderer {
 
     private static final Pattern SVG_LENGTH_PATTERN = Pattern.compile(
             "^\\s*([+-]?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[eE][+-]?\\d+)?)\\s*([a-zA-Z%]*)\\s*$"
     );
 
-    private static final Map<String, Integer> imageCache = new HashMap<>();
+    private static final Map<String, Canvas.AtlasImage> imageCache = new HashMap<>();
 
     private SVGRenderer() {}
 
     // -- Render ----------------------------------------------------------------
 
     // argbColor alpha is opacity; rgb tints white-filled svgs
-    static void render(long vg, String resourcePath,
-                       float x, float y, float width, float height,
-                       int argbColor, NVGPaint paintScratch) {
-
+    static void render(Canvas canvas, String resourcePath, float x, float y, float width, float height, int argbColor) {
         float px  = NanoVGManager.getPxRatio();
         int   physW = Math.max(1, (int) Math.ceil(width  * px));
         int   physH = Math.max(1, (int) Math.ceil(height * px));
 
         String cacheKey = resourcePath + "@" + physW + "x" + physH;
-        int imgHandle = getOrLoad(vg, cacheKey, resourcePath, physW, physH);
-        if (imgHandle == -1) return;
-
-        float alpha = ((argbColor >> 24) & 0xFF) / 255f;
-        float r     = ((argbColor >> 16) & 0xFF) / 255f;
-        float g     = ((argbColor >>  8) & 0xFF) / 255f;
-        float b     = ( argbColor        & 0xFF) / 255f;
-
-        NanoVG.nvgSave(vg);
-        NanoVG.nvgBeginPath(vg);
-        NanoVG.nvgRect(vg, x, y, width, height);
-
-        // nvgImagePattern sets innerColor to (1,1,1,alpha). Override with actual tint.
-        NanoVG.nvgImagePattern(vg, x, y, width, height, 0f, imgHandle, alpha, paintScratch);
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            NVGColor tintColor = NVGColor.malloc(stack);
-            NanoVG.nvgRGBAf(r, g, b, alpha, tintColor);
-            NVGPaint.ninnerColor(paintScratch.address(), tintColor);
-            NVGPaint.nouterColor(paintScratch.address(), tintColor);
+        Canvas.AtlasImage image = imageCache.get(cacheKey);
+        if (!canvas.isCurrent(image)) {
+            image = loadSVG(canvas, resourcePath, physW, physH);
+            if (image == null) return;
+            imageCache.put(cacheKey, image);
         }
-
-        NanoVG.nvgFillPaint(vg, paintScratch);
-        NanoVG.nvgFill(vg);
-        NanoVG.nvgRestore(vg);
+        canvas.drawAtlasImage(image, x, y, width, height, argbColor);
     }
 
     // -- Cache -----------------------------------------------------------------
 
-    private static int getOrLoad(long vg, String cacheKey, String resourcePath, int width, int height) {
-        Integer cached = imageCache.get(cacheKey);
-        if (cached != null) return cached;
-
-        int handle = loadSVG(vg, resourcePath, width, height);
-        if (handle != -1) {
-            imageCache.put(cacheKey, handle);
-        }
-        return handle;
-    }
-
-    private static int loadSVG(long vg, String resourcePath, int width, int height) {
-        // -- 1. Read SVG as String ---------------------------------------------
+    private static Canvas.AtlasImage loadSVG(Canvas canvas, String resourcePath, int width, int height) {
         String svgText;
         try (InputStream in = AetherResources.open(resourcePath)) {
             if (in == null) {
                 System.err.println("[Aether] SVG not found: " + resourcePath);
-                return -1;
+                return null;
             }
             svgText = new String(in.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             System.err.println("[Aether] IOException reading SVG " + resourcePath + ": " + e.getMessage());
-            return -1;
+            return null;
         }
 
-        // -- 2. Parse ----------------------------------------------------------
         NSVGImage svgImage = NanoSVG.nsvgParse(svgText, "px", 96f);
         if (svgImage == null) {
             System.err.println("[Aether] NanoSVG parse failed: " + resourcePath);
-            return -1;
+            return null;
         }
 
         float[] svgSize = readSvgSize(svgText);
@@ -114,37 +78,31 @@ final class SVGRenderer {
         if (svgW <= 0f || svgH <= 0f) {
             NanoSVG.nsvgDelete(svgImage);
             System.err.println("[Aether] SVG has no usable size metadata: " + resourcePath);
-            return -1;
+            return null;
         }
 
-        // -- 3. Rasterize at physical pixel dimensions --------------------------
         long rasterizer = NanoSVG.nsvgCreateRasterizer();
         if (rasterizer == MemoryUtil.NULL) {
             NanoSVG.nsvgDelete(svgImage);
             System.err.println("[Aether] NanoSVG could not create rasterizer");
-            return -1;
+            return null;
         }
 
-        float scale = (svgW > 0 && svgH > 0)
-                ? Math.min((float) width / svgW, (float) height / svgH)
-                : 1f;
+        float scale = Math.min((float) width / svgW, (float) height / svgH);
         int rW = Math.max(1, (int) (svgW * scale));
         int rH = Math.max(1, (int) (svgH * scale));
 
         ByteBuffer pixels = MemoryUtil.memAlloc(rW * rH * 4);
-        NanoSVG.nsvgRasterize(rasterizer, svgImage, 0f, 0f, scale, pixels, rW, rH, rW * 4);
-
-        NanoSVG.nsvgDeleteRasterizer(rasterizer);
-        NanoSVG.nsvgDelete(svgImage);
-
-        // -- 4. Upload to GPU --------------------------------------------------
-        int nvgId = NanoVG.nvgCreateImageRGBA(vg, rW, rH, 0, pixels);
-        MemoryUtil.memFree(pixels);
-
-        if (nvgId == -1) {
-            System.err.println("[Aether] NanoVG image creation failed: " + resourcePath);
+        try {
+            NanoSVG.nsvgRasterize(rasterizer, svgImage, 0f, 0f, scale, pixels, rW, rH, rW * 4);
+            Canvas.AtlasImage image = canvas.uploadToAtlas(pixels, rW, rH);
+            if (image == null) System.err.println("[Aether] SVG too large for the UI atlas: " + resourcePath);
+            return image;
+        } finally {
+            MemoryUtil.memFree(pixels);
+            NanoSVG.nsvgDeleteRasterizer(rasterizer);
+            NanoSVG.nsvgDelete(svgImage);
         }
-        return nvgId;
     }
 
     private static float[] readSvgSize(String svgText) {
@@ -213,12 +171,8 @@ final class SVGRenderer {
 
     // -- Lifecycle -------------------------------------------------------------
 
-    // call when destroying the nanovg context
-    static void destroy(long vg) {
-        for (int handle : imageCache.values()) {
-            NanoVG.nvgDeleteImage(vg, handle);
-        }
+    // atlas entries die with the canvas
+    static void destroy() {
         imageCache.clear();
     }
 }
-

@@ -25,6 +25,6 @@ public final class ProgrammaticAttackTracker {
         return isHeld(client == null || client.options == null ? null : client.options.keyAttack)
                 && client != null
                 && client.options != null
-                && client.screen == null;
+                && client.gui.screen() == null;
     }
 }

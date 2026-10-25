@@ -34,7 +34,7 @@ public class MixinConfirmScreen {
             return;
         }
         ci.cancel();
-        Minecraft.getInstance().setScreen(replacement);
+        Minecraft.getInstance().gui.setScreen(replacement);
     }
 
 }

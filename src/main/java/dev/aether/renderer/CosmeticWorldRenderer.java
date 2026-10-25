@@ -1,9 +1,5 @@
 package dev.aether.renderer;
 
-import com.mojang.blaze3d.opengl.GlTexture;
-import com.mojang.blaze3d.systems.RenderSystem;
-import dev.aether.mixin.AccessorGlDevice;
-import dev.aether.mixin.AccessorGpuDevice;
 import dev.aether.modules.visuals.PestDefeatEffects;
 import dev.aether.modules.visuals.StreamerModeManager;
 import net.minecraft.client.Minecraft;
@@ -39,12 +35,10 @@ public final class CosmeticWorldRenderer {
     }
 
     private void draw(Minecraft client) {
-        if (shader.isFailed()) return;
-        var target = client.getMainRenderTarget();
-        if (!(target.getColorTexture() instanceof GlTexture color)
-                || !(target.getDepthTexture() instanceof GlTexture)) return;
+        var target = client.gameRenderer.mainRenderTarget();
+        if (target == null || target.getDepthTextureView() == null) return;
         long now = System.nanoTime();
-        var camera = client.gameRenderer.getMainCamera();
+        var camera = client.gameRenderer.mainCamera();
         var position = camera.position();
         camera.getViewRotationProjectionMatrix(projection);
         frustum.set(projection);
@@ -74,9 +68,7 @@ public final class CosmeticWorldRenderer {
             }
         }
         if (mesh.size() == 0) return;
-        var access = ((AccessorGlDevice) ((AccessorGpuDevice) RenderSystem.getDevice()).aether$getBackend())
-                .aether$directStateAccess();
-        shader.draw(mesh, projection, color.getFbo(access, target.getDepthTexture()), target.width, target.height, wingVertices);
+        shader.draw(mesh, projection, target.getColorTextureView(), target.getDepthTextureView(), wingVertices);
     }
 
     public static void close() {

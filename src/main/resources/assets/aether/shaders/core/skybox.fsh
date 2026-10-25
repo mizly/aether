@@ -1,8 +1,11 @@
-#version 330 core
+#version 330
 
-uniform int Preset;
-uniform float Time;
-uniform float Brightness;
+layout(std140) uniform SkyboxInfo {
+    mat4 InverseViewProjection;
+    int Preset;
+    float Time;
+    float Brightness;
+};
 in vec3 direction;
 out vec4 fragColor;
 
