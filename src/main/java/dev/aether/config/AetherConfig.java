@@ -895,6 +895,18 @@ public final class AetherConfig {
         public static final FloatEntry FAILSAFE_DIRT_CHECK_TRIGGER_DELAY_SECONDS = Config
                         .floatVal("failsafeDirtCheckTriggerDelaySeconds", 2.0f)
                         .range(0.0f, 10.0f);
+        public static final BooleanEntry FAILSAFE_TELEPORT = Config.bool("failsafeTeleport", true);
+        public static final BooleanEntry FAILSAFE_TELEPORT_ONLY_DURING_FARMING = Config
+                        .bool("failsafeTeleportOnlyDuringFarming", true);
+        public static final FloatEntry FAILSAFE_TELEPORT_HORIZONTAL_LIMIT = Config
+                        .floatVal("failsafeTeleportHorizontalLimit", 6.0f).range(0.0f, 64.0f);
+        public static final FloatEntry FAILSAFE_TELEPORT_VERTICAL_LIMIT = Config
+                        .floatVal("failsafeTeleportVerticalLimit", 0.5f).range(0.0f, 10.0f);
+        public static final FloatEntry FAILSAFE_TELEPORT_SETTLE_SECONDS = Config
+                        .floatVal("failsafeTeleportSettleSeconds", 1.5f).range(0.0f, 30.0f);
+        public static final StringEntry FAILSAFE_TELEPORT_ACTION = Config.string("failsafeTeleportAction", "STOP");
+        public static final StringEntry FAILSAFE_TELEPORT_CUSTOM_REPLAY = Config
+                        .string("failsafeTeleportCustomReplay", "Random");
         public static final BooleanEntry FAILSAFE_ROTATION = Config.bool("failsafeRotation", true);
         public static final BooleanEntry FAILSAFE_WORLD_CHANGE = Config.bool("failsafeWorldChange", true);
         public static final IntEntry FAILSAFE_ROTATION_PITCH_THRESHOLD = Config.integer("failsafeRotationPitchThreshold", 10)
