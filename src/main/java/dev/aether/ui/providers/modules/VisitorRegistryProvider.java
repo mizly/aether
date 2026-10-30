@@ -27,7 +27,7 @@ public final class VisitorRegistryProvider extends AbstractModulesRegistryProvid
                     AetherConfig.AUTO_VISITOR.set(v);
                     AetherConfig.save();
                 });
-        group.add(new SliderSetting("Visitor Threshold", 1, 5,
+        group.add(new SliderSetting("Visitor Threshold", 1, 10,
                 () -> (float) AetherConfig.VISITOR_THRESHOLD.get(),
                 v -> {
                     AetherConfig.VISITOR_THRESHOLD.set(Math.round(v));
