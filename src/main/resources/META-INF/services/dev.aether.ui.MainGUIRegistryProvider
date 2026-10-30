@@ -34,6 +34,7 @@ dev.aether.ui.providers.failsafes.GhostBlockFailsafeRegistryProvider
 dev.aether.ui.providers.failsafes.DirtFailsafeRegistryProvider
 dev.aether.ui.providers.failsafes.RotationFailsafeRegistryProvider
 dev.aether.ui.providers.failsafes.WorldChangeFailsafeRegistryProvider
+dev.aether.ui.providers.failsafes.TeleportFailsafeRegistryProvider
 dev.aether.ui.providers.colors.HudColorsRegistryProvider
 dev.aether.ui.providers.colors.MenuColorsRegistryProvider
 dev.aether.ui.providers.settings.AccountSettingsRegistryProvider

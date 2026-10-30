@@ -37,6 +37,7 @@
         "MixinKeyboardHandler",
         "MixinKeyboardInput",
         "MixinClientPacketListener",
+        "MixinTeleportFailsafe",
         "MixinClientPacketListenerPing",
         "MixinClientSuggestionProvider",
         "MixinConnectionChannelInitializer",

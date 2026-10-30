@@ -58,6 +58,7 @@ public final class FailsafeManager {
         GhostBlockFailsafe.reset();
         DirtFailsafe.reset();
         RotationFailsafe.reset();
+        TeleportFailsafe.reset();
         FailsafeTestManager.reset();
     }
 
@@ -95,6 +96,17 @@ public final class FailsafeManager {
         GhostBlockFailsafe.tick(client);
         DirtFailsafe.tick(client);
         RotationFailsafe.tick(client);
+    }
+
+    public static void onTeleportCommand(String command) {
+        TeleportFailsafe.onCommand(command);
+    }
+
+    public static void onPlayerPositionPacket(Minecraft client,
+            net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket packet) {
+        if (!shouldSuspendRuntimeFailsafes()) {
+            TeleportFailsafe.onPositionPacket(client, packet);
+        }
     }
 
     public static void onBlockBreak() {

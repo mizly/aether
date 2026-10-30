@@ -34,6 +34,7 @@ public final class FailsafeCustomReplayManager {
         BPS("bps", AetherConfig.FAILSAFE_BPS_CUSTOM_REPLAY),
         GHOST_BLOCK("ghost_block", AetherConfig.FAILSAFE_GHOST_BLOCK_CUSTOM_REPLAY),
         DIRT_CHECK("dirt_check", AetherConfig.FAILSAFE_DIRT_CHECK_CUSTOM_REPLAY),
+        TELEPORT("teleport", AetherConfig.FAILSAFE_TELEPORT_CUSTOM_REPLAY),
         ROTATION("rotation", AetherConfig.FAILSAFE_ROTATION_CUSTOM_REPLAY),
         PEST_ROTATION("pest_rotation", AetherConfig.FAILSAFE_PEST_ROTATION_CUSTOM_REPLAY),
         WORLD_CHANGE("world_change", AetherConfig.FAILSAFE_WORLD_CHANGE_CUSTOM_REPLAY);
