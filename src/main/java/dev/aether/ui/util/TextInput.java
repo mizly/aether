@@ -2,7 +2,7 @@ package dev.aether.ui.util;
 
 import dev.aether.renderer.NVGRenderer;
 import net.minecraft.client.Minecraft;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 // no vanilla widgets - handles its own keyboard input and rendering
 public class TextInput {
@@ -41,10 +41,10 @@ public class TextInput {
 
     public boolean keyPressed(int key, int mods) {
         if (!focused) return false;
-        boolean ctrl = (mods & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean ctrl = (mods & InputConstants.MOD_CONTROL) != 0;
 
         switch (key) {
-            case GLFW.GLFW_KEY_BACKSPACE -> {
+            case InputConstants.KEY_BACKSPACE -> {
                 if (cursor > 0) {
                     if (ctrl) {
                         // Delete word
@@ -58,7 +58,7 @@ public class TextInput {
                 }
                 return true;
             }
-            case GLFW.GLFW_KEY_DELETE -> {
+            case InputConstants.KEY_DELETE -> {
                 if (cursor < value.length()) {
                     if (ctrl) {
                         int end = wordEnd(cursor);
@@ -69,30 +69,30 @@ public class TextInput {
                 }
                 return true;
             }
-            case GLFW.GLFW_KEY_LEFT -> {
+            case InputConstants.KEY_LEFT -> {
                 if (cursor > 0) cursor = ctrl ? wordStart(cursor - 1) : cursor - 1;
                 return true;
             }
-            case GLFW.GLFW_KEY_RIGHT -> {
+            case InputConstants.KEY_RIGHT -> {
                 if (cursor < value.length()) cursor = ctrl ? wordEnd(cursor) : cursor + 1;
                 return true;
             }
-            case GLFW.GLFW_KEY_HOME -> { cursor = 0;             return true; }
-            case GLFW.GLFW_KEY_END  -> { cursor = value.length(); return true; }
-            case GLFW.GLFW_KEY_A -> {
+            case InputConstants.KEY_HOME -> { cursor = 0;             return true; }
+            case InputConstants.KEY_END  -> { cursor = value.length(); return true; }
+            case InputConstants.KEY_A -> {
                 if (ctrl) { cursor = value.length(); return true; }
             }
-            case GLFW.GLFW_KEY_C -> {
+            case InputConstants.KEY_C -> {
                 if (ctrl) { Minecraft.getInstance().keyboardHandler.setClipboard(value); return true; }
             }
-            case GLFW.GLFW_KEY_X -> {
+            case InputConstants.KEY_X -> {
                 if (ctrl) {
                     Minecraft.getInstance().keyboardHandler.setClipboard(value);
                     value = ""; cursor = 0;
                     return true;
                 }
             }
-            case GLFW.GLFW_KEY_V -> {
+            case InputConstants.KEY_V -> {
                 if (ctrl) {
                     String clip = Minecraft.getInstance().keyboardHandler.getClipboard();
                     if (clip != null && !clip.isEmpty()) {

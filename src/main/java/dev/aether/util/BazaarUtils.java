@@ -538,10 +538,10 @@ public final class BazaarUtils {
             }
             // Clear existing text: select all, then delete
             signScreen.keyPressed(new net.minecraft.client.input.KeyEvent(
-                    org.lwjgl.glfw.GLFW.GLFW_KEY_A, 0,
-                    org.lwjgl.glfw.GLFW.GLFW_MOD_CONTROL));
+                    com.mojang.blaze3d.platform.InputConstants.KEY_A, com.mojang.blaze3d.platform.InputConstants.KEYCODE_A,
+                    com.mojang.blaze3d.platform.InputConstants.MOD_CONTROL));
             signScreen.keyPressed(new net.minecraft.client.input.KeyEvent(
-                    org.lwjgl.glfw.GLFW.GLFW_KEY_DELETE, 0, 0));
+                    com.mojang.blaze3d.platform.InputConstants.KEY_DELETE, com.mojang.blaze3d.platform.InputConstants.KEYCODE_DELETE, 0));
             // Type each digit
             for (char c : text.toCharArray()) {
                 signScreen.charTyped(new net.minecraft.client.input.CharacterEvent(c));

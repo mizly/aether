@@ -1,5 +1,7 @@
 package dev.aether.ui.components;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import dev.aether.ui.util.Colors;
 import dev.aether.ui.util.Fonts;
 import dev.aether.renderer.NVGRenderer;
@@ -86,7 +88,7 @@ public class Slider extends Component {
 
     @Override
     public boolean mousePressed(double mouseX, double mouseY, int button) {
-        if (button == 0 && enabled && contains(mouseX, mouseY)) {
+        if (button == InputConstants.MOUSE_BUTTON_LEFT && enabled && contains(mouseX, mouseY)) {
             dragging = true;
             setValueFromMouse(mouseX);
             return true;
@@ -96,7 +98,7 @@ public class Slider extends Component {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0 && dragging) {
+        if (button == InputConstants.MOUSE_BUTTON_LEFT && dragging) {
             dragging = false;
             return true;
         }
@@ -106,7 +108,7 @@ public class Slider extends Component {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button,
                                 double deltaX, double deltaY) {
-        if (button == 0 && dragging) {
+        if (button == InputConstants.MOUSE_BUTTON_LEFT && dragging) {
             setValueFromMouse(mouseX);
             return true;
         }

@@ -1,4 +1,5 @@
 #version 330
+#extension GL_ARB_separate_shader_objects : require
 
 layout(std140) uniform SkyboxInfo {
     mat4 InverseViewProjection;
@@ -6,8 +7,8 @@ layout(std140) uniform SkyboxInfo {
     float Time;
     float Brightness;
 };
-in vec3 direction;
-out vec4 fragColor;
+layout(location = 0) in vec3 direction;
+layout(location = 0) out vec4 fragColor;
 
 float hash(vec2 p) {
     vec3 h = fract(vec3(p.xyx) * 0.1031);

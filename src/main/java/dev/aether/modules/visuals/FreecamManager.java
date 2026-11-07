@@ -5,7 +5,6 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.aether.bootstrap.AetherKeybindRegistry;
 import dev.aether.config.AetherConfig;
 import dev.aether.mixin.AccessorKeyMapping;
-import dev.aether.mixin.AccessorWindow;
 import dev.aether.mixin.MixinMinecraft;
 import dev.aether.modules.farming.UngrabMouse;
 import dev.aether.util.ClientUtils;
@@ -25,7 +24,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Input;
 import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
+import org.lwjgl.sdl.SDLMouse;
 
 public final class FreecamManager {
     private static final int OBSERVED_PLAYER_UPDATE_INTERVAL = 2;
@@ -433,8 +432,8 @@ public final class FreecamManager {
             return false;
         }
         return switch (key.getType()) {
-            case KEYSYM, SCANCODE -> InputConstants.isKeyDown(client.getWindow(), key.getValue());
-            case MOUSE -> GLFW.glfwGetMouseButton(((AccessorWindow) (Object) client.getWindow()).getHandle(), key.getValue()) == GLFW.GLFW_PRESS;
+            case KEYBOARD -> InputConstants.isKeyDown(key.getValue());
+            case MOUSE -> (SDLMouse.SDL_GetMouseState(null, null) & (1 << (key.getValue() - 1))) != 0;
         };
     }
 

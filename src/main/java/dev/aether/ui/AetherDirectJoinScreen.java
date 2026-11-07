@@ -16,7 +16,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 // replaces the vanilla DirectJoinServerScreen via MixinDirectJoinServerScreen
 public class AetherDirectJoinScreen extends Screen {
@@ -153,10 +153,10 @@ public class AetherDirectJoinScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-        if (click.button() == 0) {
+        if (click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             AetherBackground.INSTANCE.addRipple((float)click.x(), (float)click.y());
         }
-        if (click.button() != 0) return true;
+        if (click.button() != InputConstants.MOUSE_BUTTON_LEFT) return true;
 
         double mx = click.x(), my = click.y();
         if (isOverBtn((int)mx, (int)my, leftBtnX) && !ipInput.getValue().isBlank()) { doJoin();   return true; }
@@ -167,8 +167,8 @@ public class AetherDirectJoinScreen extends Screen {
     @Override
     public boolean keyPressed(KeyEvent input) {
         int key = input.key();
-        if (key == GLFW.GLFW_KEY_ESCAPE)                                  { doCancel(); return true; }
-        if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
+        if (key == InputConstants.KEY_ESCAPE)                                  { doCancel(); return true; }
+        if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
             if (!ipInput.getValue().isBlank()) doJoin();
             return true;
         }

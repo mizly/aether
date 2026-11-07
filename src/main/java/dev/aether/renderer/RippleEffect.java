@@ -1,16 +1,16 @@
 package dev.aether.renderer;
 
-import com.mojang.blaze3d.GpuFormat;
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.buffers.Std140SizeCalculator;
-import com.mojang.blaze3d.systems.GpuDevice;
-import com.mojang.blaze3d.systems.RenderPass;
+import com.mojang.renderpearl.api.device.GpuDevice;
+import com.mojang.renderpearl.api.commands.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuTexture;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import net.minecraft.client.renderer.MappableRingBuffer;
 
 import java.util.Optional;
@@ -61,9 +61,9 @@ public final class RippleEffect implements AutoCloseable {
         GpuDevice device = RenderSystem.getDevice();
         device.createCommandEncoder().copyTextureToTexture(target.texture(), scene, 0, 0, 0, 0, 0, w, h);
         try (RenderPass pass = device.createCommandEncoder().createRenderPass(() -> "Aether ripple", target, Optional.empty())) {
-            pass.setPipeline(EffectPipelines.RIPPLE);
+            pass.setPipeline(RenderSystem.getCompiledPipeline(EffectPipelines.RIPPLE));
             pass.setUniform("RippleInfo", ubo.currentBuffer());
-            pass.bindTexture("Scene", sceneView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
+            pass.setUniform("Scene", sceneView, RenderSystem.getSamplerCache().getClampToEdge(FilterMode.LINEAR));
             pass.draw(3, 1, 0, 0);
         }
         ubo.rotate();

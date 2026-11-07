@@ -1,12 +1,12 @@
 package dev.aether.renderer;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.buffers.Std140SizeCalculator;
-import com.mojang.blaze3d.systems.RenderPass;
+import com.mojang.renderpearl.api.commands.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import dev.aether.modules.visuals.Skybox;
 import net.minecraft.client.renderer.MappableRingBuffer;
 import org.joml.Matrix4f;
@@ -33,7 +33,7 @@ public final class SkyboxShader implements AutoCloseable {
         }
         try (RenderPass pass = RenderSystem.getDevice().createCommandEncoder()
                 .createRenderPass(() -> "Aether skybox", target, Optional.empty())) {
-            pass.setPipeline(EffectPipelines.SKYBOX);
+            pass.setPipeline(RenderSystem.getCompiledPipeline(EffectPipelines.SKYBOX));
             pass.setUniform("SkyboxInfo", ubo.currentBuffer());
             pass.draw(3, 1, 0, 0);
         }

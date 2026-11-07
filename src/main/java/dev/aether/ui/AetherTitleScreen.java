@@ -1,5 +1,7 @@
 package dev.aether.ui;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import dev.aether.proxy.AetherProxyManager;
 import dev.aether.proxy.AetherProxyScreen;
 import dev.aether.renderer.AetherBackground;
@@ -212,11 +214,11 @@ public class AetherTitleScreen extends NVGScreen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-        if (click.button() == 0) {
+        if (click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             AetherBackground.INSTANCE.addRipple((float) click.x(), (float) click.y());
         }
 
-        if (click.button() != 0) return true;
+        if (click.button() != InputConstants.MOUSE_BUTTON_LEFT) return true;
         double mx = click.x(), my = click.y();
         for (int i = 0; i < LABELS.length; i++) {
             float by = btnsY + i * (BTN_H + BTN_GAP);
@@ -247,7 +249,7 @@ public class AetherTitleScreen extends NVGScreen {
                             new ServerData("Hypixel", address, ServerData.Type.OTHER), false, null);
                 }
             }
-            case 3 -> mc.gui.setScreen(new OptionsScreen(this, mc.options, false));
+            case 3 -> mc.gui.setScreen(new OptionsScreen(this, mc.options));
             case 4 -> mc.stop();
         }
     }

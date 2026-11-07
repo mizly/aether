@@ -11,7 +11,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 // drag to move, ctrl/shift+drag to resize, esc or insert to close
 public class HudEditScreen extends Screen {
@@ -189,16 +189,15 @@ public class HudEditScreen extends Screen {
 
         int button = click.button();
         // Toolbar buttons are left-click only.
-        if (button == 0) {
+        if (button == InputConstants.MOUSE_BUTTON_LEFT) {
             if (hov(btnDoneX, btnBaseY, BTN_W, BTN_H)) { onClose(); return true; }
             if (hov(btnSnapX, btnBaseY, BTN_W, BTN_H)) { snapToGrid = !snapToGrid; return true; }
         }
 
-        // Resize = Ctrl/Shift + drag. On macOS Ctrl+left-click arrives as a right-click
-        // (button 1), so accept button 1 too whenever a resize modifier is held.
-        boolean resizeMod = (click.modifiers() & (GLFW.GLFW_MOD_CONTROL | GLFW.GLFW_MOD_SHIFT)) != 0;
-        boolean move   = button == 0 && !resizeMod;
-        boolean resize = resizeMod && (button == 0 || button == 1);
+        // macOS ctrl+left-click arrives as a right-click, so accept either with a resize modifier.
+        boolean resizeMod = (click.modifiers() & (InputConstants.MOD_CONTROL | InputConstants.MOD_SHIFT)) != 0;
+        boolean move   = button == InputConstants.MOUSE_BUTTON_LEFT && !resizeMod;
+        boolean resize = resizeMod && (button == InputConstants.MOUSE_BUTTON_LEFT || button == InputConstants.MOUSE_BUTTON_RIGHT);
         if (move || resize) {
             for (HudElement e : HudRegistry.ELEMENTS) {
                 if (!e.isEnabled()) continue;
@@ -238,12 +237,12 @@ public class HudEditScreen extends Screen {
     @Override
     public boolean keyPressed(KeyEvent input) {
         int key = input.key();
-        if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_INSERT) {
+        if (key == InputConstants.KEY_ESCAPE || key == InputConstants.KEY_INSERT) {
             onClose();
             return true;
         }
         // G - toggle grid snapping with a keyboard shortcut
-        if (key == GLFW.GLFW_KEY_G) { snapToGrid = !snapToGrid; return true; }
+        if (key == InputConstants.KEY_G) { snapToGrid = !snapToGrid; return true; }
         return false;
     }
 }

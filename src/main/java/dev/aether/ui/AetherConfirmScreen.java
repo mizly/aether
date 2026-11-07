@@ -11,7 +11,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import it.unimi.dsi.fastutil.booleans.BooleanConsumer;
 import net.minecraft.client.Minecraft;
@@ -145,10 +145,10 @@ public class AetherConfirmScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-        if (click.button() == 0) {
+        if (click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             AetherBackground.INSTANCE.addRipple((float)click.x(), (float)click.y());
         }
-        if (click.button() != 0) return true;
+        if (click.button() != InputConstants.MOUSE_BUTTON_LEFT) return true;
 
         boolean enabled = System.currentTimeMillis() - openTime > BUTTON_DELAY_MS;
         if (!enabled) return true;
@@ -165,8 +165,8 @@ public class AetherConfirmScreen extends Screen {
         boolean enabled = System.currentTimeMillis() - openTime > BUTTON_DELAY_MS;
         if (!enabled) return true;
 
-        if (key == GLFW.GLFW_KEY_ESCAPE || key == GLFW.GLFW_KEY_N) { callback.accept(false); return true; }
-        if (key == GLFW.GLFW_KEY_Y)                                  { callback.accept(true);  return true; }
+        if (key == InputConstants.KEY_ESCAPE || key == InputConstants.KEY_N) { callback.accept(false); return true; }
+        if (key == InputConstants.KEY_Y)                                  { callback.accept(true);  return true; }
         return true;
     }
 

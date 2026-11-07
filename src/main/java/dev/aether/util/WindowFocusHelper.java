@@ -6,10 +6,9 @@ import com.sun.jna.platform.win32.Kernel32;
 import com.sun.jna.platform.win32.User32;
 import com.sun.jna.platform.win32.WinDef;
 import com.sun.jna.platform.win32.WinUser;
-import dev.aether.mixin.AccessorWindow;
 import net.minecraft.client.Minecraft;
-import org.lwjgl.glfw.GLFW;
-import org.lwjgl.glfw.GLFWNativeWin32;
+import org.lwjgl.sdl.SDLVideo;
+import org.lwjgl.sdl.SDLProperties;
 import org.lwjgl.system.Platform;
 
 import java.awt.AWTException;
@@ -58,13 +57,13 @@ public final class WindowFocusHelper {
             return;
         }
 
-        long glfwWindow = ((AccessorWindow) (Object) client.getWindow()).getHandle();
-        long nativeWindow = getNativeWindow(glfwWindow);
-        debug(client, debugPrefix, "requested handle=" + glfwWindow
+        long sdlWindow = client.getWindow().handle();
+        long nativeWindow = getNativeWindow(sdlWindow);
+        debug(client, debugPrefix, "requested handle=" + sdlWindow
                 + " nativeHandle=" + nativeWindow
                 + " platform=" + Platform.get());
-        if (glfwWindow == 0L) {
-            debug(client, debugPrefix, "GLFW handle is 0");
+        if (sdlWindow == 0L) {
+            debug(client, debugPrefix, "SDL handle is 0");
             return;
         }
 
@@ -80,7 +79,7 @@ public final class WindowFocusHelper {
 
         FOCUS_EXECUTOR.execute(() -> {
             try {
-                focusMinecraftWindow(client, glfwWindow, nativeWindow, debugPrefix);
+                focusMinecraftWindow(client, sdlWindow, nativeWindow, debugPrefix);
             } finally {
                 FOCUS_IN_PROGRESS.set(false);
             }
@@ -89,7 +88,7 @@ public final class WindowFocusHelper {
 
     private static void focusMinecraftWindow(
             Minecraft client,
-            long glfwWindow,
+            long sdlWindow,
             long nativeWindow,
             String debugPrefix
     ) {
@@ -110,9 +109,9 @@ public final class WindowFocusHelper {
             debug(client, debugPrefix, "skipping WinAPI on platform=" + Platform.get());
         }
         if (!focused) {
-            debug(client, debugPrefix, "trying GLFW focus fallback");
-            focused = bringWindowToFrontUsingGlfw(client, glfwWindow, nativeWindow, debugPrefix);
-            debug(client, debugPrefix, "GLFW result=" + focused);
+            debug(client, debugPrefix, "trying SDL focus fallback");
+            focused = bringWindowToFrontUsingSdl(client, sdlWindow, nativeWindow, debugPrefix);
+            debug(client, debugPrefix, "SDL result=" + focused);
         }
         if (!focused) {
             debug(client, debugPrefix, "trying Robot alt-tab fallback");
@@ -287,23 +286,23 @@ public final class WindowFocusHelper {
         }
     }
 
-    private static boolean bringWindowToFrontUsingGlfw(
+    private static boolean bringWindowToFrontUsingSdl(
             Minecraft client,
-            long glfwWindow,
+            long sdlWindow,
             long nativeWindow,
             String debugPrefix
     ) {
         try {
             client.execute(() -> {
-                if (GLFW.glfwGetWindowAttrib(glfwWindow, GLFW.GLFW_ICONIFIED) == GLFW.GLFW_TRUE) {
-                    GLFW.glfwRestoreWindow(glfwWindow);
+                if ((SDLVideo.SDL_GetWindowFlags(sdlWindow) & SDLVideo.SDL_WINDOW_MINIMIZED) != 0) {
+                    SDLVideo.SDL_RestoreWindow(sdlWindow);
                 }
-                GLFW.glfwShowWindow(glfwWindow);
-                GLFW.glfwFocusWindow(glfwWindow);
+                SDLVideo.SDL_ShowWindow(sdlWindow);
+                SDLVideo.SDL_RaiseWindow(sdlWindow);
             });
-            return waitForFocus(client, nativeWindow, FOCUS_WAIT_MS, "GLFW", debugPrefix);
+            return waitForFocus(client, nativeWindow, FOCUS_WAIT_MS, "SDL", debugPrefix);
         } catch (Throwable t) {
-            debug(client, debugPrefix, "GLFW exception=" + t.getClass().getSimpleName() + ": " + t.getMessage());
+            debug(client, debugPrefix, "SDL exception=" + t.getClass().getSimpleName() + ": " + t.getMessage());
             return false;
         }
     }
@@ -389,11 +388,12 @@ public final class WindowFocusHelper {
         return client.isWindowActive();
     }
 
-    private static long getNativeWindow(long glfwWindow) {
-        if (glfwWindow == 0L || Platform.get() != Platform.WINDOWS) {
+    private static long getNativeWindow(long sdlWindow) {
+        if (sdlWindow == 0L || Platform.get() != Platform.WINDOWS) {
             return 0L;
         }
-        return GLFWNativeWin32.glfwGetWin32Window(glfwWindow);
+        return SDLProperties.SDL_GetPointerProperty(SDLVideo.SDL_GetWindowProperties(sdlWindow),
+                SDLVideo.SDL_PROP_WINDOW_WIN32_HWND_POINTER, 0L);
     }
 
     private static WinDef.HWND hwnd(long nativeWindow) {

@@ -7,7 +7,6 @@ import dev.aether.config.FreelookMode;
 import dev.aether.config.AetherConfig;
 import dev.aether.mixin.AccessorKeyMapping;
 import dev.aether.mixin.MixinMinecraft;
-import dev.aether.mixin.AccessorWindow;
 import dev.aether.modules.farming.UngrabMouse;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.CameraType;
@@ -15,7 +14,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
-import org.lwjgl.glfw.GLFW;
+import org.lwjgl.sdl.SDLMouse;
 
 // the mouse orbits the camera while the bind is held, without touching the player's real yaw/pitch, so the body keeps facing and farming where it was
 // unlike freecam the camera entity never detaches, so picking stays anchored to the player and nothing new is sent to the server
@@ -154,8 +153,8 @@ public final class FreelookManager {
             return false;
         }
         return switch (key.getType()) {
-            case KEYSYM, SCANCODE -> InputConstants.isKeyDown(client.getWindow(), key.getValue());
-            case MOUSE -> GLFW.glfwGetMouseButton(((AccessorWindow) (Object) client.getWindow()).getHandle(), key.getValue()) == GLFW.GLFW_PRESS;
+            case KEYBOARD -> InputConstants.isKeyDown(key.getValue());
+            case MOUSE -> (SDLMouse.SDL_GetMouseState(null, null) & (1 << (key.getValue() - 1))) != 0;
         };
     }
 }

@@ -23,7 +23,7 @@ public class MixinMinecraftAttackInput {
     }
 
     @Inject(method = "startAttack", at = @At(value = "INVOKE",
-            target = "Lnet/minecraft/client/player/LocalPlayer;swing(Lnet/minecraft/world/InteractionHand;)V"))
+            target = "Lnet/minecraft/client/player/LocalPlayer;swing(Lnet/minecraft/world/InteractionHand;Lnet/minecraft/world/item/component/SwingAnimation;Z)Z"))
     private void aether$trackMousematUse(CallbackInfoReturnable<Boolean> cir) {
         AetherBootstrapHooks.onAttack((Minecraft) (Object) this);
     }

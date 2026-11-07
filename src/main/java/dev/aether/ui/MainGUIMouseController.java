@@ -1,5 +1,7 @@
 package dev.aether.ui;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.MouseButtonEvent;
 
@@ -18,12 +20,12 @@ final class MainGUIMouseController {
             return true;
         }
 
-        if (click.button() == 1) {
+        if (click.button() == InputConstants.MOUSE_BUTTON_RIGHT) {
             owner.handleRightClickEvent(mx, my);
             return true;
         }
 
-        if (click.button() != 0) {
+        if (click.button() != InputConstants.MOUSE_BUTTON_LEFT) {
             return true;
         }
 
