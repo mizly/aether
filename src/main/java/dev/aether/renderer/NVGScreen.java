@@ -109,7 +109,7 @@ public abstract class NVGScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyEvent input) {
-        int key = input.key(), scan = input.scancode(), mods = input.modifiers();
+        int key = input.key(), scan = input.key(), mods = input.modifiers();
         for (int i = components.size() - 1; i >= 0; i--) {
             Component c = components.get(i);
             if (c.isVisible() && c.isEnabled()) {
@@ -117,7 +117,7 @@ public abstract class NVGScreen extends Screen {
             }
         }
         // Handle ESC explicitly; never delegate to super to avoid MC focus-navigation NPEs.
-        if (key == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) { onClose(); return true; }
+        if (key == com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE) { onClose(); return true; }
         return false;
     }
 

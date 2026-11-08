@@ -1,5 +1,7 @@
 package dev.aether.ui.components.tabs;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import dev.aether.ui.util.Colors;
 import dev.aether.ui.util.Fonts;
 import dev.aether.renderer.NVGRenderer;
@@ -70,7 +72,7 @@ public class SubTabBar {
     // -- Input -----------------------------------------------------------------
 
     public boolean mousePressed(double mouseX, double mouseY, int button) {
-        if (button != 0 || mouseY < y || mouseY >= y + HEIGHT) return false;
+        if (button != InputConstants.MOUSE_BUTTON_LEFT || mouseY < y || mouseY >= y + HEIGHT) return false;
         float tabW = width / tabs.size();
         for (int i = 0; i < tabs.size(); i++) {
             float tx = x + i * tabW;

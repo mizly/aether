@@ -54,13 +54,13 @@ public final class PestTrackerAbility {
     public static synchronized void onParticlePacket(Minecraft client, ClientboundLevelParticlesPacket packet) {
         if (!client.isSameThread() || client.level != captureLevel || captureLevel == null
                 || !matchesPacket(packet)) return;
-        TRAIL.add(new Vec3(packet.getX(), packet.getY(), packet.getZ()), System.currentTimeMillis());
+        TRAIL.add(new Vec3(packet.x(), packet.y(), packet.z()), System.currentTimeMillis());
     }
 
     static boolean matchesPacket(ClientboundLevelParticlesPacket packet) {
-        return packet != null && packet.getParticle().getType() == ParticleTypes.ANGRY_VILLAGER
-                && packet.getCount() == 1 && packet.getMaxSpeed() == 0
-                && packet.getXDist() == 0 && packet.getYDist() == 0 && packet.getZDist() == 0;
+        return packet != null && packet.particle().getType() == ParticleTypes.ANGRY_VILLAGER
+                && packet.count() == 1 && packet.xMaxSpeed() == 0 && packet.yMaxSpeed() == 0 && packet.zMaxSpeed() == 0
+                && packet.xDist() == 0 && packet.yDist() == 0 && packet.zDist() == 0;
     }
 
     static synchronized PestTrackerTrail.Prediction predictionSince(long requestedAt, long now) {

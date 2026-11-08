@@ -1,17 +1,17 @@
 package dev.aether.renderer;
 
-import com.mojang.blaze3d.GpuFormat;
-import com.mojang.blaze3d.PrimitiveTopology;
-import com.mojang.blaze3d.pipeline.BindGroupLayout;
-import com.mojang.blaze3d.pipeline.BlendFunction;
-import com.mojang.blaze3d.pipeline.ColorTargetState;
-import com.mojang.blaze3d.pipeline.DepthStencilState;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.platform.BlendFactor;
-import com.mojang.blaze3d.platform.CompareOp;
-import com.mojang.blaze3d.shaders.UniformType;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.pipeline.PrimitiveTopology;
+import com.mojang.renderpearl.api.pipeline.BindGroupLayout;
+import com.mojang.renderpearl.api.pipeline.BlendFunction;
+import com.mojang.renderpearl.api.pipeline.ColorTargetState;
+import com.mojang.renderpearl.api.pipeline.DepthStencilState;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.pipeline.BlendFactor;
+import com.mojang.renderpearl.api.pipeline.CompareOp;
+import com.mojang.renderpearl.api.pipeline.UniformType;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import com.mojang.renderpearl.api.vertex.VertexFormat;
 import net.minecraft.resources.Identifier;
 
 // world and post effects as mc pipelines, so they compile for whichever backend is running
@@ -20,7 +20,7 @@ public final class EffectPipelines {
     private static final BindGroupLayout SKYBOX_INFO = BindGroupLayout.builder()
             .withUniform("SkyboxInfo", UniformType.UNIFORM_BUFFER).build();
     private static final BindGroupLayout RIPPLE_INPUTS = BindGroupLayout.builder()
-            .withUniform("RippleInfo", UniformType.UNIFORM_BUFFER).withSampler("Scene").build();
+            .withUniform("RippleInfo", UniformType.UNIFORM_BUFFER).withUniform("Scene", UniformType.COMBINED_IMAGE_SAMPLER).build();
     private static final BindGroupLayout COSMETIC_INFO = BindGroupLayout.builder()
             .withUniform("CosmeticInfo", UniformType.UNIFORM_BUFFER).build();
 
@@ -38,6 +38,7 @@ public final class EffectPipelines {
             .withFragmentShader(id("core/skybox"))
             .withBindGroupLayout(SKYBOX_INFO)
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
+            .withColorTargetState(ColorTargetState.DEFAULT)
             .build();
 
     public static final RenderPipeline RIPPLE = RenderPipeline.builder()
@@ -46,6 +47,7 @@ public final class EffectPipelines {
             .withFragmentShader(id("core/ripple"))
             .withBindGroupLayout(RIPPLE_INPUTS)
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
+            .withColorTargetState(ColorTargetState.DEFAULT)
             .build();
 
     // 26.2 renders the world with reversed z, so nearer fragments have the larger depth
@@ -57,6 +59,7 @@ public final class EffectPipelines {
             .withVertexBinding(0, COSMETIC_FORMAT)
             .withPrimitiveTopology(PrimitiveTopology.TRIANGLES)
             .withCull(false)
+            .withColorTargetState(ColorTargetState.DEFAULT)
             .withDepthStencilState(new DepthStencilState(CompareOp.GREATER_THAN_OR_EQUAL, true))
             .build();
 
@@ -80,6 +83,6 @@ public final class EffectPipelines {
     }
 
     public static boolean usable(RenderPipeline pipeline) {
-        return RenderSystem.getDevice().precompilePipeline(pipeline).isValid();
+        return RenderSystem.getCompiledPipelineNullable(pipeline) != null;
     }
 }

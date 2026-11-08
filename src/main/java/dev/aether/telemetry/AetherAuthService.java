@@ -5,6 +5,7 @@ import dev.aether.modules.irc.IrcManager;
 import dev.aether.notification.NotificationManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Util;
+import org.lwjgl.sdl.SDLMisc;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -388,9 +389,9 @@ public final class AetherAuthService {
     private static void openInBrowser(URI uri) {
         Minecraft client = Minecraft.getInstance();
         if (client == null) {
-            Util.getPlatform().openUri(uri);
+            SDLMisc.SDL_OpenURL(uri.toString());
             return;
         }
-        client.execute(() -> Util.getPlatform().openUri(uri));
+        client.execute(() -> SDLMisc.SDL_OpenURL(uri.toString()));
     }
 }

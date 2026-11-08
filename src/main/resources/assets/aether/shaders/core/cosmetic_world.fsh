@@ -1,10 +1,11 @@
 #version 330
-in vec2 uv;
-in vec4 color;
-flat in int material;
-in float age;
-in float seed;
-out vec4 fragColor;
+#extension GL_ARB_separate_shader_objects : require
+layout(location = 0) in vec2 uv;
+layout(location = 1) in vec4 color;
+layout(location = 2) flat in int material;
+layout(location = 3) in float age;
+layout(location = 4) in float seed;
+layout(location = 0) out vec4 fragColor;
 
 float band(float distance, float width) {
     return 1.0 - smoothstep(width, width + max(fwidth(distance), 0.003), abs(distance));

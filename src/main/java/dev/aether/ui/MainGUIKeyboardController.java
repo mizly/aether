@@ -2,7 +2,7 @@ package dev.aether.ui;
 
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 final class MainGUIKeyboardController {
     private final MainGUI owner;
@@ -19,14 +19,14 @@ final class MainGUIKeyboardController {
             return true;
         }
 
-        if (key == GLFW.GLFW_KEY_ESCAPE) {
+        if (key == InputConstants.KEY_ESCAPE) {
             return owner.handleEscapeKey();
         }
 
-        boolean ctrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
-        boolean shift = (modifiers & GLFW.GLFW_MOD_SHIFT) != 0;
+        boolean ctrl = (modifiers & InputConstants.MOD_CONTROL) != 0;
+        boolean shift = (modifiers & InputConstants.MOD_SHIFT) != 0;
 
-        if (ctrl && (key == GLFW.GLFW_KEY_A || key == GLFW.GLFW_KEY_C || key == GLFW.GLFW_KEY_V)
+        if (ctrl && (key == InputConstants.KEY_A || key == InputConstants.KEY_C || key == InputConstants.KEY_V)
                 && owner.handleInlineControlShortcut(key)) {
             return true;
         }

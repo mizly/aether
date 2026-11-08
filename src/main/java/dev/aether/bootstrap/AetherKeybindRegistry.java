@@ -4,7 +4,7 @@ import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
@@ -35,34 +35,34 @@ public final class AetherKeybindRegistry {
         KeyMapping.Category category = new KeyMapping.Category(categoryId);
         try {
             macroToggleKey = KeyMappingHelper
-                    .registerKeyMapping(new KeyMapping("key.aether.start_script", GLFW.GLFW_KEY_K, category));
+                    .registerKeyMapping(new KeyMapping("key.aether.start_script", InputConstants.KEY_K, category));
             clickGuiKey = KeyMappingHelper
-                    .registerKeyMapping(new KeyMapping("key.aether.clickgui", GLFW.GLFW_KEY_INSERT, category));
+                    .registerKeyMapping(new KeyMapping("key.aether.clickgui", InputConstants.KEY_INSERT, category));
             nvgDemoKey = KeyMappingHelper
-                    .registerKeyMapping(new KeyMapping("Open NVG Demo", GLFW.GLFW_KEY_HOME, category));
+                    .registerKeyMapping(new KeyMapping("Open NVG Demo", InputConstants.KEY_HOME, category));
             freecamKey = KeyMappingHelper
-                    .registerKeyMapping(new KeyMapping("key.aether.freecam", GLFW.GLFW_KEY_F6, category));
+                    .registerKeyMapping(new KeyMapping("key.aether.freecam", InputConstants.KEY_F6, category));
             freecamTeleportToPlayerKey = KeyMappingHelper
-                    .registerKeyMapping(new KeyMapping("key.aether.freecam_teleport_to_player", GLFW.GLFW_KEY_F7, category));
+                    .registerKeyMapping(new KeyMapping("key.aether.freecam_teleport_to_player", InputConstants.KEY_F7, category));
             freelookKey = KeyMappingHelper
-                    .registerKeyMapping(new KeyMapping("key.aether.freelook", GLFW.GLFW_KEY_LEFT_ALT, category));
+                    .registerKeyMapping(new KeyMapping("key.aether.freelook", InputConstants.KEY_LALT, category));
             pipKey = KeyMappingHelper
-                    .registerKeyMapping(new KeyMapping("key.aether.pip", GLFW.GLFW_KEY_P, category));
+                    .registerKeyMapping(new KeyMapping("key.aether.pip", InputConstants.KEY_P, category));
             ungrabMouseKey = KeyMappingHelper
-                    .registerKeyMapping(new KeyMapping("key.aether.ungrab_mouse", GLFW.GLFW_KEY_U, category));
+                    .registerKeyMapping(new KeyMapping("key.aether.ungrab_mouse", InputConstants.KEY_U, category));
             manualPestEarlyFinishKey = KeyMappingHelper
-                    .registerKeyMapping(new KeyMapping("Manual Pest Early Finish", GLFW.GLFW_KEY_UNKNOWN, category));
+                    .registerKeyMapping(new KeyMapping("Manual Pest Early Finish", InputConstants.UNKNOWN.getValue(), category));
         } catch (IllegalStateException ex) {
             // External feature jars can initialize after options are already built; reuse existing mappings if present.
-            macroToggleKey = resolveExistingOrDetached("key.aether.start_script", GLFW.GLFW_KEY_K, category);
-            clickGuiKey = resolveExistingOrDetached("key.aether.clickgui", GLFW.GLFW_KEY_INSERT, category);
-            nvgDemoKey = resolveExistingOrDetached("Open NVG Demo", GLFW.GLFW_KEY_HOME, category);
-            freecamKey = resolveExistingOrDetached("key.aether.freecam", GLFW.GLFW_KEY_F6, category);
-            freecamTeleportToPlayerKey = resolveExistingOrDetached("key.aether.freecam_teleport_to_player", GLFW.GLFW_KEY_F7, category);
-            freelookKey = resolveExistingOrDetached("key.aether.freelook", GLFW.GLFW_KEY_LEFT_ALT, category);
-            pipKey = resolveExistingOrDetached("key.aether.pip", GLFW.GLFW_KEY_P, category);
-            ungrabMouseKey = resolveExistingOrDetached("key.aether.ungrab_mouse", GLFW.GLFW_KEY_U, category);
-            manualPestEarlyFinishKey = resolveExistingOrDetached("Manual Pest Early Finish", GLFW.GLFW_KEY_UNKNOWN, category);
+            macroToggleKey = resolveExistingOrDetached("key.aether.start_script", InputConstants.KEY_K, category);
+            clickGuiKey = resolveExistingOrDetached("key.aether.clickgui", InputConstants.KEY_INSERT, category);
+            nvgDemoKey = resolveExistingOrDetached("Open NVG Demo", InputConstants.KEY_HOME, category);
+            freecamKey = resolveExistingOrDetached("key.aether.freecam", InputConstants.KEY_F6, category);
+            freecamTeleportToPlayerKey = resolveExistingOrDetached("key.aether.freecam_teleport_to_player", InputConstants.KEY_F7, category);
+            freelookKey = resolveExistingOrDetached("key.aether.freelook", InputConstants.KEY_LALT, category);
+            pipKey = resolveExistingOrDetached("key.aether.pip", InputConstants.KEY_P, category);
+            ungrabMouseKey = resolveExistingOrDetached("key.aether.ungrab_mouse", InputConstants.KEY_U, category);
+            manualPestEarlyFinishKey = resolveExistingOrDetached("Manual Pest Early Finish", InputConstants.UNKNOWN.getValue(), category);
         }
         registered = true;
     }

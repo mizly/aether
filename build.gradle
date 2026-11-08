@@ -28,11 +28,12 @@ dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    runtimeOnly "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
 
-    include(implementation("io.netty:netty-handler-proxy:4.1.82.Final"))
-    include(implementation("io.netty:netty-codec-socks:4.1.82.Final"))
+    include(implementation("io.netty:netty-handler-proxy:4.2.16.Final"))
+    include(implementation("io.netty:netty-codec-socks:4.2.16.Final"))
 
-    def lwjglVersion = '3.4.1'
+    def lwjglVersion = '3.4.3'
     implementation "org.lwjgl:lwjgl-nanovg:${lwjglVersion}"
     include "org.lwjgl:lwjgl-nanovg:${lwjglVersion}"
     ['windows', 'linux', 'macos', 'macos-arm64'].each { platform ->

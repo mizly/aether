@@ -186,7 +186,7 @@ public final class AetherProxyManager {
 
     public static void refreshProxyStatusButtons() {
         Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null) {
+        if (minecraft == null || minecraft.gui == null) {
             return;
         }
         refreshProxyStatusButtons(minecraft.gui.screen());

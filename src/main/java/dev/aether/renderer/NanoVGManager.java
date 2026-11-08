@@ -1,6 +1,6 @@
 package dev.aether.renderer;
 
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import dev.aether.renderer.canvas.Canvas;
 import dev.aether.util.AetherResources;
 import dev.aether.ui.util.Fonts;

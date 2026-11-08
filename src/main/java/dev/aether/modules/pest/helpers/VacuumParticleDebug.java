@@ -54,7 +54,7 @@ public final class VacuumParticleDebug {
             return;
         }
 
-        ParticleOptions options = packet.getParticle();
+        ParticleOptions options = packet.particle();
         String particleId = "unknown";
         if (options != null) {
             Identifier key = BuiltInRegistries.PARTICLE_TYPE.getKey(options.getType());
@@ -68,7 +68,7 @@ public final class VacuumParticleDebug {
 
             packetTypeCounts.merge(particleId, 1, Integer::sum);
             packetCount++;
-            particleCount += Math.max(packet.getCount(), 1);
+            particleCount += Math.max(packet.count(), 1);
         }
     }
 

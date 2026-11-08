@@ -1,12 +1,12 @@
 package dev.aether.renderer.canvas;
 
-import com.mojang.blaze3d.GpuFormat;
-import com.mojang.blaze3d.systems.GpuDevice;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.device.GpuDevice;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuSampler;
-import com.mojang.blaze3d.textures.GpuTexture;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuSampler;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import org.lwjgl.system.MemoryUtil;
 
 import java.nio.ByteBuffer;

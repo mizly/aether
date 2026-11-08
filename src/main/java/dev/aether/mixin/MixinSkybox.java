@@ -1,6 +1,6 @@
 package dev.aether.mixin;
 
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.aether.renderer.SkyboxRenderer;
 import net.minecraft.client.renderer.LevelRenderer;

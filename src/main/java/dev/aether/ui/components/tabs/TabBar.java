@@ -1,5 +1,7 @@
 package dev.aether.ui.components.tabs;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import dev.aether.ui.util.Colors;
 import dev.aether.ui.util.Fonts;
 import dev.aether.ui.components.Component;
@@ -88,7 +90,7 @@ public class TabBar extends Component {
 
     @Override
     public boolean mousePressed(double mouseX, double mouseY, int button) {
-        if (!visible || !enabled || button != 0) return false;
+        if (!visible || !enabled || button != InputConstants.MOUSE_BUTTON_LEFT) return false;
 
         // Tab header click
         if (mouseY >= y && mouseY < y + TAB_H) {

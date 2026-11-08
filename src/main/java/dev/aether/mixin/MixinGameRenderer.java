@@ -25,18 +25,18 @@ public class MixinGameRenderer {
     }
 
     @Inject(method = "render", at = @At("TAIL"))
-    private void afterRender(DeltaTracker deltaTracker, boolean tick, CallbackInfo ci) {
+    private void afterRender(CallbackInfo ci) {
         AetherRenderQueue.flushBeforeGui();
         AetherRenderQueue.flush();
         if (Minecraft.getInstance().gui.screen() instanceof MainGUI mainGUI) {
-            mainGUI.renderAfterGameRenderer(deltaTracker.getGameTimeDeltaTicks());
+            mainGUI.renderAfterGameRenderer(Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaTicks());
         }
         AetherBootstrapHooks.renderPestEspTracerOverlay();
         AetherBootstrapHooks.renderFailsafeColourFlash();
     }
 
     @Inject(method = "renderItemInHand", at = @At("HEAD"), cancellable = true)
-    private void onRenderItemInHand(CameraRenderState cameraRenderState, float partialTick, org.joml.Matrix4fc matrix4f, CallbackInfo ci) {
+    private void onRenderItemInHand(CallbackInfo ci) {
         if (AetherBootstrapHooks.isFreecamEnabled()) {
             ci.cancel();
         }

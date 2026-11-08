@@ -1,5 +1,7 @@
 package dev.aether.ui.components;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import dev.aether.ui.util.Colors;
 import dev.aether.ui.util.Fonts;
 import dev.aether.renderer.NVGRenderer;
@@ -78,7 +80,7 @@ public class Toggle extends Component {
 
     @Override
     public boolean mousePressed(double mouseX, double mouseY, int button) {
-        if (button == 0 && enabled && contains(mouseX, mouseY)) {
+        if (button == InputConstants.MOUSE_BUTTON_LEFT && enabled && contains(mouseX, mouseY)) {
             setValue(!value);
             return true;
         }

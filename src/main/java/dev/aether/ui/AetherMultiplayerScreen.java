@@ -1,5 +1,7 @@
 package dev.aether.ui;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import dev.aether.renderer.AetherBackground;
 import dev.aether.renderer.AetherRenderQueue;
 import dev.aether.renderer.NanoVGManager;
@@ -264,10 +266,10 @@ public class AetherMultiplayerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-        if (click.button() == 0) {
+        if (click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             AetherBackground.INSTANCE.addRipple((float) click.x(), (float) click.y());
         }
-        if (click.button() != 0) return true;
+        if (click.button() != InputConstants.MOUSE_BUTTON_LEFT) return true;
 
         double mx = click.x(), my = click.y();
 

@@ -1,12 +1,12 @@
 package dev.aether.renderer;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
 import com.mojang.blaze3d.buffers.Std140Builder;
 import com.mojang.blaze3d.buffers.Std140SizeCalculator;
-import com.mojang.blaze3d.systems.RenderPass;
+import com.mojang.renderpearl.api.commands.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import net.minecraft.client.renderer.MappableRingBuffer;
 import org.joml.Matrix4f;
 
@@ -39,11 +39,11 @@ public final class CosmeticShader implements AutoCloseable {
             pass.setUniform("CosmeticInfo", ubo.currentBuffer());
             pass.setVertexBuffer(0, vertices.currentBuffer().slice());
             if (wingVertices > 0) {
-                pass.setPipeline(EffectPipelines.COSMETIC_OPAQUE);
+                pass.setPipeline(RenderSystem.getCompiledPipeline(EffectPipelines.COSMETIC_OPAQUE));
                 pass.draw(wingVertices, 1, 0, 0);
             }
             if (count > wingVertices) {
-                pass.setPipeline(EffectPipelines.COSMETIC_ADDITIVE);
+                pass.setPipeline(RenderSystem.getCompiledPipeline(EffectPipelines.COSMETIC_ADDITIVE));
                 pass.draw(count - wingVertices, 1, wingVertices, 0);
             }
         }

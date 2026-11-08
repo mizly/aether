@@ -13,7 +13,6 @@
         "AccessorKeyMapping",
         "AccessorMouseHandler",
         "AccessorScreen",
-        "AccessorWindow",
         "PlayerTabOverlayAccessor",
         "MixinEntityTurn",
         "MixinAetherCape",

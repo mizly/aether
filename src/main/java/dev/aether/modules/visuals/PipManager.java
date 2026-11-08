@@ -5,12 +5,7 @@ import dev.aether.config.AetherConfig;
 import dev.aether.util.ClientUtils;
 import net.minecraft.client.Minecraft;
 
-import static org.lwjgl.glfw.GLFW.GLFW_DECORATED;
-import static org.lwjgl.glfw.GLFW.GLFW_FLOATING;
-import static org.lwjgl.glfw.GLFW.GLFW_FALSE;
-import static org.lwjgl.glfw.GLFW.GLFW_TRUE;
-import static org.lwjgl.glfw.GLFW.glfwGetWindowAttrib;
-import static org.lwjgl.glfw.GLFW.glfwSetWindowAttrib;
+import org.lwjgl.sdl.SDLVideo;
 
 public final class PipManager {
     private static WindowState appliedState;
@@ -82,8 +77,8 @@ public final class PipManager {
         }
 
         window.setWindowed(targetState.width, targetState.height);
-        glfwSetWindowAttrib(handle, GLFW_FLOATING, targetState.floating ? GLFW_TRUE : GLFW_FALSE);
-        glfwSetWindowAttrib(handle, GLFW_DECORATED, targetState.decorated ? GLFW_TRUE : GLFW_FALSE);
+        SDLVideo.SDL_SetWindowAlwaysOnTop(handle, targetState.floating);
+        SDLVideo.SDL_SetWindowBordered(handle, targetState.decorated);
         appliedState = targetState;
     }
 
@@ -106,8 +101,8 @@ public final class PipManager {
     ) {
         private static WindowAttributes capture(long handle) {
             return new WindowAttributes(
-                    glfwGetWindowAttrib(handle, GLFW_FLOATING) == GLFW_TRUE,
-                    glfwGetWindowAttrib(handle, GLFW_DECORATED) == GLFW_TRUE
+                    (SDLVideo.SDL_GetWindowFlags(handle) & SDLVideo.SDL_WINDOW_ALWAYS_ON_TOP) != 0,
+                    (SDLVideo.SDL_GetWindowFlags(handle) & SDLVideo.SDL_WINDOW_BORDERLESS) == 0
             );
         }
 
@@ -116,8 +111,8 @@ public final class PipManager {
         }
 
         private void apply(long handle) {
-            glfwSetWindowAttrib(handle, GLFW_FLOATING, floating ? GLFW_TRUE : GLFW_FALSE);
-            glfwSetWindowAttrib(handle, GLFW_DECORATED, decorated ? GLFW_TRUE : GLFW_FALSE);
+            SDLVideo.SDL_SetWindowAlwaysOnTop(handle, floating);
+            SDLVideo.SDL_SetWindowBordered(handle, decorated);
         }
     }
 

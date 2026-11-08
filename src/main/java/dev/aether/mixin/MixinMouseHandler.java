@@ -1,5 +1,7 @@
 package dev.aether.mixin;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import dev.aether.bootstrap.AetherBootstrapHooks;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.MouseHandler;
@@ -44,7 +46,7 @@ public class MixinMouseHandler {
             ci.cancel();
             return;
         }
-        if (mouseButtonInfo.button() == 0 && i == 1) {
+        if (mouseButtonInfo.button() == InputConstants.MOUSE_BUTTON_LEFT && i == 1) {
             Minecraft mc = Minecraft.getInstance();
             Screen screen = mc.gui.screen();
             if (screen != null && AetherBootstrapHooks.hasCustomScreenBackground(screen)) {
@@ -65,7 +67,7 @@ public class MixinMouseHandler {
     }
 
     @Inject(method = "onMove", at = @At("HEAD"))
-    private void onMouseMove(long window, double mouseX, double mouseY, CallbackInfo ci) {
+    private void onMouseMove(long window, double mouseX, double mouseY, double deltaX, double deltaY, CallbackInfo ci) {
         AetherBootstrapHooks.onUserInput();
     }
 }

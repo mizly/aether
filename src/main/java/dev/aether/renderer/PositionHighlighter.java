@@ -309,7 +309,7 @@ public final class PositionHighlighter {
 
         poseStack.pushPose();
         poseStack.translate((float) (x - cameraPos.x), (float) (y - cameraPos.y), (float) (z - cameraPos.z));
-        poseStack.mulPose(camera.rotation());
+        poseStack.rotate(camera.rotation());
         poseStack.scale(scale, -scale, scale);
         float textX = -font.width(text) / 2.0f;
         textBuffer.submitText(poseStack, textX, 0.0f, Component.literal(text).getVisualOrderText(), true,

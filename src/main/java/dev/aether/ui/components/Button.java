@@ -1,5 +1,7 @@
 package dev.aether.ui.components;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import dev.aether.ui.util.Colors;
 import dev.aether.ui.util.Fonts;
 import dev.aether.renderer.NVGRenderer;
@@ -95,7 +97,7 @@ public class Button extends Component {
 
     @Override
     public boolean mousePressed(double mouseX, double mouseY, int button) {
-        if (button == 0 && enabled && contains(mouseX, mouseY)) {
+        if (button == InputConstants.MOUSE_BUTTON_LEFT && enabled && contains(mouseX, mouseY)) {
             pressed = true;
             return true;
         }
@@ -104,7 +106,7 @@ public class Button extends Component {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0 && pressed) {
+        if (button == InputConstants.MOUSE_BUTTON_LEFT && pressed) {
             pressed = false;
             if (enabled && contains(mouseX, mouseY) && onPress != null) {
                 onPress.run();

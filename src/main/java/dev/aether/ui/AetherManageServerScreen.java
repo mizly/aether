@@ -17,7 +17,7 @@ import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 // replaces the vanilla ManageServerScreen via MixinManageServerScreen
 public class AetherManageServerScreen extends Screen {
@@ -177,10 +177,10 @@ public class AetherManageServerScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-        if (click.button() == 0) {
+        if (click.button() == InputConstants.MOUSE_BUTTON_LEFT) {
             AetherBackground.INSTANCE.addRipple((float)click.x(), (float)click.y());
         }
-        if (click.button() != 0) return true;
+        if (click.button() != InputConstants.MOUSE_BUTTON_LEFT) return true;
 
         double mx = click.x(), my = click.y();
         if (isOverBtn((int)mx, (int)my, leftBtnX))  { doDone();   return true; }
@@ -197,9 +197,9 @@ public class AetherManageServerScreen extends Screen {
     @Override
     public boolean keyPressed(KeyEvent input) {
         int key = input.key();
-        if (key == GLFW.GLFW_KEY_ESCAPE)                                  { doCancel(); return true; }
-        if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) { doDone();   return true; }
-        if (key == GLFW.GLFW_KEY_TAB) {
+        if (key == InputConstants.KEY_ESCAPE)                                  { doCancel(); return true; }
+        if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) { doDone();   return true; }
+        if (key == InputConstants.KEY_TAB) {
             focusField(nameInput.isFocused() ? ipInput : nameInput);
             return true;
         }

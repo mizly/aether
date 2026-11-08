@@ -1,5 +1,7 @@
 package dev.aether.proxy;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import dev.aether.config.AetherConfig;
 import dev.aether.bootstrap.AetherBootstrapHooks;
 import dev.aether.renderer.AetherBackground;
@@ -177,11 +179,11 @@ public final class AetherProxyScreen extends Screen {
 
     @Override
     public boolean mouseClicked(MouseButtonEvent click, boolean doubled) {
-        if (click.button() == 0 && AetherConfig.CUSTOM_UI_ENABLED.get()) {
+        if (click.button() == InputConstants.MOUSE_BUTTON_LEFT && AetherConfig.CUSTOM_UI_ENABLED.get()) {
             AetherBackground.INSTANCE.addRipple((float) click.x(), (float) click.y());
         }
 
-        if (click.button() == 0 && click.x() >= listX && click.x() <= listX + LIST_W
+        if (click.button() == InputConstants.MOUSE_BUTTON_LEFT && click.x() >= listX && click.x() <= listX + LIST_W
                 && click.y() >= listY && click.y() <= listY + 206) {
             int index = (int) ((click.y() - listY) / ROW_H);
             if (index >= 0 && index < AetherProxyManager.proxies().size()) {

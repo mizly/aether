@@ -12,7 +12,7 @@
 </div>
 
 <p align="center">
-  hypixel skyblock farming qol mod for <b>26.2</b>
+  hypixel skyblock farming qol mod for <b>26.3</b>
 </p>
 <p align="center">
   <a href="https://discord.com/invite/BZxsfAcYYW">
@@ -30,13 +30,17 @@
 ---
 
 ## how to install
-1. install [fabric for 26.2](https://fabricmc.net/use/installer/).
-2. Install [fabric API](https://modrinth.com/mod/fabric-api/versions?g=26.2) & [fabric language kotlin](https://modrinth.com/mod/fabric-language-kotlin).
-3. download the latest jar from the [releases page](https://github.com/mizly/aether/releases).
+1. install [Fabric Loader 0.20.1 or newer for 26.3](https://fabricmc.net/use/installer/) and use Java 25.
+2. Install [Fabric API 0.165.2+26.3](https://modrinth.com/mod/fabric-api/versions?g=26.3) & [Fabric Language Kotlin](https://modrinth.com/mod/fabric-language-kotlin).
+3. build this 26.3 port with `gradlew.bat build --no-daemon` (Windows) or `./gradlew build --no-daemon`; the mod is `build/libs/aether-1.3.1-26.3.jar`.
 4. put aether & the other jar files into `.minecraft/mods`.
 5. launch minecraft (make sure you're on the fabric profile).
 
 > `/aether` opens the GUI.........
+
+This port targets Minecraft 26.3 only. Rendering uses the 26.3 RenderPearl API and SPIR-V-compatible shaders; keyboard, mouse, and PiP window controls use SDL. Do not install the 26.2 Aether JAR alongside it.
+
+Verified with Java 25, Fabric Loader 0.20.1, Fabric API 0.165.2+26.3, and Fabric Language Kotlin 1.14.2+kotlin.2.4.21: clean build and 380 passing tests; client smoke checks covered custom menus, left/right mouse input, HUD dragging, a local world, effect shaders, and PiP window restoration. Live Hypixel farming was not exercised.
 
 ## contributing
 contributions are welcome, so feel free to make a PR!

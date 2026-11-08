@@ -5,7 +5,7 @@ import dev.aether.ui.settings.ColorSetting;
 import dev.aether.ui.settings.DropdownSetting;
 import dev.aether.ui.theme.Theme;
 import dev.aether.ui.util.Fonts;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.List;
 
@@ -270,10 +270,10 @@ final class MainGUIOverlayController {
         if (!owner.isColorHexFocused() || owner.activeColorSetting() == null) {
             return false;
         }
-        if (key == GLFW.GLFW_KEY_BACKSPACE && !owner.colorHexBuffer().isEmpty()) {
+        if (key == InputConstants.KEY_BACKSPACE && !owner.colorHexBuffer().isEmpty()) {
             owner.colorHexBuffer().deleteCharAt(owner.colorHexBuffer().length() - 1);
         }
-        if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) {
+        if (key == InputConstants.KEY_RETURN || key == InputConstants.KEY_NUMPADENTER) {
             commitColor();
         }
         return true;

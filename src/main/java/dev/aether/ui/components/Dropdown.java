@@ -1,5 +1,7 @@
 package dev.aether.ui.components;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import dev.aether.ui.util.Colors;
 import dev.aether.ui.util.Fonts;
 import dev.aether.renderer.NVGRenderer;
@@ -92,7 +94,7 @@ public class Dropdown<T> extends Component {
 
     @Override
     public boolean mousePressed(double mouseX, double mouseY, int button) {
-        if (button != 0) return false;
+        if (button != InputConstants.MOUSE_BUTTON_LEFT) return false;
 
         // Click on header -> toggle
         if (mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + ITEM_H) {

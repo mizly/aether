@@ -1,5 +1,7 @@
 package dev.aether.ui.components;
 
+import com.mojang.blaze3d.platform.InputConstants;
+
 import dev.aether.ui.util.Colors;
 import dev.aether.ui.util.Fonts;
 import dev.aether.renderer.NVGRenderer;
@@ -91,7 +93,7 @@ public class Panel extends Component {
 
     @Override
     public boolean mousePressed(double mouseX, double mouseY, int button) {
-        if (button == 0 && mouseY >= y && mouseY < y + TITLE_H
+        if (button == InputConstants.MOUSE_BUTTON_LEFT && mouseY >= y && mouseY < y + TITLE_H
                 && mouseX >= x && mouseX < x + width) {
             dragging = true;
             dragOffX = mouseX - x;
@@ -110,7 +112,7 @@ public class Panel extends Component {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (button == 0 && dragging) {
+        if (button == InputConstants.MOUSE_BUTTON_LEFT && dragging) {
             dragging = false;
             return true;
         }
@@ -125,7 +127,7 @@ public class Panel extends Component {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button,
                                 double deltaX, double deltaY) {
-        if (dragging && button == 0) {
+        if (dragging && button == InputConstants.MOUSE_BUTTON_LEFT) {
             x = (float) (mouseX - dragOffX);
             y = (float) (mouseY - dragOffY);
             return true;

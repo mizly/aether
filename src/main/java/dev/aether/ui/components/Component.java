@@ -19,7 +19,7 @@ public abstract class Component {
 
     // -- Input events ----------------------------------------------------------
 
-    // button is the glfw index; true consumes the event
+    // button uses InputConstants mouse values; true consumes the event
     public boolean mousePressed(double mouseX, double mouseY, int button) { return false; }
 
     // true consumes the event

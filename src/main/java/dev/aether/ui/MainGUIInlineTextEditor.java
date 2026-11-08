@@ -2,7 +2,7 @@ package dev.aether.ui;
 
 import dev.aether.ui.settings.TextSetting;
 import net.minecraft.client.Minecraft;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.List;
 
@@ -237,7 +237,7 @@ final class MainGUIInlineTextEditor {
 
     boolean handleControlShortcut(int key) {
         var keyboard = Minecraft.getInstance().keyboardHandler;
-        if (key == GLFW.GLFW_KEY_A) {
+        if (key == InputConstants.KEY_A) {
             if (hasActiveInlineEditor() || isSearchEditorActive()) {
                 selectAllText();
                 if (isSearchEditorActive()) {
@@ -248,7 +248,7 @@ final class MainGUIInlineTextEditor {
             return false;
         }
 
-        if (key == GLFW.GLFW_KEY_C) {
+        if (key == InputConstants.KEY_C) {
             if (owner.hoveredColor != null) {
                 keyboard.setClipboard(String.format("%08X", owner.hoveredColor.getValue()));
                 return true;
@@ -265,7 +265,7 @@ final class MainGUIInlineTextEditor {
             return false;
         }
 
-        if (key != GLFW.GLFW_KEY_V) {
+        if (key != InputConstants.KEY_V) {
             return false;
         }
 
@@ -313,17 +313,17 @@ final class MainGUIInlineTextEditor {
         }
         boolean hasSelection = hasTextSelection();
         switch (key) {
-            case GLFW.GLFW_KEY_BACKSPACE -> {
+            case InputConstants.KEY_BACKSPACE -> {
                 if (!deleteSelectedText() && owner.textCursor > 0) {
                     owner.textBuf.deleteCharAt(--owner.textCursor);
                 }
             }
-            case GLFW.GLFW_KEY_DELETE -> {
+            case InputConstants.KEY_DELETE -> {
                 if (!deleteSelectedText() && owner.textCursor < owner.textBuf.length()) {
                     owner.textBuf.deleteCharAt(owner.textCursor);
                 }
             }
-            case GLFW.GLFW_KEY_LEFT -> {
+            case InputConstants.KEY_LEFT -> {
                 int nextCursor = ctrl
                         ? moveCursorWord(owner.textBuf.toString(), owner.textCursor, -1)
                         : Math.max(0, owner.textCursor - 1);
@@ -335,7 +335,7 @@ final class MainGUIInlineTextEditor {
                     setTextCursor(nextCursor, false);
                 }
             }
-            case GLFW.GLFW_KEY_RIGHT -> {
+            case InputConstants.KEY_RIGHT -> {
                 int nextCursor = ctrl
                         ? moveCursorWord(owner.textBuf.toString(), owner.textCursor, 1)
                         : Math.min(owner.textBuf.length(), owner.textCursor + 1);
@@ -347,8 +347,8 @@ final class MainGUIInlineTextEditor {
                     setTextCursor(nextCursor, false);
                 }
             }
-            case GLFW.GLFW_KEY_HOME -> setTextCursor(0, shift);
-            case GLFW.GLFW_KEY_END -> setTextCursor(owner.textBuf.length(), shift);
+            case InputConstants.KEY_HOME -> setTextCursor(0, shift);
+            case InputConstants.KEY_END -> setTextCursor(owner.textBuf.length(), shift);
             default -> {
                 return false;
             }
@@ -360,13 +360,13 @@ final class MainGUIInlineTextEditor {
     boolean handleProfileNameKeyPressed(int key) {
         if (owner.profileRenameFocus) {
             switch (key) {
-                case GLFW.GLFW_KEY_BACKSPACE -> {
+                case InputConstants.KEY_BACKSPACE -> {
                     if (!owner.profileRenameInput.isEmpty()) {
                         owner.profileRenameInput = owner.profileRenameInput.substring(0, owner.profileRenameInput.length() - 1);
                     }
                 }
-                case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> owner.commitProfileRename();
-                case GLFW.GLFW_KEY_DELETE -> owner.profileRenameInput = "";
+                case InputConstants.KEY_RETURN, InputConstants.KEY_NUMPADENTER -> owner.commitProfileRename();
+                case InputConstants.KEY_DELETE -> owner.profileRenameInput = "";
                 default -> {
                     return false;
                 }
@@ -378,13 +378,13 @@ final class MainGUIInlineTextEditor {
             return false;
         }
         switch (key) {
-            case GLFW.GLFW_KEY_BACKSPACE -> {
+            case InputConstants.KEY_BACKSPACE -> {
                 if (!owner.profileNameInput.isEmpty()) {
                     owner.profileNameInput = owner.profileNameInput.substring(0, owner.profileNameInput.length() - 1);
                 }
             }
-            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> owner.profileNameFocus = false;
-            case GLFW.GLFW_KEY_DELETE -> owner.profileNameInput = "";
+            case InputConstants.KEY_RETURN, InputConstants.KEY_NUMPADENTER -> owner.profileNameFocus = false;
+            case InputConstants.KEY_DELETE -> owner.profileNameInput = "";
             default -> {
                 return false;
             }
@@ -399,17 +399,17 @@ final class MainGUIInlineTextEditor {
         boolean multilineText = owner.activeText != null && owner.activeText.isMultiline();
         boolean hasSelection = hasTextSelection();
         switch (key) {
-            case GLFW.GLFW_KEY_BACKSPACE -> {
+            case InputConstants.KEY_BACKSPACE -> {
                 if (!deleteSelectedText() && owner.textCursor > 0) {
                     owner.textBuf.deleteCharAt(--owner.textCursor);
                 }
             }
-            case GLFW.GLFW_KEY_DELETE -> {
+            case InputConstants.KEY_DELETE -> {
                 if (!deleteSelectedText() && owner.textCursor < owner.textBuf.length()) {
                     owner.textBuf.deleteCharAt(owner.textCursor);
                 }
             }
-            case GLFW.GLFW_KEY_LEFT -> {
+            case InputConstants.KEY_LEFT -> {
                 int nextCursor = ctrl
                         ? moveCursorWord(owner.textBuf.toString(), owner.textCursor, -1)
                         : Math.max(0, owner.textCursor - 1);
@@ -421,7 +421,7 @@ final class MainGUIInlineTextEditor {
                     setTextCursor(nextCursor, false);
                 }
             }
-            case GLFW.GLFW_KEY_RIGHT -> {
+            case InputConstants.KEY_RIGHT -> {
                 int nextCursor = ctrl
                         ? moveCursorWord(owner.textBuf.toString(), owner.textCursor, 1)
                         : Math.min(owner.textBuf.length(), owner.textCursor + 1);
@@ -433,7 +433,7 @@ final class MainGUIInlineTextEditor {
                     setTextCursor(nextCursor, false);
                 }
             }
-            case GLFW.GLFW_KEY_UP -> {
+            case InputConstants.KEY_UP -> {
                 if (!multilineText) {
                     return false;
                 }
@@ -445,7 +445,7 @@ final class MainGUIInlineTextEditor {
                     setTextCursor(moveCursorVertical(owner.textBuf.toString(), owner.textCursor, -1), false);
                 }
             }
-            case GLFW.GLFW_KEY_DOWN -> {
+            case InputConstants.KEY_DOWN -> {
                 if (!multilineText) {
                     return false;
                 }
@@ -457,15 +457,15 @@ final class MainGUIInlineTextEditor {
                     setTextCursor(moveCursorVertical(owner.textBuf.toString(), owner.textCursor, 1), false);
                 }
             }
-            case GLFW.GLFW_KEY_HOME -> {
+            case InputConstants.KEY_HOME -> {
                 int nextCursor = multilineText ? getLineStart(owner.textBuf.toString(), owner.textCursor) : 0;
                 setTextCursor(nextCursor, shift);
             }
-            case GLFW.GLFW_KEY_END -> {
+            case InputConstants.KEY_END -> {
                 int nextCursor = multilineText ? getLineEnd(owner.textBuf.toString(), owner.textCursor) : owner.textBuf.length();
                 setTextCursor(nextCursor, shift);
             }
-            case GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_KP_ENTER -> {
+            case InputConstants.KEY_RETURN, InputConstants.KEY_NUMPADENTER -> {
                 if (multilineText) {
                     insertTextAtCursor("\n");
                 } else {

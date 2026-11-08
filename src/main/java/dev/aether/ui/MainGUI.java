@@ -19,7 +19,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.*;
 
@@ -2819,7 +2818,7 @@ public class MainGUI extends NVGScreen {
     }
 
     boolean tryBeginActiveTextSelection(int button, float mx, float my) {
-        if (!(hasActiveInlineEditor() || isSearchEditorActive()) || button != 0
+        if (!(hasActiveInlineEditor() || isSearchEditorActive()) || button != InputConstants.MOUSE_BUTTON_LEFT
                 || !((hasActiveInlineEditor() && isPointInsideActiveEditor(mx, my))
                 || (isSearchEditorActive() && isPointInsideSearchField(mx, my)))
                 || !shouldBeginInlineSelectionDrag(mx, my)) {
@@ -2955,19 +2954,18 @@ public class MainGUI extends NVGScreen {
         KeybindSetting setting = activeKeybindCapture;
         activeKeybindCapture = null;
 
-        if (input.key() == GLFW.GLFW_KEY_ESCAPE) {
+        if (input.key() == InputConstants.KEY_ESCAPE) {
             return true;
         }
-        if (input.key() == GLFW.GLFW_KEY_DELETE || input.key() == GLFW.GLFW_KEY_BACKSPACE) {
+        if (input.key() == InputConstants.KEY_DELETE || input.key() == InputConstants.KEY_BACKSPACE) {
             setting.clearBinding();
             return true;
         }
-        if (input.key() == GLFW.GLFW_KEY_UNKNOWN) {
-            setting.setBoundKey(InputConstants.Type.SCANCODE.getOrCreate(input.scancode()));
+        if (input.key() == InputConstants.UNKNOWN.getValue()) {
             return true;
         }
 
-        setting.setBoundKey(InputConstants.Type.KEYSYM.getOrCreate(input.key()));
+        setting.setBoundKey(InputConstants.getKey(input));
         return true;
     }
 
@@ -2975,7 +2973,7 @@ public class MainGUI extends NVGScreen {
         if (activeKeybindCapture == null) {
             return false;
         }
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (button == InputConstants.MOUSE_BUTTON_LEFT) {
             activeKeybindCapture = null;
             return false;
         }

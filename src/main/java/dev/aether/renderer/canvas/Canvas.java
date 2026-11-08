@@ -1,13 +1,13 @@
 package dev.aether.renderer.canvas;
 
 import com.mojang.blaze3d.ProjectionType;
-import com.mojang.blaze3d.buffers.GpuBufferSlice;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.systems.RenderPass;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.api.pipeline.RenderPipeline;
+import com.mojang.renderpearl.api.commands.RenderPass;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuSampler;
-import com.mojang.blaze3d.textures.GpuTextureView;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuSampler;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.gui.font.TextRenderable;
 import net.minecraft.client.gui.render.TextureSetup;
@@ -125,12 +125,12 @@ public final class Canvas implements AutoCloseable {
                 } else {
                     pass.disableScissor();
                 }
-                pass.setPipeline(batch.pipeline);
+                pass.setPipeline(RenderSystem.getCompiledPipeline(batch.pipeline));
                 pass.setVertexBuffer(0, info.vertexBuffer().slice());
                 TextureSetup t = batch.textures;
-                if (t.texure0() != null) pass.bindTexture("Sampler0", t.texure0(), t.sampler0());
-                if (t.texure1() != null) pass.bindTexture("Sampler1", t.texure1(), t.sampler1());
-                if (t.texure2() != null) pass.bindTexture("Sampler2", t.texure2(), t.sampler2());
+                if (t.texure0() != null) pass.setUniform("Sampler0", t.texure0(), t.sampler0());
+                if (t.texure1() != null) pass.setUniform("Sampler1", t.texure1(), t.sampler1());
+                if (t.texure2() != null) pass.setUniform("Sampler2", t.texure2(), t.sampler2());
                 pass.setIndexBuffer(info.indexBuffer(), info.indexType());
                 pass.drawIndexed(info.indexCount(), 1, info.firstIndex(), info.baseVertex(), 0);
             }
@@ -946,6 +946,7 @@ public final class Canvas implements AutoCloseable {
         @Override public VertexConsumer setUv(float u, float v) { delegate.setUv(u, v); return this; }
         @Override public VertexConsumer setUv1(int u, int v) { delegate.setUv1(u, v); return this; }
         @Override public VertexConsumer setUv2(int u, int v) { delegate.setUv2(u, v); return this; }
+        @Override public VertexConsumer setUv3(float u, float v) { delegate.setUv3(u, v); return this; }
         @Override public VertexConsumer setNormal(float x, float y, float z) { delegate.setNormal(x, y, z); return this; }
         @Override public VertexConsumer setLineWidth(float width) { delegate.setLineWidth(width); return this; }
     }

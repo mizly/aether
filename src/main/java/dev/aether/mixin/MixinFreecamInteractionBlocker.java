@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 // freecam picks from the detached camera, so a player interaction sends a break aimed where the camera points while rotation packets say otherwise, and the server kicks for rotationBreak/farbreak
-// only the human's input is suppressed: the checks read the key mappings, never raw glfw state, so the macro keeps farming in freecam
+// only the human's input is suppressed: the checks read the key mappings, never raw input state, so the macro keeps farming in freecam
 @Mixin(Minecraft.class)
 public class MixinFreecamInteractionBlocker {
     @Shadow private int missTime;

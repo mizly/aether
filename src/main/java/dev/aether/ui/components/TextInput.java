@@ -3,7 +3,7 @@ package dev.aether.ui.components;
 import dev.aether.ui.util.Colors;
 import dev.aether.ui.util.Fonts;
 import dev.aether.renderer.NVGRenderer;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 
 import java.util.function.Consumer;
 
@@ -78,7 +78,7 @@ public class TextInput extends Component {
 
     @Override
     public boolean mousePressed(double mouseX, double mouseY, int button) {
-        if (button == 0) {
+        if (button == InputConstants.MOUSE_BUTTON_LEFT) {
             boolean wasHere = contains(mouseX, mouseY);
             setFocused(wasHere);
             return wasHere;
@@ -90,10 +90,10 @@ public class TextInput extends Component {
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         if (!focused) return false;
 
-        boolean ctrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean ctrl = (modifiers & InputConstants.MOD_CONTROL) != 0;
 
         switch (keyCode) {
-            case GLFW.GLFW_KEY_BACKSPACE -> {
+            case InputConstants.KEY_BACKSPACE -> {
                 if (ctrl) {
                     // Delete word back
                     while (cursor > 0 && text.charAt(cursor - 1) == ' ') cursor--;
@@ -106,29 +106,29 @@ public class TextInput extends Component {
                 notifyChange();
                 return true;
             }
-            case GLFW.GLFW_KEY_DELETE -> {
+            case InputConstants.KEY_DELETE -> {
                 if (cursor < text.length()) {
                     text.deleteCharAt(cursor);
                     notifyChange();
                 }
                 return true;
             }
-            case GLFW.GLFW_KEY_LEFT -> {
+            case InputConstants.KEY_LEFT -> {
                 if (cursor > 0) cursor--;
                 resetBlink();
                 return true;
             }
-            case GLFW.GLFW_KEY_RIGHT -> {
+            case InputConstants.KEY_RIGHT -> {
                 if (cursor < text.length()) cursor++;
                 resetBlink();
                 return true;
             }
-            case GLFW.GLFW_KEY_HOME -> { cursor = 0;               resetBlink(); return true; }
-            case GLFW.GLFW_KEY_END  -> { cursor = text.length();   resetBlink(); return true; }
-            case GLFW.GLFW_KEY_A    -> {
+            case InputConstants.KEY_HOME -> { cursor = 0;               resetBlink(); return true; }
+            case InputConstants.KEY_END  -> { cursor = text.length();   resetBlink(); return true; }
+            case InputConstants.KEY_A    -> {
                 if (ctrl) { text.setLength(0); cursor = 0; notifyChange(); return true; }
             }
-            case GLFW.GLFW_KEY_ESCAPE -> { setFocused(false); return true; }
+            case InputConstants.KEY_ESCAPE -> { setFocused(false); return true; }
         }
         return false;
     }
