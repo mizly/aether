@@ -1,0 +1,19 @@
+package dev.aether.modules.gear.helpers
+
+import dev.aether.macro.MacroWorkerThread
+import dev.aether.util.ClientUtils
+import net.minecraft.client.Minecraft
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen
+import net.minecraft.network.chat.Component
+import net.minecraft.world.inventory.ContainerInput
+import net.minecraft.world.inventory.Slot
+import net.minecraft.world.item.Item
+import net.minecraft.world.item.ItemStack
+import net.minecraft.world.item.TooltipFlag
+
+class BudgetAutopetManager private constructor(){companion object{
+ @JvmStatic @Throws(InterruptedException::class) fun equipPetByName(client:Minecraft?,petName:String?,triggerLabel:String){if(client==null||client.player==null)return;if(petName.isNullOrBlank()){ClientUtils.sendDebugMessage("BudgetAutopet: skipped $triggerLabel because no pet name is set.");return};waitForGearMenuCleanup(client,triggerLabel);if(MacroWorkerThread.shouldAbortTask(client)||client.player==null)return;val player=client.player!!;ClientUtils.sendDebugMessage("BudgetAutopet: opening Pets GUI for $triggerLabel pet '$petName'.");ClientUtils.sendCommand("/pets");MacroWorkerThread.sleep(500);val deadline=System.currentTimeMillis()+3000;var petsScreen:AbstractContainerScreen<*>?=null;while(System.currentTimeMillis()<deadline&&!MacroWorkerThread.shouldAbortTask(client)){val current=client.gui.screen();if(current is AbstractContainerScreen<*> && current.title.string.lowercase().contains("pets")){petsScreen=current;break};MacroWorkerThread.sleep(100)};val screen=petsScreen;if(screen==null){if(!MacroWorkerThread.shouldAbortTask(client))ClientUtils.sendDebugMessage("BudgetAutopet: could not open Pets GUI.");return};val needle=petName.lowercase();var petSlot=-1;var alreadyEquipped=false;for(i in screen.menu.slots.indices){val slot:Slot=screen.menu.slots[i];if(!slot.hasItem())continue;val stack:ItemStack=slot.item;if(!stack.hoverName.string.lowercase().contains(needle))continue;petSlot=i;val lore:List<Component> = stack.getTooltipLines(Item.TooltipContext.EMPTY,player,TooltipFlag.NORMAL);for(line in lore)if(line.string.lowercase().contains("click to despawn!")){alreadyEquipped=true;break};break};if(petSlot==-1){ClientUtils.sendDebugMessage("BudgetAutopet: could not find pet matching '$petName' in Pets GUI.");closePetsScreen(client);return};if(alreadyEquipped){ClientUtils.sendDebugMessage("BudgetAutopet: '$petName' is already equipped for $triggerLabel.");closePetsScreen(client);return};ClientUtils.sendDebugMessage("BudgetAutopet: equipping '$petName' from slot $petSlot for $triggerLabel.");val clickSlot=petSlot;client.execute{ClientUtils.performSlotClick(screen,clickSlot,0,ContainerInput.PICKUP)};MacroWorkerThread.sleep(ClientUtils.getGuiClickDelayMs(false));closePetsScreen(client)}
+ private fun closePetsScreen(client:Minecraft){client.execute{if(client.player!=null)client.player!!.closeContainer()}}
+ @Throws(InterruptedException::class) private fun waitForGearMenuCleanup(client:Minecraft,triggerLabel:String){val start=System.currentTimeMillis();val deadline=start+2500L;var waited=false;while(System.currentTimeMillis()<deadline&&!MacroWorkerThread.shouldAbortTask(client)){if(!LoadoutManager.isSwappingLoadout&&LoadoutManager.loadoutCleanupTicks<=0&&client.gui.screen()==null&&!hasServerContainerOpen(client)){if(waited)ClientUtils.sendDebugMessage("BudgetAutopet: gear menu cleanup finished after ${System.currentTimeMillis()-start}ms for $triggerLabel.");return};waited=true;MacroWorkerThread.sleep(50)};if(waited&&!MacroWorkerThread.shouldAbortTask(client))ClientUtils.sendDebugMessage("BudgetAutopet: continuing after gear menu cleanup wait timed out for $triggerLabel.")}
+ private fun hasServerContainerOpen(client:Minecraft):Boolean{val player=client.player?:return false;val container=player.containerMenu?:return false;val inventory=player.inventoryMenu?:return false;return container.containerId!=inventory.containerId}
+}}

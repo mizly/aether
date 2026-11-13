@@ -4,7 +4,8 @@
     "compatibilityLevel": "JAVA_25",
     "refmap": "aether-refmap.json",
     "mixins": [
-        "AccessorInventory"
+        "AccessorInventory",
+        "AccessorClientCommonPacketListener"
     ],
     "client": [
         "GuiAccessor",
@@ -13,6 +14,7 @@
         "AccessorKeyMapping",
         "AccessorMouseHandler",
         "AccessorScreen",
+        "AccessorWindow",
         "PlayerTabOverlayAccessor",
         "MixinEntityTurn",
         "MixinAetherCape",

@@ -1,5 +1,6 @@
 plugins {
     id 'net.fabricmc.fabric-loom' version '1.17.21'
+    id 'org.jetbrains.kotlin.jvm' version '2.4.21'
     id 'maven-publish'
 }
 
@@ -28,7 +29,7 @@ dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-    runtimeOnly "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
+    implementation "net.fabricmc:fabric-language-kotlin:${project.fabric_kotlin_version}"
 
     include(implementation("io.netty:netty-handler-proxy:4.2.16.Final"))
     include(implementation("io.netty:netty-codec-socks:4.2.16.Final"))
@@ -133,6 +134,17 @@ processResources {
 
 tasks.withType(JavaCompile).configureEach {
     options.release = 25
+}
+
+kotlin {
+    jvmToolchain(25)
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_25
+        freeCompilerArgs.addAll('-Xemit-jvm-type-annotations')
+    }
 }
 
 tasks.withType(Test).configureEach {

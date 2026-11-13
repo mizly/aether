@@ -1,0 +1,99 @@
+package dev.aether.modules.profit.helpers
+
+import dev.aether.config.AetherConfig
+import dev.aether.config.PetInfo
+import dev.aether.config.PetRarity
+import dev.aether.modules.profit.ProfitManager
+import dev.aether.util.TablistUtils
+import net.minecraft.client.Minecraft
+import java.util.regex.Pattern
+
+object PetXpTracker {
+    private data class TrackedPet(val info: PetInfo, val pattern: Pattern, val xpTable: LongArray)
+
+    private val XP_1_100_COMMON = longArrayOf(
+        0,0,100,210,330,460,605,765,940,1130,1340,1570,1820,2095,2395,2725,3085,3485,3925,4415,4955,5555,6215,6945,7745,8625,9585,10635,11785,13045,14425,15935,17585,19385,21345,23475,25785,28285,30985,33905,37065,40485,44185,48185,52535,57285,62485,68185,74485,81485,89285,97985,107685,118485,130485,143785,158485,174685,192485,211985,233285,256485,281685,309085,338885,371285,406485,444685,486085,530885,579285,631485,687685,748085,812885,882285,956485,1035685,1120385,1211085,1308285,1412485,1524185,1643885,1772085,1909285,2055985,2212685,2380385,2560085,2752785,2959485,3181185,3418885,3673585,3946285,4237985,4549685,4883385,5241085,5624785
+    )
+    private val XP_1_100_UNCOMMON = longArrayOf(
+        0,0,175,365,575,805,1055,1330,1630,1960,2320,2720,3160,3650,4190,4790,5450,6180,6980,7860,8820,9870,11020,12280,13660,15170,16820,18620,20580,22710,25020,27520,30220,33140,36300,39720,43420,47420,51770,56520,61720,67420,73720,80720,88520,97220,106920,117720,129720,143020,157720,173920,191720,211220,232520,255720,280920,308320,338120,370520,405720,443920,485320,530120,578520,630720,686920,747320,812120,881520,955720,1034920,1119620,1210320,1307520,1411720,1523420,1643120,1771320,1908520,2055220,2211920,2379620,2559320,2752020,2958720,3180420,3418120,3672820,3945520,4237220,4548920,4882620,5240320,5624020,6035720,6477420,6954120,7470820,8032520,8644220
+    )
+    private val XP_1_100_RARE = longArrayOf(
+        0,0,275,575,905,1265,1665,2105,2595,3135,3735,4395,5125,5925,6805,7765,8815,9965,11225,12605,14115,15765,17565,19525,21655,23965,26465,29165,32085,35245,38665,42365,46365,50715,55465,60665,66365,72665,79665,87465,96165,105865,116665,128665,141965,156665,172865,190665,210165,231465,254665,279865,307265,337065,369465,404665,442865,484265,529065,577465,629665,685865,746265,811065,880465,954665,1033865,1118565,1209265,1306465,1410665,1522365,1642065,1770265,1907465,2054165,2210865,2378565,2558265,2750965,2957665,3179365,3417065,3671765,3944465,4236165,4547865,4881565,5239265,5622965,6034665,6476365,6953065,7469765,8031465,8643165,9309865,10036565,10828265,11689965,12626665
+    )
+    private val XP_1_100_EPIC = longArrayOf(
+        0,0,440,930,1470,2070,2730,3460,4260,5140,6100,7150,8300,9560,10940,12450,14100,15900,17860,19990,22300,24800,27500,30420,33580,37000,40700,44700,49050,53800,59000,64700,71000,78000,85800,94500,104200,115000,127000,140300,155000,171200,189000,208500,229800,253000,278200,305600,335400,367800,403000,441200,482600,527400,575800,628000,684200,744600,809400,878800,953000,1032200,1116900,1207600,1304800,1409000,1520700,1640400,1768600,1905800,2052500,2209200,2376900,2556600,2749300,2956000,3177700,3415400,3670100,3942800,4234500,4546200,4879900,5237600,5621300,6033000,6474700,6951400,7468100,8029800,8641500,9308200,10034900,10826600,11688300,12625000,13641700,14743400,15935100,17221800,18608500
+    )
+    private val XP_1_200_LEGENDARY = longArrayOf(
+        0,0,660,1390,2190,3070,4030,5080,6230,7490,8870,10380,12030,13830,15790,17920,20230,22730,25430,28350,31510,34930,38630,42630,46980,51730,56930,62630,68930,75930,83730,92430,102130,112930,124930,138230,152930,169130,186930,206430,227730,250930,276130,303530,333330,365730,400930,439130,480530,525330,573730,625930,682130,742530,807330,876730,950930,1030130,1114830,1205530,1302730,1406930,1518630,1638330,1766530,1903730,2050430,2207130,2374830,2554530,2747230,2953930,3175630,3413330,3668030,3940730,4232430,4544130,4877830,5235530,5619230,6030930,6472630,6949330,7466030,8027730,8639430,9306130,10032830,10824530,11686230,12622930,13639630,14741330,15933030,17219730,18606430,20103130,21719830,23466530,25353230,25353230,25358785,27245485,29132185,31018885,32905585,34792285,36678985,38565685,40452385,42339085,44225785,46112485,47999185,49885885,51772585,53659285,55545985,57432685,59319385,61206085,63092785,64979485,66866185,68752885,70639585,72526285,74412985,76299685,78186385,80073085,81959785,83846485,85733185,87619885,89506585,91393285,93279985,95166685,97053385,98940085,100826785,102713485,104600185,106486885,108373585,110260285,112146985,114033685,115920385,117807085,119693785,121580485,123467185,125353885,127240585,129127285,131013985,132900685,134787385,136674085,138560785,140447485,142334185,144220885,146107585,147994285,149880985,151767685,153654385,155541085,157427785,159314485,161201185,163087885,164974585,166861285,168747985,170634685,172521385,174408085,176294785,178181485,180068185,181954885,183841585,185728285,187614985,189501685,191388385,193275085,195161785,197048485,198935185,200821885,202708585,204595285,206481985,208368685,210255385
+    )
+
+    private val MAX_LEVEL_PATTERN = Pattern.compile("MAX\\s*LEVEL", Pattern.CASE_INSENSITIVE)
+    private val XP_VALUE_PATTERN = Pattern.compile("([\\d,]+(?:\\.\\d+)?)\\s*/[\\d,.]+[KkMmBb]?\\s*XP", Pattern.CASE_INSENSITIVE)
+    private val lastPetXp = HashMap<String, Long>()
+    private var cachedConfig: List<String> = emptyList()
+    private var trackedPets: List<TrackedPet> = emptyList()
+
+    @JvmStatic fun reset() { lastPetXp.clear() }
+    @JvmStatic fun hasTrackedPetsConfigured(): Boolean { refreshTrackedPets(); return trackedPets.isNotEmpty() }
+
+    @JvmStatic fun getXpTable(rarity: PetRarity, maxLevel: Int): LongArray {
+        val base = when (rarity) {
+            PetRarity.COMMON -> XP_1_100_COMMON
+            PetRarity.UNCOMMON -> XP_1_100_UNCOMMON
+            PetRarity.RARE -> XP_1_100_RARE
+            PetRarity.EPIC -> XP_1_100_EPIC
+            else -> XP_1_200_LEGENDARY
+        }
+        if (maxLevel <= 100 && base.size >= 101) return base.copyOf(maxLevel + 1)
+        if (maxLevel > 100) {
+            val table = LongArray(maxLevel + 1)
+            base.copyInto(table, endIndex = minOf(base.size, 101))
+            for (level in 101..maxLevel) table[level] = if (level < XP_1_200_LEGENDARY.size) base[100] + (XP_1_200_LEGENDARY[level] - XP_1_200_LEGENDARY[100]) else table[level - 1]
+            return table
+        }
+        return base
+    }
+
+    @JvmStatic fun update() {
+        val client = Minecraft.getInstance()
+        if (client.connection == null) return
+        refreshTrackedPets()
+        if (trackedPets.isEmpty()) return
+        val lines = TablistUtils.getTabLines(client)
+        var active: PetInfo? = null
+        var table: LongArray? = null
+        var level = -1
+        var lineIndex = -1
+        search@ for (pet in trackedPets) for (index in lines.indices) {
+            val matcher = pet.pattern.matcher(lines[index])
+            if (matcher.find()) { level = matcher.group(1).toInt(); lineIndex = index; active = pet.info; table = pet.xpTable; break@search }
+        }
+        val info = active ?: return
+        val xpTable = table ?: return
+        if (level < 1 || level > info.maxLevel) return
+        for (index in lineIndex + 1 until lines.size) if (MAX_LEVEL_PATTERN.matcher(lines[index]).find()) return
+        var currentXp = -1.0
+        for (line in lines) {
+            val matcher = XP_VALUE_PATTERN.matcher(line)
+            if (matcher.find()) try { currentXp = matcher.group(1).replace(",", "").toDouble(); break } catch (_: NumberFormatException) { }
+        }
+        if (currentXp < 0) return
+        val absolute = xpTable[level] + currentXp.toLong()
+        val previous = lastPetXp.getOrDefault(info.name, -1L)
+        if (previous >= 0 && absolute > previous) {
+            val delta = absolute - previous
+            if (delta < 2_000_000) ProfitManager.addPetXp(info.name, delta)
+        }
+        lastPetXp[info.name] = absolute
+    }
+
+    private fun refreshTrackedPets() {
+        val config = AetherConfig.PET_TRACKER_LIST.get().toList()
+        if (config == cachedConfig) return
+        trackedPets = config.map { setting ->
+            val info = PetInfo(setting)
+            TrackedPet(info, Pattern.compile("\\[Lvl\\s*(\\d+)]\\s*${Pattern.quote(info.name)}", Pattern.CASE_INSENSITIVE), getXpTable(info.rarity, info.maxLevel))
+        }
+        cachedConfig = config.toList()
+    }
+}
